@@ -21,19 +21,20 @@ public class AuthService {
 
     public String register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Tên đăng nhập đã tồn tại!");
+            throw new IllegalArgumentException("Tên đăng nhập đã tồn tại!");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email đã được sử dụng!");
+            throw new IllegalArgumentException("Email đã được sử dụng!");
         }
 
         User user = User.builder()
-                .username(request.getUsername())
+                .username(request.getUsername().trim())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
-                .email(request.getEmail())
+                .fullName(request.getFullName().trim())
+                .email(request.getEmail().trim().toLowerCase())
                 .phone(request.getPhone())
-                .role(request.getRole() != null ? request.getRole() : Role.MEMBER)
+                // Public registration must never grant a privileged role.
+                .role(Role.MEMBER)
                 .build();
 
         userRepository.save(user);
@@ -42,10 +43,10 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Tên đăng nhập hoặc mật khẩu không đúng!"));
+                .orElseThrow(() -> new IllegalArgumentException("Tên đăng nhập hoặc mật khẩu không đúng!"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Tên đăng nhập hoặc mật khẩu không đúng!");
+            throw new IllegalArgumentException("Tên đăng nhập hoặc mật khẩu không đúng!");
         }
 
         String token = jwtProvider.generateToken(user.getUsername(), user.getRole().name());
