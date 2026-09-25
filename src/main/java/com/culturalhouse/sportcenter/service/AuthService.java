@@ -27,14 +27,18 @@ public class AuthService {
             throw new IllegalArgumentException("Email đã được sử dụng!");
         }
 
+        Role requestedRole = request.getRole();
+        if (requestedRole == Role.CENTER_MANAGER) {
+            throw new IllegalArgumentException("Center manager accounts cannot be created through public registration!");
+        }
+
         User user = User.builder()
                 .username(request.getUsername().trim())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName().trim())
                 .email(request.getEmail().trim().toLowerCase())
                 .phone(request.getPhone())
-                // Public registration must never grant a privileged role.
-                .role(Role.MEMBER)
+                .role(requestedRole != null ? requestedRole : Role.MEMBER)
                 .build();
 
         userRepository.save(user);
