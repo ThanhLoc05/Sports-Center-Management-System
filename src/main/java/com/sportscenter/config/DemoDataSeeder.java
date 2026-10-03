@@ -43,6 +43,9 @@ public class DemoDataSeeder implements ApplicationRunner {
         ensureMemberProfile(memberId);
         ensureMembership(memberId);
         ensureSchedules(coachId);
+        ensureEnrollment(memberId, classId("Yoga cơ bản"));
+        ensureFreeAttendance(memberId);
+        ensureWorkoutPlan(coachId, memberId);
     }
 
     private long user(String email, String fullName, String role) {
@@ -87,7 +90,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         jdbc.update("""
                 INSERT INTO dbo.invoices (user_id, user_membership_id, total_amount, payment_method)
                 VALUES (?, ?, ?, 'BANK_TRANSFER')
-                """, memberId, userMembershipId, pack.get("price"));
+                """, memberId, userMembershipId, (BigDecimal) pack.get("price"));
     }
 
     private void ensureSchedules(long coachId) {
@@ -119,6 +122,48 @@ public class DemoDataSeeder implements ApplicationRunner {
                     INSERT INTO dbo.class_schedules (class_id, coach_id, room_id, start_time, end_time)
                     VALUES (?, ?, ?, ?, ?)
                     """, classId, coachId, roomId, start, end);
+        }
+    }
+
+    private void ensureEnrollment(long memberId, long classId) {
+        Long scheduleId = jdbc.query("""
+                SELECT TOP 1 id FROM dbo.class_schedules
+                WHERE class_id = ? AND start_time > GETDATE()
+                ORDER BY start_time
+                """, rs -> rs.next() ? rs.getLong(1) : null, classId);
+        if (scheduleId != null && count("""
+                SELECT COUNT(*) FROM dbo.class_enrollments
+                WHERE user_id = ? AND class_schedule_id = ?
+                """, memberId, scheduleId) == 0) {
+            jdbc.update("""
+                    INSERT INTO dbo.class_enrollments (user_id, class_schedule_id, status)
+                    VALUES (?, ?, 'REGISTERED')
+                    """, memberId, scheduleId);
+        }
+    }
+
+    private void ensureFreeAttendance(long memberId) {
+        if (count("""
+                SELECT COUNT(*) FROM dbo.attendances
+                WHERE user_id = ? AND class_schedule_id IS NULL
+                  AND CAST(check_in_time AS DATE) = CAST(GETDATE() AS DATE)
+                """, memberId) == 0) {
+            jdbc.update("""
+                    INSERT INTO dbo.attendances (user_id, status)
+                    VALUES (?, 'PRESENT')
+                    """, memberId);
+        }
+    }
+
+    private void ensureWorkoutPlan(long coachId, long memberId) {
+        if (count("""
+                SELECT COUNT(*) FROM dbo.workout_plans
+                WHERE coach_id = ? AND member_id = ? AND title = N'Kế hoạch thể lực cơ bản'
+                """, coachId, memberId) == 0) {
+            jdbc.update("""
+                    INSERT INTO dbo.workout_plans (title, coach_id, member_id, description)
+                    VALUES (N'Kế hoạch thể lực cơ bản', ?, ?, N'Khởi động 10 phút, tập sức bền 20 phút, giãn cơ 10 phút.')
+                    """, coachId, memberId);
         }
     }
 

@@ -6,6 +6,8 @@ import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -52,7 +54,7 @@ public class MembershipController {
     public Map<String, Object> subscribe(@AuthenticationPrincipal UserDetails user,
                                         @Valid @RequestBody MembershipRequests.SubscriptionRequest request) {
         boolean receptionist = user.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_RECEPTIONIST"));
+                .anyMatch(authority -> Objects.equals(authority.getAuthority(), "ROLE_RECEPTIONIST"));
         long memberId = receptionist ? requiredMemberId(request.memberId()) : users.memberId(user.getUsername());
         if (!receptionist && request.memberId() != null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,

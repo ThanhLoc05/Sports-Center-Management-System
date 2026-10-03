@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class AuthService {
@@ -26,8 +27,7 @@ public class AuthService {
     public LoginResult login(String email, String password) {
         UserDetails user = (UserDetails) authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, password)).getPrincipal();
-        assert user != null;
-        return new LoginResult(jwtService.generateToken(user), jwtService.getExpirationMillis(),
+        return new LoginResult(jwtService.generateToken(Objects.requireNonNull(user)), jwtService.getExpirationMillis(),
                 users.currentUser(user.getUsername()));
     }
 

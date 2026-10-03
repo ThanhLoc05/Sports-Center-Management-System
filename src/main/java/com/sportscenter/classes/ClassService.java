@@ -239,6 +239,6 @@ public class ClassService extends DomainServiceSupport {
         if (found.isEmpty()) {
             throw notFound("Không tìm thấy lịch học.");
         }
-        return found.getFirst();
+        return found.get(0);
     }
 }
