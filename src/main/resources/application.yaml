@@ -1,19 +1,21 @@
-
-  spring:
-    datasource:
-      url: jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=true;trustServerCertificate=true;
-      username: sa
-      password: 12345
-      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-
-    jpa:
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=true;trustServerCertificate=true;}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:yourStrong(!)Password}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
       hibernate:
-        ddl-auto: validate # Dùng 'validate' vì ta đã tạo Schema chuẩn bằng SQL script ở Phần 1
-      show-sql: true
-      properties:
-        hibernate:
-          format_sql: true
-          dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
 
-  server:
-    port: 8080
+server:
+  port: ${SERVER_PORT:8080}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}

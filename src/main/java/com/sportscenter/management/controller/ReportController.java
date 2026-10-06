@@ -1,6 +1,6 @@
 package com.sportscenter.management.controller;
 
-import com.sportscenter.management.repository.InvoiceRepository;
+import com.sportscenter.management.service.PaymentService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,10 +13,10 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/v1/reports")
 public class ReportController {
 
-    private final InvoiceRepository invoiceRepository;
+    private final PaymentService paymentService;
 
-    public ReportController(InvoiceRepository invoiceRepository) {
-        this.invoiceRepository = invoiceRepository;
+    public ReportController(PaymentService paymentService) {
+        this.paymentService = paymentService;
     }
 
     @GetMapping("/revenue")
@@ -25,7 +25,7 @@ public class ReportController {
             @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
 
-        BigDecimal totalRevenue = invoiceRepository.calculateTotalRevenue(startDate, endDate);
+        BigDecimal totalRevenue = paymentService.calculateTotalRevenue(startDate, endDate);
         return ResponseEntity.ok(totalRevenue);
     }
 }
