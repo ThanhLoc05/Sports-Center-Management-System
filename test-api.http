@@ -1,4 +1,224 @@
-### GET request to example server
-POST localhost:8080/api/v1/memberships/subscribe
+### ============================================================================
+### SPORTS CENTER MANAGEMENT SYSTEM - API TEST ENDPOINTS
+### ============================================================================
 
+### Base Configuration
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### Replace these with actual valid tokens from your authentication
+@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtZW1iZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3OTEzNTA2NDksImV4cCI6MTc5MTM1NDI0OX0.ITs3s3PZh0NAUx7gFIS7MNxg8M_6KHsaAXHd4RFLlpU
+@managerToken = Bearer YOUR_MANAGER_TOKEN_HERE
+
+### ============================================================================
+### FLOW 1: MEMBERSHIP SUBSCRIPTION (POST /api/v1/memberships/subscribe)
+### ============================================================================
+
+### 1.1 Subscribe to a membership package (Basic)
+POST {{baseUrl}}/api/v1/memberships/subscribe
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 1,
+  "packageId": 1,
+  "startDate": "2026-10-07",
+  "endDate": "2026-11-07",
+  "status": "ACTIVE"
+}
+
+### 1.2 Subscribe with different package (Premium package)
+POST {{baseUrl}}/api/v1/memberships/subscribe
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 2,
+  "packageId": 2,
+  "startDate": "2026-10-07",
+  "endDate": "2026-12-07",
+  "status": "ACTIVE"
+}
+
+### 1.3 Subscribe with standard package (3-month plan)
+POST {{baseUrl}}/api/v1/memberships/subscribe
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 3,
+  "packageId": 3,
+  "startDate": "2026-10-01",
+  "endDate": "2027-01-01",
+  "status": "ACTIVE"
+}
+
+### 1.4 Get active membership for a member
+GET {{baseUrl}}/api/v1/memberships/members/1/active
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.5 Get membership history for a member
+GET {{baseUrl}}/api/v1/memberships/members/1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.6 Get subscription expiration date
+GET {{baseUrl}}/api/v1/memberships/members/1/expiration
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.7 Renew a subscription with new package
+POST {{baseUrl}}/api/v1/memberships/1/renew?packageId=2
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.8 Cancel a subscription
+POST {{baseUrl}}/api/v1/memberships/1/cancel
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 2: CLASS BOOKING (POST /api/v1/classes/{classId}/book)
+### ============================================================================
+
+### 2.1 Book a class (Basic booking)
+POST {{baseUrl}}/api/v1/classes/1/book?memberId=1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.2 Book a different class
+POST {{baseUrl}}/api/v1/classes/2/book?memberId=1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.3 Book a class for another member
+POST {{baseUrl}}/api/v1/classes/3/book?memberId=2
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.4 Book a class for a third member
+POST {{baseUrl}}/api/v1/classes/4/book?memberId=3
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.5 Get a specific booking details
+GET {{baseUrl}}/api/v1/bookings/1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.6 Get all bookings for a specific class
+GET {{baseUrl}}/api/v1/classes/1/bookings
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.7 Get all bookings for a specific member
+GET {{baseUrl}}/api/v1/members/1/bookings
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.8 Cancel a booking
+DELETE {{baseUrl}}/api/v1/bookings/1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.9 Get all bookings for a member (alternative endpoint)
+GET {{baseUrl}}/api/v1/members/2/bookings
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.10 Book multiple classes (Sequential bookings for same member)
+POST {{baseUrl}}/api/v1/classes/5/book?memberId=1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 3: REVENUE REPORTS (GET /api/v1/reports/revenue)
+### ============================================================================
+
+### 3.1 Get revenue report for current month (October 2026)
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-10-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.2 Get revenue report for Q4 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-12-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.3 Get revenue report for last 30 days
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-09-07T00:00:00&endDate=2026-10-07T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.4 Get revenue report for year 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-01-01T00:00:00&endDate=2026-12-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.5 Get revenue report for first half of 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-01-01T00:00:00&endDate=2026-06-30T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.6 Get revenue report for second half of 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-07-01T00:00:00&endDate=2026-12-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.7 Get revenue report with manager token (Requires CENTER_MANAGER role)
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-10-07T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.8 Attempt to get revenue report without proper authorization (Should fail)
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-10-07T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### HELPER ENDPOINTS - Authentication
+### ============================================================================
+
+### Register a new member
+POST {{baseUrl}}/api/v1/users/register
+Content-Type: {{contentType}}
+
+{
+  "email": "member@example.com",
+  "password": "SecurePassword123!",
+  "fullName": "Test Member",
+  "phone": "0987654321"
+}
+
+### Login to get access token
+POST {{baseUrl}}/api/v1/users/login
+Content-Type: {{contentType}}
+
+{
+  "email": "member@example.com",
+  "password": "SecurePassword123!"
+}
+
+### Get user details
+GET {{baseUrl}}/api/v1/users/1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### NOTES:
+### ============================================================================
 ###
+### Before running these tests:
+### 1. Start the Spring Boot application: ./mvnw.cmd spring-boot:run
+### 2. Ensure SQL Server database is running with SportsCenterDB schema
+### 3. Replace @memberToken with actual token from login endpoint
+### 4. Replace @managerToken with token from a CENTER_MANAGER user
+### 5. Adjust memberId, packageId, and classId based on your database data
+###
+### Expected Results:
+### - Flow 1: Subscription should return 201 with subscription details
+### - Flow 2: Booking should return 201 with booking details
+### - Flow 3: Revenue report should return 200 with BigDecimal total (Manager only)
+###
+### ============================================================================
