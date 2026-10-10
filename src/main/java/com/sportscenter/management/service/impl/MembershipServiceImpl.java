@@ -1,7 +1,9 @@
 package com.sportscenter.management.service.impl;
 
 import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
+import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
+import com.sportscenter.management.dto.Response.MembershipPackageResponse;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.entity.MembershipPackage;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
@@ -25,7 +27,39 @@ public class MembershipServiceImpl implements MembershipService {
     private final MemberSubscriptionRepository subscriptionRepository;
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
-
+    @Override
+    @Transactional(readOnly = true)
+    public List<MembershipPackageResponse> getAllPackages() {
+        return packageRepository.findAll().stream()
+                .map(pkg -> MembershipPackageResponse.builder()
+                        .id(pkg.getId())
+                        .packageName(pkg.getPackageName())
+                        .durationDays(pkg.getDurationDays())
+                        .price(pkg.getPrice())
+                        .description(pkg.getDescription())
+                        .status(pkg.getStatus())
+                        .build())
+                .toList();
+    }
+    @Override
+    public MembershipPackageResponse createPackage(MembershipPackageRequest request) {
+        MembershipPackage pkg = MembershipPackage.builder()
+                .packageName(request.getPackageName())
+                .durationDays(request.getDurationDays())
+                .price(request.getPrice())
+                .description(request.getDescription())
+                .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
+                .build();
+        MembershipPackage saved = packageRepository.save(pkg);
+        return MembershipPackageResponse.builder()
+                .id(saved.getId())
+                .packageName(saved.getPackageName())
+                .durationDays(saved.getDurationDays())
+                .price(saved.getPrice())
+                .description(saved.getDescription())
+                .status(saved.getStatus())
+                .build();
+    }
     @Override
     public MemberSubscriptionResponse subscribeMembershipPackage(MemberSubscriptionRequest request) {
         if (request == null || request.getMemberId() == null || request.getPackageId() == null) {

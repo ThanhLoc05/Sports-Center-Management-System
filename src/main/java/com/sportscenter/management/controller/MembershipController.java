@@ -1,10 +1,13 @@
 package com.sportscenter.management.controller;
 
 import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
+import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
+import com.sportscenter.management.dto.Response.MembershipPackageResponse;
 import com.sportscenter.management.service.MembershipService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -47,5 +50,17 @@ public class MembershipController {
     @PostMapping("/{subscriptionId}/cancel")
     public MemberSubscriptionResponse cancel(@PathVariable Integer subscriptionId) {
         return membershipService.cancelSubscription(subscriptionId);
+    }
+    // 🔓 Ai cũng xem được danh sách các gói tập để chọn mua
+    @GetMapping("/packages")
+    public List<MembershipPackageResponse> getPackages() {
+        return membershipService.getAllPackages();
+    }
+    // 🔒 Chỉ Manager mới được tạo gói tập mới
+    @PostMapping("/packages")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    public ResponseEntity<MembershipPackageResponse> createPackage(
+            @RequestBody MembershipPackageRequest request) {
+        return ResponseEntity.status(201).body(membershipService.createPackage(request));
     }
 }

@@ -2,6 +2,8 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
+import com.sportscenter.management.dto.Response.MembershipPackageResponse;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -59,4 +61,6 @@ public interface MembershipService {
      * @return Subscription end date as string
      */
     String getSubscriptionExpirationDate(Integer memberId);
+    List<MembershipPackageResponse> getAllPackages();
+    MembershipPackageResponse createPackage(com.sportscenter.management.dto.Request.MembershipPackageRequest request);
 }

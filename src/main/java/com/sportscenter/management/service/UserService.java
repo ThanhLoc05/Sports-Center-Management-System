@@ -1,6 +1,8 @@
 package com.sportscenter.management.service;
 
+import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
+import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
 
@@ -22,4 +24,8 @@ public interface UserService {
     Optional<User> authenticate(String email, String password);
 
     boolean existsByEmail(String email);
+
+    MemberProfileResponse updateProfile(Integer memberId, MemberProfileRequest request);
+
+    Optional<MemberProfileResponse> getProfile(Integer memberId);
 }

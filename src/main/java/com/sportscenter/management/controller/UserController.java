@@ -1,8 +1,10 @@
 package com.sportscenter.management.controller;
 
 import com.sportscenter.management.dto.Request.LoginRequest;
+import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
 import com.sportscenter.management.dto.Response.LoginResponse;
+import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
 import com.sportscenter.auth.JwtService;
@@ -67,5 +69,16 @@ public class UserController {
                 .roleName(user.getRole().getRoleName())
                 .status(user.getStatus())
                 .build();
+    }
+    @PutMapping("/{userId}/profile")
+    public ResponseEntity<MemberProfileResponse> updateProfile(
+            @PathVariable Integer userId, @RequestBody MemberProfileRequest request) {
+        return ResponseEntity.ok(userService.updateProfile(userId, request));
+    }
+
+    @GetMapping("/{userId}/profile")
+    public ResponseEntity<MemberProfileResponse> getProfile(@PathVariable Integer userId) {
+        return userService.getProfile(userId).map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

@@ -6,6 +6,7 @@ import com.sportscenter.management.service.AttendanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -17,8 +18,9 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
-
+    // 🔒 CHỈ LỄ TÂN HOẶC HUẤN LUYỆN VIÊN MỚI ĐƯỢC ĐIỂM DANH
     @PostMapping
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'COACH', 'CENTER_MANAGER', 'MANAGER')")
     public ResponseEntity<AttendanceResponse> checkIn(@RequestBody AttendanceRequest request) {
         return ResponseEntity.status(201).body(attendanceService.checkInMember(request));
     }

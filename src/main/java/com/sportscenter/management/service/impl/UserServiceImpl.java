@@ -1,9 +1,13 @@
 package com.sportscenter.management.service.impl;
 
+import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
+import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
+import com.sportscenter.management.entity.MemberProfile;
 import com.sportscenter.management.entity.Role;
 import com.sportscenter.management.entity.User;
+import com.sportscenter.management.repository.MemberProfileRepository;
 import com.sportscenter.management.repository.RoleRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.UserService;
@@ -25,6 +29,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MemberProfileRepository profileRepository;
 
     @Override
     public UserResponse registerUser(RegisterRequest request) {
@@ -131,5 +136,36 @@ public class UserServiceImpl implements UserService {
 
     private boolean isValidStatus(String status) {
         return "ACTIVE".equals(status) || "INACTIVE".equals(status) || "BLOCKED".equals(status);
+    }
+
+    @Override
+    public MemberProfileResponse updateProfile(Integer memberId, MemberProfileRequest request) {
+        MemberProfile profile = profileRepository.findById(memberId)
+                .orElse(MemberProfile.builder().memberId(memberId).build());
+
+        profile.setDob(request.getDob());
+        profile.setGender(request.getGender());
+        profile.setAddress(request.getAddress());
+        profile.setFitnessGoals(request.getFitnessGoals());
+
+        MemberProfile saved = profileRepository.save(profile);
+        return MemberProfileResponse.builder()
+                .memberId(saved.getMemberId())
+                .dob(saved.getDob())
+                .gender(saved.getGender())
+                .address(saved.getAddress())
+                .fitnessGoals(saved.getFitnessGoals())
+                .build();
+    }
+
+    @Override
+    public Optional<MemberProfileResponse> getProfile(Integer memberId) {
+        return profileRepository.findById(memberId).map(p -> MemberProfileResponse.builder()
+                .memberId(p.getMemberId())
+                .dob(p.getDob())
+                .gender(p.getGender())
+                .address(p.getAddress())
+                .fitnessGoals(p.getFitnessGoals())
+                .build());
     }
 }
