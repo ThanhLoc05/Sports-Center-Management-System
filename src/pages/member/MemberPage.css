@@ -1,0 +1,1247 @@
+/* =========================================================
+   MEMBER DASHBOARD
+   Design system thống nhất với LoginPage và ManagerPage.
+
+   Primary:
+   #159a65
+
+   Dark:
+   #107c51
+
+   Background:
+   #f4f7f6
+
+   Card:
+   #ffffff
+========================================================= */
+
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+.member-page {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+
+  background: #f4f7f6;
+
+  font-family: Arial, Helvetica, sans-serif;
+
+  color: #1f2937;
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+.member-sidebar {
+  width: 250px;
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #071f1a;
+
+  color: white;
+
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+
+  z-index: 10;
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.member-brand {
+  height: 86px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 0 22px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+.member-brand-icon {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: #159a65;
+
+  color: white;
+
+  font-size: 18px;
+  font-weight: 800;
+}
+
+
+.member-brand-text {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.member-brand-text strong {
+  font-size: 13px;
+
+  letter-spacing: 0.5px;
+}
+
+
+.member-brand-text span {
+  color: rgba(255, 255, 255, 0.5);
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+.member-navigation {
+  flex: 1;
+
+  padding: 24px 14px;
+}
+
+
+.member-nav-item,
+.member-logout-button {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 13px;
+
+  border: none;
+
+  background: transparent;
+
+  color: rgba(255, 255, 255, 0.62);
+
+  padding: 12px 14px;
+
+  margin-bottom: 5px;
+
+  border-radius: 8px;
+
+  font-size: 14px;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+
+.member-nav-item:hover,
+.member-logout-button:hover {
+  background: rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+
+.member-nav-item.active {
+  background: #159a65;
+
+  color: white;
+
+  box-shadow:
+    0 4px 12px rgba(21, 154, 101, 0.2);
+}
+
+
+.member-nav-icon {
+  width: 20px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 17px;
+}
+
+
+/* =========================================================
+   SIDEBAR FOOTER
+========================================================= */
+
+.member-sidebar-footer {
+  padding: 14px;
+
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+.member-logout-button {
+  margin-bottom: 0;
+}
+
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+.member-main {
+  width: calc(100% - 250px);
+
+  margin-left: 250px;
+
+  min-height: 100vh;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.member-header {
+  min-height: 86px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 36px;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e7ece9;
+}
+
+
+.member-header-title {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+
+.member-header-title span {
+  color: #159a65;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 1px;
+}
+
+
+.member-header-title h1 {
+  margin: 0;
+
+  color: #17211d;
+
+  font-size: 22px;
+}
+
+
+/* =========================================================
+   PROFILE
+========================================================= */
+
+.member-profile {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.member-profile-avatar {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #e6f5ef;
+
+  color: #159a65;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+
+.member-profile-info {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.member-profile-info strong {
+  color: #202924;
+
+  font-size: 13px;
+}
+
+
+.member-profile-info span {
+  color: #89938e;
+
+  font-size: 11px;
+}
+
+
+.member-profile-arrow {
+  margin-left: 5px;
+
+  color: #8c9792;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   CONTENT
+========================================================= */
+
+.member-content {
+  padding: 32px 36px 40px;
+}
+
+
+/* =========================================================
+   WELCOME
+========================================================= */
+
+.member-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 24px;
+}
+
+
+.member-welcome-label {
+  margin: 0 0 7px;
+
+  color: #159a65;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 1px;
+}
+
+
+.member-welcome h2 {
+  margin: 0 0 7px;
+
+  color: #17211d;
+
+  font-size: 26px;
+}
+
+
+.member-welcome > div:first-child > p:last-child {
+  margin: 0;
+
+  color: #7b8580;
+
+  font-size: 13px;
+}
+
+
+.member-motivation {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+
+  padding: 13px 18px;
+
+  background: white;
+
+  border: 1px solid #e5ebe8;
+
+  border-radius: 10px;
+
+  text-align: right;
+}
+
+
+.member-motivation span {
+  color: #159a65;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.8px;
+}
+
+
+.member-motivation strong {
+  color: #26312c;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   MEMBERSHIP
+========================================================= */
+
+.member-membership-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 22px 24px;
+
+  margin-bottom: 22px;
+
+  border-radius: 12px;
+
+  background: linear-gradient(
+    135deg,
+    #071f1a,
+    #0b3b2e
+  );
+
+  color: white;
+
+  box-shadow:
+    0 8px 22px rgba(7, 31, 26, 0.12);
+}
+
+
+.member-membership-left {
+  display: flex;
+  align-items: center;
+
+  gap: 15px;
+}
+
+
+.member-membership-icon {
+  width: 45px;
+  height: 45px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 11px;
+
+  background: #159a65;
+
+  font-size: 18px;
+  font-weight: 800;
+}
+
+
+.member-membership-label {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: rgba(255, 255, 255, 0.55);
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.8px;
+}
+
+
+.member-membership-left h3 {
+  margin: 0 0 5px;
+
+  font-size: 17px;
+}
+
+
+.member-membership-left p {
+  margin: 0;
+
+  color: rgba(255, 255, 255, 0.6);
+
+  font-size: 10px;
+}
+
+
+.member-membership-right {
+  min-width: 180px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+
+  text-align: right;
+}
+
+
+.member-membership-right > span {
+  color: rgba(255, 255, 255, 0.5);
+
+  font-size: 9px;
+}
+
+
+.member-membership-right strong {
+  font-size: 13px;
+}
+
+
+.member-membership-progress {
+  width: 100%;
+  height: 5px;
+
+  margin-top: 7px;
+
+  overflow: hidden;
+
+  border-radius: 5px;
+
+  background: rgba(255, 255, 255, 0.15);
+}
+
+
+.member-membership-progress div {
+  width: 72%;
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: #159a65;
+}
+
+
+.member-membership-right small {
+  color: rgba(255, 255, 255, 0.5);
+
+  font-size: 8px;
+}
+
+
+/* =========================================================
+   STAT GRID
+========================================================= */
+
+.member-stat-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 18px;
+
+  margin-bottom: 22px;
+}
+
+
+.member-stat-card {
+  background: white;
+
+  border: 1px solid #e6ece9;
+
+  border-radius: 10px;
+
+  padding: 20px;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+
+.member-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 17px;
+}
+
+
+.member-stat-icon {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #e9f7f1;
+
+  color: #159a65;
+
+  font-size: 18px;
+}
+
+
+.member-stat-badge {
+  padding: 5px 8px;
+
+  border-radius: 5px;
+
+  background: #f1f5f3;
+
+  color: #75807b;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+
+.member-stat-label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #7b8580;
+
+  font-size: 12px;
+}
+
+
+.member-stat-value {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #17211d;
+
+  font-size: 27px;
+}
+
+
+.member-stat-description {
+  color: #a0a8a4;
+
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   DASHBOARD GRID
+========================================================= */
+
+.member-dashboard-grid {
+  display: grid;
+
+  grid-template-columns: minmax(0, 1.25fr) minmax(330px, 0.75fr);
+
+  gap: 22px;
+
+  margin-bottom: 22px;
+}
+
+
+/* =========================================================
+   PANEL
+========================================================= */
+
+.member-panel {
+  background: white;
+
+  border: 1px solid #e6ece9;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+
+.member-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid #edf0ee;
+}
+
+
+.member-panel-header h3 {
+  margin: 0 0 5px;
+
+  color: #202a25;
+
+  font-size: 15px;
+}
+
+
+.member-panel-header p {
+  margin: 0;
+
+  color: #8c9691;
+
+  font-size: 11px;
+}
+
+
+.member-view-all {
+  border: none;
+
+  background: transparent;
+
+  color: #159a65;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.member-view-all:hover {
+  color: #107c51;
+}
+
+
+/* =========================================================
+   CLASS CARD
+========================================================= */
+
+.member-class-card {
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 17px 20px;
+
+  border-bottom: 1px solid #edf0ee;
+}
+
+
+.member-class-card:last-child {
+  border-bottom: none;
+}
+
+
+.member-class-date {
+  width: 43px;
+  height: 45px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 8px;
+
+  background: #edf8f3;
+}
+
+
+.member-class-date strong {
+  color: #159a65;
+
+  font-size: 17px;
+}
+
+
+.member-class-date span {
+  color: #6f7b75;
+
+  font-size: 8px;
+  font-weight: 700;
+}
+
+
+.member-class-info {
+  flex: 1;
+
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+
+.member-class-info strong {
+  overflow: hidden;
+
+  color: #26312c;
+
+  font-size: 12px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.member-class-info span {
+  color: #89938e;
+
+  font-size: 9px;
+}
+
+
+.member-class-info small {
+  color: #a1a9a5;
+
+  font-size: 9px;
+}
+
+
+.member-class-status {
+  padding: 5px 8px;
+
+  border-radius: 5px;
+
+  background: #edf8f3;
+
+  color: #159a65;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   WORKOUT PROGRESS
+========================================================= */
+
+.member-progress-content {
+  display: flex;
+  align-items: center;
+
+  gap: 22px;
+
+  padding: 24px 22px;
+}
+
+
+.member-progress-circle {
+  width: 120px;
+  height: 120px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background:
+    conic-gradient(
+      #159a65 0deg 259deg,
+      #e8efec 259deg 360deg
+    );
+}
+
+
+.member-progress-circle > div {
+  width: 88px;
+  height: 88px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: white;
+}
+
+
+.member-progress-circle strong {
+  color: #17211d;
+
+  font-size: 21px;
+}
+
+
+.member-progress-circle span {
+  color: #929b97;
+
+  font-size: 9px;
+}
+
+
+.member-goal-info {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+
+.member-goal-info > span {
+  color: #929b97;
+
+  font-size: 9px;
+}
+
+
+.member-goal-info strong {
+  color: #26312c;
+
+  font-size: 13px;
+}
+
+
+.member-goal-info p {
+  margin: 0;
+
+  color: #929b97;
+
+  font-size: 10px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   MINI PROGRESS
+========================================================= */
+
+.member-progress-list {
+  padding: 0 22px 22px;
+}
+
+
+.member-progress-list > div {
+  display: grid;
+
+  grid-template-columns: 70px 1fr 32px;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-top: 12px;
+}
+
+
+.member-progress-list span {
+  color: #77827d;
+
+  font-size: 9px;
+}
+
+
+.member-progress-list strong {
+  color: #68736e;
+
+  font-size: 9px;
+
+  text-align: right;
+}
+
+
+.member-mini-progress {
+  height: 5px;
+
+  overflow: hidden;
+
+  border-radius: 5px;
+
+  background: #edf1ef;
+}
+
+
+.member-mini-progress span {
+  display: block;
+
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: #159a65;
+}
+
+
+/* =========================================================
+   ACTIVITY
+========================================================= */
+
+.member-activity-panel {
+  margin-bottom: 0;
+}
+
+
+.member-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+
+.member-activity-item {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 15px 20px;
+
+  border-bottom: 1px solid #edf0ee;
+}
+
+
+.member-activity-item:last-child {
+  border-bottom: none;
+}
+
+
+.member-activity-icon {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 8px;
+
+  background: #e9f7f1;
+
+  color: #159a65;
+
+  font-size: 15px;
+}
+
+
+.member-activity-item > div:nth-child(2) {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+
+.member-activity-item strong {
+  color: #26312c;
+
+  font-size: 11px;
+}
+
+
+.member-activity-item span {
+  color: #9aa39f;
+
+  font-size: 9px;
+}
+
+
+.member-activity-item small {
+  padding: 5px 8px;
+
+  border-radius: 5px;
+
+  background: #f1f5f3;
+
+  color: #74807a;
+
+  font-size: 8px;
+}
+
+
+/* =========================================================
+   RESPONSIVE - TABLET
+========================================================= */
+
+@media (max-width: 1050px) {
+
+  .member-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+
+  .member-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE - MOBILE
+========================================================= */
+
+@media (max-width: 800px) {
+
+  .member-sidebar {
+    width: 72px;
+  }
+
+
+  .member-brand {
+    justify-content: center;
+
+    padding: 0;
+  }
+
+
+  .member-brand-text {
+    display: none;
+  }
+
+
+  .member-nav-item,
+  .member-logout-button {
+    justify-content: center;
+
+    padding: 12px 0;
+  }
+
+
+  .member-nav-item span:last-child,
+  .member-logout-button span:last-child {
+    display: none;
+  }
+
+
+  .member-main {
+    width: calc(100% - 72px);
+
+    margin-left: 72px;
+  }
+
+
+  .member-header {
+    padding: 0 20px;
+  }
+
+
+  .member-profile-info,
+  .member-profile-arrow {
+    display: none;
+  }
+
+
+  .member-content {
+    padding: 25px 20px 30px;
+  }
+
+
+  .member-membership-card {
+    align-items: flex-start;
+
+    gap: 20px;
+  }
+
+
+  .member-membership-right {
+    min-width: 150px;
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE - SMALL MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .member-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .member-welcome {
+    flex-direction: column;
+
+    align-items: flex-start;
+  }
+
+
+  .member-motivation {
+    width: 100%;
+
+    text-align: left;
+  }
+
+
+  .member-membership-card {
+    flex-direction: column;
+  }
+
+
+  .member-membership-right {
+    width: 100%;
+
+    text-align: left;
+  }
+
+
+  .member-progress-content {
+    flex-direction: column;
+
+    align-items: flex-start;
+  }
+
+
+  .member-class-card {
+    align-items: flex-start;
+  }
+
+
+  .member-class-status {
+    display: none;
+  }
+
+
+  .member-header {
+    padding: 0 14px;
+  }
+
+
+  .member-content {
+    padding: 20px 14px 25px;
+  }
+
+
+  .member-header-title h1 {
+    font-size: 19px;
+  }
+
+}
