@@ -6,6 +6,7 @@ import com.sportscenter.management.entity.Attendance;
 import com.sportscenter.management.repository.AttendanceRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.UserRepository;
+import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.service.AttendanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,9 +29,8 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     @Override
     public AttendanceResponse checkInMember(AttendanceRequest request) {
-        if (request == null || request.getClassId() == null || request.getMemberId() == null
-                || request.getCheckedInBy() == null) {
-            throw new IllegalArgumentException("Lớp học, thành viên và người điểm danh là bắt buộc");
+        if (request == null || request.getClassId() == null || request.getMemberId() == null) {
+            throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
         // Validate class exists
         if (!classRepository.existsById(request.getClassId())) {
@@ -42,8 +42,19 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
 
+        Integer checkedInBy = request.getCheckedInBy();
+        if (checkedInBy == null) {
+            String email = SecurityUtils.getCurrentUserEmail();
+            if (email != null) {
+                checkedInBy = userRepository.findByEmail(email).map(com.sportscenter.management.entity.User::getId).orElse(null);
+            }
+        }
+        if (checkedInBy == null) {
+            throw new IllegalArgumentException("Người điểm danh là bắt buộc");
+        }
+
         // Validate checker-in exists
-        if (!userRepository.existsById(request.getCheckedInBy())) {
+        if (!userRepository.existsById(checkedInBy)) {
             throw new IllegalArgumentException("Người điểm danh không tồn tại");
         }
 
@@ -63,7 +74,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         Attendance attendance = Attendance.builder()
                 .classId(request.getClassId())
                 .memberId(request.getMemberId())
-                .checkedInBy(request.getCheckedInBy())
+                .checkedInBy(checkedInBy)
                 .checkedInAt(LocalDateTime.now())
                 .status(request.getStatus() != null ? request.getStatus() : "PRESENT")
                 .build();

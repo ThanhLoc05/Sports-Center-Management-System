@@ -18,6 +18,7 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+
     // 🔒 CHỈ LỄ TÂN HOẶC HUẤN LUYỆN VIÊN MỚI ĐƯỢC ĐIỂM DANH
     @PostMapping
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'COACH', 'CENTER_MANAGER', 'MANAGER')")
@@ -26,22 +27,28 @@ public class AttendanceController {
     }
 
     @GetMapping("/{attendanceId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<AttendanceResponse> getAttendance(@PathVariable Integer attendanceId) {
         return attendanceService.getAttendanceById(attendanceId).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // 🔒 HLV, LỄ TÂN, QUẢN LÝ XEM ĐIỂM DANH LỚP
     @GetMapping("/classes/{classId}")
+    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<AttendanceResponse> getClassAttendance(@PathVariable Integer classId) {
         return attendanceService.getClassAttendance(classId);
     }
 
+    // 🔒 HLV, LỄ TÂN, QUẢN LÝ XEM DANH SÁCH VẮNG MẶT
     @GetMapping("/classes/{classId}/absentees")
+    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<AttendanceResponse> getAbsentees(@PathVariable Integer classId) {
         return attendanceService.getAbsenteeList(classId);
     }
 
     @GetMapping("/members/{memberId}")
+    @PreAuthorize("isAuthenticated()")
     public List<AttendanceResponse> getMemberHistory(
             @PathVariable Integer memberId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -50,11 +57,13 @@ public class AttendanceController {
     }
 
     @GetMapping("/members/{memberId}/rate")
+    @PreAuthorize("isAuthenticated()")
     public double getAttendanceRate(@PathVariable Integer memberId) {
         return attendanceService.getMemberAttendanceRate(memberId);
     }
 
     @GetMapping("/members/{memberId}/count")
+    @PreAuthorize("isAuthenticated()")
     public int getAttendanceCount(
             @PathVariable Integer memberId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

@@ -12,6 +12,7 @@ import com.sportscenter.management.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -44,18 +45,23 @@ public class UserController {
                 .orElseGet(() -> ResponseEntity.status(401).build());
     }
 
+    // 🔒 CHỈ MANAGER MỚI ĐƯỢC XEM DANH SÁCH TẤT CẢ NGƯỜI DÙNG
     @GetMapping
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
     public List<UserResponse> getUsers(@RequestParam(required = false) Integer roleId) {
         return userService.getAllUsers(roleId);
     }
 
     @GetMapping("/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponse> getUser(@PathVariable Integer userId) {
         return userService.getUserById(userId).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // 🔒 CHỈ MANAGER MỚI ĐƯỢC THAY ĐỔI TRẠNG THÁI KHÓA/MỞ TÀI KHOẢN
     @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
     public UserResponse updateStatus(@PathVariable Integer userId, @RequestParam String status) {
         return userService.updateUserStatus(userId, status);
     }
@@ -70,13 +76,16 @@ public class UserController {
                 .status(user.getStatus())
                 .build();
     }
+
     @PutMapping("/{userId}/profile")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberProfileResponse> updateProfile(
             @PathVariable Integer userId, @RequestBody MemberProfileRequest request) {
         return ResponseEntity.ok(userService.updateProfile(userId, request));
     }
 
     @GetMapping("/{userId}/profile")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberProfileResponse> getProfile(@PathVariable Integer userId) {
         return userService.getProfile(userId).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());

@@ -7,6 +7,7 @@ import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.repository.InvoiceRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
+import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,13 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new IllegalArgumentException("Đăng ký không thuộc về thành viên này");
             }
         }
-        if (request.getReceptionistId() != null && !userRepository.existsById(request.getReceptionistId())) {
+        Integer receptionistId = request.getReceptionistId();
+        if (receptionistId == null) {
+            String email = SecurityUtils.getCurrentUserEmail();
+            if (email != null) {
+                receptionistId = userRepository.findByEmail(email).map(com.sportscenter.management.entity.User::getId).orElse(null);
+            }
+        } else if (!userRepository.existsById(receptionistId)) {
             throw new IllegalArgumentException("Nhân viên thu ngân không tồn tại");
         }
 
@@ -67,7 +74,7 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = Invoice.builder()
                 .subscriptionId(request.getSubscriptionId())
                 .memberId(request.getMemberId())
-                .receptionistId(request.getReceptionistId())
+                .receptionistId(receptionistId)
                 .amount(request.getAmount())
                 .paymentMethod(request.getPaymentMethod())
                 .paymentStatus(paymentStatus)

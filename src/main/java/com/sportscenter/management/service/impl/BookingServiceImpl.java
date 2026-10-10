@@ -1,10 +1,14 @@
 package com.sportscenter.management.service.impl;
 
 import com.sportscenter.management.dto.Response.BookingResponse;
+import com.sportscenter.management.dto.Response.ClassStudentResponse;
 import com.sportscenter.management.entity.ClassBooking;
 import com.sportscenter.management.entity.Classes;
+import com.sportscenter.management.entity.MemberProfile;
+import com.sportscenter.management.entity.User;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
+import com.sportscenter.management.repository.MemberProfileRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.BookingService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,7 @@ public class BookingServiceImpl implements BookingService {
     private final ClassRepository classRepository;
     private final ClassBookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final MemberProfileRepository profileRepository;
 
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
@@ -73,6 +78,30 @@ public class BookingServiceImpl implements BookingService {
         }
         return bookingRepository.findByClassId(classId).stream().map(this::toResponse).toList();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassStudentResponse> getClassStudents(Integer classId) {
+        if (!classRepository.existsById(classId)) {
+            throw new IllegalArgumentException("Lớp học không tồn tại");
+        }
+        List<ClassBooking> bookings = bookingRepository.findByClassId(classId);
+        return bookings.stream().map(b -> {
+            User user = userRepository.findById(b.getMemberId()).orElse(null);
+            MemberProfile profile = profileRepository.findById(b.getMemberId()).orElse(null);
+            return ClassStudentResponse.builder()
+                    .memberId(b.getMemberId())
+                    .fullName(user != null ? user.getFullName() : null)
+                    .email(user != null ? user.getEmail() : null)
+                    .phone(user != null ? user.getPhone() : null)
+                    .gender(profile != null ? profile.getGender() : null)
+                    .fitnessGoals(profile != null ? profile.getFitnessGoals() : null)
+                    .bookingStatus(b.getStatus())
+                    .bookedAt(b.getBookedAt())
+                    .build();
+        }).toList();
+    }
+
 
     @Override
     @Transactional(readOnly = true)
