@@ -7,8 +7,8 @@
 @contentType = application/json
 
 ### Replace these with actual valid tokens from your authentication
-@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtZW1iZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3OTEzNTA2NDksImV4cCI6MTc5MTM1NDI0OX0.ITs3s3PZh0NAUx7gFIS7MNxg8M_6KHsaAXHd4RFLlpU
-@managerToken = Bearer YOUR_MANAGER_TOKEN_HERE
+@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJraGFuaGhvYW5nQGV4YW1wbGUuY29tIiwiaWF0IjoxNzkxNjEzNjM0LCJleHAiOjE3OTE2MTcyMzR9.IS7Gfhfkc9KigoCnJPUCOF9m1Vd2rKvn53PI3xR8LMI
+@managerToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtZW1iZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3OTEzNTA2NDksImV4cCI6MTc5MTM1NDI0OX0.ITs3s3PZh0NAUx7gFIS7MNxg8M_6KHsaAXHd4RFLlpU
 
 ### ============================================================================
 ### FLOW 1: MEMBERSHIP SUBSCRIPTION (POST /api/v1/memberships/subscribe)
@@ -20,10 +20,10 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 {
-  "memberId": 1,
-  "packageId": 1,
+  "memberId": 6,
+  "packageId": 4,
   "startDate": "2026-10-07",
-  "endDate": "2026-11-07",
+  "endDate": "2026-12-07",
   "status": "ACTIVE"
 }
 
@@ -33,10 +33,10 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 {
-  "memberId": 2,
-  "packageId": 2,
+  "memberId": 5,
+  "packageId": 3,
   "startDate": "2026-10-07",
-  "endDate": "2026-12-07",
+  "endDate": "2027-10-07",
   "status": "ACTIVE"
 }
 
@@ -46,25 +46,24 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 {
-  "memberId": 3,
-  "packageId": 3,
+  "memberId": 6,
+  "packageId": 2,
   "startDate": "2026-10-01",
-  "endDate": "2027-01-01",
   "status": "ACTIVE"
 }
 
 ### 1.4 Get active membership for a member
-GET {{baseUrl}}/api/v1/memberships/members/1/active
+GET {{baseUrl}}/api/v1/memberships/members/4/active
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### 1.5 Get membership history for a member
-GET {{baseUrl}}/api/v1/memberships/members/1
+GET {{baseUrl}}/api/v1/memberships/members/4
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### 1.6 Get subscription expiration date
-GET {{baseUrl}}/api/v1/memberships/members/1/expiration
+GET {{baseUrl}}/api/v1/memberships/members/4/expiration
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
@@ -185,10 +184,10 @@ POST {{baseUrl}}/api/v1/users/register
 Content-Type: {{contentType}}
 
 {
-  "email": "member@example.com",
-  "password": "SecurePassword123!",
-  "fullName": "Test Member",
-  "phone": "0987654321"
+  "email": "antuan@tuta.com",
+  "password": "antoine",
+  "fullName": "Tran Duc Anh Tuan",
+  "phone": "0303678559"
 }
 
 ### Login to get access token
@@ -196,12 +195,12 @@ POST {{baseUrl}}/api/v1/users/login
 Content-Type: {{contentType}}
 
 {
-  "email": "member@example.com",
-  "password": "SecurePassword123!"
+  "email": "antuan@tuta.com",
+  "password": "antoine"
 }
 
 ### Get user details
-GET {{baseUrl}}/api/v1/users/1
+GET {{baseUrl}}/api/v1/users/4
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
