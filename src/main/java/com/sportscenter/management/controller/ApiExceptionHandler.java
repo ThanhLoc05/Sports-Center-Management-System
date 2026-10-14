@@ -15,4 +15,15 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", exception.getMessage()));
     }
+
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationException(
+            org.springframework.web.bind.MethodArgumentNotValidException exception) {
+        String errorMsg = exception.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .findFirst()
+                .orElse("Dữ liệu không hợp lệ");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", errorMsg));
+    }
 }
