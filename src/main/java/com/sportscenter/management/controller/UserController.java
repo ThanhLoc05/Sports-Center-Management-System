@@ -1,14 +1,13 @@
 package com.sportscenter.management.controller;
 
 import com.sportscenter.management.dto.Request.LoginRequest;
-import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
 import com.sportscenter.management.dto.Response.LoginResponse;
-import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
 import com.sportscenter.auth.JwtService;
 import com.sportscenter.management.service.UserService;
+import com.sportscenter.auth.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +23,7 @@ public class UserController {
 
     private final UserService userService;
     private final JwtService jwtService;
+    private final SecurityUtils securityUtils;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -45,9 +45,8 @@ public class UserController {
                 .orElseGet(() -> ResponseEntity.status(401).build());
     }
 
-    // 🔒 CHỈ MANAGER MỚI ĐƯỢC XEM DANH SÁCH TẤT CẢ NGƯỜI DÙNG
     @GetMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER','MANAGER')")
     public List<UserResponse> getUsers(@RequestParam(required = false) Integer roleId) {
         return userService.getAllUsers(roleId);
     }
@@ -55,13 +54,17 @@ public class UserController {
     @GetMapping("/{userId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponse> getUser(@PathVariable Integer userId) {
+        Integer currentUser = securityUtils.getCurrentUserId();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+        if (!currentUser.equals(userId) && !securityUtils.isManagerOrCenterManager()) {
+            return ResponseEntity.status(403).build();
+        }
         return userService.getUserById(userId).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // 🔒 CHỈ MANAGER MỚI ĐƯỢC THAY ĐỔI TRẠNG THÁI KHÓA/MỞ TÀI KHOẢN
     @PatchMapping("/{userId}/status")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER','MANAGER')")
     public UserResponse updateStatus(@PathVariable Integer userId, @RequestParam String status) {
         return userService.updateUserStatus(userId, status);
     }
@@ -75,19 +78,5 @@ public class UserController {
                 .roleName(user.getRole().getRoleName())
                 .status(user.getStatus())
                 .build();
-    }
-
-    @PutMapping("/{userId}/profile")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberProfileResponse> updateProfile(
-            @PathVariable Integer userId, @RequestBody MemberProfileRequest request) {
-        return ResponseEntity.ok(userService.updateProfile(userId, request));
-    }
-
-    @GetMapping("/{userId}/profile")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberProfileResponse> getProfile(@PathVariable Integer userId) {
-        return userService.getProfile(userId).map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

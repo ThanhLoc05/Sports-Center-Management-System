@@ -2,8 +2,6 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
-import com.sportscenter.management.dto.Response.MembershipPackageResponse;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -34,6 +32,13 @@ public interface MembershipService {
     List<MemberSubscriptionResponse> getMemberSubscriptionHistory(Integer memberId);
 
     /**
+     * Get a single subscription by ID
+     * @param subscriptionId Subscription ID
+     * @return Subscription response
+     */
+    MemberSubscriptionResponse getSubscriptionById(Integer subscriptionId);
+
+    /**
      * Renew member's subscription
      * @param subscriptionId Current subscription ID
      * @param packageId New package ID
@@ -61,6 +66,4 @@ public interface MembershipService {
      * @return Subscription end date as string
      */
     String getSubscriptionExpirationDate(Integer memberId);
-    List<MembershipPackageResponse> getAllPackages();
-    MembershipPackageResponse createPackage(com.sportscenter.management.dto.Request.MembershipPackageRequest request);
 }

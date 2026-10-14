@@ -7,7 +7,7 @@
 @contentType = application/json
 
 ### Replace these with actual valid tokens from your authentication
-@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJraGFuaGhvYW5nQGV4YW1wbGUuY29tIiwiaWF0IjoxNzkxNjEzNjM0LCJleHAiOjE3OTE2MTcyMzR9.IS7Gfhfkc9KigoCnJPUCOF9m1Vd2rKvn53PI3xR8LMI
+@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbnR1YW5AdHV0YS5jb20iLCJpYXQiOjE3OTE5NDU5ODQsImV4cCI6MTc5MTk0OTU4NH0.jxmOm4ulEtKGrgNQve1vPw0_47nyolsjGXltv6PSWmg
 @managerToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtZW1iZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3OTEzNTA2NDksImV4cCI6MTc5MTM1NDI0OX0.ITs3s3PZh0NAUx7gFIS7MNxg8M_6KHsaAXHd4RFLlpU
 
 ### ============================================================================
@@ -53,12 +53,12 @@ Authorization: {{memberToken}}
 }
 
 ### 1.4 Get active membership for a member
-GET {{baseUrl}}/api/v1/memberships/members/4/active
+GET {{baseUrl}}/api/v1/memberships/members/6/active
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### 1.5 Get membership history for a member
-GET {{baseUrl}}/api/v1/memberships/members/4
+GET {{baseUrl}}/api/v1/memberships/members/5
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
@@ -68,12 +68,12 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### 1.7 Renew a subscription with new package
-POST {{baseUrl}}/api/v1/memberships/1/renew?packageId=2
+POST {{baseUrl}}/api/v1/memberships/6/renew?packageId=2
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### 1.8 Cancel a subscription
-POST {{baseUrl}}/api/v1/memberships/1/cancel
+POST {{baseUrl}}/api/v1/memberships/6/cancel
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 

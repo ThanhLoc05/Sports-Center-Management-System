@@ -3,6 +3,7 @@ package com.sportscenter.management.controller;
 import com.sportscenter.management.dto.Request.AttendanceRequest;
 import com.sportscenter.management.dto.Response.AttendanceResponse;
 import com.sportscenter.management.service.AttendanceService;
+import com.sportscenter.auth.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -18,8 +19,8 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final SecurityUtils securityUtils;
 
-    // 🔒 CHỈ LỄ TÂN HOẶC HUẤN LUYỆN VIÊN MỚI ĐƯỢC ĐIỂM DANH
     @PostMapping
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'COACH', 'CENTER_MANAGER', 'MANAGER')")
     public ResponseEntity<AttendanceResponse> checkIn(@RequestBody AttendanceRequest request) {
@@ -33,14 +34,12 @@ public class AttendanceController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // 🔒 HLV, LỄ TÂN, QUẢN LÝ XEM ĐIỂM DANH LỚP
     @GetMapping("/classes/{classId}")
     @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<AttendanceResponse> getClassAttendance(@PathVariable Integer classId) {
         return attendanceService.getClassAttendance(classId);
     }
 
-    // 🔒 HLV, LỄ TÂN, QUẢN LÝ XEM DANH SÁCH VẮNG MẶT
     @GetMapping("/classes/{classId}/absentees")
     @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<AttendanceResponse> getAbsentees(@PathVariable Integer classId) {
@@ -49,25 +48,34 @@ public class AttendanceController {
 
     @GetMapping("/members/{memberId}")
     @PreAuthorize("isAuthenticated()")
-    public List<AttendanceResponse> getMemberHistory(
+    public ResponseEntity<List<AttendanceResponse>> getMemberHistory(
             @PathVariable Integer memberId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return attendanceService.getMemberAttendanceHistory(memberId, startDate, endDate);
+        if (!securityUtils.isOwnerOrAuthorized(memberId)) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(attendanceService.getMemberAttendanceHistory(memberId, startDate, endDate));
     }
 
     @GetMapping("/members/{memberId}/rate")
     @PreAuthorize("isAuthenticated()")
-    public double getAttendanceRate(@PathVariable Integer memberId) {
-        return attendanceService.getMemberAttendanceRate(memberId);
+    public ResponseEntity<Double> getAttendanceRate(@PathVariable Integer memberId) {
+        if (!securityUtils.isOwnerOrAuthorized(memberId)) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(attendanceService.getMemberAttendanceRate(memberId));
     }
 
     @GetMapping("/members/{memberId}/count")
     @PreAuthorize("isAuthenticated()")
-    public int getAttendanceCount(
+    public ResponseEntity<Integer> getAttendanceCount(
             @PathVariable Integer memberId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return attendanceService.getAttendanceCount(memberId, startDate, endDate);
+        if (!securityUtils.isOwnerOrAuthorized(memberId)) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(attendanceService.getAttendanceCount(memberId, startDate, endDate));
     }
 }
