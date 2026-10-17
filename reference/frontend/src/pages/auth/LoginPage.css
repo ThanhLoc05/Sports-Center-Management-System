@@ -1,0 +1,635 @@
+/* =========================================================
+   SPORTS CENTER - LOGIN PAGE
+
+   Theme: Navy + Blue
+   File này chỉ định dạng giao diện trang Login.
+
+   Bao gồm:
+   - Background và bố cục Login
+   - Banner giới thiệu
+   - Form đăng nhập
+   - Validation
+   - Nút hiện/ẩn mật khẩu
+   - Chọn vai trò
+   - Responsive cho điện thoại
+========================================================= */
+
+
+/* =========================================================
+   1. THEME VARIABLES
+   Các màu dùng chung trong trang Login.
+   Muốn đổi màu giao diện, ưu tiên sửa tại đây.
+========================================================= */
+
+.login-page {
+  --login-primary: #2563eb;
+  --login-primary-hover: #1d4ed8;
+  --login-navy: #101d35;
+  --login-text: #263750;
+  --login-muted: #64748b;
+  --login-border: #dbe4f0;
+  --login-error: #e5484d;
+
+  width: 100%;
+  min-height: 100vh;
+  padding: 48px 24px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  box-sizing: border-box;
+
+  font-family: Arial, Helvetica, sans-serif;
+
+  background:
+    radial-gradient(
+      circle at 10% 15%,
+      rgba(56, 189, 248, 0.12),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 90% 85%,
+      rgba(37, 99, 235, 0.10),
+      transparent 35%
+    ),
+    #f2f6fc;
+}
+
+/* Áp dụng box-sizing cho các phần tử trong trang Login */
+.login-page *,
+.login-page *::before,
+.login-page *::after {
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   2. LOGIN CONTAINER
+   Khung chính gồm banner bên trái và form bên phải.
+========================================================= */
+
+.login-container {
+  width: 1120px;
+  max-width: 100%;
+  min-height: 640px;
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  overflow: hidden;
+
+  background: #ffffff;
+
+  border: 1px solid rgba(37, 99, 235, 0.08);
+  border-radius: 24px;
+
+  box-shadow:
+    0 24px 70px rgba(16, 29, 53, 0.12),
+    0 4px 14px rgba(16, 29, 53, 0.04);
+}
+
+
+/* =========================================================
+   3. LEFT BANNER
+   Khu vực giới thiệu thương hiệu Sports Center.
+========================================================= */
+
+.login-banner {
+  padding: 48px;
+
+  display: flex;
+  flex-direction: column;
+
+  color: #ffffff;
+
+  background:
+    radial-gradient(
+      circle at 90% 90%,
+      rgba(56, 189, 248, 0.18),
+      transparent 50%
+    ),
+    linear-gradient(145deg, #101d35, #173c68);
+}
+
+
+/* Logo và tên thương hiệu */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.brand-icon {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border-radius: 12px;
+
+  background: #38bdf8;
+  color: var(--login-navy);
+
+  font-size: 23px;
+  font-weight: 800;
+}
+
+
+/* Nội dung giới thiệu */
+
+.banner-content {
+  max-width: 440px;
+  margin: auto 0;
+}
+
+.welcome-text {
+  color: #7dd3fc;
+
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.banner-content h1 {
+  margin: 18px 0 24px;
+
+  color: #ffffff;
+
+  font-size: clamp(36px, 3.2vw, 48px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -1.5px;
+}
+
+.banner-content > p:not(.welcome-text) {
+  max-width: 410px;
+
+  color: #d4e3f5;
+
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+
+/* Danh sách lợi ích của hệ thống */
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  margin-top: 36px;
+
+  color: #e0f2fe;
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   4. RIGHT SIDE - LOGIN FORM
+   Căn giữa form trong nửa phải của khung Login.
+========================================================= */
+
+.login-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 56px 52px;
+
+  background: #ffffff;
+}
+
+.login-form-wrapper {
+  width: 100%;
+  max-width: 390px;
+}
+
+
+/* =========================================================
+   5. LOGIN HEADING
+   Tiêu đề và mô tả phía trên form.
+========================================================= */
+
+.login-heading {
+  margin-bottom: 36px;
+}
+
+.login-heading > p {
+  margin-bottom: 12px;
+
+  color: var(--login-primary);
+
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.login-heading h2 {
+  margin: 0 0 10px;
+
+  color: var(--login-navy);
+
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.7px;
+}
+
+.login-heading span {
+  color: var(--login-muted);
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   6. FORM INPUT
+   Định dạng ô nhập Email và Password.
+========================================================= */
+
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-group label {
+  display: block;
+
+  margin-bottom: 9px;
+
+  color: var(--login-text);
+
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-group input {
+  width: 100%;
+  height: 52px;
+
+  padding: 0 16px;
+
+  background: #ffffff;
+  color: var(--login-navy);
+
+  border: 1px solid var(--login-border);
+  border-radius: 10px;
+
+  font-size: 14px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input:focus {
+  border-color: var(--login-primary);
+
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.10);
+}
+
+
+/* =========================================================
+   7. FORM VALIDATION
+   Hiển thị lỗi khi Email hoặc Password không hợp lệ.
+========================================================= */
+
+/* Input có lỗi */
+
+.form-group input.input-error {
+  border-color: var(--login-error);
+}
+
+/* Input có lỗi khi được focus */
+
+.form-group input.input-error:focus {
+  border-color: var(--login-error);
+
+  box-shadow:
+    0 0 0 3px rgba(229, 72, 77, 0.10);
+}
+
+/* Thông báo lỗi bên dưới input */
+
+.error-message {
+  margin: 7px 0 0;
+
+  color: var(--login-error);
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   8. PASSWORD INPUT
+   Đặt nút Hiện/Ẩn bên trong ô nhập mật khẩu.
+========================================================= */
+
+.password-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.password-header a {
+  color: var(--login-primary);
+
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.password-header a:hover {
+  color: var(--login-primary-hover);
+}
+
+/* Wrapper làm mốc định vị cho nút Hiện/Ẩn */
+
+.password-input-wrapper {
+  position: relative;
+}
+
+/* Chừa khoảng trống để chữ không đè lên nút Hiện/Ẩn */
+
+.password-input-wrapper input {
+  padding-right: 70px;
+}
+
+/* Nút Hiện/Ẩn mật khẩu */
+
+.show-password-button {
+  position: absolute;
+
+  right: 12px;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  padding: 4px;
+
+  border: none;
+  background: transparent;
+
+  color: var(--login-primary);
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.show-password-button:hover {
+  color: var(--login-primary-hover);
+}
+
+.show-password-button:focus-visible {
+  outline: 2px solid var(--login-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+
+/* =========================================================
+   9. REMEMBER ME
+   Checkbox ghi nhớ đăng nhập.
+========================================================= */
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin: 4px 0 25px;
+
+  color: var(--login-muted);
+
+  font-size: 14px;
+}
+
+.remember-me input {
+  accent-color: var(--login-primary);
+}
+
+
+/* =========================================================
+   10. LOGIN BUTTON
+   Nút gửi form đăng nhập.
+========================================================= */
+
+.login-button {
+  width: 100%;
+  height: 52px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: var(--login-primary);
+  color: #ffffff;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.login-button:hover {
+  background: var(--login-primary-hover);
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.login-button:active {
+  transform: translateY(0);
+}
+
+.login-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+
+/* =========================================================
+   11. LOGIN ERROR MESSAGE
+   Thông báo khi tài khoản hoặc mật khẩu không đúng.
+========================================================= */
+
+.login-error-message {
+  width: 100%;
+
+  margin-bottom: 18px;
+  padding: 12px 14px;
+
+  background: #fff2f2;
+
+  border: 1px solid #f3b8b8;
+  border-radius: 8px;
+
+  color: #d9363e;
+
+  font-size: 13px;
+  text-align: center;
+}
+
+
+/* =========================================================
+   12. REGISTER LINK
+   Liên kết chuyển sang trang đăng ký.
+========================================================= */
+
+.register-text {
+  margin-top: 28px;
+
+  color: var(--login-muted);
+
+  font-size: 14px;
+  text-align: center;
+}
+
+.register-text a,
+.register-link-button {
+  padding: 0;
+
+  border: none;
+  background: transparent;
+
+  color: var(--login-primary);
+
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+
+  cursor: pointer;
+}
+
+.register-text a:hover,
+.register-link-button:hover {
+  color: var(--login-primary-hover);
+}
+
+
+/* =========================================================
+   13. ROLE SELECTOR
+   Giao diện chọn Member hoặc Center Manager nếu form
+   hiện tại của nhóm có sử dụng chức năng này.
+========================================================= */
+
+.role-selector {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+
+  margin-bottom: 22px;
+  padding: 5px;
+
+  background: #eef3fb;
+
+  border-radius: 10px;
+}
+
+.role-button {
+  flex: 1;
+
+  padding: 11px 16px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+  color: var(--login-muted);
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.role-button:hover {
+  color: var(--login-primary);
+}
+
+.role-button.active {
+  background: #ffffff;
+  color: var(--login-primary);
+
+  box-shadow:
+    0 2px 6px rgba(16, 29, 53, 0.08);
+}
+
+
+/* =========================================================
+   14. RESPONSIVE - TABLET & MOBILE
+   Ẩn banner khi màn hình nhỏ và hiển thị form toàn màn hình.
+========================================================= */
+
+@media (max-width: 800px) {
+  .login-page {
+    padding: 0;
+  }
+
+  .login-container {
+    width: 100%;
+    min-height: 100vh;
+
+    grid-template-columns: 1fr;
+
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .login-banner {
+    display: none;
+  }
+
+  .login-section {
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  .login-form-wrapper {
+    max-width: 420px;
+  }
+
+  .login-heading h2 {
+    font-size: 27px;
+  }
+}
+
+
+/* =========================================================
+   15. RESPONSIVE - SMALL MOBILE
+   Giảm padding và kích thước tiêu đề trên điện thoại nhỏ.
+========================================================= */
+
+@media (max-width: 380px) {
+  .login-section {
+    padding: 32px 18px;
+  }
+
+  .login-heading h2 {
+    font-size: 24px;
+  }
+}

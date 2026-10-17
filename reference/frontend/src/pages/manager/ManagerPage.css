@@ -1,0 +1,1143 @@
+/* =========================================================
+   MANAGER DASHBOARD
+   Design system được xây dựng dựa trên LoginPage.css.
+
+   Màu chủ đạo:
+   - #159a65: Primary green
+   - #107c51: Dark green / hover
+   - #f4f7f6: Page background
+   - #ffffff: Card background
+
+   Mục tiêu:
+   - Giữ UI thống nhất với LoginPage
+   - Clean / professional
+   - Dễ mở rộng khi thêm các màn hình quản lý
+========================================================= */
+
+
+/* =========================================================
+   GLOBAL
+========================================================= */
+
+.manager-page {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+
+  background: #f4f7f6;
+
+  font-family: Arial, Helvetica, sans-serif;
+
+  color: #1f2937;
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+.manager-sidebar {
+  width: 250px;
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #071f1a;
+
+  color: white;
+
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+
+  z-index: 10;
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.manager-brand {
+  height: 86px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 0 22px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+.manager-brand-icon {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: #159a65;
+
+  color: white;
+
+  font-size: 18px;
+  font-weight: 800;
+}
+
+
+.manager-brand-text {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.manager-brand-text strong {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+
+.manager-brand-text span {
+  color: rgba(255, 255, 255, 0.5);
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+.manager-navigation {
+  flex: 1;
+
+  padding: 24px 14px;
+}
+
+
+.manager-nav-item,
+.manager-logout-button {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 13px;
+
+  border: none;
+
+  background: transparent;
+
+  color: rgba(255, 255, 255, 0.62);
+
+  padding: 12px 14px;
+
+  margin-bottom: 5px;
+
+  border-radius: 8px;
+
+  font-size: 14px;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+
+.manager-nav-item:hover,
+.manager-logout-button:hover {
+  background: rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+
+/* =========================================================
+   ACTIVE NAVIGATION
+   Sử dụng cùng màu primary với LoginPage.
+========================================================= */
+
+.manager-nav-item.active {
+  background: #159a65;
+
+  color: white;
+
+  box-shadow:
+    0 4px 12px rgba(21, 154, 101, 0.2);
+}
+
+
+.manager-nav-icon {
+  width: 20px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 17px;
+}
+
+
+/* =========================================================
+   SIDEBAR FOOTER
+========================================================= */
+
+.manager-sidebar-footer {
+  padding: 14px;
+
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+.manager-logout-button {
+  margin-bottom: 0;
+}
+
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+.manager-main {
+  width: calc(100% - 250px);
+
+  margin-left: 250px;
+
+  min-height: 100vh;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.manager-header {
+  min-height: 86px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 36px;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e7ece9;
+}
+
+
+.manager-header-title {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+
+.manager-header-title span {
+  color: #159a65;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 1px;
+}
+
+
+.manager-header-title h1 {
+  margin: 0;
+
+  color: #17211d;
+
+  font-size: 22px;
+}
+
+
+/* =========================================================
+   PROFILE
+========================================================= */
+
+.manager-profile {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  cursor: pointer;
+}
+
+
+.manager-profile-avatar {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #e6f5ef;
+
+  color: #159a65;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+
+.manager-profile-info {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.manager-profile-info strong {
+  color: #202924;
+
+  font-size: 13px;
+}
+
+
+.manager-profile-info span {
+  color: #89938e;
+
+  font-size: 11px;
+}
+
+
+.manager-profile-arrow {
+  margin-left: 5px;
+
+  color: #8c9792;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   CONTENT
+========================================================= */
+
+.manager-content {
+  padding: 32px 36px 40px;
+}
+
+
+/* =========================================================
+   WELCOME
+========================================================= */
+
+.manager-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 28px;
+}
+
+
+.manager-welcome-label {
+  margin: 0 0 7px;
+
+  color: #159a65;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 1px;
+}
+
+
+.manager-welcome h2 {
+  margin: 0 0 7px;
+
+  color: #17211d;
+
+  font-size: 26px;
+}
+
+
+.manager-welcome > div:first-child > p:last-child {
+  margin: 0;
+
+  color: #7b8580;
+
+  font-size: 13px;
+}
+
+
+.manager-date {
+  min-width: 120px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  padding: 12px 16px;
+
+  background: white;
+
+  border: 1px solid #e6ece9;
+
+  border-radius: 10px;
+
+  text-align: right;
+}
+
+
+.manager-date span {
+  color: #8a948f;
+
+  font-size: 11px;
+}
+
+
+.manager-date strong {
+  color: #26312c;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   STAT GRID
+========================================================= */
+
+.manager-stat-grid {
+  display: grid;
+
+  grid-template-columns: repeat(4, 1fr);
+
+  gap: 18px;
+
+  margin-bottom: 22px;
+}
+
+
+/* =========================================================
+   STAT CARD
+========================================================= */
+
+.manager-stat-card {
+  min-width: 0;
+
+  background: white;
+
+  border: 1px solid #e6ece9;
+
+  border-radius: 10px;
+
+  padding: 20px;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+
+.manager-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 17px;
+}
+
+
+.manager-stat-icon {
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #e9f7f1;
+
+  color: #159a65;
+
+  font-size: 18px;
+}
+
+
+.manager-stat-status {
+  padding: 5px 8px;
+
+  border-radius: 5px;
+
+  background: #edf8f3;
+
+  color: #159a65;
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+
+.manager-stat-label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #7b8580;
+
+  font-size: 12px;
+}
+
+
+.manager-stat-value {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #17211d;
+
+  font-size: 27px;
+}
+
+
+.manager-stat-value.manager-revenue {
+  font-size: 25px;
+}
+
+
+.manager-stat-description {
+  color: #a0a8a4;
+
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   LOWER DASHBOARD GRID
+========================================================= */
+
+.manager-dashboard-grid {
+  display: grid;
+
+  grid-template-columns: minmax(0, 1.45fr) minmax(350px, 0.9fr);
+
+  gap: 22px;
+
+  margin-bottom: 22px;
+}
+
+
+/* =========================================================
+   PANEL
+========================================================= */
+
+.manager-panel {
+  background: #ffffff;
+
+  border: 1px solid #e6ece9;
+
+  border-radius: 10px;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+
+.manager-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid #edf0ee;
+}
+
+
+.manager-panel-header h3 {
+  margin: 0 0 5px;
+
+  color: #202a25;
+
+  font-size: 15px;
+}
+
+
+.manager-panel-header p {
+  margin: 0;
+
+  color: #8c9691;
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   PERIOD BUTTON
+========================================================= */
+
+.manager-period-button {
+  border: 1px solid #e0e7e3;
+
+  background: white;
+
+  color: #66716c;
+
+  padding: 8px 11px;
+
+  border-radius: 7px;
+
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+
+.manager-period-button:hover {
+  border-color: #159a65;
+
+  color: #159a65;
+}
+
+
+/* =========================================================
+   CHART
+========================================================= */
+
+.manager-chart {
+  height: 300px;
+
+  display: flex;
+
+  padding: 25px 22px 20px;
+}
+
+
+.manager-chart-y-axis {
+  width: 45px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  padding: 4px 0 25px;
+
+  color: #9ba39f;
+
+  font-size: 9px;
+}
+
+
+.manager-chart-area {
+  position: relative;
+
+  flex: 1;
+}
+
+
+.manager-chart-lines {
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 28px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+
+.manager-chart-lines span {
+  width: 100%;
+
+  border-top: 1px dashed #e9eeeb;
+}
+
+
+.manager-chart-bars {
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+
+  gap: 15px;
+}
+
+
+.manager-chart-column {
+  height: 100%;
+
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 8px;
+}
+
+
+.manager-chart-bar {
+  width: min(34px, 70%);
+
+  min-height: 20px;
+
+  background: #b8e2d0;
+
+  border-radius: 5px 5px 2px 2px;
+
+  transition:
+    height 0.25s ease,
+    background 0.25s ease;
+}
+
+
+.manager-chart-bar:hover,
+.manager-chart-bar.current {
+  background: #159a65;
+}
+
+
+.manager-chart-column span {
+  color: #8e9893;
+
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   TODAY'S CLASSES
+========================================================= */
+
+.manager-classes-panel {
+  overflow: hidden;
+}
+
+
+.manager-view-all {
+  border: none;
+
+  background: transparent;
+
+  color: #159a65;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.manager-view-all:hover {
+  color: #107c51;
+}
+
+
+.manager-class-item {
+  display: flex;
+  align-items: center;
+
+  padding: 16px 20px;
+
+  border-bottom: 1px solid #edf0ee;
+}
+
+
+.manager-class-item:last-child {
+  border-bottom: none;
+}
+
+
+.manager-class-time {
+  width: 45px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.manager-class-time strong {
+  color: #26312c;
+
+  font-size: 11px;
+}
+
+
+.manager-class-time span {
+  color: #a0a8a4;
+
+  font-size: 9px;
+}
+
+
+.manager-class-line {
+  width: 3px;
+  height: 32px;
+
+  margin: 0 13px;
+
+  border-radius: 4px;
+
+  background: #159a65;
+}
+
+
+.manager-class-info {
+  min-width: 0;
+
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+
+.manager-class-info strong {
+  overflow: hidden;
+
+  color: #26312c;
+
+  font-size: 11px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.manager-class-info span {
+  overflow: hidden;
+
+  color: #929b97;
+
+  font-size: 9px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.manager-class-count {
+  padding: 5px 7px;
+
+  border-radius: 5px;
+
+  background: #f1f5f3;
+
+  color: #68736e;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   QUICK ACTIONS
+========================================================= */
+
+.manager-quick-section {
+  background: transparent;
+}
+
+
+.manager-section-title {
+  margin-bottom: 12px;
+}
+
+
+.manager-section-title h3 {
+  margin: 0 0 4px;
+
+  color: #202a25;
+
+  font-size: 15px;
+}
+
+
+.manager-section-title p {
+  margin: 0;
+
+  color: #8c9691;
+
+  font-size: 11px;
+}
+
+
+.manager-quick-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 15px;
+}
+
+
+.manager-quick-card {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  width: 100%;
+
+  padding: 15px;
+
+  border: 1px solid #e5ebe8;
+
+  border-radius: 10px;
+
+  background: white;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+.manager-quick-card:hover {
+  border-color: #b9ddce;
+
+  box-shadow:
+    0 5px 16px rgba(0, 0, 0, 0.05);
+
+  transform: translateY(-1px);
+}
+
+
+.manager-quick-icon {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 8px;
+
+  background: #e9f7f1;
+
+  color: #159a65;
+
+  font-size: 17px;
+  font-weight: 700;
+}
+
+
+.manager-quick-card > div {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+.manager-quick-card strong {
+  color: #26312c;
+
+  font-size: 11px;
+}
+
+
+.manager-quick-card div span {
+  color: #9aa39f;
+
+  font-size: 9px;
+}
+
+
+.manager-quick-arrow {
+  color: #a2aaa6;
+
+  font-size: 16px;
+}
+
+
+/* =========================================================
+   RESPONSIVE - TABLET
+========================================================= */
+
+@media (max-width: 1100px) {
+
+  .manager-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .manager-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE - MOBILE
+========================================================= */
+
+@media (max-width: 800px) {
+
+  .manager-sidebar {
+    width: 72px;
+  }
+
+
+  .manager-brand {
+    justify-content: center;
+
+    padding: 0;
+  }
+
+
+  .manager-brand-text {
+    display: none;
+  }
+
+
+  .manager-nav-item,
+  .manager-logout-button {
+    justify-content: center;
+
+    padding: 12px 0;
+  }
+
+
+  .manager-nav-item span:last-child,
+  .manager-logout-button span:last-child {
+    display: none;
+  }
+
+
+  .manager-main {
+    width: calc(100% - 72px);
+
+    margin-left: 72px;
+  }
+
+
+  .manager-header {
+    padding: 0 20px;
+  }
+
+
+  .manager-profile-info,
+  .manager-profile-arrow {
+    display: none;
+  }
+
+
+  .manager-content {
+    padding: 25px 20px 30px;
+  }
+
+
+  .manager-welcome {
+    align-items: flex-start;
+
+    gap: 15px;
+  }
+
+
+  .manager-welcome h2 {
+    font-size: 21px;
+  }
+
+
+  .manager-date {
+    min-width: auto;
+  }
+
+
+  .manager-quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE - SMALL MOBILE
+========================================================= */
+
+@media (max-width: 500px) {
+
+  .manager-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .manager-welcome {
+    flex-direction: column;
+  }
+
+
+  .manager-date {
+    width: 100%;
+
+    text-align: left;
+  }
+
+
+  .manager-header-title h1 {
+    font-size: 19px;
+  }
+
+
+  .manager-content {
+    padding: 20px 14px 25px;
+  }
+
+
+  .manager-header {
+    padding: 0 14px;
+  }
+
+
+  .manager-chart {
+    height: 250px;
+
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+
+  .manager-chart-y-axis {
+    width: 35px;
+  }
+
+}

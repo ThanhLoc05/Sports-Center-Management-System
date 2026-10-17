@@ -1,0 +1,1129 @@
+{
+  "project": "Sports-Center-Management-System",
+  "handover_date": "2026-10-15",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "entry_guide": "HUONG-DAN-BAN-GIAO.html",
+  "default_mode": "demo",
+  "includes": [
+    "current frontend source (including uncommitted work)",
+    "backend snapshot",
+    "reference frontend snapshot",
+    "demo dist build",
+    "documentation and screenshots",
+    "portable upstream Git bundle"
+  ],
+  "excludes": [
+    "node_modules",
+    "working .git metadata",
+    "private .env files",
+    "caches and test/build intermediates",
+    "browser localStorage/sessionStorage"
+  ],
+  "files": [
+    {
+      "path": ".dockerignore",
+      "bytes": 92,
+      "sha256": "94505d2276e7cabc6ed4c5cc8f4d09f26a8defff5384fd26e561b9251662c008"
+    },
+    {
+      "path": ".env.example",
+      "bytes": 283,
+      "sha256": "a07c38b5ccd66fc57eb9c0cf8cb933f2062a7c2fe27d2d058e8cebbb1846442e"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 113,
+      "sha256": "ac2134470ec1b67eba04dad617ab81a9ed783711614b12b72c3b3189f57c9c6f"
+    },
+    {
+      "path": "Dockerfile",
+      "bytes": 627,
+      "sha256": "73d4a11d249f408a24d63c0fb24ae4170ef6e9297d3e1a90db8c6104e28a0c14"
+    },
+    {
+      "path": "HUONG-DAN-BAN-GIAO.html",
+      "bytes": 27287,
+      "sha256": "c34920a3bee5ac4945789a1d7cc061d2d12515847dcb3b3e7673c3de7592a32a"
+    },
+    {
+      "path": "HUONG-DAN-BAN-GIAO.md",
+      "bytes": 19197,
+      "sha256": "c1550b4b542a5faed976bc13cee8f415db222cbb7cbe3a36499a59447f5bb54c"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5402,
+      "sha256": "10e16b4b2330ee0f4c1126d61f461334ba3bfbe4c5296954f8e231aab483e15e"
+    },
+    {
+      "path": "backend/.gitattributes",
+      "bytes": 38,
+      "sha256": "5775a77ad2f6d12dde053a3fb0cca4309189163f0888f4e7e984cd0ab327028b"
+    },
+    {
+      "path": "backend/.gitignore",
+      "bytes": 394,
+      "sha256": "089382e4d7944ab6cb6900a1269678ebff93c00d441ada788cd05a8da182b22b"
+    },
+    {
+      "path": "backend/.mvn/wrapper/maven-wrapper.properties",
+      "bytes": 168,
+      "sha256": "488e1b3f2e641779d4636abf9390845f901e64607261bc3c0b0bfe4fe96e6706"
+    },
+    {
+      "path": "backend/README.md",
+      "bytes": 2858,
+      "sha256": "7722b94479e12245290771bb12b97c14959797e033ded78b58e1cd54f9d9d86c"
+    },
+    {
+      "path": "backend/mvnw",
+      "bytes": 11790,
+      "sha256": "cae96cef89ebea3531221f4ae17c23cf8edf67d00eae8306d4186ae1bbed4d02"
+    },
+    {
+      "path": "backend/mvnw.cmd",
+      "bytes": 8292,
+      "sha256": "4a361e1374a3e5ad6d03e18e9adc0cf181ac5058ac6203b76f0ba3b456b56481"
+    },
+    {
+      "path": "backend/pom.xml",
+      "bytes": 5566,
+      "sha256": "a9319bad8f1717cf6e5aa82243fdfc31d6a4262cf12d3acdc67b97204fd745af"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/SportsCenterApplication.java",
+      "bytes": 3185,
+      "sha256": "a627b1fe88aad9235a8740d305c954b1d01d4d18c2bc23d2815d8ca5ed9f6c8b"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/auth/JwtAuthenticationFilter.java",
+      "bytes": 2722,
+      "sha256": "a715e1b4180d560ac9c98b18847d4629d85a3f1f52df2a948685d87b1c95f2b6"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/auth/JwtService.java",
+      "bytes": 1931,
+      "sha256": "6d2f393b0ada139bf42d05d967b9004fd125215f589b4fe61759b939d6fd574c"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/auth/SecurityUtils.java",
+      "bytes": 2106,
+      "sha256": "e21dd784a13746714d88030135d51e04dec62be707de3d0c6542d5f9e79996e1"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/ApiExceptionHandler.java",
+      "bytes": 1261,
+      "sha256": "75702ca77b9b27f4791d31b056d84decb37699953b1eb57baaf5878c9575d44b"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/AttendanceController.java",
+      "bytes": 3636,
+      "sha256": "ae2a98a2e2eece0c3a1bfa3b3e6a7d3672ff3f3091afb33b8e63cdfceee1c46e"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/BookingController.java",
+      "bytes": 3433,
+      "sha256": "fcd6aaa24653c4846d3c9f5b735c8aa146da17427b65708fae61015c386bf279"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/ClassController.java",
+      "bytes": 2345,
+      "sha256": "43a25c55a6f9eeb922e1de70abf34fdf4eeca5062f0e6d17cb1c337565b718ad"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/MembershipController.java",
+      "bytes": 4675,
+      "sha256": "0c55d851683ac308ea6cd91bc72af3dacf37d3dee8913219acfbc8e1258a6d52"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/PaymentController.java",
+      "bytes": 3318,
+      "sha256": "51def32ca1731efb4e60c15e8d1ae4a70214fb8ac5aa5876d0645894962a24c8"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/ReportController.java",
+      "bytes": 1209,
+      "sha256": "551636f47d6dc7e3ec2fb5e45ac94a93d60352effcd68099a174337f6f10edeb"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/controller/UserController.java",
+      "bytes": 3470,
+      "sha256": "9d4c55470f1b2119ee0359da4a1bf7d73ca4115f27573ea6124899efc08d4994"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/AttendanceRequest.java",
+      "bytes": 289,
+      "sha256": "a309a9d8b3bedefbaf4c21d5db4420b547fa58285f8a88461d100244ae7caf33"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/BookingRequest.java",
+      "bytes": 224,
+      "sha256": "404f425a340707bc44edb445be4b3f73fe1654a7380e10b6cc24251fe6f0e382"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/ClassRequest.java",
+      "bytes": 455,
+      "sha256": "0ac99e148f998f5d54e986d910a7a1328e81835bc3784cf36f660fc167f26a43"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/InvoiceRequest.java",
+      "bytes": 400,
+      "sha256": "fceebabf46d413cef12ff6732491b82048171fec0deb106994d5a85c049ed864"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/LoginRequest.java",
+      "bytes": 350,
+      "sha256": "44e4d797cfbdc4a0c2ac1c6a1fe9c1bfbba65d79c2cb26debcd5cbf803f7d2b1"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/MemberProfileRequest.java",
+      "bytes": 348,
+      "sha256": "8b8d60162ec906194cdae0d26261435b86c678a91f2cfe0ff769fb4c4b6dd5f8"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/MemberSubscriptionRequest.java",
+      "bytes": 360,
+      "sha256": "7e2cd111226af09e196269d73d273b514067ca6963f5af891d08fc142456c2ca"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/MembershipPackageRequest.java",
+      "bytes": 363,
+      "sha256": "d8a4c9ea0df856bca2ea98a126e13ea91424ec218a3a799b5d667be28347802e"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/RegisterRequest.java",
+      "bytes": 501,
+      "sha256": "2fb4952a52a990b2b0dfdf7d8a7d8a2046bf836c19f3f5c1e15720dd5c94bef5"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/RoomRequest.java",
+      "bytes": 221,
+      "sha256": "5ef59e4e185ec54b4c618db7b92e6856aedb76f6c111eda8434de8eb66b9e174"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Request/SportRequest.java",
+      "bytes": 225,
+      "sha256": "82c8e8762703ed8b81407ef711704b29900c1f83cc0a06914b7d3c0449da0eb8"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/AttendanceResponse.java",
+      "bytes": 389,
+      "sha256": "ad4bca47ee632a3aa4b17e37bb929a2dbd7bb58960b2dabe042b62913ac3e39c"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/BookingResponse.java",
+      "bytes": 349,
+      "sha256": "2734184526d2e0f3a12f26da493c3e1f092ec192ffe47b4a15cded08989c4f61"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/ClassResponse.java",
+      "bytes": 482,
+      "sha256": "b8365f192127f25703156cb7c7863927987388f06b8dab37e174db8660b5202c"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/ClassStudentResponse.java",
+      "bytes": 452,
+      "sha256": "a0be2d34b3c77c898bdd4ac8f7c99f69c94668964aa571c6295e18a25b8e996c"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/InvoiceResponse.java",
+      "bytes": 497,
+      "sha256": "9cf6f2b669c7417e42d4b715221512964b9d2e6e40282ed3f42d2a231be82d77"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/LoginResponse.java",
+      "bytes": 222,
+      "sha256": "a955c0c0c06eca787b6553b9f3c9523bd88cd3d1db414495862917d0b463db75"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/MemberProfileResponse.java",
+      "bytes": 350,
+      "sha256": "73a17256d5260f9e0792f365e494d99d559753af0e307d33accde60d700eee91"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/MemberSubscriptionResponse.java",
+      "bytes": 387,
+      "sha256": "8c073e882660ab4bcc43cb0e0a6038c7d33e59793a6be2412a26c9770d30441b"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/MembershipPackageResponse.java",
+      "bytes": 390,
+      "sha256": "f4d2aaa977b5a799e144ab569907af52f6eabbeb0e75330f502668a2f531a7a7"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/RoomResponse.java",
+      "bytes": 248,
+      "sha256": "70af26d74b5f315244d95985074288b89ea34afd6de471c55b9c4d6a83b24ff8"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/SportResponse.java",
+      "bytes": 252,
+      "sha256": "76071d33cf50699fb8acfada157a86746674927951801dc48d2ad4ad060b3a03"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/dto/Response/UserResponse.java",
+      "bytes": 329,
+      "sha256": "eb5fae20b516451328bc76633ec43e6982feacb0c38e11c694504b720c188595"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/Attendance.java",
+      "bytes": 760,
+      "sha256": "517d74666179a17ace88e8dd78c503f090b9df035495c5608d40b56fc917c810"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/ClassBooking.java",
+      "bytes": 885,
+      "sha256": "4c8c2f9f755050f09f20241b17f33ac6c682a010c8ccf7fdf69a275004588675"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/Classes.java",
+      "bytes": 1018,
+      "sha256": "4f661cc7568b69d84169f3072aa73519000a20398a291847d25cdf144f8e65dd"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/Invoice.java",
+      "bytes": 969,
+      "sha256": "17e90740e9c0224ca6c8294369b8c81b5a28844e2b165f4b4db79c257bbe7b86"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/MemberProfile.java",
+      "bytes": 678,
+      "sha256": "f2bf6363fa30490b859af72b5be772bf121f783f62a2c7c59c57776ab73b2b8f"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/MemberSubscription.java",
+      "bytes": 781,
+      "sha256": "092c6a44c34ed093e9df5acb2c56454776696c0338ce44bdaa143c4aa3aa413f"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/MembershipPackage.java",
+      "bytes": 791,
+      "sha256": "c9afd18b8790d10a98002105b556cd1f931410a94a1fe27d46a7486c71543cb1"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/Role.java",
+      "bytes": 423,
+      "sha256": "3504faaf875d90c36b20bc54e0cdbea70b4d7b82469d6db77a1aa3e7db89edb1"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/Room.java",
+      "bytes": 488,
+      "sha256": "fd41665c6b093ab686edc8c87af87f0203406c4aacafaced7dfefe07ef33d32c"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/Sport.java",
+      "bytes": 480,
+      "sha256": "1564a3dc40e2fc9ab7ccd4b515d381560e5f4d8efc27b2213d28f02f57ae7cfe"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/entity/User.java",
+      "bytes": 948,
+      "sha256": "299442089fedf2887bf31768361a43f753f293d733e04a4db056be4ed1b986dd"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/AttendanceRepository.java",
+      "bytes": 2105,
+      "sha256": "1c44332c760cddbd1fd2334c69ca97d6518909845345d3a020167a23d5be2d4b"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/ClassBookingRepository.java",
+      "bytes": 2661,
+      "sha256": "757493fc11dcd103c8b483f31030ab2acdb4e2191b8934c5eb0e64438a2a871e"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/ClassRepository.java",
+      "bytes": 2542,
+      "sha256": "9bca59637606c4f7e942c92ca1b65465e48237e0d0b44430cbcf9926ff476495"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/InvoiceRepository.java",
+      "bytes": 1132,
+      "sha256": "61866ca4b33d7df4a34d6c817bb22bd34dc2509a1cf777ce4de26696cf8d8d6d"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/MemberProfileRepository.java",
+      "bytes": 757,
+      "sha256": "35bd3fe0b4a7e3ac61355fb2864cffadbeed82655a5c3b079029856ecd47d056"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/MemberSubscriptionRepository.java",
+      "bytes": 2109,
+      "sha256": "a17d617c0e640987c17b71979d45adcf9997cf929d189d8be12b5661ec37d661"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/MembershipPackageRepository.java",
+      "bytes": 768,
+      "sha256": "dbe0be68e0a5e89f1c1732d8d40c8be1c0e7b302fee736198ab97394560345f0"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/RoleRepository.java",
+      "bytes": 680,
+      "sha256": "e29a74eca36993f483ba8d7e5fc27071ad1e79111257f42f344cbac7ff85ffb2"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/RoomRepository.java",
+      "bytes": 910,
+      "sha256": "d8bc29625ad4cc0b02576260319c24c97aa0136aaa1007eaada2ed8fccc8732e"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/SportRepository.java",
+      "bytes": 696,
+      "sha256": "cbbe3e030332711fd6a657f1cb760d18e16e1116d1e4b08fecba24e80fc1f7d2"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/repository/UserRepository.java",
+      "bytes": 1545,
+      "sha256": "2758fb71a8bf46bcaadf6faec2614192f0d52f50b2e58f63dd09654a8bb088e0"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/AttendanceService.java",
+      "bytes": 1974,
+      "sha256": "198e3ab1a7c1a1659e4058c7de1938dd2fe9261caa32c84d4d89448f1d9d61ce"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/BookingService.java",
+      "bytes": 652,
+      "sha256": "33459478631f6f867626b9a5d62d8f0be74719fc5d69cf0c1ba5ff1e7538406a"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/ClassService.java",
+      "bytes": 2069,
+      "sha256": "163616e2d2fb06a0f26eb868b81653c7696e6507eb4d31dce337cc4fdca3920a"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/MembershipService.java",
+      "bytes": 2172,
+      "sha256": "a4f564bd329f4b1ecba4b19fc58b713c0dad7212d6512a534cc59e8cbc5d8c19"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/PaymentService.java",
+      "bytes": 843,
+      "sha256": "a97ee68c5664834ae6f2fd951e7034ddabe17adfecec213201b0cec00c7c63e7"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/UserService.java",
+      "bytes": 993,
+      "sha256": "6ca135d398738b9586187cdf78387b8d9870a4af43ab8ae45cb1d8409893d67d"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/impl/AttendanceServiceImpl.java",
+      "bytes": 7934,
+      "sha256": "1e02993d760f4d2191ce194cfb316d1d6b3e14306a74cc7b2a819007b0f37cce"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/impl/BookingServiceImpl.java",
+      "bytes": 6032,
+      "sha256": "56bfbe6e56e9ca960673aab99c96d117245e0cd9ed0d302a6069fa50e05d7c2e"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/impl/ClassServiceImpl.java",
+      "bytes": 10235,
+      "sha256": "02454b16a7521d68394d7f59711e293972aa608024713fd179965d98d0195521"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/impl/MembershipServiceImpl.java",
+      "bytes": 7276,
+      "sha256": "e55ded6d1125ef82582b0b28a6fca05910e50b5b7e379be79375c360e39eea30"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/impl/PaymentServiceImpl.java",
+      "bytes": 8532,
+      "sha256": "50c83fd10238d93ef96f624ebb196e807c96069f8bd8c2bc55432c9e4a4780a3"
+    },
+    {
+      "path": "backend/src/main/java/com/sportscenter/management/service/impl/UserServiceImpl.java",
+      "bytes": 6568,
+      "sha256": "83acd2f089f76b6b50a99fd7c42058215dc94bfa6d08bf6d24fc6810b46883cd"
+    },
+    {
+      "path": "backend/src/main/resources/application.yaml",
+      "bytes": 593,
+      "sha256": "b3cdbadb62d905656b6d030d6428fa04d920521a412d072fda77e689c625a4a6"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V1__core_flows.sql",
+      "bytes": 10844,
+      "sha256": "2f0ba763c1db4b17b50d06122b67473cb76cbdf2f53c84c1f777c45fb04dcf12"
+    },
+    {
+      "path": "backend/src/test/java/com/sportscenter/SportsCenterApplicationTests.java",
+      "bytes": 223,
+      "sha256": "e431ebad7ac0138fe7457925ef67c0b06271e133754c2163e3730ff178b4298e"
+    },
+    {
+      "path": "backend/src/test/java/com/sportscenter/auth/JwtServiceTest.java",
+      "bytes": 1913,
+      "sha256": "d129f01597dead26d141d51dc2a34e8611cdb5c2dabeeb080dc8f9da6a658716"
+    },
+    {
+      "path": "backend/src/test/java/com/sportscenter/management/sportcenter/SportCenterApplicationTests.java",
+      "bytes": 245,
+      "sha256": "2ea81c388d15021502a85d2504fce4a3dbb8aafd5e1e2dfd8eb3f27fefaeeab7"
+    },
+    {
+      "path": "backend/test-api.http",
+      "bytes": 7776,
+      "sha256": "59f982a810deb3a009314a7b39f3f1671bc2d7e82d8bdac67e329964d17a3c16"
+    },
+    {
+      "path": "deploy/default.conf.template",
+      "bytes": 1181,
+      "sha256": "5f4bfbce2681ef18b5bad4916cbdea187d6cb5d52a0c9530dcd9505a60feab2e"
+    },
+    {
+      "path": "dist/assets/Assistant-CQyabCey.js",
+      "bytes": 9436,
+      "sha256": "5bacd22c97da713e64c64c8d4e573f074fb6fd5bc8ee94151c54c18c13007dd8"
+    },
+    {
+      "path": "dist/assets/Attendance-z1fvA4_W.js",
+      "bytes": 7563,
+      "sha256": "a97845db99e6260ca802f4f0b5e3a3e1f57bd4dd532bf1b4dc73b0dfc4be5630"
+    },
+    {
+      "path": "dist/assets/Audit-7MsiUeJ7.js",
+      "bytes": 1715,
+      "sha256": "6fa9eacc21330ec254f48bd562de88733df807a1f520269d1c1fb02ae0c32f88"
+    },
+    {
+      "path": "dist/assets/Auth-DAhcozRV.js",
+      "bytes": 6214,
+      "sha256": "d7b1d5c1f1ddffbb04edc50cd12f5254e34bfb0bd2a76183b6efe202dfb80e0c"
+    },
+    {
+      "path": "dist/assets/Bookings-C2vDtsDx.js",
+      "bytes": 5405,
+      "sha256": "9a9331635efa80f387c70f1a4107f11bd0d38ffe6beb62ca84cf93a192a52151"
+    },
+    {
+      "path": "dist/assets/Classes-Duvtn2XL.js",
+      "bytes": 13617,
+      "sha256": "9c028534ad1143e33fd3c5075ac096372643cd5c45b63c5507650900f47554ce"
+    },
+    {
+      "path": "dist/assets/Dashboard-NVhvwJMG.js",
+      "bytes": 15521,
+      "sha256": "9e501eda4d4c28dbd7b9f1b28e20a2cf87b41957787dc2c48c77bdf406f38e73"
+    },
+    {
+      "path": "dist/assets/Facilities-DGDXnEFv.js",
+      "bytes": 4319,
+      "sha256": "f148436726b0420a6c8003b5efd44302aa013a4ca395ed5a9b15b4e6b8213a32"
+    },
+    {
+      "path": "dist/assets/Members-34rJRS7k.js",
+      "bytes": 10119,
+      "sha256": "7a97600068c767e1f8a6b154b3088c1af8f762388d62a38e0e6314b04371acf6"
+    },
+    {
+      "path": "dist/assets/Memberships-CkNq_Go3.js",
+      "bytes": 9190,
+      "sha256": "2a8fb061f2eb8bea0cea23861425573f3c07066c215c8317ecb64bbb43b9773f"
+    },
+    {
+      "path": "dist/assets/Payments-BanR3DE_.js",
+      "bytes": 11210,
+      "sha256": "5397dc9cd0008a77ee8968416f2c48d67bc2c045c93132f01f852f8ae2d531df"
+    },
+    {
+      "path": "dist/assets/Reports-CK18md8x.js",
+      "bytes": 8060,
+      "sha256": "dd6263eb50bbc2c40010f8eec402d6201157531792ba42f34702ffdc5178199e"
+    },
+    {
+      "path": "dist/assets/Schedule-BRHEAYm_.js",
+      "bytes": 5946,
+      "sha256": "5a14847edc194eaa5c42afc4db511bfba04189daf98c0390e0bad4f2333188c6"
+    },
+    {
+      "path": "dist/assets/Settings-C05zqG3D.js",
+      "bytes": 11807,
+      "sha256": "4fae559ea8a96b8da83c45d2c711ce896d1136005a845e1fcab3df7a1fc5ccf4"
+    },
+    {
+      "path": "dist/assets/Support-5wUvn80A.js",
+      "bytes": 4640,
+      "sha256": "b5619831cb11a9a0b39e2105af85896e7573050ae5d19a2f3dc9b78133df7d9e"
+    },
+    {
+      "path": "dist/assets/Training-ODUFn8P5.js",
+      "bytes": 8864,
+      "sha256": "77b2c55297c63032aaef0ee1b7df47a43420829adc7730399c415e03da59bc0a"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-400-normal-PpnXBOrz.woff2",
+      "bytes": 21168,
+      "sha256": "03d1b589cff172e1a670b3573e731d3380bc326f80cf83b0d3504e3188e2e074"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-400-normal-bXgqVju9.woff",
+      "bytes": 16432,
+      "sha256": "c0190200223755a3c52bb47b9cf6c3604f19288599cfbbe5026904d5d439f7d7"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-500-normal-B6LVzGNe.woff2",
+      "bytes": 21892,
+      "sha256": "b621f77d35f777023aa11ca524462d511b4b28a813adbc0e9d15a10fc61dfe4e"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-500-normal-BJkVuMHw.woff",
+      "bytes": 16996,
+      "sha256": "0a905f6bc6f1120d20ad3dde690989db3149a98227026f2de47dca6aef71edab"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-600-normal-5IO4e7bK.woff",
+      "bytes": 17016,
+      "sha256": "f900efb46ec81e9ff6017c6868f3f47cebde34ac87da16cc587da0e0b1f4c1d4"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-600-normal-BZDkUTrt.woff2",
+      "bytes": 22032,
+      "sha256": "9503dec2a7c532c8331e9600bcafea287a4fd208573b8668d85ab8d8de1863c7"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-700-normal-C2EtzaOi.woff",
+      "bytes": 16908,
+      "sha256": "f44cc3417bd1fcbddaaec0c02d5383dfcf34a16ef1fc32f8cf179ea4a468861b"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-latin-700-normal-DlW1Zbsh.woff2",
+      "bytes": 22152,
+      "sha256": "a193dd87699bd2e18ddf72dc271493ea82a23dad9f5c334d9f2a257b1e05fc30"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-400-normal-BuGn0gnm.woff",
+      "bytes": 6568,
+      "sha256": "4d50c7991ca377aef28fb1fb24d4ce7ea64d69f6bd2661e7e74fb9d9fef11dc0"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-400-normal-CRcqvyg1.woff2",
+      "bytes": 11532,
+      "sha256": "dc085e2fba3414e5c5bf1e6172f921a9f81c5859946a4ed3d63c1e470d96a9e2"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-500-normal-CfdwVo8-.woff",
+      "bytes": 6884,
+      "sha256": "6b81283a46623b9a99bc7a1800f936549ead1f871d1dfcd803ddcd18c433a7d8"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-500-normal-DREgrEoJ.woff2",
+      "bytes": 12172,
+      "sha256": "86341610cbe907eecf461c9159c168d5efb52bb1a33963813a08f520555d8e66"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-600-normal-DkpCIyan.woff",
+      "bytes": 6880,
+      "sha256": "2d68010bd89add4c477e9c9c3ef29b78a68f76439309f4633c91a8674e9ba751"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-600-normal-nyU-ZL2p.woff2",
+      "bytes": 12176,
+      "sha256": "97658c6f9a384f29a3005c3d96e2a0d1c810192cf68979071c290f5a377a9f99"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-700-normal-By_5yT39.woff",
+      "bytes": 6892,
+      "sha256": "4fa311d11645e588ac98d0e665920fd55eb0eb624c600d9e5dd007f4b9d5159c"
+    },
+    {
+      "path": "dist/assets/be-vietnam-pro-vietnamese-700-normal-Csr0PCuG.woff2",
+      "bytes": 12468,
+      "sha256": "4f58af2d1c3e28a9ba14c51c82db2751d78344b75bdcb34de24a1031ebe59da6"
+    },
+    {
+      "path": "dist/assets/catalog-D5DhFsAw.js",
+      "bytes": 257,
+      "sha256": "495154691908373050ae20844638ea5037880f949b67e91dee52cb288802cf98"
+    },
+    {
+      "path": "dist/assets/charts-ByJjGgBF.js",
+      "bytes": 403069,
+      "sha256": "4e6840fbcf9631699bf5350856ca7ff632327422c00a2b2f2af15a82709b19f8"
+    },
+    {
+      "path": "dist/assets/chevron-left-uGeWjViF.js",
+      "bytes": 126,
+      "sha256": "001cfe3f961e0bfd9df5515d58484d17bd983969485b3e66078551b40cd213e9"
+    },
+    {
+      "path": "dist/assets/clock-3-CzZ9iAP7.js",
+      "bytes": 178,
+      "sha256": "ad85e3e7a9f693f3ff3f509dc7534ae764c05823c287beebdfac6b749078b7e5"
+    },
+    {
+      "path": "dist/assets/index-BQcdz_AH.css",
+      "bytes": 101892,
+      "sha256": "ba3ea4774b3fe9b0c1c41967fd8aac2d74150c99612af52dff0a92058de293e3"
+    },
+    {
+      "path": "dist/assets/index-VzAWzKM7.js",
+      "bytes": 300447,
+      "sha256": "fde5dde05267b0b98cf3648ba6bfa9d340828ebd382fc2b232feea0193cfb6eb"
+    },
+    {
+      "path": "dist/assets/leaf-BDPf3bRf.js",
+      "bytes": 262,
+      "sha256": "b373110932133288cadaf44aa7d6e18a76f682376a4dd9745600009f7e3b5018"
+    },
+    {
+      "path": "dist/assets/pencil-QXvX_DjN.js",
+      "bytes": 273,
+      "sha256": "cb4ecf858d4649901a741a9f7640abf8f9a1fef50f37cd6ec9834c85f9d93279"
+    },
+    {
+      "path": "dist/assets/plus-BTU4HPHU.js",
+      "bytes": 150,
+      "sha256": "b210cedf78679bffdc1568df76f6ebd1c895a6d595349c26c96a8b2d462eae0b"
+    },
+    {
+      "path": "dist/assets/react-DMu_yZwF.js",
+      "bytes": 51539,
+      "sha256": "f0b413be2db08471f0afad3c30331bc11f5768d77cded45c38a823b95392ba02"
+    },
+    {
+      "path": "dist/assets/refresh-cw-CMRpOrj4.js",
+      "bytes": 317,
+      "sha256": "b3f4d7aeb2d1ed61d72d11048a6177c49bde800d96529cfca4d5d619b264d1f2"
+    },
+    {
+      "path": "dist/assets/scan-line-Co9w3eg9.js",
+      "bytes": 327,
+      "sha256": "7ef844923b076a814f7fc22b0a78af413b709e2c846c5359265149eb24e4d253"
+    },
+    {
+      "path": "dist/assets/target-C_9MCV4L.js",
+      "bytes": 218,
+      "sha256": "0c5af5f5a7beca087738b45f5ac8bc75d91bc2aa25394c517c3defaaf5153474"
+    },
+    {
+      "path": "dist/assets/trash-2-BdQvJWzy.js",
+      "bytes": 354,
+      "sha256": "80b4f6e720b2ab147b55c9baea42575e4904bdde4c0678ba01418cae0afc5e89"
+    },
+    {
+      "path": "dist/assets/trending-up-dlxGGHox.js",
+      "bytes": 201,
+      "sha256": "40771066f3dacb73e4966e43556bd5dd6bdd4ab58256a6a4a24a3da4ef9aba5f"
+    },
+    {
+      "path": "dist/favicon.svg",
+      "bytes": 252,
+      "sha256": "01249cab64973fb436bc2a3d3a52fa9028ef9b0280cabbbde040528ed73d742a"
+    },
+    {
+      "path": "dist/index.html",
+      "bytes": 819,
+      "sha256": "71ca1945c0dafe5fc29a7cce42a579bdcc1d336396b28ce3d9ee6d24a6cf985e"
+    },
+    {
+      "path": "docs/API-CONTRACT.md",
+      "bytes": 7117,
+      "sha256": "cb7110cdb19ed920040fc1818dc915100eba1ff840e65f3ccf6cf3641e5e7cf9"
+    },
+    {
+      "path": "docs/AUDIT.md",
+      "bytes": 13928,
+      "sha256": "071faa98d81a7be220c6864175a0b1bfe1df849a5f77585f60d5a8db8f47bc3b"
+    },
+    {
+      "path": "docs/DEPLOYMENT.md",
+      "bytes": 3967,
+      "sha256": "ddb5727f348b2de71c58bf692d42b1ad50bd8c7b9416e435180540308f482436"
+    },
+    {
+      "path": "docs/QA.md",
+      "bytes": 5800,
+      "sha256": "e3dd613a16cb9e72f120cb46af38da489cfb8e0aa5698e752a0cc07f911b7bad"
+    },
+    {
+      "path": "docs/openapi.json",
+      "bytes": 18040,
+      "sha256": "622a9c024630e7c67ff3378f92a25caf220fc1f0c8bb6a8a4a9363910d693cbc"
+    },
+    {
+      "path": "docs/screenshots/classes-mobile.jpg",
+      "bytes": 26560,
+      "sha256": "2217aa4506d9734544e9043faf6bcb2f6d0e37bce7d2b0065c55c90b036afb8d"
+    },
+    {
+      "path": "docs/screenshots/dashboard-desktop.jpg",
+      "bytes": 167292,
+      "sha256": "abb67cb57160b4abbd20b4fa8bf61a3fa676eb2ccd820ff5f8986df4b1f38d8b"
+    },
+    {
+      "path": "docs/screenshots/dashboard-mobile.jpg",
+      "bytes": 33312,
+      "sha256": "55555dfc533fc737bbf58cff5d2205ad75dd3fe7016e56036f10b9c66c7157b9"
+    },
+    {
+      "path": "docs/screenshots/dashboard-preview.jpg",
+      "bytes": 70193,
+      "sha256": "ad6ae96a25bc46f922ab72fa385ea9217f48588b9285540aa9d64a1c42d2ee69"
+    },
+    {
+      "path": "git-history/upstream.bundle",
+      "bytes": 184328,
+      "sha256": "00d98e1e0e0c00f9c59b73bfdddfebb9e2c9e01efe8c4b5bca4a00753578f15c"
+    },
+    {
+      "path": "index.html",
+      "bytes": 645,
+      "sha256": "a5aab837ac60c42bf9ff51759fed032bdb8f8b35204ad06b2ccbdd8497a54bf9"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 131622,
+      "sha256": "b97b56b90075d4b71dd447e6458b5d9930f645813d337073f6468f91355e6da4"
+    },
+    {
+      "path": "package.json",
+      "bytes": 1333,
+      "sha256": "16fa7998f24e3c2ed998d43d537a579ce7ab2bbc50f0ebd89ab47ad46cff69d5"
+    },
+    {
+      "path": "public/favicon.svg",
+      "bytes": 252,
+      "sha256": "01249cab64973fb436bc2a3d3a52fa9028ef9b0280cabbbde040528ed73d742a"
+    },
+    {
+      "path": "reference/frontend/.gitignore",
+      "bytes": 253,
+      "sha256": "fe718e7babb14f3cbad2d97f08889b9ce5215ed3fe0e43b2b8cfbfb3b9b844e8"
+    },
+    {
+      "path": "reference/frontend/README.md",
+      "bytes": 33,
+      "sha256": "252f6d6979656321c09e6506273af214a6d5b043111ae760bd53738eaf8732f0"
+    },
+    {
+      "path": "reference/frontend/eslint.config.js",
+      "bytes": 568,
+      "sha256": "0197d9a843aaae267303c4d1ab1a43afad1afacc7646cdf6cf94a5af6b815fb8"
+    },
+    {
+      "path": "reference/frontend/index.html",
+      "bytes": 379,
+      "sha256": "88d79448cfbd688925d6e84e5672fec2f4fb669b4d4f4ef27366a2ed308f372e"
+    },
+    {
+      "path": "reference/frontend/package-lock.json",
+      "bytes": 86575,
+      "sha256": "2a0c6e285987135a0caccfcea86f9f9235edcccc35d3616f61096ba6416d5d3d"
+    },
+    {
+      "path": "reference/frontend/package.json",
+      "bytes": 660,
+      "sha256": "28f2fa372ab3b8951ec12b08e987735090d9f652adbe763ef613c6848e7ca583"
+    },
+    {
+      "path": "reference/frontend/public/favicon.svg",
+      "bytes": 9522,
+      "sha256": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66"
+    },
+    {
+      "path": "reference/frontend/public/icons.svg",
+      "bytes": 5031,
+      "sha256": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a"
+    },
+    {
+      "path": "reference/frontend/src/App.css",
+      "bytes": 2891,
+      "sha256": "6e25a776d3e8102da5bacb3cb99f4a5fc662a2e01e6143140671a556d28c3d5c"
+    },
+    {
+      "path": "reference/frontend/src/App.jsx",
+      "bytes": 2746,
+      "sha256": "bdc1c7e7b1faed4866e3f73960ba33e6bbc4f24f7053ded1f86dc65f7eb4ad65"
+    },
+    {
+      "path": "reference/frontend/src/assets/hero.png",
+      "bytes": 13057,
+      "sha256": "881ffbcaafc212e49addad08846a5b82761355fa20624253af3477ba33262c5c"
+    },
+    {
+      "path": "reference/frontend/src/assets/react.svg",
+      "bytes": 4126,
+      "sha256": "35ef61ed53b323ae94a16a8ec659b3d0af3880698791133f23b084085ab1c2e5"
+    },
+    {
+      "path": "reference/frontend/src/assets/vite.svg",
+      "bytes": 8709,
+      "sha256": "5be21acd42eb7b896e517f4e0f0f11eb5c5d9e54fbbcebe9453f033008fcca6f"
+    },
+    {
+      "path": "reference/frontend/src/components/ProtectedRoute.jsx",
+      "bytes": 1896,
+      "sha256": "8fe8d60aa8f16f6976126cd42961f6c1a8120c29c2a64240ce09a0dc2be78d6d"
+    },
+    {
+      "path": "reference/frontend/src/index.css",
+      "bytes": 2645,
+      "sha256": "9bf688c8758cc316c03db4fa062a98565096cbeca4463b92363dff6c3a9fbdae"
+    },
+    {
+      "path": "reference/frontend/src/main.jsx",
+      "bytes": 229,
+      "sha256": "4b4b864dbe45253425d0c925337180ec07e204295179f80f59551216f466f618"
+    },
+    {
+      "path": "reference/frontend/src/pages/auth/LoginPage.css",
+      "bytes": 11377,
+      "sha256": "c0938e54172d4addb407159861f78d8af662bff14ea60b70971ba9963732710b"
+    },
+    {
+      "path": "reference/frontend/src/pages/auth/LoginPage.jsx",
+      "bytes": 11923,
+      "sha256": "7b7ac288b8d48442c2c17b13caf88405773330c634ddca7b5761b0dbb13cd96b"
+    },
+    {
+      "path": "reference/frontend/src/pages/auth/RegisterPage.css",
+      "bytes": 8066,
+      "sha256": "4510cde8236fce63d2d6853ea20acb674470a132f1c6b43c448c5b1229c15d6b"
+    },
+    {
+      "path": "reference/frontend/src/pages/auth/RegisterPage.jsx",
+      "bytes": 12544,
+      "sha256": "cfc0973ff690dd4f51e0e2e949321211ad206bd6730c2c8bbcf52b411f8ad9fb"
+    },
+    {
+      "path": "reference/frontend/src/pages/manager/ManagerPage.css",
+      "bytes": 15275,
+      "sha256": "85c49628216e6212748f995d6ec63cb3df02094ab06139a249df3ac2a1368796"
+    },
+    {
+      "path": "reference/frontend/src/pages/manager/ManagerPage.jsx",
+      "bytes": 17366,
+      "sha256": "bd06f11ce617cefdd2c1dba93a5951cf1998a72a9f20307ccdbe83f78d0c8718"
+    },
+    {
+      "path": "reference/frontend/src/pages/member/MemberPage.css",
+      "bytes": 16168,
+      "sha256": "ff82bcbbc974fd5db52e86e1036d3483d6ad417319f2bacc0f4f86ac7fad5a07"
+    },
+    {
+      "path": "reference/frontend/src/pages/member/MemberPage.jsx",
+      "bytes": 15228,
+      "sha256": "4d647b5c7e63033e336da35f1c2ecd71685497d756b451514c93b2083f94d609"
+    },
+    {
+      "path": "reference/frontend/vite.config.js",
+      "bytes": 161,
+      "sha256": "e1eefd0ed1639c88d1213884ef760516884db9e168190e223fee6b063ad3e088"
+    },
+    {
+      "path": "src/App.tsx",
+      "bytes": 4781,
+      "sha256": "bcd3b606eebb42c3812a99bf2c93f024aa8153a8ff071dff681f84d1b803a866"
+    },
+    {
+      "path": "src/components/Layout.tsx",
+      "bytes": 18539,
+      "sha256": "1f763dc986698959024bbe40c7fd51beba98f9491a46a8ac2bfc5cfb2b85ca49"
+    },
+    {
+      "path": "src/components/ui.tsx",
+      "bytes": 17419,
+      "sha256": "32753b2c86cc2baeb37da1beb73d4918aed4c7af2e9be2b57892035ce5ee3124"
+    },
+    {
+      "path": "src/lib/api.ts",
+      "bytes": 18681,
+      "sha256": "aeac533e3c107b07218b419f9c4d30549b26bbeeb8dee9e86c24b168966f6785"
+    },
+    {
+      "path": "src/lib/auth.tsx",
+      "bytes": 2100,
+      "sha256": "4e5cec3e2f6b303f4bdda786ec2a62dfd0bee59bd4542fded99219fd3107eda9"
+    },
+    {
+      "path": "src/lib/catalog.ts",
+      "bytes": 440,
+      "sha256": "3be4e6da9972d9db5f1c96924fb8b1b4a3f4afc7e06121e5aa383f01469ccd33"
+    },
+    {
+      "path": "src/lib/demo.ts",
+      "bytes": 9832,
+      "sha256": "eec10dd0bb5e07bc66205f353506eedd21196f1f26c1687c9f2cb4ab27fd61f3"
+    },
+    {
+      "path": "src/lib/hooks.ts",
+      "bytes": 1184,
+      "sha256": "8c84aaa8ce66cca4915ff78f243acf67f156b0654cdd732b6f69c9af25e38010"
+    },
+    {
+      "path": "src/lib/openapi.d.ts",
+      "bytes": 33773,
+      "sha256": "61f424b2906fef410f81bcb8974fe7743cf6174aef39cd68f94bfa7d317ec8fd"
+    },
+    {
+      "path": "src/lib/types.ts",
+      "bytes": 3158,
+      "sha256": "990ca347d3774b255b5309bcc83ee7a306c24d9b4cd47697f1c4e13068bcf48f"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "bytes": 3179,
+      "sha256": "6c23358248139f94cbe324cc65f0d9be3da91114ade916938005e8b0959e7ef2"
+    },
+    {
+      "path": "src/main.tsx",
+      "bytes": 1572,
+      "sha256": "45b41c02079b20bc878bb65222e45f1ec2143d42685435b2b6945c94d79f08ec"
+    },
+    {
+      "path": "src/pages/Assistant.tsx",
+      "bytes": 14458,
+      "sha256": "7bf39d421a21fb727c5f3a1c601252ef99c00e362c84250bff5166dadf7b9fd5"
+    },
+    {
+      "path": "src/pages/Attendance.tsx",
+      "bytes": 13197,
+      "sha256": "68ce75114c20f31afb623493480103c45ddc526786ae42c439a49550797ae28e"
+    },
+    {
+      "path": "src/pages/Audit.tsx",
+      "bytes": 2913,
+      "sha256": "46c23cd26dd640256e58a2ba912888739fdad9a2529d264e4e865e9e0388d2a0"
+    },
+    {
+      "path": "src/pages/Auth.tsx",
+      "bytes": 9166,
+      "sha256": "551505915d3b3e8f04dac9e327f52c456833470c4f933a03aac24d20886ee9d3"
+    },
+    {
+      "path": "src/pages/Bookings.tsx",
+      "bytes": 9698,
+      "sha256": "772787e46f2d546c864a18750509fff0403632bfdfa7f53521c7d772d0c466c3"
+    },
+    {
+      "path": "src/pages/Classes.tsx",
+      "bytes": 22476,
+      "sha256": "572fd91019f322a37588a7199b44cd8714de2f0006841bb7cce70553210ebcca"
+    },
+    {
+      "path": "src/pages/Dashboard.tsx",
+      "bytes": 28211,
+      "sha256": "d755200eb058f16a65227fa80d8d59f331f3de295b8c1f40e95830417bb02a20"
+    },
+    {
+      "path": "src/pages/Facilities.tsx",
+      "bytes": 7928,
+      "sha256": "f5b76dd5141349e542d879aebe5218afeb78a81530b39ce9ea86c747e4420df3"
+    },
+    {
+      "path": "src/pages/Members.tsx",
+      "bytes": 16683,
+      "sha256": "bbd297b5d193eb41c1ff226944affef2a320e1120bf6521f73f4705cb224479b"
+    },
+    {
+      "path": "src/pages/Memberships.tsx",
+      "bytes": 15536,
+      "sha256": "2e5ef819506dafbbed5c959beab374d6fc1eb37fdb1bfe1527181454c47e24f1"
+    },
+    {
+      "path": "src/pages/Payments.tsx",
+      "bytes": 17200,
+      "sha256": "2e19f4906752cef5323c13c9e6df966e5ab0d41566e8214899fda294fffedb59"
+    },
+    {
+      "path": "src/pages/Reports.tsx",
+      "bytes": 14180,
+      "sha256": "c936398dc28c926c51ad07e28136456f76ee687eb9f58aee50c248fe94636ff1"
+    },
+    {
+      "path": "src/pages/Schedule.tsx",
+      "bytes": 11769,
+      "sha256": "02c782a5dc9251ad2e4b703784226d7faa4bdfca70875545caa24c27a7fbe82e"
+    },
+    {
+      "path": "src/pages/Settings.tsx",
+      "bytes": 17795,
+      "sha256": "4d8d8fd5198b1d629441542a89587cec1c3d30270abe770ab5565bdc1ac706e5"
+    },
+    {
+      "path": "src/pages/Support.tsx",
+      "bytes": 7547,
+      "sha256": "3c2cdb08dc1c3c4ea9a3085b7f6cb79029e49d6dc3e80abe58120b0e2a8ad942"
+    },
+    {
+      "path": "src/pages/Training.tsx",
+      "bytes": 14750,
+      "sha256": "792b16825e870a4a594c6cf1237dca4d8ad94e9bb28d5131ab28f7ba8903e403"
+    },
+    {
+      "path": "src/styles-pages.css",
+      "bytes": 91781,
+      "sha256": "8084279dde96e5ef5e3d4098f98baf4f2658f1f41b7139354b3580aba104240d"
+    },
+    {
+      "path": "src/styles.css",
+      "bytes": 39239,
+      "sha256": "ebaff5668c784eef780b72687a4a88d445d1be6b889e9ee3e8ee58eb2d74aea0"
+    },
+    {
+      "path": "src/test/api.test.ts",
+      "bytes": 6238,
+      "sha256": "496fe5e49dbb91ab76f2edae84b0887574953d9faf9ef2e53fadfb9fb5d6f0db"
+    },
+    {
+      "path": "src/test/auth.test.tsx",
+      "bytes": 4567,
+      "sha256": "0865bb9f65819107466317cc3720b70e3fd1b250cdff05135d7d2413757e5945"
+    },
+    {
+      "path": "src/test/demo.test.ts",
+      "bytes": 6861,
+      "sha256": "b743f4de3f9c33668a294c1456bc90c99cd00dd9752e18d747adacef396cc747"
+    },
+    {
+      "path": "src/test/export.test.ts",
+      "bytes": 807,
+      "sha256": "7a2296d978cbdf0bcaf0f40b8c0e31c8cc98af3599f3345168df227b62fc35d0"
+    },
+    {
+      "path": "src/test/pages.test.tsx",
+      "bytes": 2268,
+      "sha256": "394b8c5e0ef91b4bbe2a20c8a5fdeeca3099e73f9b1a9170e05a645ac83f70cb"
+    },
+    {
+      "path": "src/test/setup.ts",
+      "bytes": 340,
+      "sha256": "218f633d9ba25e1ed5b772f5d745cab815450512101eff1417fc7335023d3e4a"
+    },
+    {
+      "path": "src/test/time.test.ts",
+      "bytes": 1180,
+      "sha256": "a98c826dcfd67eecb4b3b1889335fc2fdb4583fb70415143c5fcf36fc6736dd3"
+    },
+    {
+      "path": "src/test/ui.test.tsx",
+      "bytes": 2689,
+      "sha256": "2b453117ee279b6d2a5efc7dd30d549f60dad5c23f3c6dfb444bded0ae640dbf"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "bytes": 38,
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "path": "tsconfig.app.json",
+      "bytes": 427,
+      "sha256": "8bffc8d4aea1428f4498cd3d3d3143fdd470a50cf1289df61677a6f5a43c5422"
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 91,
+      "sha256": "67312658d22f72e4310e3c1410ea5862b1489055bbd9d70107f3f3cbbb86bdf8"
+    },
+    {
+      "path": "tsconfig.node.json",
+      "bytes": 286,
+      "sha256": "f80caa520cc27d2a1cfce1bafb70509de46938e55c8001af5356feb48bf4b4f2"
+    },
+    {
+      "path": "vite.config.ts",
+      "bytes": 765,
+      "sha256": "d76def60045e56ff882b73a8b6cb44896c7b4255bd57f1038e6e14f9fa935482"
+    }
+  ]
+}
