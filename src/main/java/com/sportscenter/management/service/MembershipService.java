@@ -1,7 +1,10 @@
 package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
+import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
+import com.sportscenter.management.dto.Response.MembershipPackageResponse;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -9,6 +12,16 @@ import java.util.Optional;
  * Service interface for managing membership packages and subscriptions
  */
 public interface MembershipService {
+
+    /**
+     * Lấy danh sách tất cả các gói tập hiện có tại trung tâm
+     */
+    List<MembershipPackageResponse> getAllPackages();
+
+    /**
+     * Tạo mới một gói tập (chỉ dành cho Quản lý)
+     */
+    MembershipPackageResponse createPackage(MembershipPackageRequest request);
 
     /**
      * Create a new membership subscription for a member

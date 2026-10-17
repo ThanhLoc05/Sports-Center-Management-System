@@ -1,7 +1,9 @@
 package com.sportscenter.management.service.impl;
 
 import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
+import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
+import com.sportscenter.management.dto.Response.MembershipPackageResponse;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.entity.MembershipPackage;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
@@ -25,6 +27,44 @@ public class MembershipServiceImpl implements MembershipService {
     private final MemberSubscriptionRepository subscriptionRepository;
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MembershipPackageResponse> getAllPackages() {
+        return packageRepository.findAll().stream()
+                .map(pkg -> MembershipPackageResponse.builder()
+                        .id(pkg.getId())
+                        .packageName(pkg.getPackageName())
+                        .durationDays(pkg.getDurationDays())
+                        .price(pkg.getPrice())
+                        .description(pkg.getDescription())
+                        .status(pkg.getStatus())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public MembershipPackageResponse createPackage(MembershipPackageRequest request) {
+        if (request == null || request.getPackageName() == null || request.getPrice() == null) {
+            throw new IllegalArgumentException("Tên gói tập và giá tiền là bắt buộc");
+        }
+        MembershipPackage pkg = MembershipPackage.builder()
+                .packageName(request.getPackageName())
+                .durationDays(request.getDurationDays() != null ? request.getDurationDays() : 30)
+                .price(request.getPrice())
+                .description(request.getDescription())
+                .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
+                .build();
+        MembershipPackage saved = packageRepository.save(pkg);
+        return MembershipPackageResponse.builder()
+                .id(saved.getId())
+                .packageName(saved.getPackageName())
+                .durationDays(saved.getDurationDays())
+                .price(saved.getPrice())
+                .description(saved.getDescription())
+                .status(saved.getStatus())
+                .build();
+    }
 
     @Override
     public MemberSubscriptionResponse subscribeMembershipPackage(MemberSubscriptionRequest request) {
@@ -78,12 +118,8 @@ public class MembershipServiceImpl implements MembershipService {
     @Override
     @Transactional(readOnly = true)
     public List<MemberSubscriptionResponse> getMemberSubscriptionHistory(Integer memberId) {
-        if (!userRepository.existsById(memberId)) {
-            throw new IllegalArgumentException("Thành viên không tồn tại");
-        }
-        List<MemberSubscription> subscriptions = subscriptionRepository.findByMemberId(memberId);
-
-        return subscriptions.stream().map(this::mapToResponse)
+        return subscriptionRepository.findByMemberId(memberId).stream()
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
@@ -106,12 +142,10 @@ public class MembershipServiceImpl implements MembershipService {
             throw new IllegalArgumentException("Gói thành viên không khả dụng");
         }
 
-        // Cancel old subscription
-        oldSubscription.setStatus("EXPIRED");
-        subscriptionRepository.save(oldSubscription);
-
-        // Create new subscription
-        LocalDate newStartDate = LocalDate.now();
+        // Extend from end date or now, whichever is later
+        LocalDate newStartDate = oldSubscription.getEndDate().isAfter(LocalDate.now())
+                ? oldSubscription.getEndDate().plusDays(1)
+                : LocalDate.now();
         LocalDate newEndDate = newStartDate.plusDays(pkg.getDurationDays());
 
         MemberSubscription newSubscription = MemberSubscription.builder()
