@@ -27,6 +27,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final InvoiceRepository invoiceRepository;
     private final MemberSubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     public InvoiceResponse createInvoice(InvoiceRequest request) {
@@ -47,13 +48,13 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new IllegalArgumentException("Đăng ký không thuộc về thành viên này");
             }
         }
-        Integer receptionistId = request.getReceptionistId();
-        if (receptionistId == null) {
-            String email = SecurityUtils.getCurrentUserEmail();
-            if (email != null) {
-                receptionistId = userRepository.findByEmail(email).map(com.sportscenter.management.entity.User::getId).orElse(null);
-            }
-        } else if (!userRepository.existsById(receptionistId)) {
+
+        // Tự động gán ID của Lễ tân đang đăng nhập nếu request không chỉ định
+        Integer receptionistId = request.getReceptionistId() != null
+                ? request.getReceptionistId()
+                : securityUtils.getCurrentUserId();
+
+        if (receptionistId != null && !userRepository.existsById(receptionistId)) {
             throw new IllegalArgumentException("Nhân viên thu ngân không tồn tại");
         }
 

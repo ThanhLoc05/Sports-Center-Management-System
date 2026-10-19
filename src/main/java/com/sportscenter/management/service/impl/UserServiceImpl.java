@@ -109,7 +109,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Optional<User> authenticate(String email, String password) {
-        Optional<User> user = userRepository.findByEmail(email);
+        Optional<User> user = getUserByEmail(email);
         if (user.isPresent() && "ACTIVE".equals(user.get().getStatus())
                 && passwordEncoder.matches(password, user.get().getPasswordHash())) {
             return user;

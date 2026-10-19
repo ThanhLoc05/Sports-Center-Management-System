@@ -109,14 +109,11 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassResponse> getAvailableClasses() {
-        List<Classes> classes = classRepository.findByStatus("SCHEDULED");
+        // Tối ưu: Dùng query DB lọc sẵn các lớp SCHEDULED trong tương lai thay vì tải hết vào RAM
+        List<Classes> classes = classRepository.findFutureScheduledClasses();
 
         return classes.stream()
-                .filter(clazz -> {
-                    long currentBookings = bookingRepository.countByClassIdAndStatus(clazz.getId(), "BOOKED");
-                    return currentBookings < clazz.getMaxCapacity() &&
-                            clazz.getScheduleTime().isAfter(LocalDateTime.now());
-                })
+                .filter(clazz -> getCurrentBookingCount(clazz.getId()) < clazz.getMaxCapacity())
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -135,7 +132,8 @@ public class ClassServiceImpl implements ClassService {
         Classes clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        long currentBookings = bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
+        // Tái sử dụng method getCurrentBookingCount thay vì gọi trực tiếp repository
+        long currentBookings = getCurrentBookingCount(classId);
         return Math.max(0, (int) (clazz.getMaxCapacity() - currentBookings));
     }
 
@@ -169,7 +167,7 @@ public class ClassServiceImpl implements ClassService {
             if (request.getMaxCapacity() <= 0) {
                 throw new IllegalArgumentException("Sức chứa lớp học phải lớn hơn 0");
             }
-            if (request.getMaxCapacity() < bookingRepository.countByClassIdAndStatus(classId, "BOOKED")) {
+            if (request.getMaxCapacity() < getCurrentBookingCount(classId)) {
                 throw new IllegalArgumentException("Sức chứa không thể nhỏ hơn số học viên đã đăng ký");
             }
             clazz.setMaxCapacity(request.getMaxCapacity());

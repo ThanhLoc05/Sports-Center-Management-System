@@ -5,7 +5,6 @@ import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
 import com.sportscenter.management.dto.Response.MembershipPackageResponse;
 import com.sportscenter.management.service.MembershipService;
-import com.sportscenter.management.service.UserService;
 import com.sportscenter.auth.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +34,6 @@ import java.util.List;
 public class MembershipController {
 
     private final MembershipService membershipService;
-    private final UserService userService;
     private final SecurityUtils securityUtils;
 
     /**

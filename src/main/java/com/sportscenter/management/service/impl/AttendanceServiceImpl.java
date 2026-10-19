@@ -26,6 +26,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceRepository attendanceRepository;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     public AttendanceResponse checkInMember(AttendanceRequest request) {
@@ -42,13 +43,8 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
 
-        Integer checkedInBy = request.getCheckedInBy();
-        if (checkedInBy == null) {
-            String email = SecurityUtils.getCurrentUserEmail();
-            if (email != null) {
-                checkedInBy = userRepository.findByEmail(email).map(com.sportscenter.management.entity.User::getId).orElse(null);
-            }
-        }
+        // Tự động lấy ID người đang đăng nhập (Lễ tân hoặc HLV) từ SecurityUtils nếu request không truyền
+        Integer checkedInBy = request.getCheckedInBy() != null ? request.getCheckedInBy() : securityUtils.getCurrentUserId();
         if (checkedInBy == null) {
             throw new IllegalArgumentException("Người điểm danh là bắt buộc");
         }
