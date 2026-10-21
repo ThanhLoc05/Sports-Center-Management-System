@@ -68,8 +68,9 @@ public class MembershipServiceImpl implements MembershipService {
 
     @Override
     public MemberSubscriptionResponse subscribeMembershipPackage(MemberSubscriptionRequest request) {
-        if (request == null || request.getMemberId() == null || request.getPackageId() == null) {
-            throw new IllegalArgumentException("Thành viên và gói tập là bắt buộc");
+        if (request == null || request.getMemberId() == null || request.getPackageId() == null
+                || request.getStartDate() == null) {
+            throw new IllegalArgumentException("Thành viên, gói tập và ngày bắt đầu là bắt buộc");
         }
         // Validate member exists
         if (!userRepository.existsById(request.getMemberId())) {
@@ -93,7 +94,7 @@ public class MembershipServiceImpl implements MembershipService {
         }
 
         // Create new subscription
-        LocalDate startDate = LocalDate.now();
+        LocalDate startDate = request.getStartDate();
         LocalDate endDate = startDate.plusDays(pkg.getDurationDays());
 
         MemberSubscription subscription = MemberSubscription.builder()

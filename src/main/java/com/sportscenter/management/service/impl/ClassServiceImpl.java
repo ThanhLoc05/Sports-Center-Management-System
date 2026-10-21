@@ -41,10 +41,7 @@ public class ClassServiceImpl implements ClassService {
             throw new IllegalArgumentException("Bộ môn không tồn tại");
         }
 
-        // Validate coach exists
-        if (!userRepository.existsById(request.getCoachId())) {
-            throw new IllegalArgumentException("Huấn luyện viên không tồn tại");
-        }
+        validateCoach(request.getCoachId());
 
         // Validate room exists
         var room = roomRepository.findById(request.getRoomId())
@@ -179,9 +176,7 @@ public class ClassServiceImpl implements ClassService {
             clazz.setSportId(request.getSportId());
         }
         if (request.getCoachId() != null) {
-            if (!userRepository.existsById(request.getCoachId())) {
-                throw new IllegalArgumentException("Huấn luyện viên không tồn tại");
-            }
+            validateCoach(request.getCoachId());
             clazz.setCoachId(request.getCoachId());
         }
         if (request.getRoomId() != null) {
@@ -217,6 +212,14 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public long getCurrentBookingCount(Integer classId) {
         return bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
+    }
+
+    private void validateCoach(Integer coachId) {
+        var coach = userRepository.findById(coachId)
+                .orElseThrow(() -> new IllegalArgumentException("Huấn luyện viên không tồn tại"));
+        if (coach.getRole() == null || !"COACH".equals(coach.getRole().getRoleName())) {
+            throw new IllegalArgumentException("Tài khoản được chọn không phải huấn luyện viên");
+        }
     }
 
     private ClassResponse mapToResponse(Classes clazz) {

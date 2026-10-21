@@ -170,7 +170,8 @@ public class SecurityConfig {
                         // 2. Các API Công khai: Đăng ký, Đăng nhập, Endpoint lỗi nội bộ
                         .requestMatchers("/api/v1/users/register/**", "/api/v1/users/login/**", "/error").permitAll()
                         // 3. Khách có thể xem danh sách lớp học và danh sách gói tập công khai
-                        .requestMatchers(HttpMethod.GET, "/api/v1/classes/**", "/api/v1/memberships/packages/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/classes/**", "/api/v1/memberships/packages/**",
+                                "/api/v1/sports", "/api/v1/rooms").permitAll()
                         // 4. Tài liệu Swagger/OpenAPI (nếu có dùng)
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // 5. Tất cả các endpoint còn lại đều phải đăng nhập (có JWT token hợp lệ)

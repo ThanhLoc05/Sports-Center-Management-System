@@ -16,8 +16,4 @@ public class MemberSubscriptionRequest {
     private Integer packageId;
 
     private LocalDate startDate;
-
-    private LocalDate endDate;
-
-    private String status;
 }
