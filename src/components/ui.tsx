@@ -1,8 +1,3 @@
-/**
- * BỘ COMPONENT GIAO DIỆN DÙNG CHUNG.
- * Các trang ghép Button, bảng, hộp thoại và form từ đây để có hành vi nhất quán.
- * FormModal/Confirm chỉ điều phối thao tác; hàm nghiệp vụ thực tế do trang truyền vào.
- */
 import {
   Children,
   cloneElement,
@@ -37,10 +32,6 @@ import {
 import { Link } from "react-router-dom";
 import type { User } from "../lib/types";
 import { errorText, initials } from "../lib/utils";
-/**
- * Nút hỗ trợ trạng thái loading; khi đang xử lý sẽ disabled để hạn chế nhấn
- * nhiều lần trong cùng một thao tác giao diện.
- */
 export function Button({
   children,
   variant = "primary",
@@ -62,10 +53,6 @@ export function Button({
     </button>
   );
 }
-/**
- * Đổi mã trạng thái từ dữ liệu (BOOKED, PAID...) thành nhãn tiếng Việt và màu.
- * Chỉ hiển thị trạng thái; không thực hiện chuyển trạng thái nghiệp vụ.
- */
 export function Badge({
   status,
   children,
@@ -115,9 +102,6 @@ export function Avatar({
     </span>
   );
 }
-/**
- * Tiêu đề và nhóm nút thao tác đầu trang, tái sử dụng cho các module.
- */
 export function PageHeader({
   eyebrow,
   title,
@@ -168,10 +152,6 @@ export function Panel({
     </section>
   );
 }
-/**
- * Controlled input: giá trị do trang cha giữ; khi gõ sẽ gọi onChange về cha
- * để trang quyết định lọc dữ liệu. Component này không tự gọi API tìm kiếm.
- */
 export function SearchInput({
   value,
   onChange,
@@ -229,10 +209,6 @@ export function Loading() {
     </div>
   );
 }
-/**
- * Hiện lỗi đọc dữ liệu và cho thử lại khi trang truyền hàm retry.
- * Không biến lỗi mạng thành trạng thái danh sách trống.
- */
 export function ErrorState({
   error,
   retry,
@@ -267,10 +243,6 @@ export function Notice({
     </div>
   );
 }
-/**
- * Thông báo giới hạn những chức năng backend chưa có API. Tên component
- * không có nghĩa tự ẩn nó trong API mode; trang truyền nội dung thông báo phù hợp.
- */
 export function DemoOnly({ children }: { children?: ReactNode }) {
   return (
     <Notice tone="warning">
@@ -279,10 +251,6 @@ export function DemoOnly({ children }: { children?: ReactNode }) {
     </Notice>
   );
 }
-/**
- * Hộp thoại dùng chung: khóa cuộn nền, giữ focus trong hộp thoại khi Tab, hỗ trợ
- * Escape và trả focus về chỗ cũ khi đóng. dismissible=false chặn đóng khi đang gửi.
- */
 export function Modal({
   title,
   description,
@@ -373,11 +341,6 @@ export function Modal({
     </div>
   );
 }
-/**
- * Luồng form: chặn reload trang → gom FormData → khóa nút trong lúc chờ →
- * await onSubmit do trang cung cấp. Chỉ thành công mới đóng; lỗi giữ form để sửa
- * và hiện thông báo. finally luôn mở khóa dù thành công hay thất bại.
- */
 export function FormModal({
   title,
   description,
@@ -446,10 +409,6 @@ export function FormModal({
     </Modal>
   );
 }
-/**
- * Gắn label với input/select/textarea bằng id tự sinh và nối mô tả trợ giúp
- * để người dùng bàn phím hoặc trình đọc màn hình nhận biết trường nhập.
- */
 export function Field({
   label,
   children,
@@ -518,11 +477,6 @@ export function Select({
     </label>
   );
 }
-/**
- * Có danh sách thì cho chọn thành viên; không có thì nhập ID backend.
- * selfOnly giữ người đang đăng nhập, đồng thời thêm hidden input vì control
- * disabled không được đưa vào FormData. Backend vẫn phải kiểm tra quyền sở hữu.
- */
 export function MemberField({
   users,
   defaultValue,
@@ -571,10 +525,6 @@ export function MemberField({
     </Field>
   );
 }
-/**
- * Xác nhận thao tác như hủy đăng ký hoặc hoàn tiền; await onConfirm xong mới
- * đóng. Nếu API lỗi, hộp thoại giữ lại thông báo và không báo thành công.
- */
 export function Confirm({
   title,
   description,
@@ -629,10 +579,6 @@ interface Column<T> {
   render: (row: T) => ReactNode;
   className?: string;
 }
-/**
- * Bảng phân trang trên mảng đã tải ở frontend bằng slice; đây không phải
- * phân trang bằng API/SQL. Trang cha chịu trách nhiệm lọc rows trước khi truyền vào.
- */
 export function DataTable<T extends { id: number }>({
   rows,
   columns,
@@ -714,10 +660,6 @@ export function DataTable<T extends { id: number }>({
 const ToastContext = createContext<
   (text: string, tone?: "success" | "error") => void
 >(() => {});
-/**
- * Cung cấp hàm toast cho toàn ứng dụng và quản lý thời gian tự ẩn thông báo.
- * Thông báo chỉ phản ánh kết quả hàm xử lý; không tự ghi dữ liệu nghiệp vụ.
- */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<
     { id: number; text: string; tone: string }[]

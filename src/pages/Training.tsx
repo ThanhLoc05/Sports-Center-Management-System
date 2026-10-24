@@ -1,8 +1,3 @@
-/**
- * FLOW 4 TÙY CHỌN — KẾ HOẠCH, KẾT QUẢ VÀ NHẬN XÉT TẬP LUYỆN.
- * Hiện module chỉ ghi/đọc demo local bằng updateDemo; chưa có API backend cho kế hoạch.
- * Topic mô tả mục tiêu đầy đủ, nhưng không được trình bày bản demo này như đã tích hợp API.
- */
 import { useState } from "react";
 import {
   Activity,
@@ -55,10 +50,6 @@ export default function Training() {
   const client = useQueryClient();
   const toast = useToast();
   const db = demo ? readDemo() : null;
-  /**
-   * Trong demo, MEMBER xem kế hoạch của mình, COACH xem kế hoạch do mình phụ trách.
-   * Lọc này chỉ phục vụ mô phỏng; API mode chưa tải được kế hoạch từ server.
-   */
   const plans = (db?.plans || []).filter(
     (p) =>
       (!member || p.memberId === session!.user.id) &&
@@ -71,10 +62,6 @@ export default function Training() {
         users.data?.find((u) => u.id === p.memberId)?.fullName,
       ),
   );
-  /**
-   * Sau thay đổi demo, yêu cầu các query đang hiển thị lấy lại dữ liệu và báo kết quả.
-   * Hàm này không tự gửi kế hoạch hoặc kết quả tập luyện lên backend.
-   */
   async function refresh(message: string) {
     await client.invalidateQueries();
     toast(message);

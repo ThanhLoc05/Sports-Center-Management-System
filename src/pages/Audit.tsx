@@ -1,7 +1,3 @@
-/**
- * NHẬT KÝ THAO TÁC DEMO: hiển thị người làm, hành động, chi tiết và thời gian.
- * Nguồn là readDemo().audit do demoAudit ghi; chưa phải audit log từ backend.
- */
 import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -20,10 +16,6 @@ export default function Audit() {
   const { session } = useAuth();
   const demo = session!.mode === "demo";
   const [search, setSearch] = useState("");
-  /**
-   * Tìm trong actor/action/detail của nhật ký demo. API mode không tự coi
-   * log trên trình duyệt là nhật ký thao tác chính thức của server.
-   */
   const rows = (demo ? readDemo().audit : []).filter((a) =>
     matches(search, a.actor, a.action, a.detail),
   );

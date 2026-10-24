@@ -1,7 +1,3 @@
-/**
- * ĐĂNG NHẬP/ĐĂNG KÝ — điểm vào Flow 1. Cùng component, prop register chọn form.
- * Trang gom dữ liệu và điều hướng; api.ts chịu trách nhiệm chọn API hoặc demo.
- */
 import { useState } from "react";
 import type { FormEvent } from "react";
 import {
@@ -30,11 +26,6 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   if (session) return <Navigate to="/" replace />;
-  /**
-   * Đọc FormData và kiểm tra mật khẩu xác nhận nếu đăng ký. Đăng ký xong về login;
-   * đăng nhập xong đưa Session vào AuthProvider rồi về dashboard. catch hiện lỗi,
-   * finally mở lại nút; navigate chỉ đổi route, không gọi trực tiếp backend.
-   */
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);

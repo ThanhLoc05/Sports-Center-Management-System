@@ -1,8 +1,3 @@
-/**
- * FLOW 2 — QUẢN LÝ BOOKING (MỐI LIÊN HỆ THÀNH VIÊN ↔ LỚP).
- * Thành viên thao tác cho mình; nhân viên chọn thành viên để hỗ trợ.
- * Hủy booking trả chỗ của một học viên, khác với quản lý hủy toàn bộ lớp.
- */
 import { useState } from "react";
 import { CalendarDays, Plus, XCircle } from "lucide-react";
 import { useSearchParams, Link } from "react-router-dom";
@@ -54,10 +49,6 @@ export default function Bookings() {
   const [cancel, setCancel] = useState<Booking | null>(null);
   const client = useQueryClient();
   const toast = useToast();
-  /**
-   * API hiện bắt buộc phạm vi theo thành viên hoặc lớp, không có lấy tất cả.
-   * enabled ngăn gọi khi chưa chọn phạm vi; member tự có ID của mình từ phiên.
-   */
   const query = useQuery({
     queryKey: ["bookings", memberId, classId],
     queryFn: () =>
@@ -246,10 +237,6 @@ export default function Bookings() {
           onClose={() => setCreate(false)}
           submitLabel="Xác nhận đăng ký"
           onSubmit={async (data) => {
-            /**
-             * Đăng ký lớp mới: ID thành viên lấy từ phiên nếu là MEMBER, còn nhân viên
-             * chọn người cần hỗ trợ. Backend kiểm tra chỗ/trùng; lỗi được FormModal hiển thị.
-             */
             await api.book(
               Number(data.get("classId")),
               member ? session!.user.id : Number(data.get("memberId")),
@@ -295,10 +282,6 @@ export default function Bookings() {
           description="Chỗ của thành viên sẽ được trả lại. Bạn có thể đăng ký lại nếu lớp vẫn còn chỗ và chưa bắt đầu."
           onClose={() => setCancel(null)}
           onConfirm={async () => {
-            /**
-             * Xác nhận hủy một booking rồi tải lại cache; số chỗ và lịch cá nhân phản ánh
-             * dữ liệu mới sau phản hồi, không tự xóa một lớp khỏi hệ thống.
-             */
             await api.cancelBooking(cancel.id);
             await client.invalidateQueries();
             toast("Đã hủy đăng ký lớp học.");

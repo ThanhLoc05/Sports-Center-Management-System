@@ -1,10 +1,3 @@
-/**
- * LỚP GIAO TIẾP DỮ LIỆU CỦA FRONTEND (API GATEWAY).
- * Trang gọi api.tenHam(), không tự ghép URL ở từng nơi. Mỗi hàm chọn nhánh API thật
- * hoặc demo; API lỗi sẽ báo lỗi, không tự trả dữ liệu giả để che lỗi kết nối.
- * Luồng chính: form/trang → api → request/fetch → backend → kết quả hoặc ApiError.
- * Các ràng buộc trong nhánh demo minh họa nghiệp vụ; không thay thế kiểm tra ở backend.
- */
 import type {
   Attendance,
   AttendanceInput,
@@ -22,16 +15,8 @@ import type {
 import { isManager, isStaff } from "./types";
 import { parseDate, addDays, dateTimeLocal, localDate } from "./utils";
 import { demoAudit, readDemo, saveDemo } from "./demo";
-/**
- * VITE_DATA_MODE=demo mới bật demo; các giá trị còn lại dùng API thật.
- * Biến VITE được Vite đưa vào frontend lúc chạy dev/build, không phải secret.
- */
 export const configuredMode: Mode =
-  import.meta.env.VITE_DATA_MODE === "demo" ? "demo" : "api";
-/**
- * Lỗi dùng chung mang cả thông báo và HTTP status. Giao diện dựa vào đây
- * để báo lỗi phù hợp; status=0 dùng cho lỗi không có phản hồi HTTP hợp lệ.
- */
+  import.meta.env.VITE_DATA_MODE === "api" ? "api" : "demo";
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status = 0) {
@@ -40,11 +25,6 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
-/**
- * Đọc phiên từ sessionStorage và kiểm tra các trường cần thiết trước khi dùng.
- * Không chấp nhận phiên demo cũ khi ứng dụng cấu hình API thật.
- * Kiểm tra hình dạng phiên ở đây không chứng minh JWT hợp lệ với backend.
- */
 export function getSession(): Session | null {
   try {
     const s = JSON.parse(sessionStorage.getItem("sportiva-session") || "null");
@@ -61,30 +41,15 @@ export function getSession(): Session | null {
       ].includes(s.user.roleName)
     )
       return null;
-    // Phiên demo lưu từ trước không được ghi đè chế độ kết nối backend thật.
-    if (s.mode === "demo" && configuredMode === "api") return null;
     return s;
   } catch {
     return null;
   }
 }
-/**
- * Chọn nguồn dữ liệu cho các thao tác theo phiên đang dùng; khi chưa có phiên
- * thì lấy cấu hình khởi động. Dữ liệu API và localStorage demo là hai nguồn riêng.
- */
 export function mode() {
   return getSession()?.mode || configuredMode;
 }
-/**
- * Nếu VITE_API_BASE_URL trống, trình duyệt gọi cùng origin /api/v1; proxy của Vite
- * chuyển tiếp tới backend khi dev/preview. Nếu đặt URL, chỉ đặt origin, không lặp /api/v1.
- */
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-/**
- * Điểm gửi HTTP dùng chung: ghép URL, thêm Bearer token của phiên API và timeout
- * 15 giây. T mô tả kiểu trả về cho TypeScript; không tự xác minh mọi trường JSON.
- * Đọc text trước để chấp nhận cả phản hồi rỗng và báo cáo dạng văn bản.
- */
 export async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -92,10 +57,6 @@ export async function request<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    /**
-     * Chỉ token của phiên API mới được gắn vào Authorization; token demo không gửi
-     * sang backend. Với login/register chưa có phiên thì không có Bearer token.
-     */
     const token = getSession()?.mode === "api" ? getSession()?.token : null;
     const response = await fetch(`${baseUrl}/api/v1${path}`, {
       ...init,
@@ -113,10 +74,6 @@ export async function request<T>(
     } catch {
       data = body;
     }
-    /**
-     * fetch vẫn resolve khi server trả 4xx/5xx; phải tự kiểm tra response.ok.
-     * Ưu tiên message từ backend. Lỗi 401 có token làm hết phiên; 403 chỉ báo thiếu quyền.
-     */
     if (!response.ok) {
       if (response.status === 401 && token)
         window.dispatchEvent(new Event("sportiva:unauthorized"));
@@ -138,10 +95,6 @@ export async function request<T>(
             "Máy chủ gặp lỗi. Vui lòng thử lại sau.";
       throw new ApiError(message, response.status);
     }
-    /**
-     * Proxy sai có thể trả index.html của SPA dù HTTP là 200. Không coi HTML đó
-     * là dữ liệu nghiệp vụ thành công; báo người dùng kiểm tra cấu hình kết nối.
-     */
     if (response.headers.get("content-type")?.includes("text/html"))
       throw new ApiError(
         "Backend trả về HTML thay vì JSON. Kiểm tra URL API hoặc cấu hình proxy.",
@@ -158,37 +111,21 @@ export async function request<T>(
     clearTimeout(timer);
   }
 }
-/**
- * Helper cho POST: chuyển object thành JSON rồi dùng request để giữ chung
- * cách gắn token, timeout và xử lý lỗi.
- */
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, {
     method: "POST",
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
-/**
- * Kiểm tra runtime rằng response danh sách là một mảng. Nếu backend trả object
- * bao trang thay vì mảng, dừng và báo lỗi thay vì để giao diện gọi .filter bị hỏng.
- */
 function assertArray<T>(value: T[]): T[] {
   if (!Array.isArray(value))
     throw new ApiError("Dữ liệu API không đúng định dạng danh sách.");
   return value;
 }
-/**
- * Giới hạn sở hữu trong DEMO: chủ tài khoản hoặc nhóm quản lý/lễ tân mới thao tác
- * được trên thành viên. Nhánh API đi thẳng tới backend để backend quyết định quyền.
- */
 function ownOrStaff(memberId: number) {
   const s = getSession();
   if (!s || (s.user.id !== memberId && !isStaff(s.user.roleName)))
     throw new ApiError("Bạn không có quyền truy cập thành viên này.", 403);
 }
-/**
- * Bảo vệ thao tác ghi trong DEMO; managerOnly yêu cầu quản lý. Đây chỉ là
- * quy tắc mô phỏng trong trình duyệt, không phải lớp bảo mật cho SQL Server.
- */
 function staffOnly(managerOnly = false) {
   const s = getSession();
   if (
@@ -197,16 +134,9 @@ function staffOnly(managerOnly = false) {
   )
     throw new ApiError("Thao tác yêu cầu quyền nhân viên phù hợp.", 403);
 }
-/**
- * Sinh ID mới cho mảng demo. API thật dùng ID từ backend/database.
- */
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 export const api = {
-  /**
-   * Đăng nhập: demo so với tài khoản mẫu và mật khẩu chung; API POST /users/login
-   * nhận token + user. Kiểm tra response tối thiểu rồi trả Session cho AuthProvider.
-   */
   async login(email: string, password: string): Promise<Session> {
     if (configuredMode === "demo") {
       const user = readDemo().users.find(
@@ -237,10 +167,6 @@ export const api = {
       throw new ApiError("Phản hồi đăng nhập không hợp lệ.");
     return { ...data, mode: "api" };
   },
-  /**
-   * Flow 1: tạo thành viên qua POST /users/register. Nhánh demo kiểm tra trùng
-   * email/điện thoại, luôn gán MEMBER và không lưu mật khẩu nhập từ form.
-   */
   async register(input: RegisterInput): Promise<User> {
     if (configuredMode === "api" || mode() === "api")
       return post("/users/register", input);
@@ -263,18 +189,10 @@ export const api = {
     demoAudit(db, "Tạo thành viên", user.fullName);
     return user;
   },
-  /**
-   * Flow 1: lấy danh sách tài khoản. Việc gọi danh sách ở UI được giới hạn
-   * trong useUsers; quyền truy cập API thực tế vẫn do backend kiểm tra.
-   */
   async users(): Promise<User[]> {
     if (mode() === "api") return assertArray(await request<User[]>("/users"));
     return readDemo().users;
   },
-  /**
-   * Đọc hồ sơ một người theo ID, dùng cho màn hồ sơ/tra cứu.
-   * Nhánh demo kiểm tra người sở hữu; API xử lý quyền trên tài nguyên ở backend.
-   */
   async user(id: number): Promise<User> {
     if (mode() === "api") return request(`/users/${id}`);
     ownOrStaff(id);
@@ -282,10 +200,6 @@ export const api = {
     if (!user) throw new ApiError("Không tìm thấy thành viên.", 404);
     return user;
   },
-  /**
-   * Flow 1: đổi trạng thái ACTIVE/INACTIVE/BLOCKED của tài khoản, không đổi vai trò.
-   * Dùng PATCH /users/{id}/status với query status được encode.
-   */
   async status(id: number, status: string): Promise<User> {
     if (mode() === "api")
       return request(
@@ -300,9 +214,6 @@ export const api = {
     demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
     return user;
   },
-  /**
-   * Flow 2: lấy danh sách lớp; coachId là bộ lọc tùy chọn cho lịch của HLV.
-   */
   async classes(coachId?: number): Promise<SportClass[]> {
     if (mode() === "api")
       return assertArray(
@@ -312,11 +223,6 @@ export const api = {
       );
     return readDemo().classes.filter((c) => !coachId || c.coachId === coachId);
   },
-  /**
-   * Flow 2: chưa có id thì POST tạo lớp, có id thì PUT cập nhật lớp.
-   * Nhánh demo kiểm tra sức chứa phòng, ID liên quan, lịch trùng phòng/HLV
-   * và không giảm sức chứa dưới số người đã đặt; API phải tự bảo đảm các quy tắc của nó.
-   */
   async saveClass(input: ClassInput, id?: number): Promise<SportClass> {
     if (mode() === "api")
       return id
@@ -377,10 +283,6 @@ export const api = {
     demoAudit(db, id ? "Cập nhật lớp học" : "Tạo lớp học", c.className);
     return c;
   },
-  /**
-   * Hủy chính lớp học khác với hủy một booking. Demo đổi lớp và các booking
-   * của lớp sang CANCELLED để thể hiện việc lớp không còn tổ chức.
-   */
   async cancelClass(id: number) {
     if (mode() === "api") return post(`/classes/${id}/cancel`);
     staffOnly(true);
@@ -393,10 +295,6 @@ export const api = {
     });
     demoAudit(db, "Hủy lớp học", c.className);
   },
-  /**
-   * Đọc số chỗ còn lại để khóa nút đăng ký nếu đầy. Dữ liệu này chỉ là ảnh chụp
-   * tại thời điểm tải; backend phải kiểm tra lại khi nhận yêu cầu đặt chỗ.
-   */
   async capacity(id: number): Promise<number> {
     if (mode() === "api") return request(`/classes/${id}/capacity`);
     const db = readDemo();
@@ -407,10 +305,6 @@ export const api = {
           .length,
     );
   },
-  /**
-   * Lấy đăng ký theo lớp hoặc theo thành viên; API hiện không có route list-all.
-   * Nếu truyền classId thì ưu tiên endpoint của lớp, còn lại dùng memberId.
-   */
   async bookings(memberId?: number, classId?: number): Promise<Booking[]> {
     if (mode() === "api") {
       if (!memberId && !classId)
@@ -429,11 +323,6 @@ export const api = {
         (!classId || b.classId === classId),
     );
   },
-  /**
-   * Flow 2: POST /classes/{classId}/book?memberId=...; memberId nằm ở query,
-   * không gửi JSON body. Demo kiểm tra lớp còn mở/chưa bắt đầu, trùng đăng ký
-   * và còn chỗ rồi lưu BOOKED. Lỗi API không được coi là đăng ký thành công.
-   */
   async book(classId: number, memberId: number): Promise<Booking> {
     if (mode() === "api")
       return post(`/classes/${classId}/book?memberId=${memberId}`);
@@ -468,10 +357,6 @@ export const api = {
     demoAudit(db, "Đăng ký lớp", `${c.className} · TV${memberId}`);
     return booking;
   },
-  /**
-   * Hủy một lượt đăng ký bằng DELETE /bookings/{id}. Demo giữ bản ghi và chuyển
-   * sang CANCELLED để trả chỗ; không xóa lớp học.
-   */
   async cancelBooking(id: number) {
     if (mode() === "api")
       return request(`/bookings/${id}`, { method: "DELETE" });
@@ -482,9 +367,6 @@ export const api = {
     b.status = "CANCELLED";
     demoAudit(db, "Hủy đăng ký lớp", `Đăng ký #${id}`);
   },
-  /**
-   * Flow 1: đọc lịch sử các gói mà một thành viên đã đăng ký; khác danh mục gói bán.
-   */
   async subscriptions(memberId: number): Promise<Subscription[]> {
     if (mode() === "api")
       return assertArray(
@@ -493,11 +375,6 @@ export const api = {
     ownOrStaff(memberId);
     return readDemo().subscriptions.filter((s) => s.memberId === memberId);
   },
-  /**
-   * Có renewId: gọi gia hạn bằng POST /memberships/{id}/renew?packageId=...;
-   * không có renewId: POST /memberships/subscribe với memberId và packageId.
-   * Đăng ký/gia hạn gói ở đây không tự tạo hóa đơn hay xác nhận đã thu tiền.
-   */
   async subscribe(
     memberId: number,
     packageId: number,
@@ -546,9 +423,6 @@ export const api = {
     );
     return sub;
   },
-  /**
-   * Hủy hiệu lực gói; thao tác này không tự hoàn tiền hóa đơn đã thanh toán.
-   */
   async cancelSubscription(id: number, memberId: number) {
     if (mode() === "api") return post(`/memberships/${id}/cancel`);
     ownOrStaff(memberId);
@@ -560,10 +434,6 @@ export const api = {
     s.status = "CANCELLED";
     demoAudit(db, "Hủy gói tập", `Gói đăng ký #${id}`);
   },
-  /**
-   * Flow 3: có memberId thì lấy hóa đơn của thành viên. Chưa chọn memberId thì
-   * API chỉ trả hóa đơn PENDING, không phải toàn bộ lịch sử thu tiền của trung tâm.
-   */
   async invoices(memberId?: number): Promise<Invoice[]> {
     if (mode() === "api")
       return assertArray(
@@ -577,10 +447,6 @@ export const api = {
       .invoices.filter((i) => !memberId || i.memberId === memberId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
-  /**
-   * Tạo bản ghi hóa đơn từ payload. Màn Payments chủ động gửi PENDING;
-   * chỉ tạo hóa đơn không đồng nghĩa tiền đã thực nhận.
-   */
   async invoice(input: InvoiceInput): Promise<Invoice> {
     if (mode() === "api") return post("/payments/invoices", input);
     staffOnly();
@@ -595,11 +461,6 @@ export const api = {
     demoAudit(db, "Tạo hóa đơn", `HD${inv.id} · ${inv.amount} VND`);
     return inv;
   },
-  /**
-   * Flow 3: gọi /pay để xác nhận thu tiền hoặc /refund để ghi nhận hoàn tiền.
-   * Đây là cập nhật trạng thái nghiệp vụ; code không tự chuyển khoản ngân hàng
-   * và không tích hợp cổng VNPay chỉ vì có lựa chọn phương thức VNPAY.
-   */
   async pay(id: number, refund = false): Promise<Invoice> {
     if (mode() === "api")
       return post(`/payments/invoices/${id}/${refund ? "refund" : "pay"}`);
@@ -613,10 +474,6 @@ export const api = {
     demoAudit(db, refund ? "Hoàn tiền" : "Xác nhận thanh toán", `HD${id}`);
     return inv;
   },
-  /**
-   * Đọc tổng doanh thu theo khoảng LocalDateTime. Tham số được encode và không
-   * thêm Z vì backend dùng giờ địa phương trung tâm. Demo chỉ cộng hóa đơn PAID.
-   */
   async revenue(start: string, end: string): Promise<number> {
     if (mode() === "api")
       return request(
@@ -631,10 +488,6 @@ export const api = {
       )
       .reduce((sum, i) => sum + i.amount, 0);
   },
-  /**
-   * Flow 4: đọc điểm danh theo lớp hoặc lịch sử một thành viên trong khoảng ngày.
-   * Sau phản hồi, frontend lọc ngày để màn hình nhất quán với khoảng đang chọn.
-   */
   async attendance(
     memberId?: number,
     classId?: number,
@@ -664,10 +517,6 @@ export const api = {
         a.checkedInAt.slice(0, 10) <= end,
     );
   },
-  /**
-   * Gửi classId, memberId, checkedInBy, status để ghi nhận điểm danh.
-   * Trong demo: thành viên không tự điểm danh và không được ghi trùng một lớp.
-   */
   async checkIn(input: AttendanceInput): Promise<Attendance> {
     if (mode() === "api") return post("/attendance", input);
     const s = getSession();
@@ -690,11 +539,6 @@ export const api = {
     return a;
   },
 };
-/**
- * Cổng ghi dữ liệu cho module chưa có API. Chỉ chạy trong demo, nhận callback
- * đổi dữ liệu rồi lưu localStorage và ghi nhật ký. API mode sẽ báo chưa có endpoint
- * thay vì âm thầm ghi dữ liệu cục bộ và khiến người dùng tưởng đã lưu lên server.
- */
 export function updateDemo<T>(
   action: string,
   detail: string,

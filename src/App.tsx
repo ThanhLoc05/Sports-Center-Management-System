@@ -1,8 +1,3 @@
-/**
- * BẢN ĐỒ ĐIỀU HƯỚNG VÀ QUYỀN TRUY CẬP CÁC TRANG.
- * Route ánh xạ URL với màn hình; Protected kiểm tra phiên và vai trò trước khi render.
- * Đây là chặn ở giao diện; backend vẫn phải kiểm tra JWT và quyền cho từng API.
- */
 import { Component, lazy, Suspense } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
@@ -10,10 +5,6 @@ import { useAuth } from "./lib/auth";
 import type { Role } from "./lib/types";
 import Layout, { Forbidden, NotFound } from "./components/Layout";
 import { Button, Loading } from "./components/ui";
-/**
- * Chỉ tải mã của màn hình khi cần truy cập (lazy loading), giảm phần tải ban đầu.
- * Suspense bên dưới hiển thị Loading trong lúc tải các module này.
- */
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Members = lazy(() => import("./pages/Members"));
@@ -33,22 +24,12 @@ const Profile = lazy(() =>
 );
 const Facilities = lazy(() => import("./pages/Facilities"));
 const Audit = lazy(() => import("./pages/Audit"));
-/**
- * Chưa đăng nhập: chuyển về /login. Đã đăng nhập nhưng không thuộc roles cho phép:
- * hiện trang không đủ quyền. Hợp lệ: Outlet render route con tương ứng.
- * Ẩn menu riêng không đủ; guard này còn chặn người dùng gõ trực tiếp URL.
- */
 export function Protected({ roles }: { roles?: Role[] }) {
   const { session } = useAuth();
   if (!session) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(session.user.roleName)) return <Forbidden />;
   return <Outlet />;
 }
-/**
- * Login/register là các trang công khai. Các trang còn lại đi qua Protected và Layout;
- * những nhóm route có roles riêng tiếp tục giới hạn quyền theo nghiệp vụ.
- * MANAGER được giữ như một tên vai trò quản lý tương thích với CENTER_MANAGER.
- */
 export default function App() {
   return (
     <ErrorBoundary>
@@ -116,11 +97,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-/**
- * Bắt lỗi trong quá trình render component con để hiển thị trang tải lại.
- * Lỗi gọi API bất đồng bộ được xử lý ở request, form hoặc query; ErrorBoundary
- * không thay thế việc xử lý các lỗi mạng đó.
- */
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
@@ -130,7 +106,7 @@ class ErrorBoundary extends Component<
     return { failed: true };
   }
   componentDidCatch(_error: Error, _info: ErrorInfo) {
-    /* Không ghi thông tin người dùng hoặc nội dung API vào log của lỗi giao diện. */
+    /* Do not log user data or API payloads. */
   }
   render() {
     return this.state.failed ? (

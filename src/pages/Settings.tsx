@@ -1,8 +1,3 @@
-/**
- * CÀI ĐẶT HIỂN THỊ, THÔNG TIN KẾT NỐI VÀ HỒ SƠ NGƯỜI DÙNG.
- * Tùy chọn giao diện/khôi phục demo là thao tác cục bộ. Nút kiểm tra kết nối gọi
- * API hồ sơ với JWT hiện tại, giúp phân biệt đang dùng API hay dữ liệu demo.
- */
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -51,10 +46,6 @@ export default function Settings() {
   const [checking, setChecking] = useState(false);
   const toast = useToast();
   const client = useQueryClient();
-  /**
-   * Kiểm tra kết nối bằng GET hồ sơ của chính người dùng cùng JWT hiện tại;
-   * thành công nghĩa backend chấp nhận yêu cầu này, không chứng minh mọi API đều hoạt động.
-   */
   async function check() {
     setChecking(true);
     setPing("");
@@ -397,10 +388,6 @@ export default function Settings() {
     </>
   );
 }
-/**
- * Đọc hồ sơ từ api.user theo session.user.id. Hiện chỉ cho cập nhật tên/điện thoại
- * trong demo vì chưa có API cập nhật hồ sơ tương ứng cho form này.
- */
 export function Profile() {
   const { session, signIn } = useAuth();
   const demo = session!.mode === "demo";

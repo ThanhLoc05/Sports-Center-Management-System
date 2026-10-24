@@ -1,8 +1,3 @@
-/**
- * FLOW 4 — ĐIỂM DANH VÀ LỊCH SỬ CÓ MẶT/VẮNG.
- * Thành viên xem lịch sử của mình; nhân viên/HLV chọn lớp để ghi nhận.
- * Danh sách chưa điểm danh được ghép từ booking BOOKED và dữ liệu attendance.
- */
 import { useState } from "react";
 import {
   Check,
@@ -59,10 +54,6 @@ export default function Attendance() {
   const [pending, setPending] = useState<number | null>(null);
   const client = useQueryClient();
   const toast = useToast();
-  /**
-   * MEMBER truy vấn lịch sử của chính mình; vai trò khác truy vấn lớp đang chọn.
-   * Khoảng ngày và ID nằm trong key; không gọi khi chưa có lớp hoặc ngày bị đảo.
-   */
   const query = useQuery({
     queryKey: [
       "attendance",
@@ -97,10 +88,6 @@ export default function Attendance() {
     (a) => a.status === "PRESENT",
   ).length;
   const absent = (query.data || []).filter((a) => a.status === "ABSENT").length;
-  /**
-   * Danh sách cần điểm danh = booking BOOKED trừ người đã có attendance trong
-   * tập dữ liệu đang tải; đây là phép ghép phía frontend, không phải bảng SQL mới.
-   */
   const roster =
     bookings.data?.filter(
       (b) =>
@@ -110,11 +97,6 @@ export default function Attendance() {
   const currentClass = classes.data?.find(
     (c) => c.id === Number(effectiveClassId),
   );
-  /**
-   * Gửi memberId người học, classId và checkedInBy là người đang thao tác.
-   * pending khóa thao tác tương ứng trong lúc chờ; chỉ báo thành công sau API
-   * và luôn bỏ trạng thái chờ ở finally để không bị kẹt khi lỗi.
-   */
   async function quickCheck(memberId: number, status: string) {
     setPending(memberId);
     try {

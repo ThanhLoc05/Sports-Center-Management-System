@@ -8,6 +8,3 @@ playwright-report/
 test-results/
 .DS_Store
 *.tsbuildinfo
-
-# Local runtime logs and test credentials
-.local/

@@ -1,8 +1,3 @@
-/**
- * FLOW 3 — BÁO CÁO DOANH THU THEO KHOẢNG THỜI GIAN CHO QUẢN LÝ.
- * API hiện có tổng theo khoảng ngày và báo cáo phương thức dạng text. Biểu đồ
- * chi tiết theo ngày được tính từ hóa đơn demo, không tự suy ra từ một tổng API.
- */
 import { useState } from "react";
 import { BarChart3, CreditCard, TrendingUp, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -49,18 +44,10 @@ export default function Reports() {
   const demo = session!.mode === "demo";
   const [start, setStart] = useState(`${localDate().slice(0, 7)}-01`);
   const [end, setEnd] = useState(localDate());
-  /**
-   * start/end là giá trị đang nhập; range là bộ lọc đã áp dụng khi người dùng
-   * xem báo cáo. Tách hai state để không gọi API lại theo từng lần sửa ô ngày.
-   */
   const [range, setRange] = useState({ start, end });
   const [chartType, setChartType] = useState("area");
   const users = useUsers();
   const classes = useClasses();
-  /**
-   * Tải tổng doanh thu theo range, bao trọn ngày đầu/cuối bằng 00:00:00 và 23:59:59.
-   * queryKey đổi theo range để React Query tải kết quả cho khoảng mới.
-   */
   const query = useQuery({
     queryKey: ["report", range],
     queryFn: () =>
@@ -74,10 +61,6 @@ export default function Reports() {
       ),
     enabled: !demo,
   });
-  /**
-   * Chỉ demo có tập hóa đơn chi tiết để cộng theo từng ngày/phương thức.
-   * API mode không dùng hóa đơn mẫu dựng biểu đồ của doanh thu thật.
-   */
   const db = demo ? readDemo() : null;
   const invoices =
     db?.invoices.filter(
