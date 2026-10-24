@@ -61,6 +61,11 @@ public class ClassServiceImpl implements ClassService {
             throw new IllegalArgumentException("Thời gian lớp học phải là tương lai");
         }
 
+        int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : 60;
+
+        // KIỂM TRA TRÙNG LỊCH: Không cho phép xếp trùng lịch của Huấn luyện viên hoặc Phòng tập
+        validateNoScheduleConflict(null, request.getCoachId(), request.getRoomId(), request.getScheduleTime(), duration);
+
         Classes clazz = Classes.builder()
                 .className(request.getClassName())
                 .sportId(request.getSportId())
@@ -68,7 +73,7 @@ public class ClassServiceImpl implements ClassService {
                 .roomId(request.getRoomId())
                 .maxCapacity(request.getMaxCapacity())
                 .scheduleTime(request.getScheduleTime())
-                .durationMinutes(request.getDurationMinutes() != null ? request.getDurationMinutes() : 60)
+                .durationMinutes(duration)
                 .status("SCHEDULED")
                 .build();
 
@@ -87,7 +92,6 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public List<ClassResponse> getAllClasses(Integer sportId, Integer coachId) {
         List<Classes> classes;
-
         if (sportId != null && coachId != null) {
             classes = classRepository.findBySportIdAndCoachId(sportId, coachId);
         } else if (sportId != null) {
@@ -97,7 +101,6 @@ public class ClassServiceImpl implements ClassService {
         } else {
             classes = classRepository.findAll();
         }
-
         return classes.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -106,11 +109,8 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassResponse> getAvailableClasses() {
-        // Tối ưu: Dùng query DB lọc sẵn các lớp SCHEDULED trong tương lai thay vì tải hết vào RAM
-        List<Classes> classes = classRepository.findFutureScheduledClasses();
-
-        return classes.stream()
-                .filter(clazz -> getCurrentBookingCount(clazz.getId()) < clazz.getMaxCapacity())
+        return classRepository.findFutureScheduledClasses().stream()
+                .filter(c -> getCurrentBookingCount(c.getId()) < c.getMaxCapacity())
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -118,6 +118,9 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassResponse> getClassesBySport(Integer sportId) {
+        if (!sportRepository.existsById(sportId)) {
+            throw new IllegalArgumentException("Bộ môn không tồn tại");
+        }
         return classRepository.findBySportId(sportId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -129,7 +132,6 @@ public class ClassServiceImpl implements ClassService {
         Classes clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        // Tái sử dụng method getCurrentBookingCount thay vì gọi trực tiếp repository
         long currentBookings = getCurrentBookingCount(classId);
         return Math.max(0, (int) (clazz.getMaxCapacity() - currentBookings));
     }
@@ -190,6 +192,11 @@ public class ClassServiceImpl implements ClassService {
             clazz.setRoomId(request.getRoomId());
         }
 
+        // KIỂM TRA TRÙNG LỊCH KHI CẬP NHẬT
+        LocalDateTime effectiveStart = clazz.getScheduleTime();
+        int effectiveDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
+        validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), effectiveStart, effectiveDuration);
+
         Classes updatedClass = classRepository.save(clazz);
         return mapToResponse(updatedClass);
     }
@@ -212,6 +219,36 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public long getCurrentBookingCount(Integer classId) {
         return bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
+    }
+
+    private void validateNoScheduleConflict(
+            Integer excludeClassId, Integer coachId, Integer roomId, LocalDateTime start, int durationMinutes) {
+        LocalDateTime end = start.plusMinutes(durationMinutes);
+
+        List<Classes> scheduledClasses = classRepository.findAll().stream()
+                .filter(c -> "SCHEDULED".equals(c.getStatus()))
+                .filter(c -> excludeClassId == null || !c.getId().equals(excludeClassId))
+                .toList();
+
+        for (Classes other : scheduledClasses) {
+            LocalDateTime otherStart = other.getScheduleTime();
+            int otherDuration = other.getDurationMinutes() != null ? other.getDurationMinutes() : 60;
+            LocalDateTime otherEnd = otherStart.plusMinutes(otherDuration);
+
+            // Kiểm tra overlap thời gian: start < otherEnd && otherStart < end
+            if (start.isBefore(otherEnd) && otherStart.isBefore(end)) {
+                if (other.getCoachId().equals(coachId)) {
+                    throw new IllegalArgumentException(String.format(
+                            "Huấn luyện viên đã có lịch dạy lớp '%s' trong khung giờ %s - %s",
+                            other.getClassName(), otherStart.toLocalTime(), otherEnd.toLocalTime()));
+                }
+                if (other.getRoomId().equals(roomId)) {
+                    throw new IllegalArgumentException(String.format(
+                            "Phòng tập đã được xếp cho lớp '%s' trong khung giờ %s - %s",
+                            other.getClassName(), otherStart.toLocalTime(), otherEnd.toLocalTime()));
+                }
+            }
+        }
     }
 
     private void validateCoach(Integer coachId) {

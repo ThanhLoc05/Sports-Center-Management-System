@@ -9,6 +9,7 @@ import com.sportscenter.management.entity.User;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.MemberProfileRepository;
+import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.BookingService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class BookingServiceImpl implements BookingService {
     private final ClassBookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final MemberProfileRepository profileRepository;
+    private final MemberSubscriptionRepository subscriptionRepository;
 
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
@@ -46,11 +48,48 @@ public class BookingServiceImpl implements BookingService {
                 .filter(user -> "ACTIVE".equals(user.getStatus()))
                 .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại hoặc không hoạt động"));
 
+        // RÀNG BUỘC 1: Học viên BẮT BUỘC phải có gói tập ACTIVE và còn hạn
+        boolean hasActiveMembership = subscriptionRepository.findActiveMembership(memberId).isPresent();
+        if (!hasActiveMembership) {
+            throw new IllegalArgumentException("Học viên chưa có gói tập hợp lệ hoặc gói tập đã hết hạn. Vui lòng thanh toán gói tập trước khi đặt lịch.");
+        }
+
+        // RÀNG BUỘC 2: Kiểm tra xem học viên đã đăng ký chính lớp này chưa
         Optional<ClassBooking> existing = bookingRepository.findByClassIdAndMemberId(classId, memberId);
         if (existing.isPresent() && "BOOKED".equals(existing.get().getStatus())) {
             throw new IllegalArgumentException("Thành viên đã đăng ký lớp học này");
         }
 
+        // RÀNG BUỘC 3: Kiểm tra trùng giờ học giữa các lớp mà học viên đã đăng ký
+        LocalDateTime newStart = clazz.getScheduleTime();
+        int newDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
+        LocalDateTime newEnd = newStart.plusMinutes(newDuration);
+
+        List<ClassBooking> activeBookings = bookingRepository.findByMemberId(memberId).stream()
+                .filter(b -> "BOOKED".equals(b.getStatus()))
+                .toList();
+
+        for (ClassBooking b : activeBookings) {
+            if (b.getClassId().equals(classId)) continue;
+            Optional<Classes> otherOpt = classRepository.findById(b.getClassId());
+            if (otherOpt.isPresent()) {
+                Classes other = otherOpt.get();
+                if ("SCHEDULED".equals(other.getStatus())) {
+                    LocalDateTime otherStart = other.getScheduleTime();
+                    int otherDuration = other.getDurationMinutes() != null ? other.getDurationMinutes() : 60;
+                    LocalDateTime otherEnd = otherStart.plusMinutes(otherDuration);
+
+                    // Overlap: start1 < end2 && start2 < end1
+                    if (newStart.isBefore(otherEnd) && otherStart.isBefore(newEnd)) {
+                        throw new IllegalArgumentException(String.format(
+                                "Học viên bị trùng lịch với lớp '%s' (%s - %s)",
+                                other.getClassName(), otherStart.toLocalTime(), otherEnd.toLocalTime()));
+                    }
+                }
+            }
+        }
+
+        // Kiểm tra sức chứa tối đa của lớp học
         long bookedCount = bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
         if (bookedCount >= clazz.getMaxCapacity()) {
             throw new IllegalArgumentException("Lớp học đã đủ số lượng tối đa");
@@ -85,23 +124,27 @@ public class BookingServiceImpl implements BookingService {
         if (!classRepository.existsById(classId)) {
             throw new IllegalArgumentException("Lớp học không tồn tại");
         }
-        List<ClassBooking> bookings = bookingRepository.findByClassId(classId);
+
+        List<ClassBooking> bookings = bookingRepository.findByClassId(classId).stream()
+                .filter(b -> "BOOKED".equals(b.getStatus()))
+                .toList();
+
         return bookings.stream().map(b -> {
-            User user = userRepository.findById(b.getMemberId()).orElse(null);
-            MemberProfile profile = profileRepository.findById(b.getMemberId()).orElse(null);
+            Optional<User> userOpt = userRepository.findById(b.getMemberId());
+            Optional<MemberProfile> profileOpt = profileRepository.findById(b.getMemberId());
+
             return ClassStudentResponse.builder()
                     .memberId(b.getMemberId())
-                    .fullName(user != null ? user.getFullName() : null)
-                    .email(user != null ? user.getEmail() : null)
-                    .phone(user != null ? user.getPhone() : null)
-                    .gender(profile != null ? profile.getGender() : null)
-                    .fitnessGoals(profile != null ? profile.getFitnessGoals() : null)
-                    .bookingStatus(b.getStatus())
+                    .fullName(userOpt.map(User::getFullName).orElse("Không xác định"))
+                    .email(userOpt.map(User::getEmail).orElse(""))
+                    .phone(userOpt.map(User::getPhone).orElse(""))
+                    .gender(profileOpt.map(MemberProfile::getGender).orElse(null))
+                    .fitnessGoals(profileOpt.map(MemberProfile::getFitnessGoals).orElse(null))
                     .bookedAt(b.getBookedAt())
+                    .bookingStatus(b.getStatus())
                     .build();
         }).toList();
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -115,10 +158,12 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public BookingResponse cancelBooking(Integer bookingId) {
         ClassBooking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Đăng ký lớp học không tồn tại"));
+                .orElseThrow(() -> new IllegalArgumentException("Lượt đặt chỗ không tồn tại"));
+
         if (!"BOOKED".equals(booking.getStatus())) {
-            throw new IllegalArgumentException("Đăng ký lớp học không còn hiệu lực");
+            throw new IllegalArgumentException("Chỉ có thể hủy lượt đặt chỗ đang có hiệu lực");
         }
+
         booking.setStatus("CANCELLED");
         return toResponse(bookingRepository.save(booking));
     }

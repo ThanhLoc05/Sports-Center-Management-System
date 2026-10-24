@@ -235,3 +235,21 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_invoices_created_at' 
     CREATE INDEX IX_invoices_created_at ON dbo.invoices (created_at);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_attendances_member_time' AND object_id = OBJECT_ID(N'dbo.attendances'))
     CREATE INDEX IX_attendances_member_time ON dbo.attendances (user_id, check_in_time);
+
+IF OBJECT_ID(N'dbo.support_tickets', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.support_tickets (
+        id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_support_tickets PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        subject NVARCHAR(255) NOT NULL,
+        content NVARCHAR(MAX) NOT NULL,
+        status NVARCHAR(30) NOT NULL CONSTRAINT DF_support_tickets_status DEFAULT 'OPEN',
+        response NVARCHAR(MAX) NULL,
+        resolved_by BIGINT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_support_tickets_created_at DEFAULT SYSDATETIME(),
+        resolved_at DATETIME2 NULL,
+        CONSTRAINT FK_support_tickets_members FOREIGN KEY (member_id) REFERENCES dbo.users(id),
+        CONSTRAINT FK_support_tickets_resolvers FOREIGN KEY (resolved_by) REFERENCES dbo.users(id),
+        CONSTRAINT CK_support_tickets_status CHECK (status IN ('OPEN', 'RESOLVED', 'CANCELLED'))
+    );
+END;

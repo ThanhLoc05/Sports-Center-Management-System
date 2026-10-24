@@ -377,6 +377,40 @@ Authorization: {{memberToken}}
 GET {{baseUrl}}/api/v1/feedbacks/coach/3
 Content-Type: {{contentType}}
 
+
+### ============================================================================
+### FLOW 11: SUPPORT TICKETS (H? TR? THÀNH VIÊN)
+### ============================================================================
+
+### 11.1 Member creates a support ticket
+POST {{baseUrl}}/api/v1/support-tickets
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "subject": "Yêu c?u d?i gi? t?p l?p Yoga",
+  "content": "Tôi b?n công tác vào th? 2, mong trung tâm h? tr? chuy?n sang l?p th? 4."
+}
+
+### 11.2 Member views their own support tickets
+GET {{baseUrl}}/api/v1/support-tickets/my
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 11.3 Receptionist/Manager lists all open tickets
+GET {{baseUrl}}/api/v1/support-tickets?status=OPEN
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 11.4 Receptionist resolves a support ticket
+PATCH {{baseUrl}}/api/v1/support-tickets/1/resolve
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "response": "L? tân dã h? tr? chuy?n l?ch h?c sang th? 4 thành công cho b?n."
+}
+
 ### ============================================================================
 ### NOTES:
 ### ============================================================================
