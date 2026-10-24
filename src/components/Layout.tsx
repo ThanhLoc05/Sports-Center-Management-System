@@ -7,7 +7,6 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
-  X,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { Avatar, Button } from "./ui";
@@ -54,7 +53,7 @@ export default function Layout({
       )}
       <aside
         id="main-sidebar"
-        className={`sidebar ${mobile ? "mobile-open" : ""}`}
+        className={`sidebar ${mobile ? "sidebar-open" : ""}`}
       >
         <Link className="brand" to="/">
           <span className="brand-symbol">
@@ -62,13 +61,6 @@ export default function Layout({
           </span>
           sportiva<span className="brand-dot">.</span>
         </Link>
-        <button
-          className="icon-btn sidebar-close"
-          aria-label="Đóng menu"
-          onClick={() => setMobile(false)}
-        >
-          <X size={20} />
-        </button>
         <div className="workspace-card">
           <ShieldCheck size={24} />
           <div>
@@ -120,7 +112,7 @@ export default function Layout({
           {account && (
             <div className="topbar-actions">
               <Avatar name={account.name} size="small" />
-              <div>
+              <div className="contact-cell">
                 <strong>{account.name}</strong>
                 <small>{account.roleLabel}</small>
               </div>
