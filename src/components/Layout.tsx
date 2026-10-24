@@ -1,3 +1,8 @@
+/**
+ * KHUNG GIAO DIỆN CHUNG SAU ĐĂNG NHẬP: sidebar, thanh công cụ và vùng trang con.
+ * Menu lọc theo vai trò, Outlet hiển thị màn tương ứng URL. Tìm kiếm ở đây dựa trên
+ * dữ liệu users/classes đã tải; không phải API tìm kiếm toàn database.
+ */
 import { useEffect, useState } from "react";
 import {
   Activity,
@@ -54,6 +59,10 @@ const all: Role[] = [
   "RECEPTIONIST",
 ];
 const staff: Role[] = ["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"];
+/**
+ * Khai báo nhãn, đường dẫn và vai trò nhìn thấy từng mục menu. App.tsx có
+ * route guard độc lập để vẫn kiểm tra quyền nếu người dùng tự nhập đường dẫn.
+ */
 const navigation: { label: string; items: NavItem[] }[] = [
   {
     label: "KHÔNG GIAN LÀM VIỆC",
@@ -155,6 +164,10 @@ export default function Layout() {
   const users = useUsers();
   const classes = useClasses();
   const role = session!.user.roleName;
+  /**
+   * Mỗi lần chuyển trang, đóng menu tạm và cuộn lên đầu để giao diện mobile
+   * không che nội dung trang mới. Cleanup phím tắt được xử lý ở effect tiếp theo.
+   */
   useEffect(() => {
     setMobile(false);
     setProfile(false);
@@ -177,6 +190,10 @@ export default function Layout() {
   const current =
     navigation.flatMap((g) => g.items).find((i) => i.to === location.pathname)
       ?.label || "Hồ sơ cá nhân";
+  /**
+   * Thông báo gói sắp hết hạn được tổng hợp từ dữ liệu DEMO trong 7 ngày tới.
+   * Ở API mode chưa có nguồn thông báo này nên không hiển thị dữ liệu minh họa.
+   */
   const expiring =
     session!.mode === "demo"
       ? readDemo().subscriptions.filter(
@@ -538,6 +555,9 @@ export default function Layout() {
     </div>
   );
 }
+/**
+ * Trang cho URL không tồn tại; khác Forbidden là URL có thật nhưng không đủ quyền.
+ */
 export function NotFound() {
   return (
     <div className="not-found">
@@ -551,6 +571,10 @@ export function NotFound() {
     </div>
   );
 }
+/**
+ * Thông báo không được vào trang theo quyền frontend; không tự đổi vai trò
+ * hay đăng xuất chỉ vì người dùng đi nhầm một trang.
+ */
 export function Forbidden() {
   return (
     <div className="not-found">

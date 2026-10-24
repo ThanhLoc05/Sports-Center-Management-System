@@ -1,4 +1,9 @@
-/* Dashboard */
+/**
+ * CSS RIÊNG THEO NHÓM MÀN HÌNH: tổng quan, đăng nhập, lớp/lịch, gói/hóa đơn,
+ * điểm danh/báo cáo, tập luyện/trợ lý và công cụ hỗ trợ. Các @media điều chỉnh
+ * bố cục theo màn hình; chỉ thay cách trình bày, không thay quyền hay dữ liệu API.
+ */
+/* Tổng quan: bố cục thống kê, biểu đồ và các khối thao tác nhanh. */
 .welcome-banner {
   background: #eaf0dd;
   border: 1px solid #e3ebd3;
@@ -581,7 +586,7 @@
   color: #656d57;
   margin: 12px 0 20px;
 }
-/* Authentication */
+/* Đăng nhập/đăng ký: khối giới thiệu và form xác thực. */
 .auth-page {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -969,7 +974,7 @@
 .auth-footer > span {
   color: #666c5c;
 }
-/* Class collection and calendar */
+/* Flow 2: danh sách/thẻ lớp và cách trình bày lịch hoạt động. */
 .class-filter-bar {
   border-bottom: 1px solid #e5eadd;
   margin: 5px 0 0;
@@ -1484,7 +1489,7 @@
   font-size: 10px;
   color: #616e54;
 }
-/* Memberships and billing */
+/* Flow 1/3: thẻ gói tập, lịch sử đăng ký và giao diện phiếu thu. */
 .member-picker-bar {
   display: flex;
   align-items: center;
@@ -1829,7 +1834,7 @@
   font-size: 10px;
   color: #646b5a;
 }
-/* Attendance and reports */
+/* Flow 4/3: điểm danh và trình bày báo cáo. */
 .attendance-controls {
   display: flex;
   align-items: flex-end;
@@ -2031,7 +2036,7 @@
   font-family: inherit;
   color: #606e50;
 }
-/* Training and assistant */
+/* Flow tùy chọn: kế hoạch tập luyện và giao diện trợ lý demo. */
 .training-hero {
   display: flex;
   align-items: center;
@@ -2487,7 +2492,7 @@
   border-radius: 7px;
   margin: 0 0 20px;
 }
-/* Supporting tools */
+/* Công cụ phụ trợ: hỗ trợ, cài đặt và các khối giao diện liên quan. */
 .support-intro {
   display: flex;
   align-items: center;
@@ -4760,7 +4765,7 @@
   gap: 8px;
   padding: 8px 15px;
 }
-/* Legible data labels and class details across screen sizes. */
+/* Giữ nhãn dữ liệu và chi tiết lớp dễ đọc trên các kích thước màn hình. */
 .stat-top {
   font-size: 12px;
 }

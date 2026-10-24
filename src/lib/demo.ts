@@ -1,3 +1,8 @@
+/**
+ * NGUỒN DỮ LIỆU CHO BẢN DEMO KHÔNG CẦN BACKEND.
+ * Dữ liệu nằm ở localStorage với khóa riêng; tải lại trang vẫn giữ các thay đổi local.
+ * Tài khoản, lớp và doanh thu mẫu không phải dữ liệu thật và không đồng bộ vào SQL.
+ */
 import type { DemoDatabase, Role, Session } from "./types";
 import { addDays, localDate, dateTimeLocal } from "./utils";
 const KEY = "sportiva-demo-v1";
@@ -29,6 +34,10 @@ const names = [
 ];
 const schedule = (offset: number, hour: number, minute = 0) =>
   `${localDate(addDays(offset))}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+/**
+ * Tạo dữ liệu khởi đầu gồm người dùng nhiều vai trò, lớp, booking, gói và hóa đơn.
+ * Các mốc lịch được tính quanh ngày hiện tại để thuận tiện trình diễn nghiệp vụ.
+ */
 export function seedDatabase(): DemoDatabase {
   const users = [
     {
@@ -294,6 +303,10 @@ export function seedDatabase(): DemoDatabase {
     ],
   };
 }
+/**
+ * Ưu tiên đọc dữ liệu demo đã lưu. Nếu JSON không đọc được hoặc thiếu các mảng
+ * bắt buộc, tạo lại bộ dữ liệu mẫu để demo tiếp tục hoạt động.
+ */
 export function readDemo(): DemoDatabase {
   try {
     const data = localStorage.getItem(KEY);
@@ -319,24 +332,38 @@ export function readDemo(): DemoDatabase {
         return db;
     }
   } catch {
-    /* Invalid or unavailable local storage: create a clean dataset. */
+    /* localStorage lỗi hoặc dữ liệu hỏng: tạo lại dữ liệu demo hợp lệ. */
   }
   const db = seedDatabase();
   saveDemo(db);
   return db;
 }
+/**
+ * Lưu toàn bộ dữ liệu giả lập dưới dạng JSON. Chỉ ghi trình duyệt, không gọi API.
+ */
 export function saveDemo(db: DemoDatabase) {
   localStorage.setItem(KEY, JSON.stringify(db));
 }
+/**
+ * Xóa khóa dữ liệu demo rồi tạo lại dữ liệu mẫu; không xóa database backend.
+ */
 export function resetDemo() {
   localStorage.removeItem(KEY);
   return readDemo();
 }
+/**
+ * Chọn một tài khoản mẫu theo vai trò để trải nghiệm demo. Token cố định này
+ * không phải JWT hợp lệ của backend và không có quyền truy cập backend thật.
+ */
 export function demoSession(role: Role): Session {
   const user = readDemo().users.find((u) => u.roleName === role);
   if (!user) throw new Error("Vai trò demo không tồn tại.");
   return { token: "demo-local-only", user, mode: "demo" };
 }
+/**
+ * Ghi ai làm gì, chi tiết và thời gian trong demo; giữ tối đa 500 dòng mới nhất
+ * rồi lưu lại localStorage. Đây không phải nhật ký audit được server bảo vệ.
+ */
 export function demoAudit(db: DemoDatabase, action: string, detail: string) {
   let actor = "Người dùng demo";
   try {
@@ -344,7 +371,7 @@ export function demoAudit(db: DemoDatabase, action: string, detail: string) {
       JSON.parse(sessionStorage.getItem("sportiva-session") || "{}").user
         ?.fullName || actor;
   } catch {
-    /* no session */
+    /* Không đọc được phiên thì dùng tên người thao tác demo mặc định. */
   }
   db.audit.unshift({
     id: Date.now(),

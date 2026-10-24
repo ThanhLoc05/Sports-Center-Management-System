@@ -1,3 +1,8 @@
+/**
+ * FLOW 5/6 TÙY CHỌN — TRỢ LÝ VÀ MẪU BUỔI TẬP ĐANG Ở MỨC DEMO.
+ * Trả lời dựa trên từ khóa và dữ liệu mẫu, không gọi mô hình AI hay dịch vụ AI bên ngoài.
+ * Việc có giao diện chat không chứng minh đã tích hợp AI thật.
+ */
 import { useRef, useState, useEffect } from "react";
 import {
   ArrowUpRight,
@@ -46,6 +51,11 @@ export default function Assistant() {
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
+  /**
+   * Chỉ hoạt động trong demo: chuẩn hóa câu hỏi, so từ khóa rồi tạo câu trả lời
+   * từ lịch/gói mẫu. busy ngăn gửi chồng; catch báo lỗi, finally bỏ trạng thái chờ.
+   * Không có lời gọi AI/LLM trong hàm này.
+   */
   async function send(input: string) {
     if (!demo || busy || !input.trim()) return;
     setText("");

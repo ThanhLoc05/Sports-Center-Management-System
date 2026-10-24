@@ -1,3 +1,8 @@
+/**
+ * FLOW 1 — QUẢN LÝ THÀNH VIÊN VÀ ĐỘI NGŨ. Prop team chọn nhóm nhân sự thay vì học viên.
+ * Tìm kiếm/bộ lọc xử lý trên dữ liệu đã tải. Tạo mới dùng cùng API đăng ký MEMBER;
+ * đổi trạng thái tài khoản không phải chức năng gán lại vai trò.
+ */
 import { useState } from "react";
 import {
   ArrowUpRight,
@@ -53,6 +58,10 @@ export default function Members({ team = false }: { team?: boolean }) {
   const toast = useToast();
   const manager = isManager(session!.user.roleName);
   const demo = session!.mode === "demo";
+  /**
+   * Cùng danh sách User nhưng team=true lấy nhân sự khác MEMBER; trang thành viên
+   * chỉ lấy MEMBER. Các điều kiện search/status/role tiếp theo chỉ lọc mảng này.
+   */
   const source = (users.data || []).filter((u) =>
     team ? u.roleName !== "MEMBER" : u.roleName === "MEMBER",
   );
@@ -62,6 +71,10 @@ export default function Members({ team = false }: { team?: boolean }) {
       (status === "all" || u.status === status) &&
       (role === "all" || u.roleName === role),
   );
+  /**
+   * Đổi trạng thái qua mutation dùng chung: API thành công mới báo và làm mới cache.
+   * Đây không phải thao tác xóa tài khoản hoặc đổi quyền.
+   */
   const changeAction = useAction(
     (v: { user: User; status: string }) => api.status(v.user.id, v.status),
     "Đã cập nhật trạng thái tài khoản.",
@@ -327,6 +340,10 @@ export default function Members({ team = false }: { team?: boolean }) {
           onClose={() => setCreate(false)}
           submitLabel="Tạo thành viên"
           onSubmit={async (data) => {
+            /**
+             * Tạo thành viên tại quầy bằng cùng endpoint đăng ký công khai. Payload
+             * không chứa role; backend tạo MEMBER, frontend không tự tạo quản lý/HLV.
+             */
             await api.register({
               fullName: String(data.get("fullName")).trim(),
               email: String(data.get("email")).trim(),
@@ -399,6 +416,10 @@ export default function Members({ team = false }: { team?: boolean }) {
     </>
   );
 }
+/**
+ * Chi tiết ghép thông tin User với lịch sử gói và booking của user.id.
+ * Mỗi query có ID trong key để hồ sơ người này không dùng dữ liệu cache người khác.
+ */
 function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
   const member = user.roleName === "MEMBER";
   const subs = useQuery({

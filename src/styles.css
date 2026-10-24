@@ -1,4 +1,13 @@
+/**
+ * CSS NỀN CHO TOÀN FRONTEND: biến màu/kích thước, khung trang, component dùng chung,
+ * responsive và bản in. Class trong TSX chọn quy tắc trình bày ở đây; CSS không gọi API
+ * hay thay đổi trạng thái nghiệp vụ. styles-pages.css chứa style đặc thù từng màn.
+ */
 @import url("./styles-pages.css");
+/**
+ * Biến thiết kế dùng chung: màu chủ đạo, đường viền, bo góc và chiều rộng sidebar.
+ * Các selector phía dưới tái sử dụng var(...) để giữ giao diện nhất quán.
+ */
 :root {
   font-family: "Be Vietnam Pro", Arial, sans-serif;
   color: #28362b;
@@ -2140,6 +2149,10 @@ td strong {
     font-size: 23px;
   }
 }
+/**
+ * Giảm hiệu ứng theo thiết lập hệ điều hành để người dùng nhạy cảm chuyển động
+ * có thể sử dụng giao diện thuận tiện hơn.
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *:before,
@@ -2149,6 +2162,10 @@ td strong {
     scroll-behavior: auto !important;
   }
 }
+/**
+ * Quy tắc khi in: ưu tiên nội dung phiếu thu và ẩn phần giao diện không cần thiết.
+ * Đây là trình bày cho lệnh in của trình duyệt, không phải nghiệp vụ xuất hóa đơn server.
+ */
 @media print {
   body {
     background: white !important;
@@ -2193,7 +2210,7 @@ td strong {
     content: none !important;
   }
 }
-/* Readable operational typography, including Vietnamese diacritics. */
+/* Kiểu chữ cho dữ liệu vận hành, bảo đảm đọc rõ cả dấu tiếng Việt. */
 .nav-item {
   font-size: 12px;
 }

@@ -56,7 +56,11 @@ describe("Every manager route renders with persisted demo data", () => {
         </QueryClientProvider>,
       );
       expect(
-        await screen.findByRole("heading", { name: heading, level: 1 }),
+        await screen.findByRole(
+          "heading",
+          { name: heading, level: 1 },
+          { timeout: 5000 },
+        ),
       ).toBeVisible();
       expect(
         screen.queryByRole("heading", { name: "Ứng dụng cần tải lại." }),

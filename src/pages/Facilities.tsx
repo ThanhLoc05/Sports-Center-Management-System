@@ -1,3 +1,8 @@
+/**
+ * DANH MỤC PHÒNG TẬP/BỘ MÔN — giao diện quản lý đang phục vụ demo.
+ * Chỉ ghi localStorage qua updateDemo; backend hiện chưa có controller danh mục.
+ * Xóa/sửa ở màn demo này không làm thay đổi danh mục trong SQL Server.
+ */
 import { useState } from "react";
 import { Dumbbell, DoorOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,6 +30,10 @@ export default function Facilities() {
   const client = useQueryClient();
   const toast = useToast();
   const db = demo ? readDemo() : null;
+  /**
+   * Tab rooms/sports chọn mảng demo cần hiển thị; API mode không tạo danh sách giả
+   * cho danh mục backend chưa có endpoint.
+   */
   const rows = tab === "rooms" ? db?.rooms || [] : db?.sports || [];
   return (
     <>

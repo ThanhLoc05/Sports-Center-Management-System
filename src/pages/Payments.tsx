@@ -1,3 +1,8 @@
+/**
+ * FLOW 3 — HÓA ĐƠN, XÁC NHẬN THU TIỀN VÀ GHI NHẬN HOÀN TIỀN.
+ * Tạo hóa đơn ở PENDING; xác nhận thu tiền mới chuyển PAID. Các lựa chọn phương thức
+ * thanh toán chỉ ghi nhận phương thức, không tự thực hiện giao dịch ngân hàng.
+ */
 import { useState } from "react";
 import {
   ArrowDownToLine,
@@ -72,6 +77,10 @@ export default function Payments() {
   } | null>(null);
   const client = useQueryClient();
   const toast = useToast();
+  /**
+   * Có memberId: lấy lịch sử hóa đơn người đó. Không có memberId: API hiện chỉ
+   * trả hóa đơn chờ thanh toán; tổng từ all bên dưới cũng chỉ phản ánh tập đã tải.
+   */
   const query = useQuery({
     queryKey: ["invoices", memberId],
     queryFn: () => api.invoices(Number(memberId) || undefined),
@@ -333,6 +342,10 @@ export default function Payments() {
           onClose={() => setCreate(false)}
           submitLabel="Tạo hóa đơn"
           onSubmit={async (d) => {
+            /**
+             * Tạo hóa đơn PENDING, gửi amount dạng số và người thu từ session. subscriptionId
+             * là tùy chọn. Mở phiếu vừa tạo để xem, nhưng chưa xác nhận trung tâm đã thu tiền.
+             */
             const invoice = await api.invoice({
               memberId: Number(d.get("memberId")),
               subscriptionId: d.get("subscriptionId")
@@ -411,6 +424,10 @@ export default function Payments() {
           danger={change.refund}
           onClose={() => setChange(null)}
           onConfirm={async () => {
+            /**
+             * Sau hộp thoại xác nhận mới gọi pay/refund. Nếu đang xem chính hóa đơn đó
+             * thì cập nhật detail theo phản hồi server, rồi làm mới bảng và thống kê.
+             */
             const updated = await api.pay(change.invoice.id, change.refund);
             if (detail?.id === updated.id) setDetail(updated);
             await client.invalidateQueries();
@@ -425,6 +442,10 @@ export default function Payments() {
     </>
   );
 }
+/**
+ * Dựng phiếu thu từ bản ghi hóa đơn. Nút in dùng chức năng trình duyệt để in/lưu PDF;
+ * không phải endpoint xuất hóa đơn điện tử hay tích hợp cổng thanh toán.
+ */
 function InvoiceDetail({
   invoice: i,
   name,

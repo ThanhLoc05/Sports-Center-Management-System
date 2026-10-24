@@ -1,3 +1,8 @@
+/**
+ * FLOW 1 — ĐĂNG KÝ, GIA HẠN VÀ THEO DÕI THỜI HẠN GÓI TẬP.
+ * Package là danh mục gói, Subscription là gói một thành viên đã đăng ký.
+ * Thao tác gói ở màn này tách riêng thao tác tạo/thu tiền hóa đơn trong Payments.
+ */
 import { useState } from "react";
 import {
   ArrowRight,
@@ -54,12 +59,24 @@ export default function Memberships() {
   const [create, setCreate] = useState(false);
   const client = useQueryClient();
   const toast = useToast();
+  /**
+   * Chỉ tải lịch sử khi đã có memberId. Thành viên lấy ID từ session; nhân viên
+   * chọn người cần hỗ trợ. queryKey dùng cùng ID để cache theo từng thành viên.
+   */
   const query = useQuery({
     queryKey: ["subscriptions", Number(memberId)],
     queryFn: () => api.subscriptions(Number(memberId)),
     enabled: !!memberId,
   });
+  /**
+   * Danh mục gói hiện chỉ có trong demo. API mode không tự lấy giá mẫu thay giá thật,
+   * nên form sử dụng packageId đã tồn tại ở backend.
+   */
   const packages = demo ? readDemo().packages : [];
+  /**
+   * Đang ACTIVE và ngày kết thúc chưa qua hôm nay mới được coi là còn hiệu lực
+   * trên giao diện; trạng thái thực tế khi ghi vẫn do backend xử lý.
+   */
   const active = query.data?.find(
     (s) => s.status === "ACTIVE" && s.endDate >= localDate(),
   );
@@ -328,6 +345,10 @@ export default function Memberships() {
           submitLabel={action.renew ? "Xác nhận gia hạn" : "Xác nhận đăng ký"}
           onSubmit={async (data) => {
             const id = member ? session!.user.id : Number(data.get("memberId"));
+            /**
+             * renew.id quyết định gọi gia hạn hay đăng ký mới. Không gửi ngày bắt đầu/kết thúc
+             * từ form vì backend tính ngày. Lưu xong tải lại dữ liệu; thu tiền thực hiện ở Payments.
+             */
             await api.subscribe(
               id,
               action.pkg?.id || Number(data.get("packageId")),
@@ -394,6 +415,10 @@ export default function Memberships() {
           description="Gói này sẽ ngừng hoạt động. Hủy gói không tự động hoàn tiền hóa đơn đã thanh toán."
           onClose={() => setCancel(null)}
           onConfirm={async () => {
+            /**
+             * Hủy gói không tự hoàn tiền. Nếu cần ghi nhận hoàn tiền phải thao tác riêng
+             * trên hóa đơn và đáp ứng quyền/trạng thái tương ứng.
+             */
             await api.cancelSubscription(cancel.id, cancel.memberId);
             await client.invalidateQueries();
             toast("Đã hủy gói thành viên.");

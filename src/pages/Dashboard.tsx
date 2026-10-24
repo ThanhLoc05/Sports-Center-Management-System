@@ -1,3 +1,8 @@
+/**
+ * TỔNG QUAN THEO VAI TRÒ: ghép dữ liệu thành viên, lớp, gói và doanh thu.
+ * Không có database riêng cho dashboard; chỉ đọc các nguồn đã dùng ở module nghiệp vụ.
+ * Số liệu/biểu đồ không có endpoint được phân biệt với dữ liệu demo để tránh hiểu sai.
+ */
 import { useCatalog } from "../lib/catalog";
 import { useMemo, useState } from "react";
 import {
@@ -95,6 +100,10 @@ function StatCard({
     </div>
   );
 }
+/**
+ * Đọc role và mode từ session để chọn phần tổng quan phù hợp, tải các query
+ * cần thiết rồi tính số liệu từ dữ liệu đã nhận; không ghi nghiệp vụ ở dashboard.
+ */
 export default function Dashboard() {
   const { rooms } = useCatalog();
   const { session } = useAuth();
@@ -113,11 +122,19 @@ export default function Dashboard() {
       ? localDate(addDays(-6))
       : `${localDate().slice(0, 7)}-01`;
   const end = localDate();
+  /**
+   * Chỉ quản lý tải doanh thu; enabled=false không gửi query cho vai trò khác.
+   * Khoảng thời gian trong key giúp cache phân biệt tuần/tháng.
+   */
   const revenue = useQuery({
     queryKey: ["revenue", start, end],
     queryFn: () => api.revenue(`${start}T00:00:00`, `${end}T23:59:59`),
     enabled: manager,
   });
+  /**
+   * Thành viên cần booking để chọn lịch của mình. Ở API mode không tải booking
+   * không có phạm vi cho nhân viên vì backend không có endpoint list-all.
+   */
   const bookings = useQuery({
     queryKey: ["bookings", member ? user.id : 0],
     queryFn: () => api.bookings(member ? user.id : undefined),
@@ -128,6 +145,10 @@ export default function Dashboard() {
     queryFn: () => api.subscriptions(user.id),
     enabled: member,
   });
+  /**
+   * Các số liệu cần tập dữ liệu đầy đủ như điểm danh/ngày và biểu đồ mẫu lấy từ
+   * db demo khi đang demo. API mode không dùng nguồn này thay số liệu server.
+   */
   const db = demo ? readDemo() : null;
   const allClasses = classes.data || [];
   const date = localDate(addDays(dayOffset));

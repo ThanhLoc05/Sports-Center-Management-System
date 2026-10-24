@@ -1,6 +1,19 @@
+/**
+ * HỢP ĐỒNG DỮ LIỆU TYPESCRIPT DÙNG TRONG FRONTEND.
+ * Interface/type mô tả hình dạng dữ liệu để phát hiện dùng sai trường khi biên dịch;
+ * chúng không tự kiểm tra JSON lúc chạy và không tự tạo bảng SQL.
+ * Các kiểu TrainingPlan, Package, SupportRequest... còn phục vụ dữ liệu demo.
+ */
+/**
+ * Vai trò dùng để chọn menu, route và nút thao tác. Vai trò thực tế của phiên API
+ * được nhận từ backend sau đăng nhập, không lấy từ nút đổi vai trò demo.
+ */
 export type Role =
   "CENTER_MANAGER" | "MANAGER" | "COACH" | "MEMBER" | "RECEPTIONIST";
 export type Mode = "demo" | "api";
+/**
+ * Thông tin tài khoản hiển thị trên frontend; không giữ mật khẩu hay password hash.
+ */
 export interface User {
   id: number;
   email: string;
@@ -9,17 +22,29 @@ export interface User {
   roleName: Role;
   status: string;
 }
+/**
+ * Một phiên gồm token, người đăng nhập và nguồn dữ liệu (api/demo).
+ * Token API đi kèm yêu cầu tới backend; token demo chỉ là giá trị minh họa.
+ */
 export interface Session {
   token: string;
   user: User;
   mode: Mode;
 }
+/**
+ * Dữ liệu gửi khi tạo tài khoản. Backend tự quyết định vai trò MEMBER;
+ * form đăng ký không được dùng để tự cấp quyền quản lý.
+ */
 export interface RegisterInput {
   email: string;
   password: string;
   fullName: string;
   phone: string;
 }
+/**
+ * Lớp học nối bộ môn, phòng và HLV bằng các ID; scheduleTime là giờ bắt đầu
+ * và durationMinutes là thời lượng. Đây là dữ liệu nguồn để dựng lịch học.
+ */
 export interface SportClass {
   id: number;
   className: string;
@@ -31,7 +56,14 @@ export interface SportClass {
   durationMinutes: number;
   status: string;
 }
+/**
+ * Payload tạo/sửa lớp bỏ id vì ID bản ghi do backend quản lý.
+ */
 export type ClassInput = Omit<SportClass, "id">;
+/**
+ * Một đăng ký nối một thành viên với một lớp. Hủy đăng ký thay đổi trạng thái
+ * để phân biệt với hủy chính lớp học và giữ được lịch sử.
+ */
 export interface Booking {
   id: number;
   classId: number;
@@ -39,6 +71,10 @@ export interface Booking {
   bookedAt: string;
   status: string;
 }
+/**
+ * Gói mà thành viên đã đăng ký, có khoảng ngày sử dụng và trạng thái.
+ * Khác với Package là danh mục sản phẩm/gói tập được chào bán.
+ */
 export interface Subscription {
   id: number;
   memberId: number;
@@ -47,6 +83,10 @@ export interface Subscription {
   endDate: string;
   status: string;
 }
+/**
+ * Hóa đơn ghi nhận số tiền, phương thức và trạng thái thu tiền. subscriptionId
+ * có thể trống nếu hóa đơn không gắn với một đăng ký gói cụ thể.
+ */
 export interface Invoice {
   id: number;
   subscriptionId?: number;
@@ -58,6 +98,10 @@ export interface Invoice {
   createdAt: string;
 }
 export type InvoiceInput = Omit<Invoice, "id" | "createdAt">;
+/**
+ * Kết quả điểm danh một thành viên trong lớp; checkedInBy là ID người ghi nhận,
+ * không phải ID học viên được điểm danh.
+ */
 export interface Attendance {
   id: number;
   classId: number;
@@ -67,6 +111,10 @@ export interface Attendance {
   status: string;
 }
 export type AttendanceInput = Omit<Attendance, "id" | "checkedInAt">;
+/**
+ * Mô tả gói tập để hiển thị thẻ giá và quyền lợi trong demo. Hiện backend
+ * chưa cung cấp API danh mục tương ứng cho màn hình này.
+ */
 export interface Package {
   id: number;
   name: string;
@@ -75,6 +123,10 @@ export interface Package {
   description: string;
   features: string[];
 }
+/**
+ * Kế hoạch tập luyện của một thành viên trong mô hình frontend hiện tại.
+ * Dù topic có kế hoạch cho cả lớp, kiểu dữ liệu này chưa mô tả mục tiêu cả lớp.
+ */
 export interface TrainingPlan {
   id: number;
   title: string;
@@ -85,6 +137,9 @@ export interface TrainingPlan {
   exercises: string;
   createdAt: string;
 }
+/**
+ * Kết quả và nhận xét gắn với một kế hoạch; hiện được dùng trong luồng demo.
+ */
 export interface TrainingLog {
   id: number;
   planId: number;
@@ -120,6 +175,10 @@ export interface Sport {
   name: string;
   description: string;
 }
+/**
+ * Tập các mảng dữ liệu giả lập để chạy web demo trên localStorage.
+ * Các bản ghi ở đây không tự đồng bộ sang database của backend.
+ */
 export interface DemoDatabase {
   rooms: FacilityRoom[];
   sports: Sport[];
@@ -142,6 +201,10 @@ export const roleLabels: Record<Role, string> = {
   MEMBER: "Thành viên",
   RECEPTIONIST: "Nhân viên lễ tân",
 };
+/**
+ * Gom hai tên vai trò quản lý. isStaff bên dưới gồm quản lý và lễ tân;
+ * COACH không thuộc nhóm isStaff trong thiết kế helper này.
+ */
 export const isManager = (role: Role) =>
   role === "CENTER_MANAGER" || role === "MANAGER";
 export const isStaff = (role: Role) =>

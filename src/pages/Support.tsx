@@ -1,3 +1,7 @@
+/**
+ * YÊU CẦU HỖ TRỢ — thành viên gửi phiếu, nhân viên theo dõi/xử lý trong demo.
+ * Dữ liệu nằm ở readDemo().tickets; chưa có API gửi yêu cầu lên trung tâm thật.
+ */
 import { useState } from "react";
 import { CheckCircle2, LifeBuoy, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,6 +38,10 @@ export default function Support() {
   const [detail, setDetail] = useState<SupportRequest | null>(null);
   const client = useQueryClient();
   const toast = useToast();
+  /**
+   * Trong demo, thành viên chỉ thấy phiếu của mình, nhóm isStaff thấy các phiếu
+   * để tiếp nhận. Từ khóa và trạng thái chỉ lọc dữ liệu local đã có.
+   */
   const rows = (demo ? readDemo().tickets : []).filter(
     (t) =>
       (staff || t.memberId === session!.user.id) &&

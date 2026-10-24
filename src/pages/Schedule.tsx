@@ -1,3 +1,8 @@
+/**
+ * FLOW 2 — BIỂU DIỄN LỊCH TỪ DỮ LIỆU LỚP, không tạo nguồn lịch độc lập.
+ * Thành viên lọc lớp đã BOOKED để xem lịch cá nhân; HLV nhận lớp phụ trách
+ * qua useClasses. Hộp thoại lớp/form tái sử dụng từ Classes.tsx.
+ */
 import { useCatalog } from "../lib/catalog";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3, Plus, Users } from "lucide-react";
@@ -32,6 +37,10 @@ export default function Schedule() {
   const [view, setView] = useState("week");
   const [selected, setSelected] = useState<SportClass | null>(null);
   const [create, setCreate] = useState(false);
+  /**
+   * Chỉ thành viên cần tải booking của mình để lọc lịch cá nhân. HLV đã nhận
+   * danh sách lớp riêng qua useClasses nên không cần query booking cá nhân này.
+   */
   const bookings = useQuery({
     queryKey: ["bookings", session!.user.id],
     queryFn: () => api.bookings(session!.user.id),
@@ -42,9 +51,17 @@ export default function Schedule() {
     if (view === "week" && calendarRef.current)
       calendarRef.current.scrollTop = 6 * 76;
   }, [view, classes.isPending]);
+  /**
+   * Tạo mốc giữa ngày theo UTC+7, tính thứ Hai đầu tuần và cộng offset theo tuần.
+   * Bảy ngày chỉ là cách trình bày; thời gian lớp gốc vẫn đến từ scheduleTime.
+   */
   const today = new Date(localDate() + "T12:00:00+07:00");
   const monday = addDays(-((today.getUTCDay() + 6) % 7) + offset * 7, today);
   const days = Array.from({ length: 7 }, (_, i) => addDays(i, monday));
+  /**
+   * Bỏ lớp CANCELLED, lọc bộ môn, và nếu chọn lịch cá nhân thì chỉ giữ lớp có
+   * booking BOOKED. Sau đó weekRows giới hạn ngày nằm trong tuần đang xem.
+   */
   const rows = (classes.data || []).filter(
     (c) =>
       c.status !== "CANCELLED" &&

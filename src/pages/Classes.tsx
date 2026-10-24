@@ -1,3 +1,8 @@
+/**
+ * FLOW 2 — QUẢN LÝ LỚP, PHÂN CÔNG HLV VÀ ĐĂNG KÝ LỚP.
+ * ClassForm dùng chung cho tạo/sửa; Classes là danh sách; ClassDetail xem chi tiết
+ * và gọi đặt chỗ. Cùng dữ liệu lớp được tái sử dụng trong lịch hoạt động.
+ */
 import { useCatalog } from "../lib/catalog";
 import { useState } from "react";
 import {
@@ -49,6 +54,10 @@ import {
   Select,
   useToast,
 } from "../components/ui";
+/**
+ * Có item là sửa lớp, thiếu item là tạo mới. Chuyển ID/sức chứa/thời lượng
+ * từ chuỗi FormData thành number trước khi gửi đúng hợp đồng ClassInput.
+ */
 export function ClassForm({
   item,
   onClose,
@@ -70,6 +79,10 @@ export function ClassForm({
       onClose={onClose}
       submitLabel={item ? "Lưu lớp học" : "Tạo lớp học"}
       onSubmit={async (data) => {
+        /**
+         * Gửi dữ liệu form cùng item?.id; API chọn POST/PUT. Chỉ sau khi chờ lưu thành công
+         * mới invalidate cache và báo hoàn tất. FormModal sẽ giữ form nếu có lỗi.
+         */
         await api.saveClass(
           {
             className: String(data.get("className")).trim(),
@@ -227,6 +240,10 @@ export default function Classes() {
   const users = useUsers();
   const client = useQueryClient();
   const toast = useToast();
+  /**
+   * Lọc danh sách lớp đã tải theo từ khóa, bộ môn và trạng thái; không tạo thêm
+   * request tìm kiếm mỗi khi gõ. HLV đã có bộ lọc coachId ở useClasses.
+   */
   const rows = (classes.data || []).filter(
     (c) =>
       matches(search, c.className) &&
@@ -439,6 +456,10 @@ export default function Classes() {
           description={`Lớp ${cancel.className} sẽ bị hủy cùng toàn bộ đăng ký liên quan.`}
           onClose={() => setCancel(null)}
           onConfirm={async () => {
+            /**
+             * Hủy cả lớp theo quyền quản lý; không nhầm với api.cancelBooking hủy chỗ
+             * của một học viên. Dữ liệu các màn liên quan được lấy lại sau khi lưu.
+             */
             await api.cancelClass(cancel.id);
             await client.invalidateQueries();
             toast("Đã hủy lớp và các đăng ký liên quan.");
@@ -448,6 +469,10 @@ export default function Classes() {
     </>
   );
 }
+/**
+ * Thẻ lớp hiển thị lịch, HLV và sức chứa. Query capacity lấy số chỗ còn lại
+ * riêng theo ID lớp; không đoán chỗ trống bằng maxCapacity.
+ */
 function ClassCard({
   item: c,
   coachName,
@@ -550,6 +575,11 @@ function ClassCard({
     </article>
   );
 }
+/**
+ * Ghép dữ liệu lớp, capacity và danh sách booking để xem chi tiết.
+ * Nút đăng ký chỉ mở cho lớp còn SCHEDULED, chưa bắt đầu và còn chỗ đã xác nhận;
+ * điều kiện giao diện hỗ trợ trải nghiệm, backend vẫn phải kiểm tra khi đặt.
+ */
 export function ClassDetail({
   item: c,
   onClose,
@@ -697,6 +727,10 @@ export function ClassDetail({
           onClose={() => setBooking(false)}
           submitLabel="Xác nhận đăng ký"
           onSubmit={async (data) => {
+            /**
+             * Thành viên dùng ID session; nhân viên hỗ trợ dùng ID chọn trong form.
+             * Đợi backend xác nhận BOOKED rồi làm mới cache cho danh sách và số chỗ trống.
+             */
             await api.book(
               c.id,
               member ? session!.user.id : Number(data.get("memberId")),
