@@ -8,6 +8,8 @@ The database script is idempotent for existing tables and inserts the required r
 
 For an existing database whose base tables are present but whose schema validation specifically reports `support_tickets` or `workout_log_details` as missing, run `V3__support_tickets.sql` and `V4__workout_log_details.sql` respectively in SQL Server Management Studio. `V4` requires the existing `workout_logs` table.
 
+For an existing entity-aligned database that still has the `MANAGER` role, run `V5__remove_manager_role.sql` in SQL Server Management Studio. It migrates users assigned to `MANAGER` to `CENTER_MANAGER` and removes the obsolete role; if no `CENTER_MANAGER` role exists, it renames the `MANAGER` role instead.
+
 In PowerShell, configure the database credentials and a Base64-encoded JWT secret of at least 32 random bytes, then start Spring Boot:
 
 ```powershell
@@ -27,7 +29,7 @@ The defaults connect to SQL Server at `localhost:1433`, database `SportsCenterDB
 
 `POST /api/v1/users/register` creates a `MEMBER` account. `POST /api/v1/users/login` accepts an email and password, returning a user and JWT. Pass the token as `Authorization: Bearer <token>` to protected endpoints. Revenue reports at `/api/v1/reports/revenue` require the `CENTER_MANAGER` role. Seed the roles using the supplied database script; public registration intentionally cannot set a privileged role.
 
-To grant the first manager, register a trusted account and have a database administrator update its `role_id` to the `CENTER_MANAGER` role from `roles`; do not expose role promotion through a public endpoint.
+To grant center-manager access, register a trusted account and have a database administrator update its `role_id` to the `CENTER_MANAGER` role from `roles`; do not expose role promotion through a public endpoint.
 
 ## Main API routes
 

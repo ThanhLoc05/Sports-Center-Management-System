@@ -19,7 +19,7 @@ import java.util.List;
  * ============================================================================
  * Phân quyền & Nghiệp vụ:
  * 1. Học viên gửi phiếu yêu cầu hỗ trợ / khiếu nại (POST /api/v1/support-tickets).
- * 2. Lễ tân (RECEPTIONIST) & Quản lý (MANAGER) tiếp nhận xử lý tại quầy (GET & PATCH resolve).
+ * 2. Lễ tân (RECEPTIONIST) & Quản lý trung tâm (CENTER_MANAGER) tiếp nhận xử lý tại quầy (GET & PATCH resolve).
  * 3. Học viên xem lịch sử và trạng thái phản hồi của các phiếu mình đã gửi (GET /my).
  */
 @RestController
@@ -38,7 +38,7 @@ public class SupportTicketController {
         Integer currentUserId = securityUtils.getCurrentUserId();
         if (currentUserId == null) return ResponseEntity.status(401).build();
 
-        Integer targetMemberId = memberId != null && (securityUtils.isReceptionist() || securityUtils.isManagerOrCenterManager())
+        Integer targetMemberId = memberId != null && (securityUtils.isReceptionist() || securityUtils.isCenterManager())
                 ? memberId
                 : currentUserId;
 
@@ -46,7 +46,7 @@ public class SupportTicketController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public ResponseEntity<List<SupportTicketResponse>> getAllTickets(
             @RequestParam(required = false) String status) {
         return ResponseEntity.ok(supportTicketService.getAllTickets(status));
@@ -62,7 +62,7 @@ public class SupportTicketController {
     }
 
     @GetMapping("/member/{memberId}")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public ResponseEntity<List<SupportTicketResponse>> getTicketsByMember(@PathVariable Integer memberId) {
         return ResponseEntity.ok(supportTicketService.getTicketsByMemberId(memberId));
     }
@@ -76,7 +76,7 @@ public class SupportTicketController {
     }
 
     @PatchMapping("/{id}/resolve")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public ResponseEntity<SupportTicketResponse> resolveTicket(
             @PathVariable Integer id,
             @Valid @RequestBody SupportTicketResolveRequest request) {

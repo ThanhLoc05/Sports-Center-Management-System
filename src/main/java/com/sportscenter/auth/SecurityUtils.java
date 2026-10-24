@@ -38,8 +38,8 @@ public class SecurityUtils {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_" + roleName) || a.getAuthority().contains(roleName));
     }
 
-    public boolean isManagerOrCenterManager() {
-        return hasRole("MANAGER") || hasRole("CENTER_MANAGER");
+    public boolean isCenterManager() {
+        return hasRole("CENTER_MANAGER");
     }
 
     public boolean isReceptionist() {
@@ -51,13 +51,13 @@ public class SecurityUtils {
     }
 
     /**
-     * Return true if current user is the owner (ownerId) OR receptionist OR manager/center-manager.
+     * Return true if current user is the owner (ownerId) OR receptionist OR center manager.
      * Use this to authorize member-scoped endpoints.
      */
     public boolean isOwnerOrAuthorized(Integer ownerId) {
         if (ownerId == null) return false;
         Integer current = getCurrentUserId();
         if (current != null && current.equals(ownerId)) return true;
-        return isReceptionist() || isManagerOrCenterManager();
+        return isReceptionist() || isCenterManager();
     }
 }

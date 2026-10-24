@@ -16,7 +16,7 @@ import java.util.List;
  * CONTROLLER KẾ HOẠCH HỌC TẬP & GIÁO ÁN (WORKOUT PLAN CONTROLLER)
  * ============================================================================
  * Phân quyền:
- * - Soạn giáo án, chỉnh sửa, xóa: Dành cho Huấn luyện viên (COACH) hoặc Quản lý (MANAGER).
+ * - Soạn giáo án, chỉnh sửa, xóa: Dành cho Huấn luyện viên (COACH) hoặc Quản lý trung tâm (CENTER_MANAGER).
  * - Học viên xem giáo án được phân công cho mình hoặc cho lớp mình học.
  */
 @RestController
@@ -27,20 +27,20 @@ public class WorkoutPlanController {
     private final WorkoutPlanService workoutPlanService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutPlanResponse> createPlan(@Valid @RequestBody WorkoutPlanRequest request) {
         return ResponseEntity.status(201).body(workoutPlanService.createPlan(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutPlanResponse> updatePlan(
             @PathVariable Integer id, @RequestBody WorkoutPlanRequest request) {
         return ResponseEntity.ok(workoutPlanService.updatePlan(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<Void> deletePlan(@PathVariable Integer id) {
         workoutPlanService.deletePlan(id);
         return ResponseEntity.noContent().build();

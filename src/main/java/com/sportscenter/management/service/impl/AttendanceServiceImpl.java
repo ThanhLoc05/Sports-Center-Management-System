@@ -65,7 +65,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         // BẢO MẬT: Nếu người điểm danh là HLV (không phải Quản lý hay Lễ tân),
         // HLV đó bắt buộc phải là người được phân công phụ trách lớp học này
-        if (securityUtils.isCoach() && !securityUtils.isManagerOrCenterManager() && !securityUtils.isReceptionist()) {
+        if (securityUtils.isCoach() && !securityUtils.isCenterManager() && !securityUtils.isReceptionist()) {
             if (!checkedInBy.equals(clazz.getCoachId())) {
                 throw new IllegalArgumentException("Huấn luyện viên không được phân công phụ trách lớp học này");
             }

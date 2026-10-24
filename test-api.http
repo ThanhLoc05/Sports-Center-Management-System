@@ -419,7 +419,7 @@ Authorization: {{managerToken}}
 ### 1. Start the Spring Boot application: ./mvnw.cmd spring-boot:run
 ### 2. Ensure SQL Server database is running with SportsCenterDB schema
 ### 3. Replace @memberToken with actual token from login endpoint
-### 4. Replace @managerToken with token from a MANAGER or CENTER_MANAGER user.
+### 4. Replace @managerToken with token from a CENTER_MANAGER user.
 ###    The register endpoint below creates a MEMBER, not a manager account.
 ### 5. Adjust memberId, packageId, and classId based on your database data
 ### 6. For class creation, use existing sportId, coachId (a COACH user), roomId,

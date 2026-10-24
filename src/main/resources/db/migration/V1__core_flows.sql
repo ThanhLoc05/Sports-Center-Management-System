@@ -10,7 +10,7 @@ BEGIN
         status NVARCHAR(20) NOT NULL CONSTRAINT DF_users_status DEFAULT 'ACTIVE',
         created_at DATETIME2 NOT NULL CONSTRAINT DF_users_created_at DEFAULT SYSDATETIME(),
         CONSTRAINT UQ_users_email UNIQUE (email),
-        CONSTRAINT CK_users_role CHECK (role IN ('MANAGER', 'COACH', 'RECEPTIONIST', 'MEMBER'))
+        CONSTRAINT CK_users_role CHECK (role IN ('CENTER_MANAGER', 'COACH', 'RECEPTIONIST', 'MEMBER'))
     );
 END;
 

@@ -32,7 +32,7 @@ public class WorkoutLogController {
     }
 
     @PatchMapping("/{id}/feedback")
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutLogResponse> updateFeedback(
             @PathVariable Integer id, @RequestParam String feedback) {
         return ResponseEntity.ok(workoutLogService.updateFeedback(id, feedback));

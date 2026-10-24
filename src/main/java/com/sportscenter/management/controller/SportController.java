@@ -35,7 +35,7 @@ public class SportController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ResponseEntity<SportResponse> createSport(@Valid @RequestBody SportRequest request) {
         if (request == null || request.getSportName() == null || request.getSportName().isBlank()) {
             throw new IllegalArgumentException("Tên bộ môn là bắt buộc");

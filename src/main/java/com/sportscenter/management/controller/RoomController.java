@@ -35,7 +35,7 @@ public class RoomController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody RoomRequest request) {
         if (request == null || request.getRoomName() == null || request.getRoomName().isBlank()) {
             throw new IllegalArgumentException("Tên phòng là bắt buộc");

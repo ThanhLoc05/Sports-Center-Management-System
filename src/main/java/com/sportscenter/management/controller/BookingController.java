@@ -17,7 +17,7 @@ import java.util.List;
  * ============================================================================
  * Nghiệp vụ và phân quyền:
  * - Học viên (MEMBER): Chỉ được đặt lịch hoặc hủy lịch cho chính tài khoản của mình.
- * - Lễ tân (RECEPTIONIST) & Quản lý (MANAGER): Có quyền đặt hộ hoặc hủy lịch hộ cho học viên tại quầy.
+ * - Lễ tân (RECEPTIONIST) & Quản lý trung tâm (CENTER_MANAGER): Có quyền đặt hộ hoặc hủy lịch hộ cho học viên tại quầy.
  * - Huấn luyện viên (COACH) & Lễ tân: Có quyền xem danh sách toàn bộ học viên và mục tiêu tập luyện trong lớp.
  */
 @RestController
@@ -53,7 +53,7 @@ public class BookingController {
 
         // BẢO MẬT: Chỉ Lễ tân và Quản lý mới được phép đặt chỗ hộ cho học viên khác
         if (!currentUserId.equals(memberId) &&
-                !(securityUtils.isReceptionist() || securityUtils.isManagerOrCenterManager())) {
+                !(securityUtils.isReceptionist() || securityUtils.isCenterManager())) {
             return ResponseEntity.status(403).build();
         }
 
@@ -72,11 +72,11 @@ public class BookingController {
 
     /**
      * XEM DANH SÁCH LƯỢT BOOKING CỦA MỘT LỚP
-     * - Phân quyền: CHỈ COACH (HLV phụ trách), RECEPTIONIST (Lễ tân) và MANAGER mới được xem.
+     * - Phân quyền: CHỈ COACH (HLV phụ trách), RECEPTIONIST (Lễ tân) và CENTER_MANAGER mới được xem.
      * - Ngăn chặn học viên thường tò mò danh sách người khác đặt chỗ.
      */
     @GetMapping("/classes/{classId}/bookings")
-    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER')")
     public List<BookingResponse> getClassBookings(@PathVariable Integer classId) {
         return bookingService.getClassBookings(classId);
     }
@@ -87,7 +87,7 @@ public class BookingController {
      * - Huấn luyện viên xem để nắm bắt thể trạng/nhu cầu từng học viên trước giờ lên lớp.
      */
     @GetMapping("/classes/{classId}/students")
-    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER')")
     public List<ClassStudentResponse> getClassStudents(@PathVariable Integer classId) {
         return bookingService.getClassStudents(classId);
     }
