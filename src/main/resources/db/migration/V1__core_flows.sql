@@ -192,6 +192,24 @@ BEGIN
 END;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.memberships WHERE name = N'Gói ngày')
+
+IF OBJECT_ID(N'dbo.feedbacks', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.feedbacks (
+        id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_feedbacks PRIMARY KEY,
+        from_user_id BIGINT NOT NULL,
+        to_user_id BIGINT NULL,
+        class_id BIGINT NULL,
+        rating INT NULL,
+        comment NVARCHAR(MAX) NOT NULL,
+        type NVARCHAR(30) NOT NULL CONSTRAINT DF_feedbacks_type DEFAULT 'MEMBER_TO_COACH',
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_feedbacks_created_at DEFAULT SYSDATETIME(),
+        CONSTRAINT FK_feedbacks_from_users FOREIGN KEY (from_user_id) REFERENCES dbo.users(id),
+        CONSTRAINT FK_feedbacks_to_users FOREIGN KEY (to_user_id) REFERENCES dbo.users(id),
+        CONSTRAINT FK_feedbacks_classes FOREIGN KEY (class_id) REFERENCES dbo.classes(id),
+        CONSTRAINT CK_feedbacks_rating CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5))
+    );
+END;
     INSERT INTO dbo.memberships (name, duration_days, price, description)
     VALUES (N'Gói ngày', 1, 100000, N'Tập luyện trong một ngày');
 IF NOT EXISTS (SELECT 1 FROM dbo.memberships WHERE name = N'Gói tháng')

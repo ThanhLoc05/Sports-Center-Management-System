@@ -31,6 +31,7 @@ import java.util.List;
  *    - Lễ tân / Quản lý (hỗ trợ cập nhật tại quầy).
  *    - Huấn luyện viên (COACH) được xem Profile học viên để nắm mục tiêu tập luyện (fitness goals).
  * 4. Khóa / Mở tài khoản (updateStatus): Chỉ Quản lý trung tâm mới có quyền.
+ * 5. Cập nhật vai trò người dùng (updateRole): Chỉ Quản lý trung tâm mới có quyền.
  */
 @RestController
 @RequestMapping("/api/v1/users")
@@ -104,13 +105,26 @@ public class UserController {
     }
 
     /**
-     * KHÓA / KÍCH HOẠT TÀI KHOẢN (STATUS: ACTIVE / DISABLED)
-     * - Bảo mật: CHỈ Quản lý (MANAGER) mới có quyền khóa hoặc mở khóa tài khoản.
+     * KHÓA / KÍCH HOẠT TÀI KHOẢN (STATUS: ACTIVE / BLOCKED)
+     * - Bảo mật: CHỈ Quản lý (MANAGER hoặc CENTER_MANAGER) mới có quyền.
      */
     @PatchMapping("/{userId}/status")
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
     public UserResponse updateStatus(@PathVariable Integer userId, @RequestParam String status) {
         return userService.updateUserStatus(userId, status);
+    }
+
+    /**
+     * CẬP NHẬT VAI TRÒ NGƯỜI DÙNG (ROLE: MEMBER, COACH, RECEPTIONIST, MANAGER)
+     * - Bảo mật: CHỈ Quản lý (MANAGER hoặc CENTER_MANAGER) mới có quyền phân quyền.
+     */
+    @PatchMapping("/{userId}/role")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    public UserResponse updateRole(
+            @PathVariable Integer userId,
+            @RequestParam(required = false) Integer roleId,
+            @RequestParam(required = false) String roleName) {
+        return userService.updateUserRole(userId, roleId, roleName);
     }
 
     /**

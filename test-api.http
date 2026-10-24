@@ -286,6 +286,97 @@ GET {{baseUrl}}/api/v1/users/4
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
+
+### ============================================================================
+### FLOW 7: USER MANAGEMENT & ROLE UPDATE (Manager only)
+### ============================================================================
+
+### 7.1 Update user role to COACH
+PATCH {{baseUrl}}/api/v1/users/4/role?roleName=COACH
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 7.2 Update user role to RECEPTIONIST
+PATCH {{baseUrl}}/api/v1/users/5/role?roleName=RECEPTIONIST
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### ============================================================================
+### FLOW 8: WORKOUT PLANS (K? HO?CH H?C T?P)
+### ============================================================================
+
+### 8.1 Create a workout plan for a member (Coach/Manager only)
+POST {{baseUrl}}/api/v1/workout-plans
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "title": "Giáo án tang co gi?m m? 4 tu?n",
+  "coachId": 3,
+  "memberId": 6,
+  "description": "Tu?n 1-2: Cardio k?t h?p t? nh?. Tu?n 3-4: Tang kh?i lu?ng t?, t?p ng?c/chân/lung."
+}
+
+### 8.2 Get workout plans for a member
+GET {{baseUrl}}/api/v1/workout-plans/member/6
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 9: WORKOUT LOGS (NH?T KÝ K?T QU? T?P LUY?N)
+### ============================================================================
+
+### 9.1 Member or Coach logs exercises after a workout
+POST {{baseUrl}}/api/v1/workout-logs
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 6,
+  "coachId": 3,
+  "feedbackFromCoach": "H?c viên t?p dúng form, th? l?c t?t",
+  "details": [
+    {
+      "exerciseName": "Bench Press",
+      "sets": 4,
+      "reps": 10,
+      "weightKg": 40.0
+    },
+    {
+      "exerciseName": "Squat",
+      "sets": 4,
+      "reps": 12,
+      "weightKg": 50.0
+    }
+  ]
+}
+
+### 9.2 Get workout logs for a member
+GET {{baseUrl}}/api/v1/workout-logs/member/6
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 10: FEEDBACK & REVIEWS (ÐÁNH GIÁ & NH?N XÉT)
+### ============================================================================
+
+### 10.1 Member reviews a Coach
+POST {{baseUrl}}/api/v1/feedbacks
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "fromUserId": 6,
+  "toUserId": 3,
+  "rating": 5,
+  "comment": "Hu?n luy?n viên r?t nhi?t tình và hu?ng d?n chu?n form!",
+  "type": "MEMBER_TO_COACH"
+}
+
+### 10.2 Get feedbacks and average rating for a Coach
+GET {{baseUrl}}/api/v1/feedbacks/coach/3
+Content-Type: {{contentType}}
+
 ### ============================================================================
 ### NOTES:
 ### ============================================================================

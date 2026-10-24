@@ -4,8 +4,10 @@ import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
 import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
 import com.sportscenter.management.dto.Response.MembershipPackageResponse;
+import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.entity.MembershipPackage;
+import com.sportscenter.management.repository.InvoiceRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.UserRepository;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -27,6 +30,7 @@ public class MembershipServiceImpl implements MembershipService {
     private final MemberSubscriptionRepository subscriptionRepository;
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
+    private final InvoiceRepository invoiceRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -90,10 +94,17 @@ public class MembershipServiceImpl implements MembershipService {
                 .findActiveMembership(request.getMemberId());
 
         if (existingActive.isPresent()) {
-            throw new IllegalArgumentException("Thành viên đã có gói tập đang hoạt động");
+            throw new IllegalArgumentException("Thành viên đã có gói tập đang hoạt động. Vui lòng chọn gia hạn thay vì đăng ký mới.");
         }
 
-        // Create new subscription
+        // Kiểm tra xem thành viên có gói tập nào đang chờ thanh toán hay không
+        boolean hasPending = subscriptionRepository.findByMemberId(request.getMemberId()).stream()
+                .anyMatch(sub -> "PENDING_PAYMENT".equals(sub.getStatus()));
+        if (hasPending) {
+            throw new IllegalArgumentException("Thành viên đang có gói tập chờ thanh toán. Vui lòng thanh toán hóa đơn hoặc hủy yêu cầu cũ.");
+        }
+
+        // Tạo gói tập mới với trạng thái PENDING_PAYMENT (chờ thanh toán)
         LocalDate startDate = request.getStartDate();
         LocalDate endDate = startDate.plusDays(pkg.getDurationDays());
 
@@ -102,10 +113,22 @@ public class MembershipServiceImpl implements MembershipService {
                 .packageId(request.getPackageId())
                 .startDate(startDate)
                 .endDate(endDate)
-                .status("ACTIVE")
+                .status("PENDING_PAYMENT")
                 .build();
 
         MemberSubscription savedSubscription = subscriptionRepository.save(subscription);
+
+        // Tự động sinh Hóa đơn (Invoice) liên kết với gói tập vừa đăng ký
+        Invoice invoice = Invoice.builder()
+                .subscriptionId(savedSubscription.getId())
+                .memberId(savedSubscription.getMemberId())
+                .amount(pkg.getPrice())
+                .paymentMethod("CASH") // Mặc định CASH, có thể đổi khi thanh toán tại quầy
+                .paymentStatus("PENDING")
+                .createdAt(LocalDateTime.now())
+                .build();
+        invoiceRepository.save(invoice);
+
         return mapToResponse(savedSubscription);
     }
 
@@ -143,7 +166,7 @@ public class MembershipServiceImpl implements MembershipService {
             throw new IllegalArgumentException("Gói thành viên không khả dụng");
         }
 
-        // Extend from end date or now, whichever is later
+        // Gia hạn nối tiếp sau ngày hết hạn cũ hoặc từ ngày hôm nay
         LocalDate newStartDate = oldSubscription.getEndDate().isAfter(LocalDate.now())
                 ? oldSubscription.getEndDate().plusDays(1)
                 : LocalDate.now();
@@ -154,10 +177,22 @@ public class MembershipServiceImpl implements MembershipService {
                 .packageId(packageId)
                 .startDate(newStartDate)
                 .endDate(newEndDate)
-                .status("ACTIVE")
+                .status("PENDING_PAYMENT")
                 .build();
 
         MemberSubscription savedSubscription = subscriptionRepository.save(newSubscription);
+
+        // Tự động sinh Hóa đơn cho lần gia hạn này
+        Invoice invoice = Invoice.builder()
+                .subscriptionId(savedSubscription.getId())
+                .memberId(savedSubscription.getMemberId())
+                .amount(pkg.getPrice())
+                .paymentMethod("CASH")
+                .paymentStatus("PENDING")
+                .createdAt(LocalDateTime.now())
+                .build();
+        invoiceRepository.save(invoice);
+
         return mapToResponse(savedSubscription);
     }
 
@@ -166,8 +201,8 @@ public class MembershipServiceImpl implements MembershipService {
         MemberSubscription subscription = subscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new IllegalArgumentException("Đăng ký không tồn tại"));
 
-        if (!"ACTIVE".equals(subscription.getStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể hủy gói tập đang hoạt động");
+        if (!"ACTIVE".equals(subscription.getStatus()) && !"PENDING_PAYMENT".equals(subscription.getStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể hủy gói tập đang hoạt động hoặc đang chờ thanh toán");
         }
         subscription.setStatus("CANCELLED");
         MemberSubscription updatedSubscription = subscriptionRepository.save(subscription);

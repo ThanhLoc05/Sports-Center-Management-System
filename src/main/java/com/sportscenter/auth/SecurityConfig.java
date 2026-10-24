@@ -1,8 +1,8 @@
 package com.sportscenter.auth;
 
+
 import com.sportscenter.management.repository.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -48,11 +48,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
-@RequiredArgsConstructor
 public class SecurityConfig {
-
-    private final UserRepository userRepository;
-    private final JwtService jwtService;
 
     /**
      * Mã hóa mật khẩu người dùng bằng thuật toán băm an toàn BCrypt (độ phức tạp cao, chống brute-force).
@@ -65,9 +61,13 @@ public class SecurityConfig {
     /**
      * Tải thông tin tài khoản người dùng từ Database dựa trên email đăng nhập.
      * Kiểm tra trạng thái tài khoản: Nếu status != 'ACTIVE' -> vô hiệu hóa tài khoản (disabled).
+     * 
+     * [LƯU Ý QUAN TRỌNG]: Tiêm UserRepository qua tham số của @Bean method thay vì tiêm qua constructor 
+     * của lớp SecurityConfig. Cách này giúp tách rời vòng đời khởi tạo của SecurityConfig và JPA Repository, 
+     * tránh triệt để lỗi runtime "Parameter 0 of constructor required a bean of type UserRepository that could not be found".
      */
     @Bean
-    public UserDetailsService userDetailsService() {
+    public UserDetailsService userDetailsService(UserRepository userRepository) {
         return email -> userRepository.findByEmail(email)
                 .map(user -> User.withUsername(user.getEmail())
                         .password(user.getPasswordHash())
@@ -79,9 +79,10 @@ public class SecurityConfig {
 
     /**
      * Đăng ký Filter chặn và giải mã JWT Token cho mỗi request gửi lên.
+     * Tương tự, JwtService được tiêm trực tiếp qua tham số của @Bean method.
      */
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
         return new JwtAuthenticationFilter(jwtService, userDetailsService);
     }
 
@@ -171,7 +172,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/users/register/**", "/api/v1/users/login/**", "/error").permitAll()
                         // 3. Khách có thể xem danh sách lớp học và danh sách gói tập công khai
                         .requestMatchers(HttpMethod.GET, "/api/v1/classes/**", "/api/v1/memberships/packages/**",
-                                "/api/v1/sports", "/api/v1/rooms").permitAll()
+                                "/api/v1/sports", "/api/v1/rooms", "/api/v1/feedbacks/coach/**", "/api/v1/feedbacks/class/**").permitAll()
                         // 4. Tài liệu Swagger/OpenAPI (nếu có dùng)
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // 5. Tất cả các endpoint còn lại đều phải đăng nhập (có JWT token hợp lệ)

@@ -21,6 +21,8 @@ public interface UserService {
 
     UserResponse updateUserStatus(Integer userId, String status);
 
+    UserResponse updateUserRole(Integer userId, Integer roleId, String roleName);
+
     Optional<User> authenticate(String email, String password);
 
     boolean existsByEmail(String email);

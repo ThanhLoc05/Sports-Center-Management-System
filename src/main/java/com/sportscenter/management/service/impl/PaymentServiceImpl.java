@@ -83,6 +83,15 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
+
+        // Nếu hóa đơn được tạo và đã PAID ngay, tự động kích hoạt gói tập
+        if ("PAID".equals(paymentStatus) && request.getSubscriptionId() != null) {
+            subscriptionRepository.findById(request.getSubscriptionId()).ifPresent(sub -> {
+                sub.setStatus("ACTIVE");
+                subscriptionRepository.save(sub);
+            });
+        }
+
         return mapToResponse(savedInvoice);
     }
 
@@ -115,7 +124,20 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         invoice.setPaymentStatus("PAID");
+        Integer receptionistId = securityUtils.getCurrentUserId();
+        if (receptionistId != null) {
+            invoice.setReceptionistId(receptionistId);
+        }
         Invoice updatedInvoice = invoiceRepository.save(invoice);
+
+        // LIÊN KẾT: Tự động kích hoạt gói tập tương ứng sang ACTIVE khi thanh toán thành công
+        if (updatedInvoice.getSubscriptionId() != null) {
+            subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+                sub.setStatus("ACTIVE");
+                subscriptionRepository.save(sub);
+            });
+        }
+
         return mapToResponse(updatedInvoice);
     }
 
@@ -130,6 +152,15 @@ public class PaymentServiceImpl implements PaymentService {
 
         invoice.setPaymentStatus("REFUNDED");
         Invoice updatedInvoice = invoiceRepository.save(invoice);
+
+        // LIÊN KẾT: Tự động hủy gói tập tương ứng sang CANCELLED khi hoàn tiền
+        if (updatedInvoice.getSubscriptionId() != null) {
+            subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+                sub.setStatus("CANCELLED");
+                subscriptionRepository.save(sub);
+            });
+        }
+
         return mapToResponse(updatedInvoice);
     }
 

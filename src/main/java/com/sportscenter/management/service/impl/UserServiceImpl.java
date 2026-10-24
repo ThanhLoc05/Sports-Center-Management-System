@@ -107,6 +107,27 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserResponse updateUserRole(Integer userId, Integer roleId, String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+
+        Role newRole;
+        if (roleId != null) {
+            newRole = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy vai trò với ID: " + roleId));
+        } else if (roleName != null && !roleName.isBlank()) {
+            newRole = roleRepository.findByRoleName(roleName.toUpperCase().trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy vai trò với tên: " + roleName));
+        } else {
+            throw new IllegalArgumentException("Cần cung cấp roleId hoặc roleName để cập nhật vai trò");
+        }
+
+        user.setRole(newRole);
+        User updatedUser = userRepository.save(user);
+        return mapToUserResponse(updatedUser);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Optional<User> authenticate(String email, String password) {
         Optional<User> user = getUserByEmail(email);
