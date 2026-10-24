@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
 
@@ -20,6 +21,7 @@ public class MembershipPackage {
     private Integer id;
 
     @Column(name = "package_name", nullable = false)
+    @Nationalized
     private String packageName;
 
     @Column(name = "duration_days", nullable = false)
@@ -29,8 +31,10 @@ public class MembershipPackage {
     private BigDecimal price;
 
     @Column(name = "description")
+    @Nationalized
     private String description;
 
     @Column(name = "status")
+    @Nationalized
     private String status;
 }

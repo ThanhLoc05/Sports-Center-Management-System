@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDateTime;
 
@@ -37,5 +38,6 @@ public class ClassBooking {
     private LocalDateTime bookedAt;
 
     @Column(name = "status")
+    @Nationalized
     private String status;
 }

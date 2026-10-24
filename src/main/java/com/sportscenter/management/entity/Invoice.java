@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,9 +34,11 @@ public class Invoice {
     private BigDecimal amount;
 
     @Column(name = "payment_method", nullable = false)
+    @Nationalized
     private String paymentMethod;
 
     @Column(name = "payment_status")
+    @Nationalized
     private String paymentStatus;
 
     @Column(name = "created_at")

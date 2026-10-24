@@ -49,10 +49,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        // Tự động gán ID của Lễ tân đang đăng nhập nếu request không chỉ định
-        Integer receptionistId = request.getReceptionistId() != null
-                ? request.getReceptionistId()
-                : securityUtils.getCurrentUserId();
+        Integer receptionistId = securityUtils.getCurrentUserId();
 
         if (receptionistId != null && !userRepository.existsById(receptionistId)) {
             throw new IllegalArgumentException("Nhân viên thu ngân không tồn tại");
@@ -67,31 +64,19 @@ public class PaymentServiceImpl implements PaymentService {
         if (!isValidPaymentMethod(request.getPaymentMethod())) {
             throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
         }
-        String paymentStatus = request.getPaymentStatus() != null ? request.getPaymentStatus() : "PAID";
-        if (!isValidPaymentStatus(paymentStatus)) {
-            throw new IllegalArgumentException("Trạng thái thanh toán không hợp lệ");
-        }
-
         Invoice invoice = Invoice.builder()
                 .subscriptionId(request.getSubscriptionId())
                 .memberId(request.getMemberId())
                 .receptionistId(receptionistId)
                 .amount(request.getAmount())
                 .paymentMethod(request.getPaymentMethod())
-                .paymentStatus(paymentStatus)
+                .paymentStatus("PENDING")
                 .createdAt(LocalDateTime.now())
                 .build();
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
 
         // Nếu hóa đơn được tạo và đã PAID ngay, tự động kích hoạt gói tập
-        if ("PAID".equals(paymentStatus) && request.getSubscriptionId() != null) {
-            subscriptionRepository.findById(request.getSubscriptionId()).ifPresent(sub -> {
-                sub.setStatus("ACTIVE");
-                subscriptionRepository.save(sub);
-            });
-        }
-
         return mapToResponse(savedInvoice);
     }
 
@@ -226,7 +211,4 @@ public class PaymentServiceImpl implements PaymentService {
                 "BANK_TRANSFER".equals(method) || "VNPAY".equals(method);
     }
 
-    private boolean isValidPaymentStatus(String status) {
-        return "PAID".equals(status) || "PENDING".equals(status) || "REFUNDED".equals(status);
-    }
 }

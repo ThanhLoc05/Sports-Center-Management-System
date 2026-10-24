@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "sports")
@@ -17,9 +18,11 @@ public class Sport {
     @Column(name = "sport_id")
     private Integer id;
 
-    @Column(name = "sport_name", nullable = false)
+    @Column(name = "sport_name", nullable = false, unique = true)
+    @Nationalized
     private String sportName;
 
     @Column(name = "description")
+    @Nationalized
     private String description;
 }

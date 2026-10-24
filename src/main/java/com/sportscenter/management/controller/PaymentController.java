@@ -4,6 +4,7 @@ import com.sportscenter.management.dto.Request.InvoiceRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.service.PaymentService;
 import com.sportscenter.auth.SecurityUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +40,7 @@ public class PaymentController {
      */
     @PostMapping("/invoices")
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
-    public ResponseEntity<InvoiceResponse> createInvoice(@RequestBody InvoiceRequest request) {
+    public ResponseEntity<InvoiceResponse> createInvoice(@Valid @RequestBody InvoiceRequest request) {
         return ResponseEntity.status(201).body(paymentService.createInvoice(request));
     }
 

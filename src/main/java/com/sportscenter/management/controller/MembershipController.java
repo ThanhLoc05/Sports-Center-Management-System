@@ -6,6 +6,7 @@ import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
 import com.sportscenter.management.dto.Response.MembershipPackageResponse;
 import com.sportscenter.management.service.MembershipService;
 import com.sportscenter.auth.SecurityUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -52,7 +53,7 @@ public class MembershipController {
     @PostMapping("/packages")
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
     public ResponseEntity<MembershipPackageResponse> createPackage(
-            @RequestBody MembershipPackageRequest request) {
+            @Valid @RequestBody MembershipPackageRequest request) {
         return ResponseEntity.status(201).body(membershipService.createPackage(request));
     }
 
@@ -66,7 +67,7 @@ public class MembershipController {
      */
     @PostMapping("/subscribe")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberSubscriptionResponse> subscribe(@RequestBody MemberSubscriptionRequest request) {
+    public ResponseEntity<MemberSubscriptionResponse> subscribe(@Valid @RequestBody MemberSubscriptionRequest request) {
         Integer currentUserId = securityUtils.getCurrentUserId();
         if (currentUserId == null) {
             return ResponseEntity.status(401).build();

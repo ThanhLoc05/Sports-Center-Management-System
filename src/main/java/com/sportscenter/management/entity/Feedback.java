@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDateTime;
 
@@ -35,6 +36,7 @@ public class Feedback {
     private String comment;
 
     @Column(name = "type")
+    @Nationalized
     private String type; // MEMBER_TO_COACH, COACH_TO_MEMBER, CLASS_FEEDBACK
 
     @Column(name = "created_at")

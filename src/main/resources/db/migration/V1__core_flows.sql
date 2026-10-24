@@ -193,21 +193,28 @@ END;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.memberships WHERE name = N'Gói ngày')
 
+
 IF OBJECT_ID(N'dbo.feedbacks', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.feedbacks (
-        id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_feedbacks PRIMARY KEY,
-        from_user_id BIGINT NOT NULL,
-        to_user_id BIGINT NULL,
-        class_id BIGINT NULL,
-        rating INT NULL,
-        comment NVARCHAR(MAX) NOT NULL,
-        type NVARCHAR(30) NOT NULL CONSTRAINT DF_feedbacks_type DEFAULT 'MEMBER_TO_COACH',
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_feedbacks_created_at DEFAULT SYSDATETIME(),
-        CONSTRAINT FK_feedbacks_from_users FOREIGN KEY (from_user_id) REFERENCES dbo.users(id),
-        CONSTRAINT FK_feedbacks_to_users FOREIGN KEY (to_user_id) REFERENCES dbo.users(id),
-        CONSTRAINT FK_feedbacks_classes FOREIGN KEY (class_id) REFERENCES dbo.classes(id),
-        CONSTRAINT CK_feedbacks_rating CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5))
+                                   id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_feedbacks PRIMARY KEY,
+                                   from_user_id INT NOT NULL,
+                                   to_user_id INT NULL,
+                                   class_id INT NULL,
+                                   rating INT NULL,
+                                   comment NVARCHAR(MAX) NOT NULL,
+                                   type NVARCHAR(30) NOT NULL
+                                       CONSTRAINT DF_feedbacks_type DEFAULT 'MEMBER_TO_COACH',
+                                   created_at DATETIME2 NULL
+                                       CONSTRAINT DF_feedbacks_created_at DEFAULT SYSDATETIME(),
+                                   CONSTRAINT FK_feedbacks_from_users
+                                       FOREIGN KEY (from_user_id) REFERENCES dbo.users(user_id),
+                                   CONSTRAINT FK_feedbacks_to_users
+                                       FOREIGN KEY (to_user_id) REFERENCES dbo.users(user_id),
+                                   CONSTRAINT FK_feedbacks_classes
+                                       FOREIGN KEY (class_id) REFERENCES dbo.classes(class_id),
+                                   CONSTRAINT CK_feedbacks_rating
+                                       CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5))
     );
 END;
     INSERT INTO dbo.memberships (name, duration_days, price, description)
@@ -219,15 +226,19 @@ IF NOT EXISTS (SELECT 1 FROM dbo.memberships WHERE name = N'Gói năm')
     INSERT INTO dbo.memberships (name, duration_days, price, description)
     VALUES (N'Gói năm', 365, 8000000, N'Tập luyện trong 365 ngày');
 
-IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE name = N'Phòng đa năng')
-    INSERT INTO dbo.rooms (name, capacity, description) VALUES (N'Phòng đa năng', 20, N'Yoga và lớp nhóm');
-IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE name = N'Phòng thể lực')
-    INSERT INTO dbo.rooms (name, capacity, description) VALUES (N'Phòng thể lực', 16, N'Rèn luyện thể lực');
-
-IF NOT EXISTS (SELECT 1 FROM dbo.classes WHERE name = N'Yoga cơ bản')
-    INSERT INTO dbo.classes (name, description, max_capacity) VALUES (N'Yoga cơ bản', N'Lớp Yoga dành cho người mới', 20);
-IF NOT EXISTS (SELECT 1 FROM dbo.classes WHERE name = N'Rèn luyện thể lực')
-    INSERT INTO dbo.classes (name, description, max_capacity) VALUES (N'Rèn luyện thể lực', N'Lớp rèn luyện thể lực nhóm', 16);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Phòng đa năng')
+    SET IDENTITY_INSERT dbo.rooms ON;
+SET IDENTITY_INSERT dbo.rooms ON;
+INSERT INTO dbo.rooms (room_id, room_name, capacity)VALUES (1, N'Phòng đa năng', 20);
+SET IDENTITY_INSERT dbo.rooms OFF;
+SET IDENTITY_INSERT dbo.rooms OFF;
+SET IDENTITY_INSERT dbo.rooms OFF;
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Phòng thể lực')
+    SET IDENTITY_INSERT dbo.rooms ON;
+SET IDENTITY_INSERT dbo.rooms ON;
+INSERT INTO dbo.rooms (room_id, room_name, capacity)VALUES (2, N'Phòng thể lực', 16);
+SET IDENTITY_INSERT dbo.rooms OFF;
+SET IDENTITY_INSERT dbo.rooms OFF;
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_class_schedules_start_time' AND object_id = OBJECT_ID(N'dbo.class_schedules'))
     CREATE INDEX IX_class_schedules_start_time ON dbo.class_schedules (start_time);

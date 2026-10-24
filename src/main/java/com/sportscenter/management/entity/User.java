@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDateTime;
 
@@ -20,15 +21,19 @@ public class User {
     private Integer id;
 
     @Column(name = "email", nullable = false, unique = true)
+    @Nationalized
     private String email;
 
     @Column(name = "password_hash", nullable = false)
+    @Nationalized
     private String passwordHash;
 
     @Column(name = "full_name", nullable = false)
+    @Nationalized
     private String fullName;
 
     @Column(name = "phone", nullable = false, unique = true)
+    @Nationalized
     private String phone;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -36,6 +41,7 @@ public class User {
     private Role role;
 
     @Column(name = "status")
+    @Nationalized
     private String status;
 
     @Column(name = "created_at")

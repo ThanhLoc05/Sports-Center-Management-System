@@ -2,7 +2,11 @@
 
 ## Run the API
 
-Requirements: JDK 23, SQL Server, and the `SportsCenterDB` schema from the supplied database script. Hibernate validates the existing schema; it does not create or migrate tables.
+Requirements: JDK 23 and SQL Server. Create the application database and tables by running `src/main/resources/db/SportsCenterDB.sql` in SQL Server Management Studio. Hibernate validates the schema; it does not create or migrate tables.
+
+The database script is idempotent for existing tables and inserts the required roles when missing. It does not alter existing tables; for an older database, back up the data and apply a reviewed schema migration rather than expecting this setup script to convert it automatically.
+
+For an existing database whose base tables are present but whose schema validation specifically reports `support_tickets` or `workout_log_details` as missing, run `V3__support_tickets.sql` and `V4__workout_log_details.sql` respectively in SQL Server Management Studio. `V4` requires the existing `workout_logs` table.
 
 In PowerShell, configure the database credentials and a Base64-encoded JWT secret of at least 32 random bytes, then start Spring Boot:
 
