@@ -1,3 +1,65 @@
+import type { Package, Sport } from "./types";
+const initialPackages: Package[] = [
+  {
+    id: 1,
+    name: "Essential",
+    durationDays: 30,
+    price: 800000,
+    description: "Khởi đầu thói quen khỏe mạnh.",
+    features: [
+      "Tập gym không giới hạn",
+      "Tham gia lớp học nhóm",
+      "Tủ đồ & phòng thay đồ",
+    ],
+    sportIds: [2, 4],
+    classLimit: 12,
+    status: "ACTIVE",
+  },
+  {
+    id: 2,
+    name: "Signature",
+    durationDays: 90,
+    price: 2100000,
+    description: "Nâng tầm trải nghiệm tập luyện.",
+    features: [
+      "Tất cả quyền lợi Essential",
+      "Yoga, Pilates & hồ bơi",
+      "Đánh giá thể lực hàng tháng",
+      "2 buổi tư vấn cùng HLV",
+    ],
+    sportIds: [1, 2, 3, 4, 5],
+    classLimit: 40,
+    status: "ACTIVE",
+  },
+  {
+    id: 3,
+    name: "All Access",
+    durationDays: 365,
+    price: 8000000,
+    description: "Một năm đầu tư cho chính bạn.",
+    features: [
+      "Tất cả quyền lợi Signature",
+      "8 buổi tập cá nhân",
+      "Ưu tiên đăng ký lớp",
+      "Tặng 2 lượt tập cho bạn bè",
+    ],
+    sportIds: [1, 2, 3, 4, 5, 6],
+    classLimit: null,
+    status: "ACTIVE",
+  },
+];
+const initialSports: Sport[] = [
+  "Yoga",
+  "Thể hình",
+  "Pilates",
+  "Cardio",
+  "Bơi lội",
+  "Cầu lông",
+].map((name, i) => ({
+  id: i + 1,
+  name,
+  description: "Bộ môn tại Sportiva Center",
+}));
 import { dateTimeLocal } from "./utils";
 /** Dữ liệu demo tài khoản/hồ sơ, giữ riêng với dữ liệu backend. */
 import type { Role, Session, DemoDatabase, User } from "./types";
@@ -10,7 +72,16 @@ export function readDemo(): DemoDatabase {
       Array.isArray(data?.users) &&
       data.users.every((u: User) => u.id && u.email && u.fullName && u.roleName)
     ) {
-      data.audit ||= [];
+      data.audit = Array.isArray(data.audit) ? data.audit : [];
+      data.packages = Array.isArray(data.packages)
+        ? data.packages
+        : structuredClone(initialPackages);
+      data.sports = Array.isArray(data.sports)
+        ? data.sports
+        : structuredClone(initialSports);
+      data.subscriptions = Array.isArray(data.subscriptions)
+        ? data.subscriptions
+        : [];
       return data;
     }
   } catch {
@@ -18,6 +89,9 @@ export function readDemo(): DemoDatabase {
   }
   const db: DemoDatabase = {
     audit: [],
+    packages: structuredClone(initialPackages),
+    sports: structuredClone(initialSports),
+    subscriptions: [],
     users: [
       {
         id: 1,

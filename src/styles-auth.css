@@ -386,6 +386,219 @@
 .auth-footer > span {
   color: #666c5c;
 }
+.member-picker-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  border: 1px solid #e6eddd;
+  padding: 14px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.member-picker-bar > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #636e56;
+  white-space: nowrap;
+}
+.member-picker-bar select,
+.member-picker-bar input {
+  max-width: 310px;
+  font-size: 11px;
+  padding: 9px 12px;
+}
+.active-membership {
+  padding: 27px 28px;
+  border-radius: 12px;
+  border: 1px solid #e3ebd6;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  background: #eef3e4;
+  margin-bottom: 32px;
+}
+.active-membership-icon {
+  width: 62px;
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c8d6af;
+  background: #e1eace;
+  border-radius: 14px;
+  color: #5f6e45;
+}
+.active-membership-copy {
+  flex: 1;
+}
+.active-membership-copy > .eyebrow {
+  font-size: 10px;
+  color: #626c52;
+}
+.active-membership h2 {
+  font-size: 25px;
+  color: #5a6e45;
+  font-weight: 500;
+}
+.active-membership p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #636d54;
+  margin-top: 7px;
+}
+.active-membership .badge {
+  font-size: 10px;
+  margin-left: 9px;
+  border: 1px solid #dae5c8;
+  background: #f4f8ec;
+}
+.section-intro {
+  text-align: center;
+  margin: 29px 0 27px;
+}
+.section-intro h2 {
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  color: #4c683c;
+}
+.section-intro p {
+  font-size: 10px;
+  color: #636c56;
+  margin-top: 9px;
+}
+.section-intro .eyebrow {
+  font-size: 10px;
+  color: #626b58;
+  letter-spacing: 1.8px;
+}
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  margin-bottom: 30px;
+  padding-top: 10px;
+}
+.pricing-card {
+  border: 1px solid #e3ead8;
+  border-radius: 12px;
+  background: #fff;
+  padding: 28px 24px 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pricing-card.featured {
+  border-color: #a9be8c;
+  background: #fcfdf9;
+  box-shadow: 0 6px 20px #54783208;
+}
+.pricing-ribbon {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #789459;
+  color: white;
+  border: 1px solid #789459;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.7px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  white-space: nowrap;
+}
+.pricing-ribbon svg {
+  width: 10px;
+}
+.pricing-icon {
+  width: 43px;
+  height: 43px;
+  background: #f0f4e7;
+  color: #5f6e4d;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.featured .pricing-icon {
+  background: #e9f0da;
+  color: #596f3f;
+}
+.pricing-card h3 {
+  font-size: 20px;
+  font-weight: 500;
+  color: #5a6f47;
+  letter-spacing: -0.5px;
+  margin-bottom: 7px;
+}
+.pricing-card > p {
+  font-size: 10px;
+  color: #636c58;
+}
+.pricing-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 25px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #eaf0df;
+}
+.pricing-price > strong {
+  font-size: 25px;
+  font-weight: 500;
+  color: #51703b;
+  letter-spacing: -0.9px;
+}
+.pricing-price > span {
+  font-size: 10px;
+  color: #636c58;
+}
+.pricing-card ul {
+  margin: 21px 0 26px;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+.pricing-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #616c51;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.pricing-card li svg {
+  width: 12px;
+  color: #5f6e4d;
+  margin-top: 2px;
+}
+.pricing-card > .btn {
+  width: 100%;
+  font-size: 10px;
+  justify-content: space-between;
+}
+.pricing-card > small {
+  text-align: center;
+  color: #656b5a;
+  font-size: 10px;
+  margin-top: 14px;
+}
 .profile-page-header {
   display: flex;
   align-items: center;
@@ -426,6 +639,15 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 1250px) {
+  .pricing-card {
+    padding: 27px 20px 19px;
+  }
+  .pricing-grid {
+    gap: 17px;
+  }
+  .pricing-price strong {
+    font-size: 22px;
+  }
   .auth-story {
     padding: 40px;
   }
@@ -443,6 +665,65 @@
   }
 }
 @media (max-width: 1000px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    gap: 25px;
+    max-width: 550px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .pricing-card {
+    padding: 25px;
+  }
+  .pricing-card ul {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 13px 20px;
+  }
+  .pricing-card li {
+    font-size: 10px;
+  }
+  .pricing-card h3 {
+    font-size: 23px;
+  }
+  .pricing-card > p {
+    font-size: 11px;
+  }
+  .pricing-price {
+    margin-top: 18px;
+  }
+  .pricing-price strong {
+    font-size: 28px;
+  }
+  .pricing-card .btn {
+    font-size: 11px;
+  }
+  .section-intro h2 {
+    font-size: 21px;
+  }
+  .active-membership {
+    padding: 22px;
+    gap: 16px;
+  }
+  .active-membership-icon {
+    width: 50px;
+    height: 55px;
+    min-width: 50px;
+  }
+  .active-membership h2 {
+    font-size: 23px;
+  }
+  .active-membership .eyebrow {
+    font-size: 10px;
+  }
+  .active-membership p {
+    font-size: 10px;
+  }
+  .active-membership > .btn {
+    font-size: 10px;
+    padding: 8px 10px;
+    min-height: 35px;
+  }
   .auth-story {
     padding: 35px 30px;
   }
@@ -502,6 +783,100 @@
   }
 }
 @media (max-width: 760px) {
+  .member-picker-bar {
+    padding: 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .member-picker-bar > span {
+    font-size: 10px;
+  }
+  .member-picker-bar select,
+  .member-picker-bar input {
+    max-width: none;
+    font-size: 10px;
+  }
+  .active-membership {
+    padding: 20px 17px;
+    gap: 13px;
+    flex-wrap: wrap;
+    margin-bottom: 25px;
+  }
+  .active-membership-icon {
+    width: 43px;
+    height: 48px;
+    min-width: 43px;
+    border-radius: 10px;
+  }
+  .active-membership-icon > svg {
+    width: 25px;
+  }
+  .active-membership-copy {
+    min-width: 200px;
+  }
+  .active-membership h2 {
+    font-size: 21px;
+  }
+  .active-membership .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.6px;
+  }
+  .active-membership p {
+    font-size: 10px;
+    gap: 5px;
+    margin-top: 6px;
+  }
+  .active-membership p > .badge {
+    margin-left: 3px;
+    font-size: 10px;
+  }
+  .active-membership > .btn {
+    margin-left: auto;
+    font-size: 10px;
+    min-height: 31px;
+  }
+  .section-intro {
+    margin: 28px 10px 24px;
+  }
+  .section-intro h2 {
+    font-size: 21px;
+    line-height: 1.7;
+  }
+  .section-intro p {
+    font-size: 10px;
+  }
+  .pricing-card {
+    padding: 25px;
+  }
+  .pricing-card h3 {
+    font-size: 23px;
+  }
+  .pricing-card > p {
+    font-size: 10px;
+  }
+  .pricing-card ul {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .pricing-card li {
+    font-size: 10px;
+  }
+  .pricing-price > strong {
+    font-size: 28px;
+  }
+  .pricing-icon {
+    width: 42px;
+    height: 42px;
+  }
+  .pricing-card > .btn {
+    font-size: 11px;
+  }
+  .pricing-card > small {
+    font-size: 10px;
+  }
+  .pricing-ribbon {
+    font-size: 10px;
+  }
   .profile-page-header {
     padding: 25px 23px;
     gap: 16px;
@@ -670,6 +1045,13 @@
     opacity: 0.25;
   }
 }
+.pricing-card > p,
+.pricing-card li {
+  font-size: 12px;
+}
+.pricing-card > small {
+  font-size: 10px;
+}
 .auth-form-content > p {
   font-size: 12px;
 }
@@ -698,6 +1080,10 @@
   font-size: 12px;
 }
 @media (max-width: 760px) {
+  .pricing-card > p,
+  .pricing-card li {
+    font-size: 12px;
+  }
   .auth-form-content > p {
     font-size: 12px;
   }

@@ -1,5 +1,5 @@
 /** Ghi hồ sơ demo; không giả lập thành công khi thiếu API cập nhật. */
-import type { User } from "./types";
+import type { User, Package } from "./types";
 import { ApiError, getSession, updateDemo } from "./api";
 import { readDemo } from "./demo";
 import { can, defaultPermissions } from "./permissions";
@@ -87,4 +87,31 @@ export function saveUser(input: Omit<User, "id">, id?: number) {
       return user;
     },
   );
+}
+
+export function savePackage(input: Omit<Package, "id">, id?: number) {
+  requireDemoPermission("packages.manage");
+  return updateDemo(id ? "Sửa gói tập" : "Tạo gói tập", input.name, (db) => {
+    if (
+      !input.name.trim() ||
+      !Number.isInteger(input.durationDays) ||
+      input.durationDays < 1 ||
+      !Number.isFinite(input.price) ||
+      input.price < 1 ||
+      !input.sportIds?.length ||
+      input.sportIds.some((id) => !db.sports.some((s) => s.id === id)) ||
+      (input.classLimit != null &&
+        (!Number.isInteger(input.classLimit) || input.classLimit < 1))
+    )
+      throw new ApiError(
+        "Kiểm tra tên, học phí, thời hạn, bộ môn và số lượt lớp.",
+      );
+    const pkg = {
+      ...input,
+      id: id || Math.max(0, ...db.packages.map((p) => p.id)) + 1,
+    };
+    if (id) db.packages = db.packages.map((p) => (p.id === id ? pkg : p));
+    else db.packages.push(pkg);
+    return pkg;
+  });
 }

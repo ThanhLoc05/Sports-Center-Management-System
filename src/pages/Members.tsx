@@ -12,17 +12,17 @@ import {
   Users,
   UserRoundCheck,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams, Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUsers, useAction } from "../lib/hooks";
 import { usePermissions } from "../lib/hooks";
-import { ProfileEditor, UserProfileModal } from "../components/ProfileEditor";
+import { ProfileEditor } from "../components/ProfileEditor";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 import { roleLabels } from "../lib/types";
 import type { User } from "../lib/types";
-import { downloadCsv, idLabel, matches } from "../lib/utils";
+import { dateLabel, downloadCsv, idLabel, matches } from "../lib/utils";
 import {
   Avatar,
   Badge,
@@ -34,6 +34,7 @@ import {
   Field,
   FormModal,
   Loading,
+  Modal,
   Notice,
   PageHeader,
   Panel,
@@ -406,9 +407,65 @@ export default function Members({ team = false }: { team?: boolean }) {
   );
 }
 /**
- * Chi tiết ghép thông tin User với lịch sử gói và booking của user.id.
+ * Chi tiết ghép thông tin User với lịch sử gói đã đăng ký của user.id.
  * Mỗi query có ID trong key để hồ sơ người này không dùng dữ liệu cache người khác.
  */
 function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
-  return <UserProfileModal user={user} onClose={onClose} />;
+  const subs = useQuery({
+    queryKey: ["subscriptions", user.id],
+    queryFn: () => api.subscriptions(user.id),
+  });
+  return (
+    <Modal title="Thông tin thành viên" onClose={onClose} wide>
+      <div className="member-detail-header">
+        <Avatar name={user.fullName} size="large" />
+        <div>
+          <h2>{user.fullName}</h2>
+          <p>
+            {user.email} · {user.phone}
+          </p>
+          <Badge status={user.status} />
+        </div>
+      </div>
+      <div className="detail-grid">
+        <div>
+          <span>Mục tiêu tập luyện</span>
+          <strong>{user.fitnessGoals || "Chưa cung cấp"}</strong>
+        </div>
+        <div>
+          <span>Trình độ</span>
+          <strong>{user.level || "Chưa cung cấp"}</strong>
+        </div>
+        <div>
+          <span>Địa chỉ</span>
+          <strong>{user.address || "Chưa cung cấp"}</strong>
+        </div>
+      </div>
+      <h3>Lịch sử gói tập</h3>
+      {subs.isPending ? (
+        <Loading />
+      ) : subs.error ? (
+        <ErrorState error={subs.error} retry={subs.refetch} />
+      ) : (
+        <div className="detail-sub-list">
+          {subs.data?.length ? (
+            subs.data.map((s) => (
+              <div key={s.id}>
+                <strong>Gói #{s.packageId}</strong>
+                <small>
+                  {dateLabel(s.startDate)} – {dateLabel(s.endDate)}
+                </small>
+                <Badge status={s.status} />
+              </div>
+            ))
+          ) : (
+            <p>Chưa đăng ký gói tập.</p>
+          )}
+        </div>
+      )}
+      <Link to={`/memberships?memberId=${user.id}`} className="btn btn-primary">
+        Quản lý gói tập
+      </Link>
+    </Modal>
+  );
 }

@@ -1,9 +1,9 @@
 /** API đã đưa lên main: xác thực, hồ sơ/trạng thái và gói tập. Backend kiểm tra quyền trên dữ liệu thật. */
-import type { Mode, RegisterInput, Session, User } from "./types";
+import type { Mode, RegisterInput, Session, User, Subscription } from "./types";
 import { readDemo, saveDemo, demoAudit } from "./demo";
 import { can } from "./permissions";
 import type { Permission } from "./permissions";
-import { dateTimeLocal } from "./utils";
+import { addDays, localDate, dateTimeLocal } from "./utils";
 export const configuredMode: Mode =
   import.meta.env.VITE_DATA_MODE === "demo" ? "demo" : "api";
 
@@ -259,5 +259,84 @@ export const api = {
     user.status = status;
     demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
     return user;
+  },
+  /** Lịch sử gói theo thành viên; giữ các bản ghi hết hạn/đã hủy để tra cứu. */
+  async subscriptions(memberId: number): Promise<Subscription[]> {
+    if (mode() === "api")
+      return assertArray(
+        await request<Subscription[]>(`/memberships/members/${memberId}`),
+      );
+    ownOrStaff(memberId);
+    return readDemo().subscriptions.filter((s) => s.memberId === memberId);
+  },
+  /** Có renewId thì gia hạn; không có thì đăng ký mới. Backend tự tính ngày hiệu lực.
+   * Đăng ký gói và xác nhận thu tiền là hai nghiệp vụ riêng. */
+  async subscribe(
+    memberId: number,
+    packageId: number,
+    renewId?: number,
+  ): Promise<Subscription> {
+    if (mode() === "api")
+      return renewId
+        ? post(`/memberships/${renewId}/renew?packageId=${packageId}`)
+        : post("/memberships/subscribe", { memberId, packageId });
+    ownOrStaff(memberId);
+    const db = readDemo();
+    if (
+      !db.users.some(
+        (u) =>
+          u.id === memberId && u.roleName === "MEMBER" && u.status === "ACTIVE",
+      )
+    )
+      throw new ApiError("Thành viên không hoạt động.");
+    const pkg = db.packages.find((p) => p.id === packageId);
+    if (!pkg || pkg.status === "INACTIVE")
+      throw new ApiError("Gói tập không tồn tại.");
+    if (
+      !renewId &&
+      db.subscriptions.some(
+        (s) =>
+          s.memberId === memberId &&
+          s.status === "ACTIVE" &&
+          s.endDate >= localDate(),
+      )
+    )
+      throw new ApiError(
+        "Thành viên đã có gói đang hoạt động. Vui lòng chọn Gia hạn.",
+      );
+    if (renewId) {
+      const old = db.subscriptions.find(
+        (s) => s.id === renewId && s.memberId === memberId,
+      );
+      if (!old) throw new ApiError("Không tìm thấy gói cần gia hạn.");
+      old.status = "EXPIRED";
+    }
+    const sub = {
+      id: nextId(db.subscriptions),
+      memberId,
+      packageId,
+      startDate: localDate(),
+      endDate: localDate(addDays(pkg.durationDays)),
+      status: "ACTIVE",
+    };
+    db.subscriptions.push(sub);
+    demoAudit(
+      db,
+      renewId ? "Gia hạn gói tập" : "Đăng ký gói tập",
+      `${pkg.name} · TV${memberId}`,
+    );
+    return sub;
+  },
+  /** Hủy hiệu lực gói, giữ lịch sử; thao tác này không tự hoàn tiền. */
+  async cancelSubscription(id: number, memberId: number) {
+    if (mode() === "api") return post(`/memberships/${id}/cancel`);
+    ownOrStaff(memberId);
+    const db = readDemo();
+    const s = db.subscriptions.find(
+      (x) => x.id === id && x.memberId === memberId,
+    );
+    if (!s) throw new ApiError("Không tìm thấy gói tập.");
+    s.status = "CANCELLED";
+    demoAudit(db, "Hủy gói tập", `Gói đăng ký #${id}`);
   },
 };

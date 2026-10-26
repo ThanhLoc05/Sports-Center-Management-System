@@ -137,7 +137,8 @@ fieldset {
 svg {
   flex-shrink: 0;
 }
-code {
+code,
+.mono {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11px;
 }
@@ -271,6 +272,17 @@ kbd {
   color: #1c4f35;
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+.text-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #a25149;
+  font-size: 11px;
+  padding: 0;
+}
+.text-danger:hover {
+  text-decoration: underline;
 }
 .brand {
   display: flex;
@@ -571,6 +583,10 @@ kbd {
   border-radius: 50%;
   background: currentColor;
 }
+.badge-active {
+  background: #eef4e7;
+  color: #567146;
+}
 .role-chip {
   display: inline-flex;
   padding: 5px 8px;
@@ -785,7 +801,8 @@ td strong {
   gap: 11px;
 }
 .row-actions .subtle-link,
-.row-actions .text-link {
+.row-actions .text-link,
+.row-actions .text-danger {
   font-size: 10px;
 }
 .table-toolbar {
@@ -1039,6 +1056,23 @@ td strong {
   font-size: 10px;
   color: #636a5b;
   margin: 5px 0 9px;
+}
+.detail-sub-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-bottom: 1px solid #f0f4e9;
+}
+.detail-sub-list strong {
+  display: block;
+  font-size: 12px;
+}
+.detail-sub-list small {
+  display: block;
+  color: #646b59;
+  font-size: 10px;
+  margin-top: 5px;
 }
 .toast-stack {
   position: fixed;
@@ -1469,6 +1503,9 @@ td strong {
   .panel-heading p {
     font-size: 10px;
   }
+  .row-actions .text-danger {
+    font-size: 10px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1572,7 +1609,8 @@ td strong,
   font-size: 10px;
 }
 .row-actions .subtle-link,
-.row-actions .text-link {
+.row-actions .text-link,
+.row-actions .text-danger {
   font-size: 11px;
 }
 .notice {
@@ -1658,7 +1696,8 @@ td strong,
     font-size: 12px;
   }
   .row-actions .subtle-link,
-  .row-actions .text-link {
+  .row-actions .text-link,
+  .row-actions .text-danger {
     font-size: 11px;
   }
 }

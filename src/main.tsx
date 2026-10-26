@@ -16,6 +16,7 @@ import "@fontsource/be-vietnam-pro/latin-600.css";
 import "@fontsource/be-vietnam-pro/latin-700.css";
 import "./styles.css";
 import "./styles-auth.css";
+import "./styles-topic.css";
 
 // AuthProvider xóa cache khi đổi tài khoản/đăng xuất để tránh lẫn dữ liệu.
 const client = new QueryClient({

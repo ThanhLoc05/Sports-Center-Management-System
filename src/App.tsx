@@ -7,6 +7,8 @@ import { isManager, roleLabels } from "./lib/types";
 import type { Role } from "./lib/types";
 import AuthPage from "./pages/Auth";
 import Members from "./pages/Members";
+import Memberships from "./pages/Memberships";
+import { PackagesPage } from "./pages/Packages";
 import { Profile } from "./pages/Profile";
 
 /** Kiểm tra cả URL nhập trực tiếp. Backend vẫn phải kiểm tra JWT và quyền tài nguyên. */
@@ -44,6 +46,10 @@ function WorkspaceLayout() {
     items.push({ to: "/members", label: "Thành viên" });
   if (isManager(session!.user.roleName))
     items.push({ to: "/access", label: "Quyền truy cập" });
+  if (session!.user.roleName !== "COACH")
+    items.push({ to: "/memberships", label: "Gói thành viên" });
+  if (isManager(session!.user.roleName))
+    items.push({ to: "/packages", label: "Danh mục gói tập" });
   return (
     <Layout
       items={items}
@@ -114,6 +120,15 @@ export default function App() {
           <Route
             element={
               <Protected
+                roles={["CENTER_MANAGER", "MANAGER", "RECEPTIONIST", "MEMBER"]}
+              />
+            }
+          >
+            <Route path="memberships" element={<Memberships />} />
+          </Route>
+          <Route
+            element={
+              <Protected
                 roles={["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"]}
               />
             }
@@ -122,6 +137,7 @@ export default function App() {
           </Route>
           <Route element={<Protected roles={["CENTER_MANAGER", "MANAGER"]} />}>
             <Route path="/access" element={<Access />} />
+            <Route path="packages" element={<PackagesPage />} />
           </Route>
           <Route
             path="*"

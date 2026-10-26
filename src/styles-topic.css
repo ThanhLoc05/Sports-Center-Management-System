@@ -1,0 +1,29 @@
+/* Style tái sử dụng từ giao diện hiện có, chỉ giữ các màn đã đưa lên main. */
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.check-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.check-option input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  padding: 0;
+  accent-color: var(--green);
+}
+.permission-grid + .btn {
+  margin-bottom: 10px;
+}
+@media (max-width: 760px) {
+  .permission-grid {
+    grid-template-columns: 1fr;
+  }
+}

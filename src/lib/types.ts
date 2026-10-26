@@ -58,4 +58,34 @@ export const isStaff = (role: Role) =>
 export interface DemoDatabase {
   users: User[];
   audit: AuditEntry[];
+  packages: Package[];
+  subscriptions: Subscription[];
+  sports: Sport[];
+}
+
+export interface Subscription {
+  id: number;
+  memberId: number;
+  packageId: number;
+  startDate: string;
+  endDate: string;
+  status: string;
+}
+
+export interface Package {
+  id: number;
+  name: string;
+  durationDays: number;
+  price: number;
+  description: string;
+  features: string[];
+  sportIds?: number[];
+  classLimit?: number | null;
+  status?: string;
+}
+
+export interface Sport {
+  id: number;
+  name: string;
+  description: string;
 }
