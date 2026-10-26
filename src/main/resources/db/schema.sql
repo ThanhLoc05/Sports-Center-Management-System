@@ -314,8 +314,6 @@ IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'COACH')
     INSERT INTO dbo.roles (role_name) VALUES (N'COACH');
 IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'RECEPTIONIST')
     INSERT INTO dbo.roles (role_name) VALUES (N'RECEPTIONIST');
-IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'MANAGER')
-    INSERT INTO dbo.roles (role_name) VALUES (N'MANAGER');
 IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'CENTER_MANAGER')
     INSERT INTO dbo.roles (role_name) VALUES (N'CENTER_MANAGER');
 

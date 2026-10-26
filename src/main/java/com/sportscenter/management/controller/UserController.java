@@ -27,7 +27,7 @@ import java.util.List;
  * Phân quyền và luồng nghiệp vụ:
  * 1. Register & Login: Public cho tất cả mọi người.
  * 2. Tra cứu danh sách người dùng (getUsers):
- *    - Dành cho Quản lý (MANAGER) và Lễ tân (RECEPTIONIST) để tra cứu học viên tại quầy.
+ *    - Dành cho Quản lý trung tâm và Lễ tân để tra cứu học viên tại quầy.
  * 3. Xem và cập nhật thông tin cá nhân (User Details & Member Profile):
  *    - Chính chủ (chủ tài khoản).
  *    - Lễ tân / Quản lý (hỗ trợ cập nhật tại quầy).
@@ -76,10 +76,10 @@ public class UserController {
 
     /**
      * TÌM KIẾM VÀ XEM DANH SÁCH NGƯỜI DÙNG
-     * - Phân quyền: Quản lý (MANAGER) xem toàn bộ nhân sự, Lễ tân (RECEPTIONIST) tìm kiếm học viên tại quầy.
+     * - Phân quyền: Quản lý trung tâm xem toàn bộ nhân sự, Lễ tân tìm kiếm học viên tại quầy.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'RECEPTIONIST')")
     public List<UserResponse> getUsers(@RequestParam(required = false) Integer roleId) {
         return userService.getAllUsers(roleId);
     }
@@ -96,7 +96,7 @@ public class UserController {
 
         // Cho phép: Chính chủ HOẶC Lễ tân HOẶC HLV HOẶC Quản lý
         boolean isAuthorized = currentUser.equals(userId)
-                || securityUtils.isManagerOrCenterManager()
+                || securityUtils.isCenterManager()
                 || securityUtils.isReceptionist();
 
         if (!isAuthorized) {
@@ -109,20 +109,20 @@ public class UserController {
 
     /**
      * KHÓA / KÍCH HOẠT TÀI KHOẢN (STATUS: ACTIVE / BLOCKED)
-     * - Bảo mật: CHỈ Quản lý (MANAGER hoặc CENTER_MANAGER) mới có quyền.
+     * - Bảo mật: CHỈ Quản lý trung tâm mới có quyền.
      */
     @PatchMapping("/{userId}/status")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public UserResponse updateStatus(@PathVariable Integer userId, @RequestParam String status) {
         return userService.updateUserStatus(userId, status);
     }
 
     /**
-     * CẬP NHẬT VAI TRÒ NGƯỜI DÙNG (ROLE: MEMBER, COACH, RECEPTIONIST, MANAGER)
-     * - Bảo mật: CHỈ Quản lý (MANAGER hoặc CENTER_MANAGER) mới có quyền phân quyền.
+     * CẬP NHẬT VAI TRÒ NGƯỜI DÙNG (ROLE: MEMBER, COACH, RECEPTIONIST, CENTER_MANAGER)
+     * - Bảo mật: CHỈ Quản lý trung tâm mới có quyền phân quyền.
      */
     @PatchMapping("/{userId}/role")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public UserResponse updateRole(
             @PathVariable Integer userId,
             @RequestParam(required = false) Integer roleId,
@@ -143,7 +143,7 @@ public class UserController {
         if (currentUser == null) return ResponseEntity.status(401).build();
 
         boolean isAuthorized = currentUser.equals(userId)
-                || securityUtils.isManagerOrCenterManager()
+                || securityUtils.isCenterManager()
                 || securityUtils.isReceptionist()
                 || (securityUtils.isCoach() && coachTeachesMember(currentUser, userId));
 

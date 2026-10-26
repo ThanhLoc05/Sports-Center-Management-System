@@ -7,7 +7,7 @@
 @contentType = application/json
 
 ### Replace these with actual valid tokens from your authentication
-@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbnR1YW5AdHV0YS5jb20iLCJpYXQiOjE3OTI1NjI5MzgsImV4cCI6MTc5MjU2NjUzOH0.RE8nxOvFjFUVCKqz1FgGv92Z00UqHqt8HRKZoWUpSSk
+@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwaHVjdmluaEBnbWFpbC5jb20iLCJpYXQiOjE3OTI1NjcwNjYsImV4cCI6MTc5MjU3MDY2Nn0.vwghj_fOY-N8kdUT-ZDp40v7xuCk-A8_WuPYs1ds7GA
 @managerToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtYW5hZ2VyQGdtYWlsLmNvbSIsImlhdCI6MTc5MjU2NTIyNywiZXhwIjoxNzkyNTY4ODI3fQ.gaZYdWKZEynCeSv_4HLm8gzsac_MpVpDzc02Qq10mGw
 
 ### ============================================================================
@@ -20,8 +20,8 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 {
-  "memberId": 6,
-  "packageId": 4,
+  "memberId": 1007,
+  "packageId": 2,
   "startDate": "2026-10-21"
 }
 
@@ -77,7 +77,7 @@ Authorization: {{memberToken}}
 ### ============================================================================
 
 ### 2.1 Book a class (Basic booking)
-POST {{baseUrl}}/api/v1/classes/1/book?memberId=6
+POST {{baseUrl}}/api/v1/classes/3/book?memberId=6
 Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
@@ -182,7 +182,7 @@ Authorization: {{managerToken}}
 
 {
   "className": "Beginner Yoga",
-  "sportId": 1,
+  "sportId": 2,
   "coachId": 3,
   "roomId": 1,
   "maxCapacity": 15,
@@ -219,8 +219,8 @@ Content-Type: {{contentType}}
 Authorization: {{managerToken}}
 
 {
-  "sportName": "Pilates",
-  "description": "Bá»™ mÃ´n rÃ¨n luyá»‡n sá»©c máº¡nh vÃ  Ä‘á»™ dáº»o dai"
+  "sportName": "Yoga",
+  "description": "CÃ¢n báº±ng nÄƒng lÆ°á»£ng cÆ¡ thá»ƒ vÃ  thÆ° giáº£n tinh tháº§n"
 }
 
 ### 5.3 Attempt to add a sport with a member token (expected: 403 Forbidden)
@@ -266,10 +266,10 @@ POST {{baseUrl}}/api/v1/users/register
 Content-Type: {{contentType}}
 
 {
-  "email": "manager@gmail.com",
-  "password": "123456",
-  "fullName": "Manager",
-  "phone": "0123456789"
+  "email": "phucvinh@gmail.com",
+  "password": "phucvinh",
+  "fullName": "Tran Phuc Vinh",
+  "phone": "0345887992"
 }
 
 ### Login to get access token
@@ -277,8 +277,8 @@ POST {{baseUrl}}/api/v1/users/login
 Content-Type: {{contentType}}
 
 {
-  "email": "manager@gmail.com",
-  "password": "123456"
+  "email": "phucvinh@gmail.com",
+  "password": "phucvinh"
 }
 
 ### Get user details
@@ -311,10 +311,10 @@ Content-Type: {{contentType}}
 Authorization: {{managerToken}}
 
 {
-  "title": "Giáo án tang co gi?m m? 4 tu?n",
+  "title": "Giï¿½o ï¿½n tang co gi?m m? 4 tu?n",
   "coachId": 3,
   "memberId": 6,
-  "description": "Tu?n 1-2: Cardio k?t h?p t? nh?. Tu?n 3-4: Tang kh?i lu?ng t?, t?p ng?c/chân/lung."
+  "description": "Tu?n 1-2: Cardio k?t h?p t? nh?. Tu?n 3-4: Tang kh?i lu?ng t?, t?p ng?c/chï¿½n/lung."
 }
 
 ### 8.2 Get workout plans for a member
@@ -323,7 +323,7 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### ============================================================================
-### FLOW 9: WORKOUT LOGS (NH?T KÝ K?T QU? T?P LUY?N)
+### FLOW 9: WORKOUT LOGS (NH?T Kï¿½ K?T QU? T?P LUY?N)
 ### ============================================================================
 
 ### 9.1 Member or Coach logs exercises after a workout
@@ -334,7 +334,7 @@ Authorization: {{memberToken}}
 {
   "memberId": 6,
   "coachId": 3,
-  "feedbackFromCoach": "H?c viên t?p dúng form, th? l?c t?t",
+  "feedbackFromCoach": "H?c viï¿½n t?p dï¿½ng form, th? l?c t?t",
   "details": [
     {
       "exerciseName": "Bench Press",
@@ -357,7 +357,7 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 ### ============================================================================
-### FLOW 10: FEEDBACK & REVIEWS (ÐÁNH GIÁ & NH?N XÉT)
+### FLOW 10: FEEDBACK & REVIEWS (ï¿½ï¿½NH GIï¿½ & NH?N Xï¿½T)
 ### ============================================================================
 
 ### 10.1 Member reviews a Coach
@@ -369,7 +369,7 @@ Authorization: {{memberToken}}
   "fromUserId": 6,
   "toUserId": 3,
   "rating": 5,
-  "comment": "Hu?n luy?n viên r?t nhi?t tình và hu?ng d?n chu?n form!",
+  "comment": "Hu?n luy?n viï¿½n r?t nhi?t tï¿½nh vï¿½ hu?ng d?n chu?n form!",
   "type": "MEMBER_TO_COACH"
 }
 
@@ -379,7 +379,7 @@ Content-Type: {{contentType}}
 
 
 ### ============================================================================
-### FLOW 11: SUPPORT TICKETS (H? TR? THÀNH VIÊN)
+### FLOW 11: SUPPORT TICKETS (H? TR? THï¿½NH VIï¿½N)
 ### ============================================================================
 
 ### 11.1 Member creates a support ticket
@@ -388,8 +388,8 @@ Content-Type: {{contentType}}
 Authorization: {{memberToken}}
 
 {
-  "subject": "Yêu c?u d?i gi? t?p l?p Yoga",
-  "content": "Tôi b?n công tác vào th? 2, mong trung tâm h? tr? chuy?n sang l?p th? 4."
+  "subject": "Yï¿½u c?u d?i gi? t?p l?p Yoga",
+  "content": "Tï¿½i b?n cï¿½ng tï¿½c vï¿½o th? 2, mong trung tï¿½m h? tr? chuy?n sang l?p th? 4."
 }
 
 ### 11.2 Member views their own support tickets
@@ -408,7 +408,7 @@ Content-Type: {{contentType}}
 Authorization: {{managerToken}}
 
 {
-  "response": "L? tân dã h? tr? chuy?n l?ch h?c sang th? 4 thành công cho b?n."
+  "response": "L? tï¿½n dï¿½ h? tr? chuy?n l?ch h?c sang th? 4 thï¿½nh cï¿½ng cho b?n."
 }
 
 ### ============================================================================
@@ -419,7 +419,7 @@ Authorization: {{managerToken}}
 ### 1. Start the Spring Boot application: ./mvnw.cmd spring-boot:run
 ### 2. Ensure SQL Server database is running with SportsCenterDB schema
 ### 3. Replace @memberToken with actual token from login endpoint
-### 4. Replace @managerToken with token from a MANAGER or CENTER_MANAGER user.
+### 4. Replace @managerToken with token from a CENTER_MANAGER user.
 ###    The register endpoint below creates a MEMBER, not a manager account.
 ### 5. Adjust memberId, packageId, and classId based on your database data
 ### 6. For class creation, use existing sportId, coachId (a COACH user), roomId,

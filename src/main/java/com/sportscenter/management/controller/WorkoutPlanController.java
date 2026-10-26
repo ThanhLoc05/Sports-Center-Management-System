@@ -19,7 +19,7 @@ import java.util.List;
  * CONTROLLER KẾ HOẠCH HỌC TẬP & GIÁO ÁN (WORKOUT PLAN CONTROLLER)
  * ============================================================================
  * Phân quyền:
- * - Soạn giáo án, chỉnh sửa, xóa: Dành cho Huấn luyện viên (COACH) hoặc Quản lý (MANAGER).
+ * - Soạn giáo án, chỉnh sửa, xóa: Dành cho Huấn luyện viên (COACH) hoặc Quản lý trung tâm (CENTER_MANAGER).
  * - Học viên xem giáo án được phân công cho mình hoặc cho lớp mình học.
  */
 @RestController
@@ -33,7 +33,7 @@ public class WorkoutPlanController {
     private final SecurityUtils securityUtils;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutPlanResponse> createPlan(@Valid @RequestBody WorkoutPlanRequest request) {
         if (securityUtils.isCoach()) {
             request.setCoachId(securityUtils.getCurrentUserId());
@@ -42,13 +42,13 @@ public class WorkoutPlanController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutPlanResponse> updatePlan(
             @PathVariable Integer id, @RequestBody WorkoutPlanRequest request) {
         var existing = workoutPlanService.getPlanById(id);
         if (existing.isEmpty()) return ResponseEntity.notFound().build();
         Integer currentUserId = securityUtils.getCurrentUserId();
-        if (!securityUtils.isManagerOrCenterManager()
+        if (!securityUtils.isCenterManager()
                 && (currentUserId == null || !currentUserId.equals(existing.get().getCoachId()))) {
             return ResponseEntity.status(403).build();
         }
@@ -56,12 +56,12 @@ public class WorkoutPlanController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<Void> deletePlan(@PathVariable Integer id) {
         var existing = workoutPlanService.getPlanById(id);
         if (existing.isEmpty()) return ResponseEntity.notFound().build();
         Integer currentUserId = securityUtils.getCurrentUserId();
-        if (!securityUtils.isManagerOrCenterManager()
+        if (!securityUtils.isCenterManager()
                 && (currentUserId == null || !currentUserId.equals(existing.get().getCoachId()))) {
             return ResponseEntity.status(403).build();
         }
@@ -89,7 +89,7 @@ public class WorkoutPlanController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<WorkoutPlanResponse>> getPlansByCoachId(@PathVariable Integer coachId) {
         Integer currentUserId = securityUtils.getCurrentUserId();
-        if (!securityUtils.isManagerOrCenterManager()
+        if (!securityUtils.isCenterManager()
                 && (currentUserId == null || !currentUserId.equals(coachId))) {
             return ResponseEntity.status(403).build();
         }
@@ -104,7 +104,7 @@ public class WorkoutPlanController {
     }
 
     private boolean canAccessPlan(WorkoutPlanResponse plan) {
-        if (securityUtils.isManagerOrCenterManager()) return true;
+        if (securityUtils.isCenterManager()) return true;
         Integer currentUserId = securityUtils.getCurrentUserId();
         if (currentUserId == null) return false;
         if (currentUserId.equals(plan.getCoachId())) return true;
@@ -115,7 +115,7 @@ public class WorkoutPlanController {
     private boolean canAccessClass(Integer classId) {
         var clazz = classService.getClassById(classId);
         if (clazz.isEmpty()) return false;
-        if (securityUtils.isManagerOrCenterManager()) return true;
+        if (securityUtils.isCenterManager()) return true;
 
         Integer currentUserId = securityUtils.getCurrentUserId();
         if (currentUserId == null) return false;

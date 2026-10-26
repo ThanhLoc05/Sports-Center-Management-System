@@ -38,8 +38,8 @@ public class SecurityUtils {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_" + roleName) || a.getAuthority().contains(roleName));
     }
 
-    public boolean isManagerOrCenterManager() {
-        return hasRole("MANAGER") || hasRole("CENTER_MANAGER");
+    public boolean isCenterManager() {
+        return hasRole("CENTER_MANAGER");
     }
 
     public boolean isReceptionist() {
@@ -52,13 +52,13 @@ public class SecurityUtils {
 
     /**
      * Trả về true nếu người đang đăng nhập là chủ sở hữu dữ liệu,
-     * lễ tân, quản lý hoặc quản lý trung tâm.
+     * lễ tân hoặc quản lý trung tâm.
      * Dùng để kiểm tra quyền trên các API thao tác dữ liệu của hội viên.
      */
     public boolean isOwnerOrAuthorized(Integer ownerId) {
         if (ownerId == null) return false;
         Integer current = getCurrentUserId();
         if (current != null && current.equals(ownerId)) return true;
-        return isReceptionist() || isManagerOrCenterManager();
+        return isReceptionist() || isCenterManager();
     }
 }

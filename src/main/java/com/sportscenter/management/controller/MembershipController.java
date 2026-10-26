@@ -20,7 +20,7 @@ import java.util.List;
  * ============================================================================
  * Phân quyền và luồng nghiệp vụ:
  * 1. Xem danh sách gói tập (GET /packages): Công khai cho khách vãng lai và mọi học viên.
- * 2. Tạo gói tập mới (POST /packages): Chỉ dành riêng cho Quản lý trung tâm (MANAGER).
+ * 2. Tạo gói tập mới (POST /packages): Chỉ dành riêng cho Quản lý trung tâm.
  * 3. Đăng ký gói tập (POST /subscribe):
  *    - Học viên: Chỉ được đăng ký cho chính mình.
  *    - Lễ tân / Quản lý: Có quyền làm thủ tục đăng ký gói tập cho học viên tại quầy.
@@ -48,10 +48,10 @@ public class MembershipController {
 
     /**
      * TẠO GÓI TẬP MỚI (CREATE PACKAGE)
-     * - Bảo mật: CHỈ Quản lý (CENTER_MANAGER, MANAGER) mới có quyền tạo gói tập và định giá.
+     * - Bảo mật: CHỈ Quản lý trung tâm mới có quyền tạo gói tập và định giá.
      */
     @PostMapping("/packages")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ResponseEntity<MembershipPackageResponse> createPackage(
             @Valid @RequestBody MembershipPackageRequest request) {
         return ResponseEntity.status(201).body(membershipService.createPackage(request));
@@ -88,11 +88,11 @@ public class MembershipController {
 
         // Chỉ chính chủ HOẶC Lễ tân/Quản lý mới được thao tác
         if (!currentUserId.equals(request.getMemberId()) &&
-                !(securityUtils.isReceptionist() || securityUtils.isManagerOrCenterManager())) {
+                !(securityUtils.isReceptionist() || securityUtils.isCenterManager())) {
             return ResponseEntity.status(403).build();
         }
         if (!securityUtils.hasRole("MEMBER") && !securityUtils.isReceptionist()
-                && !securityUtils.isManagerOrCenterManager()) {
+                && !securityUtils.isCenterManager()) {
             return ResponseEntity.status(403).build();
         }
 

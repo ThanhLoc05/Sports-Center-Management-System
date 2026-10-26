@@ -43,7 +43,7 @@ public class AttendanceController {
      * - Hệ thống tự động ghi nhận người thực hiện điểm danh (checkedInBy).
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'COACH', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'COACH', 'CENTER_MANAGER')")
     public ResponseEntity<AttendanceResponse> checkIn(@RequestBody AttendanceRequest request) {
         return ResponseEntity.status(201).body(attendanceService.checkInMember(request));
     }
@@ -70,7 +70,7 @@ public class AttendanceController {
      * - Dành cho HLV phụ trách lớp, Lễ tân và Quản lý.
      */
     @GetMapping("/classes/{classId}")
-    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER')")
     public List<AttendanceResponse> getClassAttendance(@PathVariable Integer classId) {
         if (!canManageClassAttendance(classId)) throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem điểm danh lớp này");
         return attendanceService.getClassAttendance(classId);
@@ -81,7 +81,7 @@ public class AttendanceController {
      * - Huấn luyện viên xem danh sách học viên vắng mặt để nhắc nhở và quản lý chuyên cần.
      */
     @GetMapping("/classes/{classId}/absentees")
-    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER')")
     public List<AttendanceResponse> getAbsentees(@PathVariable Integer classId) {
         if (!canManageClassAttendance(classId)) throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem điểm danh lớp này");
         return attendanceService.getAbsenteeList(classId);
@@ -131,7 +131,7 @@ public class AttendanceController {
     }
 
     private boolean canManageClassAttendance(Integer classId) {
-        if (securityUtils.isManagerOrCenterManager() || securityUtils.isReceptionist()) return true;
+        if (securityUtils.isCenterManager() || securityUtils.isReceptionist()) return true;
         return securityUtils.isCoach() && isAssignedCoach(classId);
     }
 

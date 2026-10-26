@@ -4,6 +4,7 @@ import com.sportscenter.management.dto.Request.RoomRequest;
 import com.sportscenter.management.dto.Response.RoomResponse;
 import com.sportscenter.management.entity.Room;
 import com.sportscenter.management.repository.RoomRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,8 +35,8 @@ public class RoomController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
-    public ResponseEntity<RoomResponse> createRoom(@RequestBody RoomRequest request) {
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody RoomRequest request) {
         if (request == null || request.getRoomName() == null || request.getRoomName().isBlank()) {
             throw new IllegalArgumentException("Tên phòng là bắt buộc");
         }

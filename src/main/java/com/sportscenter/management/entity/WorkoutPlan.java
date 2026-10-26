@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDateTime;
 
@@ -20,6 +21,7 @@ public class WorkoutPlan {
     private Integer id;
 
     @Column(name = "title", nullable = false)
+    @Nationalized
     private String title;
 
     @Column(name = "coach_id", nullable = false)

@@ -28,7 +28,7 @@ public class WorkoutLogController {
     private final SecurityUtils securityUtils;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutLogResponse> createLog(@Valid @RequestBody WorkoutLogRequest request) {
         // Nếu là HLV, luôn gắn nhật ký với HLV đang đăng nhập để tránh giả mạo người ghi.
         if (securityUtils.isCoach()) {
@@ -38,13 +38,13 @@ public class WorkoutLogController {
     }
 
     @PatchMapping("/{id}/feedback")
-    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutLogResponse> updateFeedback(
             @PathVariable Integer id, @RequestParam String feedback) {
         var log = workoutLogService.getLogById(id);
         if (log.isEmpty()) return ResponseEntity.notFound().build();
         Integer currentUserId = securityUtils.getCurrentUserId();
-        if (!securityUtils.isManagerOrCenterManager()
+        if (!securityUtils.isCenterManager()
                 && (currentUserId == null || !currentUserId.equals(log.get().getCoachId()))) {
             return ResponseEntity.status(403).build();
         }
@@ -71,7 +71,7 @@ public class WorkoutLogController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<WorkoutLogResponse>> getLogsByCoachId(@PathVariable Integer coachId) {
         Integer currentUserId = securityUtils.getCurrentUserId();
-        if (!securityUtils.isManagerOrCenterManager()
+        if (!securityUtils.isCenterManager()
                 && (currentUserId == null || !currentUserId.equals(coachId))) {
             return ResponseEntity.status(403).build();
         }
@@ -79,7 +79,7 @@ public class WorkoutLogController {
     }
 
     private boolean canAccessLog(WorkoutLogResponse log) {
-        if (securityUtils.isManagerOrCenterManager()
+        if (securityUtils.isCenterManager()
                 || securityUtils.isOwnerOrAuthorized(log.getMemberId())) return true;
         Integer currentUserId = securityUtils.getCurrentUserId();
         return securityUtils.isCoach() && currentUserId != null

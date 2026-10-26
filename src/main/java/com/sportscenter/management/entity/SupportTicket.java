@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDateTime;
 
@@ -23,12 +24,14 @@ public class SupportTicket {
     private Integer memberId;
 
     @Column(name = "subject", nullable = false)
+    @Nationalized
     private String subject;
 
     @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String content;
 
     @Column(name = "status", nullable = false)
+    @Nationalized
     private String status; // OPEN, RESOLVED, CANCELLED
 
     @Column(name = "response", columnDefinition = "NVARCHAR(MAX)")

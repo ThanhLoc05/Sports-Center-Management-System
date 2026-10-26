@@ -20,10 +20,10 @@ import java.util.List;
  * CONTROLLER QUẢN LÝ THANH TOÁN & HÓA ĐƠN (PAYMENT & INVOICE MANAGEMENT)
  * ============================================================================
  * Nghiệp vụ và phân quyền:
- * 1. Lập hóa đơn (POST /invoices): Lễ tân (RECEPTIONIST) và Quản lý (MANAGER).
+ * 1. Lập hóa đơn (POST /invoices): Lễ tân (RECEPTIONIST) và Quản lý trung tâm.
  * 2. Xác nhận đã thu tiền (POST /invoices/{id}/pay): Lễ tân và Quản lý.
- * 3. Hoàn tiền hóa đơn (POST /invoices/{id}/refund): CHỈ Quản lý (MANAGER).
- * 4. Báo cáo doanh thu (GET /revenue): CHỈ Quản lý (MANAGER).
+ * 3. Hoàn tiền hóa đơn (POST /invoices/{id}/refund): CHỈ Quản lý trung tâm.
+ * 4. Báo cáo doanh thu (GET /revenue): CHỈ Quản lý trung tâm.
  * 5. Tra cứu hóa đơn của học viên: Học viên chỉ xem được hóa đơn của mình, Lễ tân/Quản lý xem được tất cả.
  */
 @RestController
@@ -39,7 +39,7 @@ public class PaymentController {
      * - Dành cho Lễ tân và Quản lý khi học viên thanh toán gói tập.
      */
     @PostMapping("/invoices")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public ResponseEntity<InvoiceResponse> createInvoice(@Valid @RequestBody InvoiceRequest request) {
         return ResponseEntity.status(201).body(paymentService.createInvoice(request));
     }
@@ -80,7 +80,7 @@ public class PaymentController {
      * - Lễ tân và Quản lý theo dõi để nhắc nhở và thu tiền học viên.
      */
     @GetMapping("/invoices/pending")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public List<InvoiceResponse> getPendingInvoices() {
         return paymentService.getPendingInvoices();
     }
@@ -90,17 +90,17 @@ public class PaymentController {
      * - Lễ tân và Quản lý bấm xác nhận khi nhận tiền mặt, quẹt thẻ hoặc chuyển khoản.
      */
     @PostMapping("/invoices/{invoiceId}/pay")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public InvoiceResponse markAsPaid(@PathVariable Integer invoiceId) {
         return paymentService.markAsPaid(invoiceId);
     }
 
     /**
      * HOÀN TIỀN CHO HỌC VIÊN (REFUND)
-     * - Bảo mật chặt: CHỈ Quản lý (CENTER_MANAGER, MANAGER) mới có thẩm quyền duyệt hoàn tiền.
+     * - Bảo mật chặt: CHỈ Quản lý trung tâm mới có thẩm quyền duyệt hoàn tiền.
      */
     @PostMapping("/invoices/{invoiceId}/refund")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public InvoiceResponse refund(@PathVariable Integer invoiceId) {
         return paymentService.refundInvoice(invoiceId);
     }
@@ -110,7 +110,7 @@ public class PaymentController {
      * - Bảo mật chặt: CHỈ Quản lý mới được xem doanh thu tài chính của trung tâm.
      */
     @GetMapping("/revenue")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public BigDecimal getRevenue(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
@@ -119,10 +119,10 @@ public class PaymentController {
 
     /**
      * BÁO CÁO DOANH THU THEO PHƯƠNG THỨC THANH TOÁN (Tiền mặt / Chuyển khoản / Thẻ)
-     * - Bảo mật: CHỈ Quản lý (CENTER_MANAGER, MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @GetMapping("/revenue/by-method")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public String getRevenueByMethod(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {

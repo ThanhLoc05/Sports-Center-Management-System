@@ -4,6 +4,7 @@ import com.sportscenter.management.dto.Request.SportRequest;
 import com.sportscenter.management.dto.Response.SportResponse;
 import com.sportscenter.management.entity.Sport;
 import com.sportscenter.management.repository.SportRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,8 +35,8 @@ public class SportController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
-    public ResponseEntity<SportResponse> createSport(@RequestBody SportRequest request) {
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<SportResponse> createSport(@Valid @RequestBody SportRequest request) {
         if (request == null || request.getSportName() == null || request.getSportName().isBlank()) {
             throw new IllegalArgumentException("Tên bộ môn là bắt buộc");
         }

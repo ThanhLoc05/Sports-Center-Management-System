@@ -3,6 +3,7 @@ package com.sportscenter.management.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
 
@@ -26,6 +27,7 @@ public class WorkoutLogDetail {
     private WorkoutLog workoutLog;
 
     @Column(name = "exercise_name", nullable = false)
+    @Nationalized
     private String exerciseName;
 
     @Column(name = "sets")

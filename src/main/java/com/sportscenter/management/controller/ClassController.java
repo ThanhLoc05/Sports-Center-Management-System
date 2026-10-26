@@ -19,7 +19,7 @@ import java.util.List;
  * Nghiệp vụ và phân quyền:
  * 1. Khách vãng lai và học viên: Được xem danh sách lớp học, lịch học, số chỗ còn trống.
  * 2. Huấn luyện viên (COACH): Có API riêng để xem các lớp do chính mình phụ trách (GET /my-classes).
- * 3. Quản lý (MANAGER): Tạo lớp mới, phân công HLV, sửa thông tin lớp, hủy lớp học.
+ * 3. Quản lý trung tâm: Tạo lớp mới, phân công HLV, sửa thông tin lớp, hủy lớp học.
  */
 @RestController
 @RequestMapping("/api/v1/classes")
@@ -31,10 +31,10 @@ public class ClassController {
 
     /**
      * TẠO LỚP HỌC MỚI VÀ PHÂN CÔNG HUẤN LUYỆN VIÊN (CREATE CLASS)
-     * - Bảo mật: CHỈ Quản lý (CENTER_MANAGER, MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ResponseEntity<ClassResponse> createClass(@Valid @RequestBody ClassRequest request) {
         return ResponseEntity.status(201).body(classService.createClass(request));
     }
@@ -56,7 +56,7 @@ public class ClassController {
      * - Hệ thống tự động lấy ID từ Token, Coach không cần truyền ID thủ công.
      */
     @GetMapping("/my-classes")
-    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('COACH', 'CENTER_MANAGER')")
     public ResponseEntity<List<ClassResponse>> getMyClasses() {
         Integer currentUserId = securityUtils.getCurrentUserId();
         if (currentUserId == null) return ResponseEntity.status(401).build();
@@ -82,20 +82,20 @@ public class ClassController {
 
     /**
      * CẬP NHẬT THÔNG TIN LỚP HỌC / ĐỔI HLV PHỤ TRÁCH (UPDATE CLASS)
-     * - Bảo mật: CHỈ Quản lý (CENTER_MANAGER, MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @PutMapping("/{classId}")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ClassResponse updateClass(@PathVariable Integer classId, @Valid @RequestBody ClassRequest request) {
         return classService.updateClass(classId, request);
     }
 
     /**
      * HỦY LỚP HỌC (CANCEL CLASS)
-     * - Bảo mật: CHỈ Quản lý (CENTER_MANAGER, MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @PostMapping("/{classId}/cancel")
-    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ClassResponse cancelClass(@PathVariable Integer classId) {
         return classService.cancelClass(classId);
     }

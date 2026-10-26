@@ -28,7 +28,7 @@ Dữ liệu demo không tự đồng bộ giữa các trình duyệt/máy, cũng
 | Member — Thành viên      | Đăng ký tài khoản, đăng ký/gia hạn gói, đặt/hủy lớp, xem lịch, điểm danh và hóa đơn của mình            | Không có quyền quản lý trung tâm. Backend phải kiểm tra quyền sở hữu dữ liệu, không chỉ dựa vào frontend.                                        |
 | Receptionist — Lễ tân    | Tạo thành viên tại quầy, hỗ trợ gói và booking, điểm danh, lập hóa đơn và xác nhận thu tiền             | Theo nghiệp vụ cần tìm hồ sơ thành viên; API danh sách người dùng hiện chỉ cho quản lý, nên API mode có form phải nhập ID. Không được hoàn tiền. |
 
-`MANAGER` là tên vai trò quản lý được code hỗ trợ thêm để tương thích với `CENTER_MANAGER`; khi trình bày topic vẫn nói bốn vai trò trên.
+Backend dùng vai trò `CENTER_MANAGER` làm vai trò quản lý trung tâm; không tạo thêm vai trò `MANAGER` riêng.
 
 ## 3. Luồng tổng quan xuyên suốt
 
