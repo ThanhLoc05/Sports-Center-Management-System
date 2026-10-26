@@ -1,21 +1,23 @@
-/** Demo xác thực riêng: chỉ lưu tài khoản, không kèm dữ liệu lớp/gói/hóa đơn. */
-import type { Role, Session, User } from "./types";
+import { dateTimeLocal } from "./utils";
+/** Dữ liệu demo tài khoản/hồ sơ, giữ riêng với dữ liệu backend. */
+import type { Role, Session, DemoDatabase, User } from "./types";
 const KEY = "sportiva-auth-demo-v1";
-interface DemoAccounts {
-  users: User[];
-}
-export function readDemo(): DemoAccounts {
+
+export function readDemo(): DemoDatabase {
   try {
     const data = JSON.parse(localStorage.getItem(KEY) || "null");
     if (
       Array.isArray(data?.users) &&
       data.users.every((u: User) => u.id && u.email && u.fullName && u.roleName)
-    )
+    ) {
+      data.audit ||= [];
       return data;
+    }
   } catch {
     /* JSON hỏng thì tạo lại tài khoản mẫu. */
   }
-  const db: DemoAccounts = {
+  const db: DemoDatabase = {
+    audit: [],
     users: [
       {
         id: 1,
@@ -54,12 +56,33 @@ export function readDemo(): DemoAccounts {
   saveDemo(db);
   return db;
 }
-export function saveDemo(db: DemoAccounts) {
+export function saveDemo(db: DemoDatabase) {
   localStorage.setItem(KEY, JSON.stringify(db));
+  window.dispatchEvent(new Event("sportiva:demo-changed"));
 }
 /** Token mẫu không có quyền truy cập backend thật. */
 export function demoSession(role: Role): Session {
   const user = readDemo().users.find((user) => user.roleName === role);
   if (!user) throw new Error("Vai trò demo không tồn tại.");
   return { token: "demo-local-only", user, mode: "demo" };
+}
+
+export function demoAudit(db: DemoDatabase, action: string, detail: string) {
+  let actor = "Người dùng demo";
+  try {
+    actor =
+      JSON.parse(sessionStorage.getItem("sportiva-session") || "{}").user
+        ?.fullName || actor;
+  } catch {
+    /* Không đọc được phiên thì dùng tên người thao tác demo mặc định. */
+  }
+  db.audit.unshift({
+    id: Date.now(),
+    actor,
+    action,
+    detail,
+    createdAt: dateTimeLocal(),
+  });
+  db.audit = db.audit.slice(0, 500);
+  saveDemo(db);
 }

@@ -1,4 +1,4 @@
-/** Kiểu xác thực; backend quyết định vai trò thực tế. */
+/** Kiểu của tài khoản/hồ sơ; không chứa mật khẩu. */
 export type Role =
   "CENTER_MANAGER" | "MANAGER" | "COACH" | "MEMBER" | "RECEPTIONIST";
 
@@ -11,6 +11,14 @@ export interface User {
   phone: string;
   roleName: Role;
   status: string;
+  createdAt?: string;
+  dob?: string;
+  gender?: string;
+  address?: string;
+  fitnessGoals?: string;
+  level?: string;
+  bio?: string;
+  specialties?: string;
 }
 
 export interface Session {
@@ -26,6 +34,14 @@ export interface RegisterInput {
   phone: string;
 }
 
+export interface AuditEntry {
+  id: number;
+  actor: string;
+  action: string;
+  detail: string;
+  createdAt: string;
+}
+
 export const roleLabels: Record<Role, string> = {
   CENTER_MANAGER: "Quản lý trung tâm",
   MANAGER: "Quản lý trung tâm",
@@ -36,3 +52,10 @@ export const roleLabels: Record<Role, string> = {
 
 export const isManager = (role: Role) =>
   role === "CENTER_MANAGER" || role === "MANAGER";
+
+export const isStaff = (role: Role) =>
+  isManager(role) || role === "RECEPTIONIST";
+export interface DemoDatabase {
+  users: User[];
+  audit: AuditEntry[];
+}

@@ -1,4 +1,4 @@
-/** Style đăng ký/đăng nhập và responsive từ giao diện hiện có. */
+/* Style tái sử dụng từ giao diện hiện có, chỉ giữ các màn đã đưa lên main. */
 .auth-page {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -386,6 +386,45 @@
 .auth-footer > span {
   color: #666c5c;
 }
+.profile-page-header {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 30px;
+}
+.profile-page-header h2 {
+  font-size: 23px;
+  color: #5c6f4d;
+  font-weight: 400;
+  letter-spacing: -0.6px;
+}
+.profile-page-header p {
+  font-size: 11px;
+  color: #606d53;
+  margin: 6px 0 12px;
+}
+.profile-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 5px 30px 32px;
+}
+.profile-details > div {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+}
+.profile-details span {
+  font-size: 10px;
+  color: #626e56;
+}
+.profile-details strong {
+  font-size: 13px;
+  color: #5c6f4c;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 1250px) {
   .auth-story {
     padding: 40px;
@@ -463,6 +502,33 @@
   }
 }
 @media (max-width: 760px) {
+  .profile-page-header {
+    padding: 25px 23px;
+    gap: 16px;
+  }
+  .profile-page-header > .avatar-large {
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    font-size: 19px;
+  }
+  .profile-page-header h2 {
+    font-size: 20px;
+  }
+  .profile-page-header p {
+    font-size: 10px;
+  }
+  .profile-details {
+    padding: 5px 23px 28px;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .profile-details span {
+    font-size: 10px;
+  }
+  .profile-details strong {
+    font-size: 12px;
+  }
   .auth-page {
     grid-template-columns: 1fr;
     min-height: 100dvh;

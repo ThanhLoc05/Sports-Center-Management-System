@@ -7,6 +7,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSession } from "./api";
+import { readDemo } from "./demo";
 import type { Session } from "./types";
 interface AuthContextType {
   session: Session | null;
@@ -35,6 +36,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     client.clear();
     setSession(s);
   };
+  /** Đổi role/khóa tài khoản demo có hiệu lực ngay cả ở tab khác; không sửa JWT API. */
+  useEffect(() => {
+    const refresh = () => {
+      setSession((current) => {
+        if (current?.mode !== "demo") return current;
+        const user = readDemo().users.find((u) => u.id === current.user.id);
+        if (!user || user.status !== "ACTIVE") {
+          sessionStorage.removeItem("sportiva-session");
+          client.clear();
+          return null;
+        }
+        if (JSON.stringify(user) === JSON.stringify(current.user))
+          return current;
+        const next = { ...current, user };
+        sessionStorage.setItem("sportiva-session", JSON.stringify(next));
+        return next;
+      });
+    };
+    window.addEventListener("sportiva:demo-changed", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("sportiva:demo-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [client]);
   /**
    * request phát sự kiện sportiva:unauthorized khi API trả 401 với token hiện tại.
    * Listener xóa phiên/cache; Protected sau đó chuyển người dùng về đăng nhập.

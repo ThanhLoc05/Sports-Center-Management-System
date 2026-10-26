@@ -1,4 +1,4 @@
-/** Đợt 2: router xác thực/quyền giao diện, chưa gồm các màn nghiệp vụ tiếp theo. */
+/** Router xác thực và các phần nghiệp vụ đã hoàn thiện trên main. */
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import { Notice, PageHeader, Panel } from "./components/ui";
@@ -6,6 +6,8 @@ import { useAuth } from "./lib/auth";
 import { isManager, roleLabels } from "./lib/types";
 import type { Role } from "./lib/types";
 import AuthPage from "./pages/Auth";
+import Members from "./pages/Members";
+import { Profile } from "./pages/Profile";
 
 /** Kiểm tra cả URL nhập trực tiếp. Backend vẫn phải kiểm tra JWT và quyền tài nguyên. */
 export function Protected({ roles }: { roles?: Role[] }) {
@@ -30,7 +32,16 @@ function Forbidden() {
 /** Menu chỉ chứa các phần đã đưa lên main; điều kiện hiển thị không thay thế route guard. */
 function WorkspaceLayout() {
   const { session, signOut } = useAuth();
-  const items = [{ to: "/", label: "Tổng quan" }];
+  const items = [
+    { to: "/", label: "Tổng quan" },
+    { to: "/profile", label: "Hồ sơ cá nhân" },
+  ];
+  if (
+    ["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"].includes(
+      session!.user.roleName,
+    )
+  )
+    items.push({ to: "/members", label: "Thành viên" });
   if (isManager(session!.user.roleName))
     items.push({ to: "/access", label: "Quyền truy cập" });
   return (
@@ -99,6 +110,16 @@ export default function App() {
       <Route element={<Protected />}>
         <Route element={<WorkspaceLayout />}>
           <Route index element={<Welcome />} />
+          <Route path="profile" element={<Profile />} />
+          <Route
+            element={
+              <Protected
+                roles={["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"]}
+              />
+            }
+          >
+            <Route path="members" element={<Members />} />
+          </Route>
           <Route element={<Protected roles={["CENTER_MANAGER", "MANAGER"]} />}>
             <Route path="/access" element={<Access />} />
           </Route>

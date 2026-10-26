@@ -1,7 +1,9 @@
-/** Xác thực được tách từ api.ts hiện có. Chỉ gồm đăng nhập/đăng ký; chưa đưa API nghiệp vụ lên main. */
+/** API đã đưa lên main: xác thực, hồ sơ/trạng thái và gói tập. Backend kiểm tra quyền trên dữ liệu thật. */
 import type { Mode, RegisterInput, Session, User } from "./types";
-import { readDemo, saveDemo } from "./demo";
-
+import { readDemo, saveDemo, demoAudit } from "./demo";
+import { can } from "./permissions";
+import type { Permission } from "./permissions";
+import { dateTimeLocal } from "./utils";
 export const configuredMode: Mode =
   import.meta.env.VITE_DATA_MODE === "demo" ? "demo" : "api";
 
@@ -124,9 +126,49 @@ const post = <T>(path: string, body?: unknown) =>
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
+function assertArray<T>(value: T[]): T[] {
+  if (!Array.isArray(value))
+    throw new ApiError("Dữ liệu API không đúng định dạng danh sách.");
+  return value;
+}
+
+function ownOrStaff(
+  memberId: number,
+  permission: Permission = "memberships.assist",
+) {
+  const s = getSession();
+  if (!s || (s.user.id !== memberId && !can(s, permission, readDemo())))
+    throw new ApiError("Bạn không có quyền truy cập thành viên này.", 403);
+}
+
+function requirePermission(permission: Permission) {
+  const s = getSession();
+  const db = readDemo();
+  const user = db.users.find((u) => u.id === s?.user.id);
+  if (
+    !s ||
+    !user ||
+    user.status !== "ACTIVE" ||
+    !can({ ...s, user }, permission, db)
+  )
+    throw new ApiError("Bạn không có quyền thực hiện thao tác này.", 403);
+}
+
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 
+export function updateDemo<T>(
+  action: string,
+  detail: string,
+  fn: (db: ReturnType<typeof readDemo>) => T,
+): T {
+  if (mode() !== "demo") throw new ApiError("Chức năng chưa có API backend.");
+  const db = readDemo();
+  const result = fn(db);
+  saveDemo(db);
+  demoAudit(db, action, detail);
+  return result;
+}
 export const api = {
   async login(email: string, password: string): Promise<Session> {
     if (configuredMode === "demo") {
@@ -175,9 +217,47 @@ export const api = {
       phone: input.phone,
       roleName: "MEMBER",
       status: "ACTIVE",
+      createdAt: dateTimeLocal(),
     };
     db.users.push(user);
-    saveDemo(db);
+    demoAudit(db, "Tạo thành viên", user.fullName);
+    return user;
+  },
+  async users(): Promise<User[]> {
+    if (mode() === "api") return assertArray(await request<User[]>("/users"));
+    return readDemo().users;
+  },
+  async user(id: number): Promise<User> {
+    if (mode() === "api") return request(`/users/${id}`);
+    ownOrStaff(id, "members.read");
+    const user = readDemo().users.find((x) => x.id === id);
+    if (!user) throw new ApiError("Không tìm thấy thành viên.", 404);
+    return user;
+  },
+  async status(id: number, status: string): Promise<User> {
+    if (mode() === "api")
+      return request(
+        `/users/${id}/status?status=${encodeURIComponent(status)}`,
+        { method: "PATCH" },
+      );
+    requirePermission("members.update");
+    const db = readDemo();
+    const user = db.users.find((u) => u.id === id);
+    if (!user) throw new ApiError("Không tìm thấy tài khoản.");
+    if (!["ACTIVE", "INACTIVE", "BLOCKED"].includes(status))
+      throw new ApiError("Trạng thái không hợp lệ.");
+    if (
+      status !== "ACTIVE" &&
+      ["CENTER_MANAGER", "MANAGER"].includes(user.roleName) &&
+      db.users.filter(
+        (u) =>
+          ["CENTER_MANAGER", "MANAGER"].includes(u.roleName) &&
+          u.status === "ACTIVE",
+      ).length <= 1
+    )
+      throw new ApiError("Không thể khóa quản lý cuối cùng.");
+    user.status = status;
+    demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
     return user;
   },
 };
