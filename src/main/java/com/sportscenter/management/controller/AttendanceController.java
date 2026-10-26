@@ -3,6 +3,7 @@ package com.sportscenter.management.controller;
 import com.sportscenter.management.dto.Request.AttendanceRequest;
 import com.sportscenter.management.dto.Response.AttendanceResponse;
 import com.sportscenter.management.service.AttendanceService;
+import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -33,6 +34,7 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final ClassService classService;
     private final SecurityUtils securityUtils;
 
     /**
@@ -52,8 +54,15 @@ public class AttendanceController {
     @GetMapping("/{attendanceId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<AttendanceResponse> getAttendance(@PathVariable Integer attendanceId) {
-        return attendanceService.getAttendanceById(attendanceId).map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        var attendance = attendanceService.getAttendanceById(attendanceId);
+        if (attendance.isEmpty()) return ResponseEntity.notFound().build();
+        boolean ownerOrStaff = securityUtils.isOwnerOrAuthorized(attendance.get().getMemberId());
+        boolean assignedCoach = securityUtils.isCoach()
+                && isAssignedCoach(attendance.get().getClassId());
+        if (!ownerOrStaff && !assignedCoach) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(attendance.get());
     }
 
     /**
@@ -63,6 +72,7 @@ public class AttendanceController {
     @GetMapping("/classes/{classId}")
     @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<AttendanceResponse> getClassAttendance(@PathVariable Integer classId) {
+        if (!canManageClassAttendance(classId)) throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem điểm danh lớp này");
         return attendanceService.getClassAttendance(classId);
     }
 
@@ -73,6 +83,7 @@ public class AttendanceController {
     @GetMapping("/classes/{classId}/absentees")
     @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<AttendanceResponse> getAbsentees(@PathVariable Integer classId) {
+        if (!canManageClassAttendance(classId)) throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem điểm danh lớp này");
         return attendanceService.getAbsenteeList(classId);
     }
 
@@ -117,5 +128,17 @@ public class AttendanceController {
             return ResponseEntity.status(403).build();
         }
         return ResponseEntity.ok(attendanceService.getAttendanceCount(memberId, startDate, endDate));
+    }
+
+    private boolean canManageClassAttendance(Integer classId) {
+        if (securityUtils.isManagerOrCenterManager() || securityUtils.isReceptionist()) return true;
+        return securityUtils.isCoach() && isAssignedCoach(classId);
+    }
+
+    private boolean isAssignedCoach(Integer classId) {
+        Integer currentUserId = securityUtils.getCurrentUserId();
+        return currentUserId != null && classService.getClassById(classId)
+                .map(clazz -> currentUserId.equals(clazz.getCoachId()))
+                .orElse(false);
     }
 }

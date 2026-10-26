@@ -9,6 +9,7 @@ import com.sportscenter.management.entity.User;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.MemberProfileRepository;
+import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.BookingService;
@@ -30,6 +31,7 @@ public class BookingServiceImpl implements BookingService {
     private final UserRepository userRepository;
     private final MemberProfileRepository profileRepository;
     private final MemberSubscriptionRepository subscriptionRepository;
+    private final MembershipPackageRepository packageRepository;
 
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
@@ -49,9 +51,16 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại hoặc không hoạt động"));
 
         // RÀNG BUỘC 1: Học viên BẮT BUỘC phải có gói tập ACTIVE và còn hạn
-        boolean hasActiveMembership = subscriptionRepository.findActiveMembership(memberId).isPresent();
-        if (!hasActiveMembership) {
+        var activeSubscription = subscriptionRepository.findActiveMembership(memberId);
+        if (activeSubscription.isEmpty()) {
             throw new IllegalArgumentException("Học viên chưa có gói tập hợp lệ hoặc gói tập đã hết hạn. Vui lòng thanh toán gói tập trước khi đặt lịch.");
+        }
+        var memberPackage = packageRepository.findById(activeSubscription.get().getPackageId())
+                .orElseThrow(() -> new IllegalStateException("Gói của hội viên không tồn tại"));
+        String packageLevel = normalizeAccessLevel(memberPackage.getAccessLevel());
+        String requiredLevel = normalizeAccessLevel(clazz.getRequiredAccessLevel());
+        if ("VIP".equals(requiredLevel) && !"VIP".equals(packageLevel)) {
+            throw new IllegalArgumentException("Lớp này chỉ dành cho hội viên gói VIP");
         }
 
         // RÀNG BUỘC 2: Kiểm tra xem học viên đã đăng ký chính lớp này chưa
@@ -79,7 +88,7 @@ public class BookingServiceImpl implements BookingService {
                     int otherDuration = other.getDurationMinutes() != null ? other.getDurationMinutes() : 60;
                     LocalDateTime otherEnd = otherStart.plusMinutes(otherDuration);
 
-                    // Overlap: start1 < end2 && start2 < end1
+                    // Lịch bị trùng khi hai khoảng thời gian giao nhau.
                     if (newStart.isBefore(otherEnd) && otherStart.isBefore(newEnd)) {
                         throw new IllegalArgumentException(String.format(
                                 "Học viên bị trùng lịch với lớp '%s' (%s - %s)",
@@ -176,5 +185,14 @@ public class BookingServiceImpl implements BookingService {
                 .bookedAt(booking.getBookedAt())
                 .status(booking.getStatus())
                 .build();
+    }
+
+    private String normalizeAccessLevel(String accessLevel) {
+        if (accessLevel == null || accessLevel.isBlank()) return "STANDARD";
+        String normalized = accessLevel.trim().toUpperCase();
+        if (!"STANDARD".equals(normalized) && !"VIP".equals(normalized)) {
+            throw new IllegalStateException("Cấp độ quyền truy cập không hợp lệ trong database");
+        }
+        return normalized;
     }
 }

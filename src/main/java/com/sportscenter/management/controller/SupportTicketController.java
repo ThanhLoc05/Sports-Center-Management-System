@@ -70,9 +70,12 @@ public class SupportTicketController {
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SupportTicketResponse> getTicketById(@PathVariable Integer id) {
-        return supportTicketService.getTicketById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        var ticket = supportTicketService.getTicketById(id);
+        if (ticket.isEmpty()) return ResponseEntity.notFound().build();
+        if (!securityUtils.isOwnerOrAuthorized(ticket.get().getMemberId())) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(ticket.get());
     }
 
     @PatchMapping("/{id}/resolve")

@@ -34,8 +34,8 @@ public class Feedback {
     @Column(name = "comment", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String comment;
 
-    @Column(name = "type")
-    private String type; // MEMBER_TO_COACH, COACH_TO_MEMBER, CLASS_FEEDBACK
+    @Column(name = "type", nullable = false)
+    private String type;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

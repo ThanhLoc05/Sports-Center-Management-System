@@ -37,11 +37,11 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (request == null || request.getClassId() == null || request.getMemberId() == null) {
             throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
-        // Validate class exists
+        // Kiểm tra lớp cần điểm danh có tồn tại.
         Classes clazz = classRepository.findById(request.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        // Validate member exists
+        // Kiểm tra hội viên có tồn tại.
         if (!userRepository.existsById(request.getMemberId())) {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
@@ -52,13 +52,13 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Học viên chưa đăng ký hoặc đã hủy đặt chỗ cho lớp học này. Không thể điểm danh.");
         }
 
-        // Tự động lấy ID người đang đăng nhập (Lễ tân hoặc HLV) từ SecurityUtils nếu request không truyền
-        Integer checkedInBy = request.getCheckedInBy() != null ? request.getCheckedInBy() : securityUtils.getCurrentUserId();
+        // Không tin mã người điểm danh do client gửi lên; lấy danh tính từ tài khoản đã xác thực.
+        Integer checkedInBy = securityUtils.getCurrentUserId();
         if (checkedInBy == null) {
             throw new IllegalArgumentException("Người điểm danh là bắt buộc");
         }
 
-        // Validate checker-in exists
+        // Kiểm tra tài khoản của người đang đăng nhập còn tồn tại.
         if (!userRepository.existsById(checkedInBy)) {
             throw new IllegalArgumentException("Người điểm danh không tồn tại");
         }
@@ -71,12 +71,12 @@ public class AttendanceServiceImpl implements AttendanceService {
             }
         }
 
-        // Validate status
+        // Chỉ chấp nhận trạng thái có mặt hoặc vắng mặt.
         if (!isValidAttendanceStatus(request.getStatus())) {
             throw new IllegalArgumentException("Trạng thái điểm danh không hợp lệ");
         }
 
-        // Check if already checked in for this class
+        // Một hội viên chỉ có một bản ghi điểm danh cho mỗi lớp.
         Optional<Attendance> existing = attendanceRepository
                 .findByClassIdAndMemberId(request.getClassId(), request.getMemberId());
 

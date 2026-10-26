@@ -3,6 +3,7 @@ package com.sportscenter.management.controller;
 import com.sportscenter.management.dto.Response.BookingResponse;
 import com.sportscenter.management.dto.Response.ClassStudentResponse;
 import com.sportscenter.management.service.BookingService;
+import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ import java.util.List;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final ClassService classService;
     private final SecurityUtils securityUtils;
 
     /**
@@ -66,8 +68,12 @@ public class BookingController {
     @GetMapping("/bookings/{bookingId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<BookingResponse> getBooking(@PathVariable Integer bookingId) {
-        return bookingService.getBookingById(bookingId).map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        var booking = bookingService.getBookingById(bookingId);
+        if (booking.isEmpty()) return ResponseEntity.notFound().build();
+        if (!securityUtils.isOwnerOrAuthorized(booking.get().getMemberId())) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(booking.get());
     }
 
     /**
@@ -78,6 +84,9 @@ public class BookingController {
     @GetMapping("/classes/{classId}/bookings")
     @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<BookingResponse> getClassBookings(@PathVariable Integer classId) {
+        if (!canViewClassRoster(classId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem danh sách lớp này");
+        }
         return bookingService.getClassBookings(classId);
     }
 
@@ -89,6 +98,9 @@ public class BookingController {
     @GetMapping("/classes/{classId}/students")
     @PreAuthorize("hasAnyRole('COACH', 'RECEPTIONIST', 'CENTER_MANAGER', 'MANAGER')")
     public List<ClassStudentResponse> getClassStudents(@PathVariable Integer classId) {
+        if (!canViewClassRoster(classId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem danh sách lớp này");
+        }
         return bookingService.getClassStudents(classId);
     }
 
@@ -121,5 +133,14 @@ public class BookingController {
             return ResponseEntity.status(403).build();
         }
         return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
+    }
+
+    private boolean canViewClassRoster(Integer classId) {
+        if (securityUtils.isManagerOrCenterManager() || securityUtils.isReceptionist()) return true;
+        Integer currentUserId = securityUtils.getCurrentUserId();
+        return securityUtils.isCoach() && currentUserId != null
+                && classService.getClassById(classId)
+                .map(clazz -> currentUserId.equals(clazz.getCoachId()))
+                .orElse(false);
     }
 }

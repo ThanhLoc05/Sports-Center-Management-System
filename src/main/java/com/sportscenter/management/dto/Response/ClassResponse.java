@@ -27,5 +27,7 @@ public class ClassResponse {
 
     private Integer durationMinutes;
 
+    private String requiredAccessLevel;
+
     private String status;
 }

@@ -14,7 +14,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = "com.sportscenter")
 @EnableJpaRepositories(basePackages = "com.sportscenter.management.repository")
 public class SportsCenterApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(SportsCenterApplication.class, args);
     }

@@ -22,9 +22,15 @@ public class InvoiceResponse {
 
     private BigDecimal amount;
 
+    private String currency;
+
     private String paymentMethod;
 
     private String paymentStatus;
 
     private LocalDateTime createdAt;
+
+    private LocalDateTime paidAt;
+
+    private LocalDateTime refundedAt;
 }

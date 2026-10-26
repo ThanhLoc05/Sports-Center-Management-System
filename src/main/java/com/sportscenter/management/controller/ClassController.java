@@ -4,6 +4,7 @@ import com.sportscenter.management.dto.Request.ClassRequest;
 import com.sportscenter.management.dto.Response.ClassResponse;
 import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.SecurityUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,7 +35,7 @@ public class ClassController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
-    public ResponseEntity<ClassResponse> createClass(@RequestBody ClassRequest request) {
+    public ResponseEntity<ClassResponse> createClass(@Valid @RequestBody ClassRequest request) {
         return ResponseEntity.status(201).body(classService.createClass(request));
     }
 
@@ -85,7 +86,7 @@ public class ClassController {
      */
     @PutMapping("/{classId}")
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
-    public ClassResponse updateClass(@PathVariable Integer classId, @RequestBody ClassRequest request) {
+    public ClassResponse updateClass(@PathVariable Integer classId, @Valid @RequestBody ClassRequest request) {
         return classService.updateClass(classId, request);
     }
 

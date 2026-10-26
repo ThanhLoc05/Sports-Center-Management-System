@@ -7,6 +7,8 @@ import com.sportscenter.management.dto.Response.LoginResponse;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
+import com.sportscenter.management.service.BookingService;
+import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.JwtService;
 import com.sportscenter.management.service.UserService;
 import com.sportscenter.auth.SecurityUtils;
@@ -41,6 +43,8 @@ public class UserController {
     private final UserService userService;
     private final JwtService jwtService;
     private final SecurityUtils securityUtils;
+    private final BookingService bookingService;
+    private final ClassService classService;
 
     /**
      * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER)
@@ -93,8 +97,7 @@ public class UserController {
         // Cho phép: Chính chủ HOẶC Lễ tân HOẶC HLV HOẶC Quản lý
         boolean isAuthorized = currentUser.equals(userId)
                 || securityUtils.isManagerOrCenterManager()
-                || securityUtils.isReceptionist()
-                || securityUtils.isCoach();
+                || securityUtils.isReceptionist();
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).build();
@@ -142,7 +145,7 @@ public class UserController {
         boolean isAuthorized = currentUser.equals(userId)
                 || securityUtils.isManagerOrCenterManager()
                 || securityUtils.isReceptionist()
-                || securityUtils.isCoach();
+                || (securityUtils.isCoach() && coachTeachesMember(currentUser, userId));
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).build();
@@ -175,5 +178,13 @@ public class UserController {
                 .roleName(user.getRole().getRoleName())
                 .status(user.getStatus())
                 .build();
+    }
+
+    private boolean coachTeachesMember(Integer coachId, Integer memberId) {
+        return bookingService.getMemberBookings(memberId).stream()
+                .filter(booking -> "BOOKED".equals(booking.getStatus()))
+                .anyMatch(booking -> classService.getClassById(booking.getClassId())
+                        .map(clazz -> coachId.equals(clazz.getCoachId()))
+                        .orElse(false));
     }
 }

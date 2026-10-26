@@ -31,6 +31,6 @@ public class MemberSubscription {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private String status;
 }

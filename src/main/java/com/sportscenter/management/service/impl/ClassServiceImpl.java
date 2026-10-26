@@ -36,14 +36,14 @@ public class ClassServiceImpl implements ClassService {
                 || request.getClassName() == null || request.getClassName().isBlank()) {
             throw new IllegalArgumentException("Thông tin lớp học và thời gian học là bắt buộc");
         }
-        // Validate sport exists
+        // Kiểm tra bộ môn đã được khai báo trong danh mục.
         if (!sportRepository.existsById(request.getSportId())) {
             throw new IllegalArgumentException("Bộ môn không tồn tại");
         }
 
         validateCoach(request.getCoachId());
 
-        // Validate room exists
+        // Kiểm tra phòng tồn tại và lớp không vượt quá sức chứa phòng.
         var room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
         if (request.getMaxCapacity() == null || request.getMaxCapacity() <= 0) {
@@ -56,14 +56,14 @@ public class ClassServiceImpl implements ClassService {
             throw new IllegalArgumentException("Thời lượng lớp học phải lớn hơn 0");
         }
 
-        // Validate schedule is in future
+        // Không cho tạo lớp có thời gian bắt đầu trong quá khứ.
         if (request.getScheduleTime().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Thời gian lớp học phải là tương lai");
         }
 
         int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : 60;
 
-        // KIỂM TRA TRÙNG LỊCH: Không cho phép xếp trùng lịch của Huấn luyện viên hoặc Phòng tập
+        // Không xếp trùng thời gian của cùng huấn luyện viên hoặc cùng phòng.
         validateNoScheduleConflict(null, request.getCoachId(), request.getRoomId(), request.getScheduleTime(), duration);
 
         Classes clazz = Classes.builder()
@@ -74,6 +74,7 @@ public class ClassServiceImpl implements ClassService {
                 .maxCapacity(request.getMaxCapacity())
                 .scheduleTime(request.getScheduleTime())
                 .durationMinutes(duration)
+                .requiredAccessLevel(normalizeAccessLevel(request.getRequiredAccessLevel()))
                 .status("SCHEDULED")
                 .build();
 
@@ -191,8 +192,11 @@ public class ClassServiceImpl implements ClassService {
             }
             clazz.setRoomId(request.getRoomId());
         }
+        if (request.getRequiredAccessLevel() != null) {
+            clazz.setRequiredAccessLevel(normalizeAccessLevel(request.getRequiredAccessLevel()));
+        }
 
-        // KIỂM TRA TRÙNG LỊCH KHI CẬP NHẬT
+        // Kiểm tra xung đột lịch lần nữa sau khi áp dụng các thay đổi.
         LocalDateTime effectiveStart = clazz.getScheduleTime();
         int effectiveDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
         validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), effectiveStart, effectiveDuration);
@@ -209,7 +213,7 @@ public class ClassServiceImpl implements ClassService {
         clazz.setStatus("CANCELLED");
         Classes updatedClass = classRepository.save(clazz);
 
-        // Cancel all bookings for this class
+        // Lớp bị hủy thì các lượt đăng ký của lớp cũng không còn hiệu lực.
         bookingRepository.updateBookingStatusByClass(classId, "CANCELLED");
 
         return mapToResponse(updatedClass);
@@ -235,7 +239,7 @@ public class ClassServiceImpl implements ClassService {
             int otherDuration = other.getDurationMinutes() != null ? other.getDurationMinutes() : 60;
             LocalDateTime otherEnd = otherStart.plusMinutes(otherDuration);
 
-            // Kiểm tra overlap thời gian: start < otherEnd && otherStart < end
+            // Hai khoảng giờ bị trùng khi giờ bắt đầu của mỗi lớp nằm trước giờ kết thúc lớp còn lại.
             if (start.isBefore(otherEnd) && otherStart.isBefore(end)) {
                 if (other.getCoachId().equals(coachId)) {
                     throw new IllegalArgumentException(String.format(
@@ -269,7 +273,17 @@ public class ClassServiceImpl implements ClassService {
                 .maxCapacity(clazz.getMaxCapacity())
                 .scheduleTime(clazz.getScheduleTime())
                 .durationMinutes(clazz.getDurationMinutes())
+                .requiredAccessLevel(clazz.getRequiredAccessLevel())
                 .status(clazz.getStatus())
                 .build();
+    }
+
+    private String normalizeAccessLevel(String accessLevel) {
+        String normalized = accessLevel == null || accessLevel.isBlank()
+                ? "STANDARD" : accessLevel.trim().toUpperCase();
+        if (!"STANDARD".equals(normalized) && !"VIP".equals(normalized)) {
+            throw new IllegalArgumentException("Quyền truy cập lớp chỉ được là STANDARD hoặc VIP");
+        }
+        return normalized;
     }
 }

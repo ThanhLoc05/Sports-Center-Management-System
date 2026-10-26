@@ -1,5 +1,6 @@
 package com.sportscenter.management.controller;
 
+import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.dto.Request.WorkoutLogRequest;
 import com.sportscenter.management.dto.Response.WorkoutLogResponse;
 import com.sportscenter.management.service.WorkoutLogService;
@@ -24,10 +25,15 @@ import java.util.List;
 public class WorkoutLogController {
 
     private final WorkoutLogService workoutLogService;
+    private final SecurityUtils securityUtils;
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutLogResponse> createLog(@Valid @RequestBody WorkoutLogRequest request) {
+        // Nếu là HLV, luôn gắn nhật ký với HLV đang đăng nhập để tránh giả mạo người ghi.
+        if (securityUtils.isCoach()) {
+            request.setCoachId(securityUtils.getCurrentUserId());
+        }
         return ResponseEntity.status(201).body(workoutLogService.createLog(request));
     }
 
@@ -35,26 +41,48 @@ public class WorkoutLogController {
     @PreAuthorize("hasAnyRole('COACH', 'MANAGER', 'CENTER_MANAGER')")
     public ResponseEntity<WorkoutLogResponse> updateFeedback(
             @PathVariable Integer id, @RequestParam String feedback) {
+        var log = workoutLogService.getLogById(id);
+        if (log.isEmpty()) return ResponseEntity.notFound().build();
+        Integer currentUserId = securityUtils.getCurrentUserId();
+        if (!securityUtils.isManagerOrCenterManager()
+                && (currentUserId == null || !currentUserId.equals(log.get().getCoachId()))) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(workoutLogService.updateFeedback(id, feedback));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<WorkoutLogResponse> getLogById(@PathVariable Integer id) {
-        return workoutLogService.getLogById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        var log = workoutLogService.getLogById(id);
+        if (log.isEmpty()) return ResponseEntity.notFound().build();
+        if (!canAccessLog(log.get())) return ResponseEntity.status(403).build();
+        return ResponseEntity.ok(log.get());
     }
 
     @GetMapping("/member/{memberId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<WorkoutLogResponse>> getLogsByMemberId(@PathVariable Integer memberId) {
+        if (!securityUtils.isOwnerOrAuthorized(memberId)) return ResponseEntity.status(403).build();
         return ResponseEntity.ok(workoutLogService.getLogsByMemberId(memberId));
     }
 
     @GetMapping("/coach/{coachId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<WorkoutLogResponse>> getLogsByCoachId(@PathVariable Integer coachId) {
+        Integer currentUserId = securityUtils.getCurrentUserId();
+        if (!securityUtils.isManagerOrCenterManager()
+                && (currentUserId == null || !currentUserId.equals(coachId))) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(workoutLogService.getLogsByCoachId(coachId));
+    }
+
+    private boolean canAccessLog(WorkoutLogResponse log) {
+        if (securityUtils.isManagerOrCenterManager()
+                || securityUtils.isOwnerOrAuthorized(log.getMemberId())) return true;
+        Integer currentUserId = securityUtils.getCurrentUserId();
+        return securityUtils.isCoach() && currentUserId != null
+                && currentUserId.equals(log.getCoachId());
     }
 }

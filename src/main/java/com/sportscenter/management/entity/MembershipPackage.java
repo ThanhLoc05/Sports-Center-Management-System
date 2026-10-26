@@ -28,9 +28,12 @@ public class MembershipPackage {
     @Column(name = "price", nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "access_level", nullable = false)
+    private String accessLevel;
+
     @Column(name = "description")
     private String description;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private String status;
 }

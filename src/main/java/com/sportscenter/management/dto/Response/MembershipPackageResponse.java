@@ -19,6 +19,8 @@ public class MembershipPackageResponse {
 
     private BigDecimal price;
 
+    private String accessLevel;
+
     private String description;
 
     private String status;

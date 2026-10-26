@@ -6,6 +6,7 @@ import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
 import com.sportscenter.management.dto.Response.MembershipPackageResponse;
 import com.sportscenter.management.service.MembershipService;
 import com.sportscenter.auth.SecurityUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -52,7 +53,7 @@ public class MembershipController {
     @PostMapping("/packages")
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MANAGER')")
     public ResponseEntity<MembershipPackageResponse> createPackage(
-            @RequestBody MembershipPackageRequest request) {
+            @Valid @RequestBody MembershipPackageRequest request) {
         return ResponseEntity.status(201).body(membershipService.createPackage(request));
     }
 
@@ -66,15 +67,13 @@ public class MembershipController {
      */
     @PostMapping("/subscribe")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberSubscriptionResponse> subscribe(@RequestBody MemberSubscriptionRequest request) {
+    public ResponseEntity<MemberSubscriptionResponse> subscribe(@Valid @RequestBody MemberSubscriptionRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin đăng ký gói không được để trống");
+        }
         Integer currentUserId = securityUtils.getCurrentUserId();
         if (currentUserId == null) {
             return ResponseEntity.status(401).build();
-        }
-
-        // Nếu là MEMBER, CHỈ được phép đăng ký cho chính mình
-        if (securityUtils.hasRole("MEMBER") && !currentUserId.equals(request.getMemberId())) {
-            return ResponseEntity.status(403).build();
         }
 
         // Nếu client không gửi memberId, tự động gán ID của tài khoản đang đăng nhập
@@ -82,9 +81,18 @@ public class MembershipController {
             request.setMemberId(currentUserId);
         }
 
+        // Hội viên chỉ đăng ký cho chính mình; nhân viên được phép hỗ trợ hội viên khác.
+        if (securityUtils.hasRole("MEMBER") && !currentUserId.equals(request.getMemberId())) {
+            return ResponseEntity.status(403).build();
+        }
+
         // Chỉ chính chủ HOẶC Lễ tân/Quản lý mới được thao tác
         if (!currentUserId.equals(request.getMemberId()) &&
                 !(securityUtils.isReceptionist() || securityUtils.isManagerOrCenterManager())) {
+            return ResponseEntity.status(403).build();
+        }
+        if (!securityUtils.hasRole("MEMBER") && !securityUtils.isReceptionist()
+                && !securityUtils.isManagerOrCenterManager()) {
             return ResponseEntity.status(403).build();
         }
 

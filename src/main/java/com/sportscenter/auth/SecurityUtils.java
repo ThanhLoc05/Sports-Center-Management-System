@@ -51,8 +51,9 @@ public class SecurityUtils {
     }
 
     /**
-     * Return true if current user is the owner (ownerId) OR receptionist OR manager/center-manager.
-     * Use this to authorize member-scoped endpoints.
+     * Trả về true nếu người đang đăng nhập là chủ sở hữu dữ liệu,
+     * lễ tân, quản lý hoặc quản lý trung tâm.
+     * Dùng để kiểm tra quyền trên các API thao tác dữ liệu của hội viên.
      */
     public boolean isOwnerOrAuthorized(Integer ownerId) {
         if (ownerId == null) return false;

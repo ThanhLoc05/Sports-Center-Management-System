@@ -37,7 +37,7 @@ public class SupportTicket {
     @Column(name = "resolved_by")
     private Integer resolvedBy;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "resolved_at")

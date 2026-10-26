@@ -41,6 +41,7 @@ public class MembershipServiceImpl implements MembershipService {
                         .packageName(pkg.getPackageName())
                         .durationDays(pkg.getDurationDays())
                         .price(pkg.getPrice())
+                        .accessLevel(pkg.getAccessLevel())
                         .description(pkg.getDescription())
                         .status(pkg.getStatus())
                         .build())
@@ -52,10 +53,12 @@ public class MembershipServiceImpl implements MembershipService {
         if (request == null || request.getPackageName() == null || request.getPrice() == null) {
             throw new IllegalArgumentException("Tên gói tập và giá tiền là bắt buộc");
         }
+        String accessLevel = normalizeAccessLevel(request.getAccessLevel());
         MembershipPackage pkg = MembershipPackage.builder()
                 .packageName(request.getPackageName())
                 .durationDays(request.getDurationDays() != null ? request.getDurationDays() : 30)
                 .price(request.getPrice())
+                .accessLevel(accessLevel)
                 .description(request.getDescription())
                 .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
                 .build();
@@ -65,6 +68,7 @@ public class MembershipServiceImpl implements MembershipService {
                 .packageName(saved.getPackageName())
                 .durationDays(saved.getDurationDays())
                 .price(saved.getPrice())
+                .accessLevel(saved.getAccessLevel())
                 .description(saved.getDescription())
                 .status(saved.getStatus())
                 .build();
@@ -76,12 +80,12 @@ public class MembershipServiceImpl implements MembershipService {
                 || request.getStartDate() == null) {
             throw new IllegalArgumentException("Thành viên, gói tập và ngày bắt đầu là bắt buộc");
         }
-        // Validate member exists
+        // Kiểm tra tài khoản hội viên tồn tại.
         if (!userRepository.existsById(request.getMemberId())) {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
 
-        // Validate package exists
+        // Kiểm tra gói hội viên tồn tại và đang được mở bán.
         MembershipPackage pkg = packageRepository.findById(request.getPackageId())
                 .orElseThrow(() -> new IllegalArgumentException("Gói thành viên không tồn tại"));
 
@@ -89,7 +93,7 @@ public class MembershipServiceImpl implements MembershipService {
             throw new IllegalArgumentException("Gói thành viên không khả dụng");
         }
 
-        // Check if member already has active subscription
+        // Không tạo gói mới nếu hội viên đang có một gói còn hiệu lực.
         Optional<MemberSubscription> existingActive = subscriptionRepository
                 .findActiveMembership(request.getMemberId());
 
@@ -123,6 +127,7 @@ public class MembershipServiceImpl implements MembershipService {
                 .subscriptionId(savedSubscription.getId())
                 .memberId(savedSubscription.getMemberId())
                 .amount(pkg.getPrice())
+                .currency("VND")
                 .paymentMethod("CASH") // Mặc định CASH, có thể đổi khi thanh toán tại quầy
                 .paymentStatus("PENDING")
                 .createdAt(LocalDateTime.now())
@@ -187,6 +192,7 @@ public class MembershipServiceImpl implements MembershipService {
                 .subscriptionId(savedSubscription.getId())
                 .memberId(savedSubscription.getMemberId())
                 .amount(pkg.getPrice())
+                .currency("VND")
                 .paymentMethod("CASH")
                 .paymentStatus("PENDING")
                 .createdAt(LocalDateTime.now())
@@ -233,5 +239,14 @@ public class MembershipServiceImpl implements MembershipService {
                 .endDate(subscription.getEndDate())
                 .status(subscription.getStatus())
                 .build();
+    }
+
+    private String normalizeAccessLevel(String accessLevel) {
+        String normalized = accessLevel == null || accessLevel.isBlank()
+                ? "STANDARD" : accessLevel.trim().toUpperCase();
+        if (!"STANDARD".equals(normalized) && !"VIP".equals(normalized)) {
+            throw new IllegalArgumentException("Cấp độ gói chỉ được là STANDARD hoặc VIP");
+        }
+        return normalized;
     }
 }

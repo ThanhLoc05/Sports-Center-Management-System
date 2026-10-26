@@ -161,8 +161,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public MemberProfileResponse updateProfile(Integer memberId, MemberProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin hồ sơ không được để trống");
+        }
+        User user = userRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
         MemberProfile profile = profileRepository.findById(memberId)
-                .orElse(MemberProfile.builder().memberId(memberId).build());
+                .orElseGet(() -> MemberProfile.builder().memberId(memberId).build());
+        profile.setUser(user);
 
         profile.setDob(request.getDob());
         profile.setGender(request.getGender());

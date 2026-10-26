@@ -9,11 +9,14 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
 
     List<Invoice> findByMemberId(Integer memberId);
+
+    Optional<Invoice> findFirstBySubscriptionIdOrderByCreatedAtDesc(Integer subscriptionId);
 
     List<Invoice> findByPaymentStatus(String paymentStatus);
 

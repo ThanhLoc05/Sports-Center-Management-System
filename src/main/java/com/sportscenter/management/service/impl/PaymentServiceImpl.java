@@ -5,6 +5,7 @@ import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.repository.InvoiceRepository;
+import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
@@ -26,6 +27,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final InvoiceRepository invoiceRepository;
     private final MemberSubscriptionRepository subscriptionRepository;
+    private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
     private final SecurityUtils securityUtils;
 
@@ -34,12 +36,15 @@ public class PaymentServiceImpl implements PaymentService {
         if (request == null || request.getMemberId() == null) {
             throw new IllegalArgumentException("Thông tin hóa đơn và thành viên là bắt buộc");
         }
-        // Validate member exists
+        // Chỉ lập hóa đơn cho tài khoản thành viên có thật.
         if (!userRepository.existsById(request.getMemberId())) {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
 
-        // Validate subscription if provided
+        BigDecimal invoiceAmount = request.getAmount();
+
+        // Hóa đơn gói phải lấy giá từ danh mục, không tin số tiền do client gửi lên.
+        // Nếu gói đã có hóa đơn đang chờ thì dùng lại hóa đơn đó, tránh thu trùng.
         if (request.getSubscriptionId() != null) {
             MemberSubscription subscription = subscriptionRepository.findById(request.getSubscriptionId())
                     .orElseThrow(() -> new IllegalArgumentException("Đăng ký không tồn tại"));
@@ -47,50 +52,50 @@ public class PaymentServiceImpl implements PaymentService {
             if (!subscription.getMemberId().equals(request.getMemberId())) {
                 throw new IllegalArgumentException("Đăng ký không thuộc về thành viên này");
             }
+
+            var existingInvoice = invoiceRepository
+                    .findFirstBySubscriptionIdOrderByCreatedAtDesc(request.getSubscriptionId());
+            if (existingInvoice.isPresent()) {
+                if ("PENDING".equals(existingInvoice.get().getPaymentStatus())) {
+                    return mapToResponse(existingInvoice.get());
+                }
+                throw new IllegalArgumentException("Đăng ký này đã có hóa đơn được xử lý");
+            }
+
+            invoiceAmount = packageRepository.findById(subscription.getPackageId())
+                    .orElseThrow(() -> new IllegalArgumentException("Gói hội viên không tồn tại"))
+                    .getPrice();
         }
 
-        // Tự động gán ID của Lễ tân đang đăng nhập nếu request không chỉ định
-        Integer receptionistId = request.getReceptionistId() != null
-                ? request.getReceptionistId()
-                : securityUtils.getCurrentUserId();
+        // Người đang đăng nhập là người lập hóa đơn; không dùng mã nhân viên do client tự gửi.
+        Integer receptionistId = securityUtils.getCurrentUserId();
 
         if (receptionistId != null && !userRepository.existsById(receptionistId)) {
             throw new IllegalArgumentException("Nhân viên thu ngân không tồn tại");
         }
 
-        // Validate amount is positive
-        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        // Hóa đơn thủ công phải có số tiền dương.
+        if (invoiceAmount == null || invoiceAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền phải lớn hơn 0");
         }
 
-        // Validate payment method
-        if (!isValidPaymentMethod(request.getPaymentMethod())) {
+        // Nếu chưa chọn phương thức thì mặc định là tiền mặt tại quầy.
+        String paymentMethod = request.getPaymentMethod() == null ? "CASH" : request.getPaymentMethod();
+        if (!isValidPaymentMethod(paymentMethod)) {
             throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
         }
-        String paymentStatus = request.getPaymentStatus() != null ? request.getPaymentStatus() : "PAID";
-        if (!isValidPaymentStatus(paymentStatus)) {
-            throw new IllegalArgumentException("Trạng thái thanh toán không hợp lệ");
-        }
-
         Invoice invoice = Invoice.builder()
                 .subscriptionId(request.getSubscriptionId())
                 .memberId(request.getMemberId())
                 .receptionistId(receptionistId)
-                .amount(request.getAmount())
-                .paymentMethod(request.getPaymentMethod())
-                .paymentStatus(paymentStatus)
+                .amount(invoiceAmount)
+                .currency("VND")
+                .paymentMethod(paymentMethod)
+                .paymentStatus("PENDING")
                 .createdAt(LocalDateTime.now())
                 .build();
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
-
-        // Nếu hóa đơn được tạo và đã PAID ngay, tự động kích hoạt gói tập
-        if ("PAID".equals(paymentStatus) && request.getSubscriptionId() != null) {
-            subscriptionRepository.findById(request.getSubscriptionId()).ifPresent(sub -> {
-                sub.setStatus("ACTIVE");
-                subscriptionRepository.save(sub);
-            });
-        }
 
         return mapToResponse(savedInvoice);
     }
@@ -124,13 +129,14 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         invoice.setPaymentStatus("PAID");
+        invoice.setPaidAt(LocalDateTime.now());
         Integer receptionistId = securityUtils.getCurrentUserId();
         if (receptionistId != null) {
             invoice.setReceptionistId(receptionistId);
         }
         Invoice updatedInvoice = invoiceRepository.save(invoice);
 
-        // LIÊN KẾT: Tự động kích hoạt gói tập tương ứng sang ACTIVE khi thanh toán thành công
+        // Chỉ kích hoạt subscription sau khi nhân viên xác nhận hóa đơn đã thu.
         if (updatedInvoice.getSubscriptionId() != null) {
             subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
                 sub.setStatus("ACTIVE");
@@ -151,9 +157,10 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         invoice.setPaymentStatus("REFUNDED");
+        invoice.setRefundedAt(LocalDateTime.now());
         Invoice updatedInvoice = invoiceRepository.save(invoice);
 
-        // LIÊN KẾT: Tự động hủy gói tập tương ứng sang CANCELLED khi hoàn tiền
+        // Hoàn toàn bộ hóa đơn gói thì hủy subscription liên quan theo chính sách hiện tại.
         if (updatedInvoice.getSubscriptionId() != null) {
             subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
                 sub.setStatus("CANCELLED");
@@ -215,18 +222,19 @@ public class PaymentServiceImpl implements PaymentService {
                 .memberId(invoice.getMemberId())
                 .receptionistId(invoice.getReceptionistId())
                 .amount(invoice.getAmount())
+                .currency(invoice.getCurrency())
                 .paymentMethod(invoice.getPaymentMethod())
                 .paymentStatus(invoice.getPaymentStatus())
                 .createdAt(invoice.getCreatedAt())
+                .paidAt(invoice.getPaidAt())
+                .refundedAt(invoice.getRefundedAt())
                 .build();
     }
 
     private boolean isValidPaymentMethod(String method) {
-        return "CASH".equals(method) || "CREDIT_CARD".equals(method) ||
-                "BANK_TRANSFER".equals(method) || "VNPAY".equals(method);
+        return "CASH".equals(method) || "CREDIT_CARD".equals(method)
+                || "BANK_TRANSFER".equals(method) || "VNPAY".equals(method)
+                || "MOMO".equals(method) || "ZALOPAY".equals(method) || "PAYOS".equals(method);
     }
 
-    private boolean isValidPaymentStatus(String status) {
-        return "PAID".equals(status) || "PENDING".equals(status) || "REFUNDED".equals(status);
-    }
 }
