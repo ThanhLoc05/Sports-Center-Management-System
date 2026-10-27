@@ -2,7 +2,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=true;trustServerCertificate=true;}
     username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:yourStrong(!)Password}
+    password: ${DB_PASSWORD:yourpasss}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
   jpa:
     hibernate:
