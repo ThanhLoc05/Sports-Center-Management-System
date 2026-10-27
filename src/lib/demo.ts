@@ -1,4 +1,5 @@
-import type { Package, Sport } from "./types";
+import { addDays, localDate } from "./utils";
+import type { Package, Sport, SportClass, FacilityRoom } from "./types";
 const initialPackages: Package[] = [
   {
     id: 1,
@@ -64,6 +65,52 @@ import { dateTimeLocal } from "./utils";
 /** Dữ liệu demo tài khoản/hồ sơ, giữ riêng với dữ liệu backend. */
 import type { Role, Session, DemoDatabase, User } from "./types";
 const KEY = "sportiva-auth-demo-v1";
+const initialRooms: FacilityRoom[] = [
+  {
+    id: 1,
+    name: "Studio Zen",
+    capacity: 25,
+    description: "Không gian Yoga và thiền",
+  },
+  {
+    id: 2,
+    name: "Phòng thể lực",
+    capacity: 30,
+    description: "Thiết bị sức mạnh và cardio",
+  },
+  {
+    id: 3,
+    name: "Studio Flow",
+    capacity: 16,
+    description: "Không gian Pilates",
+  },
+];
+function initialClasses(): SportClass[] {
+  return [
+    {
+      id: 1,
+      className: "Morning Yoga",
+      sportId: 1,
+      coachId: 3,
+      roomId: 1,
+      maxCapacity: 20,
+      scheduleTime: localDate(addDays(1)) + "T08:00:00",
+      durationMinutes: 60,
+      status: "SCHEDULED",
+    },
+    {
+      id: 2,
+      className: "Full Body Strength",
+      sportId: 2,
+      coachId: 3,
+      roomId: 2,
+      maxCapacity: 20,
+      scheduleTime: localDate(addDays(2)) + "T10:00:00",
+      durationMinutes: 60,
+      status: "SCHEDULED",
+    },
+  ];
+}
 
 export function readDemo(): DemoDatabase {
   try {
@@ -82,6 +129,13 @@ export function readDemo(): DemoDatabase {
       data.subscriptions = Array.isArray(data.subscriptions)
         ? data.subscriptions
         : [];
+      data.rooms = Array.isArray(data.rooms)
+        ? data.rooms
+        : structuredClone(initialRooms);
+      data.classes = Array.isArray(data.classes)
+        ? data.classes
+        : initialClasses();
+      data.bookings = Array.isArray(data.bookings) ? data.bookings : [];
       return data;
     }
   } catch {
@@ -89,6 +143,9 @@ export function readDemo(): DemoDatabase {
   }
   const db: DemoDatabase = {
     audit: [],
+    rooms: structuredClone(initialRooms),
+    classes: initialClasses(),
+    bookings: [],
     packages: structuredClone(initialPackages),
     sports: structuredClone(initialSports),
     subscriptions: [],

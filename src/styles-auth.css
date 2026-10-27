@@ -1,4 +1,28 @@
-/* Style tái sử dụng từ giao diện hiện có, chỉ giữ các màn đã đưa lên main. */
+/* Style dùng chung cho các phần frontend đã đưa lên main. */
+.day-nav {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e7ebdf;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.day-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 25px;
+  height: 28px;
+  font-size: 10px;
+  color: #646d58;
+  padding: 0 8px;
+}
+.day-nav button:hover {
+  background: #f5f8ef;
+}
+.day-nav button + button {
+  border-left: 1px solid #edf0e7;
+}
 .auth-page {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -386,6 +410,520 @@
 .auth-footer > span {
   color: #666c5c;
 }
+.class-filter-bar {
+  border-bottom: 1px solid #e5eadd;
+  margin: 5px 0 0;
+  overflow: auto;
+}
+.sport-tabs {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  min-width: max-content;
+}
+.sport-tabs > button {
+  font-size: 10px;
+  color: #656c5b;
+  padding: 0 0 15px;
+  position: relative;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sport-tabs > button.selected {
+  color: #52713c;
+}
+.sport-tabs > button.selected:after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #6d8a4e;
+  border-radius: 4px 4px 0 0;
+}
+.class-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+.class-card {
+  background: #fff;
+  border: 1px solid #e5ebdc;
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 0;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.class-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px #3b542812;
+}
+.class-card-art {
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+}
+.class-sport-label {
+  font-size: 10px;
+  border: 1px solid currentColor;
+  padding: 4px 7px;
+  border-radius: 4px;
+  position: relative;
+  z-index: 2;
+  opacity: 0.7;
+  background: #ffffff44;
+}
+.class-art-circle {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border: 1px solid currentColor;
+  opacity: 0.17;
+  right: -10px;
+  top: -25px;
+  border-radius: 50%;
+}
+.class-art-circle:before {
+  content: "";
+  position: absolute;
+  inset: 17px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.class-art-circle:after {
+  content: "";
+  position: absolute;
+  inset: 34px;
+  border: 1px dashed currentColor;
+  border-radius: 50%;
+}
+.class-art-icon {
+  position: absolute;
+  right: 38px;
+  top: 34px;
+  opacity: 0.65;
+  transform: rotate(-32deg);
+}
+.class-art-word {
+  font-size: 46px;
+  position: absolute;
+  left: 15px;
+  bottom: 11px;
+  font-weight: 500;
+  letter-spacing: -2px;
+  opacity: 0.2;
+  line-height: 1;
+}
+.class-level {
+  position: absolute;
+  bottom: 14px;
+  right: 17px;
+  font-size: 10px;
+  letter-spacing: 1.7px;
+  opacity: 0.7;
+}
+.class-edit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  width: 26px;
+  height: 26px;
+  background: #ffffff80;
+  border-radius: 5px;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+.class-edit:hover {
+  opacity: 1;
+}
+.class-card-body {
+  padding: 20px 19px 0;
+}
+.class-card-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.class-card-title h2 {
+  font-size: 14px;
+  color: #4b6839;
+  letter-spacing: -0.4px;
+  line-height: 1.7;
+}
+.availability {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  color: #5d6d4d;
+  padding-top: 5px;
+}
+.availability > span {
+  width: 4px;
+  height: 4px;
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+}
+.availability.full {
+  color: #7a664d;
+}
+.class-card-coach {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0;
+}
+.class-card-coach .avatar {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  font-size: 10px;
+}
+.class-card-coach > span:last-child {
+  font-size: 10px;
+  color: #636c56;
+}
+.class-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 13px;
+  color: #636c55;
+  font-size: 10px;
+}
+.class-card-meta > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.capacity-bar {
+  height: 3px;
+  width: 100%;
+  background: #f1f5e9;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 17px 0 14px;
+}
+.capacity-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #bacb9e;
+}
+.class-card-bottom {
+  border-top: 1px solid #edf1e5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  gap: 10px;
+}
+.class-card-bottom > span {
+  font-size: 10px;
+  color: #636c57;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.class-card-bottom > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: #5c6e47;
+  padding: 0;
+}
+.class-detail {
+  padding: 23px 26px;
+}
+.class-detail-banner {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  border-radius: 10px;
+  padding: 24px 26px;
+}
+.class-detail-banner > div {
+  flex: 1;
+}
+.class-detail-banner > div > span {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 7px;
+}
+.class-detail-banner h3 {
+  font-size: 22px;
+  letter-spacing: -0.7px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+.class-detail > h3 {
+  font-size: 12px;
+  border-top: 1px solid #edf1e5;
+  padding-top: 20px;
+  margin-bottom: 10px;
+}
+.roster-list {
+  max-height: 250px;
+  overflow: auto;
+  margin-bottom: 20px;
+}
+.roster-list > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #f0f4e9;
+}
+.roster-list > div > strong {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 400;
+  color: #626d51;
+}
+.roster-list > p {
+  padding: 15px 0;
+  font-size: 11px;
+}
+.schedule-toolbar {
+  padding: 21px 23px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.calendar-range {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.calendar-range h2 {
+  font-size: 13px;
+  color: #5e6f4d;
+}
+.calendar-range .btn {
+  min-height: 30px;
+  padding: 6px 9px;
+  font-size: 10px;
+}
+.schedule-toolbar .select-wrap {
+  min-width: 125px;
+}
+.week-calendar {
+  min-width: 800px;
+}
+.calendar-scroll {
+  overflow-x: auto;
+  max-height: 820px;
+  overflow-y: auto;
+  position: relative;
+  scrollbar-width: thin;
+}
+.week-header {
+  display: grid;
+  grid-template-columns: 62px repeat(7, minmax(0, 1fr));
+  border-top: 1px solid #e7eddf;
+  border-bottom: 1px solid #e7eddf;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #fff;
+}
+.week-header > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 18px 0 15px;
+  border-left: 1px solid #f0f4e9;
+  position: relative;
+}
+.week-header span {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #646d59;
+}
+.week-header strong {
+  font-size: 21px;
+  font-weight: 400;
+  color: #606c4f;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.week-header .is-today {
+  background: #f5f9ed;
+}
+.week-header .is-today strong {
+  background: #68874e;
+  color: #fff;
+}
+.week-header .is-today span {
+  color: #587144;
+}
+.week-header > div.timezone {
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666c5d;
+  border-left: 0;
+}
+.calendar-body {
+  display: grid;
+  grid-template-columns: 62px repeat(7, minmax(0, 1fr));
+  height: 1140px;
+  position: relative;
+}
+.time-gutter {
+  position: relative;
+}
+.time-gutter > div {
+  position: absolute;
+  left: 13px;
+  font-size: 10px;
+  color: #646b5b;
+  padding-top: 8px;
+}
+.calendar-day {
+  position: relative;
+  border-left: 1px solid #eef2e6;
+}
+.calendar-day.is-today {
+  background: #fafcf6;
+}
+.hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 76px;
+  border-bottom: 1px solid #f0f4e8;
+}
+.calendar-event {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  text-align: left;
+  border-radius: 5px;
+  border-left: 3px solid currentColor;
+  padding: 8px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  transition: filter 0.2s;
+}
+.calendar-event:hover {
+  filter: brightness(0.97);
+  z-index: 2;
+  box-shadow: 0 3px 12px #536d351a;
+}
+.calendar-event strong {
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.calendar-event > span {
+  font-size: 10px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+.calendar-event > small {
+  font-size: 10px;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+.schedule-legend {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  padding: 16px 23px;
+  border-top: 1px solid #eaf0e1;
+  font-size: 10px;
+  color: #636d56;
+  flex-wrap: wrap;
+}
+.schedule-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.schedule-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.schedule-total {
+  margin-left: auto;
+  color: #606d4f;
+}
+.schedule-list {
+  padding: 0 24px 25px;
+}
+.schedule-list > section {
+  padding: 20px 0 0;
+  border-top: 1px solid #edf2e5;
+}
+.schedule-list h3 {
+  font-size: 11px;
+  color: #606d50;
+  margin-bottom: 15px;
+}
+.schedule-list-item {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  width: 100%;
+  padding: 15px 0;
+  text-align: left;
+  border-top: 1px solid #f1f5ea;
+}
+.schedule-list-marker {
+  width: 5px;
+  height: 35px;
+  border-radius: 3px;
+}
+.schedule-list-item > strong {
+  font-size: 13px;
+  color: #626e51;
+}
+.schedule-list-item > div {
+  flex: 1;
+}
+.schedule-list-item h4 {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5a6e49;
+}
+.schedule-list-item p {
+  font-size: 10px;
+  color: #616b57;
+  margin-top: 5px;
+}
+.schedule-list-item > span:not(.schedule-list-marker) {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #616e54;
+}
 .member-picker-bar {
   display: flex;
   align-items: center;
@@ -638,7 +1176,76 @@
   font-weight: 400;
   overflow-wrap: anywhere;
 }
+@media (min-width: 1550px) {
+  .class-card-art {
+    height: 180px;
+  }
+  .class-art-icon {
+    right: 50px;
+    top: 48px;
+  }
+  .class-card-title h2 {
+    font-size: 16px;
+  }
+  .class-card-coach > span:last-child {
+    font-size: 10px;
+  }
+  .class-card-meta {
+    font-size: 10px;
+  }
+  .class-card-bottom > span {
+    font-size: 10px;
+  }
+  .class-card-bottom > button {
+    font-size: 10px;
+  }
+}
 @media (max-width: 1250px) {
+  .class-card-grid {
+    gap: 17px;
+  }
+  .class-card-art {
+    height: 135px;
+    padding: 16px;
+  }
+  .class-art-word {
+    font-size: 39px;
+  }
+  .class-card-body {
+    padding: 16px 16px 0;
+  }
+  .class-card-title {
+    flex-wrap: wrap;
+    gap: 1px;
+  }
+  .class-card-title h2 {
+    font-size: 13px;
+    flex-basis: 100%;
+  }
+  .availability {
+    padding-top: 3px;
+  }
+  .class-card-coach {
+    margin: 12px 0;
+  }
+  .class-card-meta {
+    gap: 9px;
+    font-size: 10px;
+  }
+  .class-card-meta > span > svg {
+    width: 13px;
+  }
+  .class-card-bottom > span {
+    font-size: 10px;
+    gap: 4px;
+  }
+  .class-card-bottom > button {
+    font-size: 10px;
+    gap: 5px;
+  }
+  .class-card-bottom > button svg {
+    width: 13px;
+  }
   .pricing-card {
     padding: 27px 20px 19px;
   }
@@ -665,6 +1272,41 @@
   }
 }
 @media (max-width: 1000px) {
+  .class-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .class-card-art {
+    height: 150px;
+  }
+  .class-art-icon {
+    right: 30px;
+  }
+  .class-card-title h2 {
+    flex-basis: auto;
+  }
+  .class-card-title {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .class-card-title h2 {
+    font-size: 14px;
+    flex-basis: 100%;
+  }
+  .class-card-meta {
+    font-size: 10px;
+  }
+  .class-card-bottom > span {
+    font-size: 10px;
+  }
+  .class-card-bottom > button {
+    font-size: 10px;
+  }
+  .sport-tabs {
+    gap: 20px;
+  }
+  .sport-tabs > button {
+    font-size: 10px;
+  }
   .pricing-grid {
     grid-template-columns: 1fr;
     gap: 25px;
@@ -783,6 +1425,208 @@
   }
 }
 @media (max-width: 760px) {
+  .day-nav button {
+    padding: 0 6px;
+    font-size: 10px;
+    min-width: 21px;
+    height: 25px;
+  }
+  .day-nav button svg {
+    width: 13px;
+  }
+  .class-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .class-card-art {
+    height: 115px;
+    padding: 12px;
+  }
+  .class-card-body {
+    padding: 13px 12px 0;
+  }
+  .class-art-word {
+    font-size: 32px;
+    left: 10px;
+    bottom: 13px;
+  }
+  .class-art-icon {
+    width: 64px;
+    height: 64px;
+    right: 20px;
+    top: 30px;
+  }
+  .class-art-circle {
+    width: 150px;
+    height: 150px;
+    right: -20px;
+    top: -20px;
+  }
+  .class-sport-label {
+    font-size: 10px;
+    padding: 3px 5px;
+  }
+  .class-edit {
+    width: 21px;
+    height: 21px;
+    top: 9px;
+    right: 9px;
+  }
+  .class-edit svg {
+    width: 12px;
+  }
+  .class-level {
+    font-size: 10px;
+    right: 10px;
+    bottom: 10px;
+    letter-spacing: 1px;
+  }
+  .class-card-title h2 {
+    font-size: 12px;
+    flex-basis: 100%;
+    line-height: 1.7;
+  }
+  .availability {
+    font-size: 10px;
+    padding-top: 3px;
+  }
+  .class-card-coach {
+    gap: 5px;
+    margin: 11px 0;
+  }
+  .class-card-coach .avatar {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    font-size: 10px;
+  }
+  .class-card-coach > span:last-child {
+    font-size: 10px;
+    line-height: 1.7;
+  }
+  .class-card-meta {
+    font-size: 10px;
+    gap: 7px 9px;
+  }
+  .class-card-meta > span {
+    gap: 4px;
+  }
+  .class-card-meta > span > svg {
+    width: 11px;
+    height: 11px;
+  }
+  .capacity-bar {
+    margin: 14px 0 11px;
+    height: 2px;
+  }
+  .class-card-bottom {
+    padding: 11px 0;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .class-card-bottom > span {
+    font-size: 10px;
+    gap: 4px;
+  }
+  .class-card-bottom > span > svg {
+    width: 10px;
+  }
+  .class-card-bottom > button {
+    font-size: 10px;
+    gap: 5px;
+    margin-left: auto;
+  }
+  .class-card-bottom > button > svg {
+    width: 11px;
+  }
+  .class-detail {
+    padding: 20px;
+  }
+  .class-detail-banner {
+    padding: 20px;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  .class-detail-banner > svg {
+    width: 35px;
+  }
+  .class-detail-banner h3 {
+    font-size: 19px;
+  }
+  .class-detail-banner > div > span {
+    font-size: 10px;
+  }
+  .class-detail-banner > .badge {
+    margin-left: auto;
+    font-size: 10px;
+  }
+  .roster-list > div > strong {
+    font-size: 10px;
+  }
+  .schedule-toolbar {
+    padding: 18px;
+    gap: 16px;
+  }
+  .calendar-range {
+    gap: 10px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .calendar-range h2 {
+    font-size: 11px;
+  }
+  .calendar-range .day-nav button {
+    padding: 0 7px;
+  }
+  .schedule-toolbar > .table-filters {
+    width: 100%;
+  }
+  .schedule-toolbar .select-wrap {
+    flex: 1;
+    min-width: 100px;
+  }
+  .schedule-toolbar .select-wrap select {
+    font-size: 10px;
+  }
+  .schedule-toolbar .segmented {
+    margin-left: auto;
+  }
+  .segmented > button {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+  .schedule-legend {
+    padding: 15px 18px;
+    gap: 12px;
+    font-size: 10px;
+  }
+  .schedule-total {
+    font-size: 10px;
+  }
+  .calendar-scroll {
+    max-height: 680px;
+  }
+  .schedule-list {
+    padding: 0 18px 20px;
+  }
+  .schedule-list-item {
+    gap: 12px;
+  }
+  .schedule-list-item > strong {
+    font-size: 11px;
+  }
+  .schedule-list-item h4 {
+    font-size: 11px;
+  }
+  .schedule-list-item p {
+    font-size: 10px;
+  }
+  .schedule-list-item > span:last-child {
+    display: none;
+  }
+  .schedule-list-item > span:not(.schedule-list-marker) {
+    font-size: 10px;
+  }
   .member-picker-bar {
     padding: 14px;
     gap: 10px;
@@ -1038,12 +1882,77 @@
   }
 }
 @media (max-width: 400px) {
+  .class-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .class-card-art {
+    height: 155px;
+  }
+  .class-art-icon {
+    width: 83px;
+    height: 83px;
+    right: 50px;
+    top: 45px;
+  }
+  .class-art-word {
+    font-size: 48px;
+  }
+  .class-card-title h2 {
+    font-size: 16px;
+    flex-basis: auto;
+  }
+  .class-card-body {
+    padding: 18px 18px 0;
+  }
+  .class-card-meta {
+    font-size: 10px;
+    gap: 12px;
+  }
+  .class-card-coach > span:last-child {
+    font-size: 10px;
+  }
+  .class-card-bottom > span {
+    font-size: 10px;
+  }
+  .class-card-bottom > button {
+    font-size: 10px;
+  }
+  .class-card-bottom {
+    padding: 15px 0;
+  }
+  .availability {
+    font-size: 10px;
+  }
+  .class-sport-label {
+    font-size: 10px;
+  }
+  .class-level {
+    font-size: 10px;
+  }
   .auth-story h1 {
     font-size: 27px;
   }
   .auth-visual {
     opacity: 0.25;
   }
+}
+.class-card-coach > span:last-child {
+  font-size: 11px;
+}
+.class-card-meta {
+  font-size: 11px;
+}
+.class-card-bottom > span {
+  font-size: 10px;
+}
+.class-card-bottom > button {
+  font-size: 11px;
+}
+.availability {
+  font-size: 10px;
+}
+.class-sport-label {
+  font-size: 10px;
 }
 .pricing-card > p,
 .pricing-card li {
@@ -1079,7 +1988,122 @@
 .auth-form-content .auth-submit {
   font-size: 12px;
 }
+@media (max-width: 1250px) {
+  .class-card-meta {
+    font-size: 10px;
+  }
+  .class-card-coach > span:last-child {
+    font-size: 10px;
+  }
+  .class-card-bottom > span {
+    font-size: 10px;
+  }
+  .class-card-bottom > button {
+    font-size: 10px;
+  }
+  .class-card-bottom {
+    flex-wrap: wrap;
+  }
+  .class-card-title h2 {
+    font-size: 15px;
+  }
+}
 @media (max-width: 760px) {
+  .class-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .class-card-art {
+    height: 160px;
+    padding: 18px;
+  }
+  .class-art-word {
+    font-size: 52px;
+    left: 17px;
+    bottom: 13px;
+  }
+  .class-art-icon {
+    width: 83px;
+    height: 83px;
+    right: 50px;
+    top: 42px;
+  }
+  .class-art-circle {
+    width: 205px;
+    height: 205px;
+    top: -28px;
+    right: 0;
+  }
+  .class-level {
+    font-size: 9px;
+    bottom: 17px;
+    right: 20px;
+  }
+  .class-edit {
+    width: 28px;
+    height: 28px;
+    top: 15px;
+    right: 15px;
+  }
+  .class-edit svg {
+    width: 15px;
+  }
+  .class-card-body {
+    padding: 20px 20px 0;
+  }
+  .class-card-title h2 {
+    font-size: 18px;
+    flex-basis: auto;
+  }
+  .availability {
+    font-size: 10px;
+  }
+  .class-card-coach > span:last-child {
+    font-size: 12px;
+  }
+  .class-card-coach .avatar {
+    width: 27px;
+    height: 27px;
+    min-width: 27px;
+    font-size: 9px;
+  }
+  .class-card-coach {
+    gap: 8px;
+    margin: 15px 0;
+  }
+  .class-card-meta {
+    font-size: 11px;
+    gap: 13px;
+  }
+  .class-card-meta > span > svg {
+    width: 14px;
+    height: 14px;
+  }
+  .class-card-bottom {
+    padding: 16px 0;
+  }
+  .class-card-bottom > span {
+    font-size: 11px;
+  }
+  .class-card-bottom > button {
+    font-size: 12px;
+  }
+  .class-card-bottom > button > svg {
+    width: 15px;
+  }
+  .class-card-bottom > span > svg {
+    width: 14px;
+  }
+  .capacity-bar {
+    margin: 19px 0 15px;
+    height: 3px;
+  }
+  .class-sport-label {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+  .class-card-grid {
+    gap: 20px;
+  }
   .pricing-card > p,
   .pricing-card li {
     font-size: 12px;
@@ -1099,4 +2123,7 @@
   .demo-role-grid > button {
     font-size: 11px;
   }
+}
+.calendar-body {
+  height: 1824px;
 }

@@ -7,6 +7,8 @@ import { isManager, roleLabels } from "./lib/types";
 import type { Role } from "./lib/types";
 import AuthPage from "./pages/Auth";
 import Members from "./pages/Members";
+import Classes from "./pages/Classes";
+import Schedule from "./pages/Schedule";
 import Memberships from "./pages/Memberships";
 import { PackagesPage } from "./pages/Packages";
 import { Profile } from "./pages/Profile";
@@ -50,6 +52,20 @@ function WorkspaceLayout() {
     items.push({ to: "/memberships", label: "Gói thành viên" });
   if (isManager(session!.user.roleName))
     items.push({ to: "/packages", label: "Danh mục gói tập" });
+  items.push(
+    {
+      to: "/classes",
+      label:
+        session!.user.roleName === "COACH" ? "Lớp học phụ trách" : "Lớp học",
+    },
+    {
+      to: "/schedule",
+      label:
+        session!.user.roleName === "MEMBER"
+          ? "Lịch tập của bạn"
+          : "Lịch hoạt động",
+    },
+  );
   return (
     <Layout
       items={items}
@@ -117,6 +133,8 @@ export default function App() {
         <Route element={<WorkspaceLayout />}>
           <Route index element={<Welcome />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="classes" element={<Classes />} />
+          <Route path="schedule" element={<Schedule />} />
           <Route
             element={
               <Protected

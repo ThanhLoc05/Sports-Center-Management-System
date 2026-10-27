@@ -61,6 +61,9 @@ export interface DemoDatabase {
   packages: Package[];
   subscriptions: Subscription[];
   sports: Sport[];
+  rooms: FacilityRoom[];
+  classes: SportClass[];
+  bookings: Booking[];
 }
 
 export interface Subscription {
@@ -87,5 +90,35 @@ export interface Package {
 export interface Sport {
   id: number;
   name: string;
+  description: string;
+}
+
+export interface SportClass {
+  id: number;
+  className: string;
+  sportId: number;
+  coachId: number;
+  roomId: number;
+  maxCapacity: number;
+  scheduleTime: string;
+  durationMinutes: number;
+  status: string;
+}
+
+export type ClassInput = Omit<SportClass, "id">;
+
+export interface Booking {
+  id: number;
+  classId: number;
+  memberId: number;
+  bookedAt: string;
+  status: string;
+  subscriptionId?: number;
+}
+
+export interface FacilityRoom {
+  id: number;
+  name: string;
+  capacity: number;
   description: string;
 }

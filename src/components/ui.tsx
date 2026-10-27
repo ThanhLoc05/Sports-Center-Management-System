@@ -385,6 +385,7 @@ export function FormModal({
   onClose,
   onSubmit,
   submitLabel = "Lưu thay đổi",
+  submitDisabled = false,
   wide = false,
 }: {
   title: string;
@@ -393,6 +394,7 @@ export function FormModal({
   onClose: () => void;
   onSubmit: (data: FormData) => Promise<unknown>;
   submitLabel?: string;
+  submitDisabled?: boolean;
   wide?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -438,7 +440,7 @@ export function FormModal({
           >
             Đóng
           </Button>
-          <Button loading={busy} type="submit">
+          <Button loading={busy} disabled={submitDisabled} type="submit">
             {submitLabel}
           </Button>
         </div>
