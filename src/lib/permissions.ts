@@ -7,7 +7,9 @@ export type Permission =
   | "team.manage"
   | "roles.manage"
   | "memberships.assist"
-  | "packages.manage";
+  | "packages.manage"
+  | "classes.manage"
+  | "classes.roster";
 export const defaultPermissions: Record<Role, Permission[]> = {
   CENTER_MANAGER: [
     "members.read",
@@ -17,6 +19,8 @@ export const defaultPermissions: Record<Role, Permission[]> = {
     "roles.manage",
     "memberships.assist",
     "packages.manage",
+    "classes.manage",
+    "classes.roster",
   ],
   MANAGER: [
     "members.read",
@@ -26,10 +30,17 @@ export const defaultPermissions: Record<Role, Permission[]> = {
     "roles.manage",
     "memberships.assist",
     "packages.manage",
+    "classes.manage",
+    "classes.roster",
   ],
-  COACH: [],
+  COACH: ["classes.roster"],
   MEMBER: [],
-  RECEPTIONIST: ["members.read", "members.create", "memberships.assist"],
+  RECEPTIONIST: [
+    "members.read",
+    "members.create",
+    "memberships.assist",
+    "classes.roster",
+  ],
 };
 export function can(
   session: Session | null,

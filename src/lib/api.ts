@@ -1,9 +1,20 @@
-/** API đã đưa lên main: xác thực, hồ sơ/trạng thái và gói tập. Backend kiểm tra quyền trên dữ liệu thật. */
-import type { Mode, RegisterInput, Session, User, Subscription } from "./types";
+/** API đã đưa lên main: xác thực, hồ sơ, gói tập, lớp học và lịch hoạt động. Backend kiểm tra quyền trên dữ liệu thật. */
+import type {
+  Mode,
+  RegisterInput,
+  Session,
+  User,
+  Subscription,
+  SportClass,
+  ClassInput,
+  Booking,
+  Sport,
+  FacilityRoom,
+} from "./types";
 import { readDemo, saveDemo, demoAudit } from "./demo";
 import { can } from "./permissions";
 import type { Permission } from "./permissions";
-import { addDays, localDate, dateTimeLocal } from "./utils";
+import { addDays, localDate, dateTimeLocal, parseDate } from "./utils";
 export const configuredMode: Mode =
   import.meta.env.VITE_DATA_MODE === "demo" ? "demo" : "api";
 
@@ -170,6 +181,173 @@ export function updateDemo<T>(
   return result;
 }
 export const api = {
+  /** API danh mục mới của backend: đổi tên trường DTO sang kiểu frontend, không lấy tên demo thay thế. */
+  async sports(): Promise<Sport[]> {
+    if (mode() !== "api") return readDemo().sports;
+    const rows = assertArray(
+      await request<{ id: number; sportName: string; description?: string }[]>(
+        "/sports",
+      ),
+    );
+    return rows.map((s) => ({
+      id: s.id,
+      name: s.sportName,
+      description: s.description || "",
+    }));
+  },
+  async rooms(): Promise<FacilityRoom[]> {
+    if (mode() !== "api") return readDemo().rooms;
+    const rows = assertArray(
+      await request<{ id: number; roomName: string; capacity: number }[]>(
+        "/rooms",
+      ),
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.roomName,
+      capacity: r.capacity,
+      description: "",
+    }));
+  },
+  /** HLV dùng endpoint tự lấy ID từ JWT; tham số client không được mở rộng lịch của HLV. */
+  async classes(coachId?: number): Promise<SportClass[]> {
+    const actor = getSession();
+    const ownCoach = actor?.user.roleName === "COACH";
+    if (ownCoach) coachId = actor.user.id;
+    if (mode() === "api")
+      return assertArray(
+        await request<SportClass[]>(
+          ownCoach
+            ? "/classes/my-classes"
+            : `/classes${coachId ? `?coachId=${coachId}` : ""}`,
+        ),
+      );
+    return readDemo().classes.filter((c) => !coachId || c.coachId === coachId);
+  },
+  async saveClass(input: ClassInput, id?: number): Promise<SportClass> {
+    if (mode() === "api")
+      return id
+        ? request(`/classes/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(input),
+          })
+        : post("/classes", input);
+    requirePermission("classes.manage");
+    if (
+      !input.className.trim() ||
+      input.maxCapacity < 1 ||
+      input.durationMinutes < 1 ||
+      parseDate(input.scheduleTime) <= new Date()
+    )
+      throw new ApiError(
+        "Kiểm tra thông tin lớp và thời gian trong tương lai.",
+      );
+    const db = readDemo();
+    if (id && !db.classes.some((c) => c.id === id))
+      throw new ApiError("Không tìm thấy lớp cần sửa.");
+    if (
+      !Number.isSafeInteger(input.maxCapacity) ||
+      !Number.isSafeInteger(input.durationMinutes) ||
+      !Number.isFinite(parseDate(input.scheduleTime).getTime())
+    )
+      throw new ApiError("Sức chứa, thời lượng hoặc ngày giờ không hợp lệ.");
+    const room = db.rooms.find((r) => r.id === input.roomId);
+    if (
+      !room ||
+      !db.sports.some((s) => s.id === input.sportId) ||
+      !db.users.some(
+        (u) =>
+          u.id === input.coachId &&
+          u.roleName === "COACH" &&
+          u.status === "ACTIVE",
+      )
+    )
+      throw new ApiError("Phòng, bộ môn hoặc HLV không hợp lệ.");
+    if (input.maxCapacity > room.capacity)
+      throw new ApiError("Sức chứa lớp không được vượt sức chứa phòng.");
+    const collision = db.classes.find(
+      (c) =>
+        c.id !== id &&
+        c.status !== "CANCELLED" &&
+        (c.coachId === input.coachId || c.roomId === input.roomId) &&
+        parseDate(c.scheduleTime).getTime() <
+          parseDate(input.scheduleTime).getTime() +
+            input.durationMinutes * 60000 &&
+        parseDate(input.scheduleTime).getTime() <
+          parseDate(c.scheduleTime).getTime() + c.durationMinutes * 60000,
+    );
+    if (collision)
+      throw new ApiError(
+        `Trùng lịch phòng hoặc huấn luyện viên với lớp ${collision.className}.`,
+      );
+    if (
+      id &&
+      db.bookings.filter((b) => b.classId === id && b.status === "BOOKED")
+        .length > input.maxCapacity
+    )
+      throw new ApiError("Sức chứa nhỏ hơn số người đã đăng ký.");
+    const c = { ...input, id: id || nextId(db.classes) };
+
+    if (id) db.classes = db.classes.map((x) => (x.id === id ? c : x));
+    else db.classes.push(c);
+
+    demoAudit(db, id ? "Cập nhật lớp học" : "Tạo lớp học", c.className);
+    return c;
+  },
+  async cancelClass(id: number) {
+    if (mode() === "api") return post(`/classes/${id}/cancel`);
+    requirePermission("classes.manage");
+    const db = readDemo();
+    const c = db.classes.find((x) => x.id === id);
+    if (!c) throw new ApiError("Lớp không tồn tại.");
+
+    c.status = "CANCELLED";
+    db.bookings.forEach((b) => {
+      if (b.classId === id) b.status = "CANCELLED";
+    });
+    demoAudit(db, "Hủy lớp học", c.className);
+  },
+  async capacity(id: number): Promise<number> {
+    if (mode() === "api") return request(`/classes/${id}/capacity`);
+    const db = readDemo();
+    return Math.max(
+      0,
+      (db.classes.find((c) => c.id === id)?.maxCapacity || 0) -
+        db.bookings.filter((b) => b.classId === id && b.status === "BOOKED")
+          .length,
+    );
+  },
+  async bookings(memberId?: number, classId?: number): Promise<Booking[]> {
+    if (mode() === "api") {
+      if (!memberId && !classId)
+        throw new ApiError("Chọn lớp hoặc thành viên để tải đăng ký.");
+      return assertArray(
+        await request<Booking[]>(
+          classId
+            ? `/classes/${classId}/bookings`
+            : `/members/${memberId}/bookings`,
+        ),
+      );
+    }
+    const actor = getSession();
+    if (classId) {
+      requirePermission("classes.roster");
+      if (
+        actor?.user.roleName === "COACH" &&
+        !readDemo().classes.some(
+          (c) => c.id === classId && c.coachId === actor.user.id,
+        )
+      )
+        throw new ApiError("Lớp không thuộc phạm vi phụ trách.", 403);
+    } else if (memberId) ownOrStaff(memberId);
+    else throw new ApiError("Chọn lớp hoặc thành viên.");
+    return readDemo().bookings.filter(
+      (b) =>
+        (!memberId || b.memberId === memberId) &&
+        (!classId || b.classId === classId),
+    );
+  },
+
   async login(email: string, password: string): Promise<Session> {
     if (configuredMode === "demo") {
       const user = readDemo().users.find(

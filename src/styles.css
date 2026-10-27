@@ -1,4 +1,4 @@
-/* Style tái sử dụng từ giao diện hiện có, chỉ giữ các màn đã đưa lên main. */
+/* Style dùng chung cho các phần frontend đã đưa lên main. */
 :root {
   font-family: "Be Vietnam Pro", Arial, sans-serif;
   color: #28362b;
@@ -150,6 +150,9 @@ kbd {
   background: #dceab8;
   color: #245b3b;
 }
+.muted {
+  color: var(--muted);
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -283,6 +286,15 @@ kbd {
 }
 .text-danger:hover {
   text-decoration: underline;
+}
+.table-name {
+  padding: 0;
+  font-weight: 500;
+  font-size: 12px;
+  text-align: left;
+}
+.table-name:hover {
+  color: var(--green);
 }
 .brand {
   display: flex;
@@ -904,6 +916,86 @@ td strong {
   background: #edf2f7;
   color: #5e6b7c;
 }
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 22px 0 20px;
+  gap: 20px;
+}
+.list-toolbar > div:first-child > strong {
+  font-size: 12px;
+}
+.list-toolbar > div:first-child > .muted {
+  font-size: 10px;
+  margin-left: 12px;
+}
+.list-toolbar > .table-filters {
+  flex-shrink: 0;
+}
+.list-toolbar .search-input {
+  width: 220px;
+}
+.view-toggle {
+  display: flex;
+  border: 1px solid #e2e8d9;
+  border-radius: 7px;
+  background: white;
+  padding: 3px;
+  gap: 2px;
+}
+.view-toggle button {
+  display: flex;
+  padding: 6px;
+  color: #656b5c;
+  border-radius: 4px;
+}
+.view-toggle button.selected {
+  background: #edf3e2;
+  color: #5a6f47;
+}
+.segmented {
+  display: flex;
+  border: 1px solid #e4eadb;
+  padding: 3px;
+  border-radius: 7px;
+  background: #f8faf4;
+}
+.segmented > button {
+  font-size: 10px;
+  padding: 5px 10px;
+  color: #646c56;
+  border-radius: 4px;
+}
+.segmented > button.active {
+  background: white;
+  color: #48683d;
+  box-shadow: 0 1px 4px #2a401a10;
+}
+.sport-1 {
+  background: #edf2e2;
+  color: #606d47;
+}
+.sport-2 {
+  background: #f6eee3;
+  color: #78654b;
+}
+.sport-3 {
+  background: #efeaf5;
+  color: #6f6280;
+}
+.sport-4 {
+  background: #f5eae4;
+  color: #7e6451;
+}
+.sport-5 {
+  background: #e8f1f3;
+  color: #516f77;
+}
+.sport-6 {
+  background: #edf0df;
+  color: #686c4b;
+}
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1044,6 +1136,13 @@ td strong {
   font-size: 10px;
   color: #666d59;
 }
+.detail-actions {
+  display: flex;
+  gap: 9px;
+  padding-top: 24px;
+  border-top: 1px solid #edf2e5;
+  flex-wrap: wrap;
+}
 .member-detail-header {
   display: flex;
   align-items: center;
@@ -1163,6 +1262,9 @@ td strong {
     font-size: 24px;
   }
   .table-toolbar {
+    flex-wrap: wrap;
+  }
+  .list-toolbar {
     flex-wrap: wrap;
   }
   .mini-stats {
@@ -1420,6 +1522,18 @@ td strong {
   .table-toolbar {
     gap: 16px;
   }
+  .list-toolbar {
+    gap: 14px;
+  }
+  .list-toolbar > .table-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .list-toolbar .search-input {
+    width: auto;
+    flex: 1;
+    min-width: 160px;
+  }
   .table-scroll th,
   .table-scroll td {
     padding-left: 16px;
@@ -1493,6 +1607,9 @@ td strong {
   .notice {
     font-size: 10px;
     padding: 12px 13px;
+  }
+  .list-toolbar > div:first-child > .muted {
+    display: none;
   }
   .panel {
     border-radius: 12px;
@@ -1618,6 +1735,9 @@ td strong,
 }
 .mini-stats p {
   font-size: 11px;
+}
+.table-name {
+  font-size: 12px;
 }
 .field > input,
 .field > select,

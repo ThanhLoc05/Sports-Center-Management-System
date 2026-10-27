@@ -44,6 +44,17 @@ export function usePermissions() {
  * không chạy query này cho lễ tân, HLV hay thành viên. Màn cần tra cứu nhưng
  * không có danh sách sẽ dùng ID. Demo có dữ liệu cục bộ nên được đọc danh sách.
  */
+export function useClasses() {
+  const { session } = useAuth();
+  const coachId =
+    session?.user.roleName === "COACH" ? session.user.id : undefined;
+  return useQuery({
+    queryKey: ["classes", coachId],
+    queryFn: () => api.classes(coachId),
+    enabled: !!session,
+  });
+}
+
 export function useUsers() {
   const { session } = useAuth();
   return useQuery({

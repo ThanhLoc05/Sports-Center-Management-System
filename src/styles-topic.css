@@ -1,4 +1,4 @@
-/* Style tái sử dụng từ giao diện hiện có, chỉ giữ các màn đã đưa lên main. */
+/* Style dùng chung cho các phần frontend đã đưa lên main. */
 .permission-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -18,6 +18,13 @@
   flex: 0 0 17px;
   padding: 0;
   accent-color: var(--green);
+}
+.class-filter-bar {
+  flex-wrap: wrap;
+}
+.class-filter-bar > .panel {
+  width: 100%;
+  flex-basis: 100%;
 }
 .permission-grid + .btn {
   margin-bottom: 10px;
