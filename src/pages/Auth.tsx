@@ -14,21 +14,25 @@ import {
   Sparkles,
   Activity,
 } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { api, configuredMode } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { demoSession } from "../lib/demo";
-import { roleLabels } from "../lib/types";
-import type { Role } from "../lib/types";
+
 import { Button, Field } from "../components/ui";
 import { errorText } from "../lib/utils";
 export default function AuthPage({ register = false }: { register?: boolean }) {
   const { session, signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  // Giữ kết quả đăng ký qua lần đổi route; không lưu mật khẩu vào dữ liệu demo.
+  const success = location.state?.registrationComplete
+    ? configuredMode === "demo"
+      ? "Đã tạo tài khoản demo. Đăng nhập bằng email vừa đăng ký và mật khẩu chung Sportiva@123."
+      : "Tạo tài khoản thành công. Bạn có thể đăng nhập ngay."
+    : "";
   if (session) return <Navigate to="/" replace />;
   /**
    * Đọc FormData và kiểm tra mật khẩu xác nhận nếu đăng ký. Đăng ký xong về login;
@@ -52,8 +56,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
           fullName: String(data.get("fullName")).trim(),
           phone: String(data.get("phone")).trim(),
         });
-        setSuccess("Tạo tài khoản thành công. Bạn có thể đăng nhập ngay.");
-        navigate("/login");
+        navigate("/login", { state: { registrationComplete: true } });
       } else {
         signIn(await api.login(email, password));
         navigate("/");
@@ -223,37 +226,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
               <ArrowUpRight size={13} />
             </Link>
           </p>
-          {configuredMode === "demo" && !register && (
-            <div className="demo-entrance">
-              <div className="divider">
-                <span>HOẶC KHÁM PHÁ BẢN DEMO</span>
-              </div>
-              <div className="demo-role-grid">
-                {(
-                  [
-                    "CENTER_MANAGER",
-                    "COACH",
-                    "MEMBER",
-                    "RECEPTIONIST",
-                  ] as Role[]
-                ).map((role) => (
-                  <button
-                    key={role}
-                    onClick={() => {
-                      signIn(demoSession(role));
-                      navigate("/");
-                    }}
-                  >
-                    {roleLabels[role]}
-                    <ArrowUpRight size={14} />
-                  </button>
-                ))}
-              </div>
-              <small>
-                Dữ liệu minh họa lưu trên trình duyệt. Không cần tài khoản thật.
-              </small>
-            </div>
-          )}
+
           <div className="auth-secure">
             <ShieldCheck size={15} />
             <span>Không gian tập luyện của bạn. Được kết nối.</span>

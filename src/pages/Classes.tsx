@@ -1,7 +1,8 @@
 import { parseDate } from "../lib/utils";
 import BookingForm from "../components/BookingForm";
 import { UserProfileModal } from "../components/ProfileEditor";
-import { usePermissions } from "../lib/hooks";
+import { useDemoData, usePermissions } from "../lib/hooks";
+import { classEligibility, membershipAccess } from "../lib/entitlements";
 
 /**
  * FLOW 2 — QUẢN LÝ LỚP, PHÂN CÔNG HLV VÀ XEM LỊCH.
@@ -210,6 +211,10 @@ export default function Classes() {
   const { sports } = useCatalog();
   const { session } = useAuth();
   const can = usePermissions();
+  const db = useDemoData();
+  const member = session!.user.roleName === "MEMBER";
+  const [eligibleOnly, setEligibleOnly] = useState(member);
+  const access = db && member ? membershipAccess(db, session!.user.id) : null;
   const manager = can("classes.manage"),
     demo = session!.mode === "demo",
     coach = session!.user.roleName === "COACH";
@@ -234,6 +239,9 @@ export default function Classes() {
   const rows = (classes.data || []).filter(
     (c) =>
       matches(search, c.className) &&
+      (!eligibleOnly ||
+        !db ||
+        classEligibility(db, c.id, session!.user.id).allowed) &&
       (sport === "all" || c.sportId === Number(sport)) &&
       (status === "all" || c.status === status),
   );
@@ -259,6 +267,32 @@ export default function Classes() {
         }
       />
       <div className="class-filter-bar">
+        {member && (
+          <Panel title="Lớp học theo gói của tôi">
+            <p>
+              {access?.pkg
+                ? `${access.pkg.name} · ${access.reason}`
+                : demo
+                  ? "Đăng ký gói tập để chọn lớp phù hợp."
+                  : "API chưa có danh mục quyền lợi gói để xác minh bộ môn được học."}
+            </p>
+            <label className="check-option">
+              <input
+                type="checkbox"
+                checked={eligibleOnly}
+                onChange={(e) => setEligibleOnly(e.target.checked)}
+              />
+              Chỉ xem lớp phù hợp gói
+            </label>
+            <Link to="/memberships" className="text-link">
+              Xem / đổi gói tập
+            </Link>{" "}
+            ·{" "}
+            <Link to="/payments" className="text-link">
+              Hóa đơn & QR
+            </Link>
+          </Panel>
+        )}
         <div className="sport-tabs">
           <button
             className={sport === "all" ? "selected" : ""}

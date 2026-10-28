@@ -1,34 +1,44 @@
+import type { Sport, FacilityRoom } from "./types";
+/**
+ * LỚP GIAO TIẾP DỮ LIỆU CỦA FRONTEND (API GATEWAY).
+ * Trang gọi api.tenHam(), không tự ghép URL ở từng nơi. Mỗi hàm chọn nhánh API thật
+ * hoặc demo; API lỗi sẽ báo lỗi, không tự trả dữ liệu giả để che lỗi kết nối.
+ * Luồng chính: form/trang → api → request/fetch → backend → kết quả hoặc ApiError.
+ * Các ràng buộc trong nhánh demo minh họa nghiệp vụ; không thay thế kiểm tra ở backend.
+ */
 import type {
-  Invoice,
-  InvoiceInput,
   Attendance,
   AttendanceInput,
-} from "./types";
-import { classEligibility } from "./entitlements";
-import { notify } from "./notifications";
-/** Các API đã phát hành được giữ nguyên; bổ sung booking, hóa đơn, doanh thu và điểm danh. */
-/** API đã đưa lên main: xác thực, hồ sơ, gói tập, lớp học và lịch hoạt động. Backend kiểm tra quyền trên dữ liệu thật. */
-import type {
+  Booking,
+  ClassInput,
+  Invoice,
+  InvoiceInput,
   Mode,
   RegisterInput,
   Session,
-  User,
-  Subscription,
   SportClass,
-  ClassInput,
-  Booking,
-  Sport,
-  FacilityRoom,
+  Subscription,
+  User,
 } from "./types";
-import { readDemo, saveDemo, demoAudit } from "./demo";
+
+import { parseDate, addDays, dateTimeLocal, localDate } from "./utils";
+import { demoAudit, readDemo, saveDemo } from "./demo";
 import { can } from "./permissions";
 import type { Permission } from "./permissions";
-import { addDays, localDate, dateTimeLocal, parseDate } from "./utils";
+import { classEligibility } from "./entitlements";
+import { notify } from "./notifications";
+/**
+ * Bản chạy luôn dùng API thật. Dữ liệu mẫu chỉ được bật bên trong Vitest.
+ * Biến VITE được Vite đưa vào frontend lúc chạy dev/build, không phải secret.
+ */
 export const configuredMode: Mode =
   import.meta.env.MODE === "test" && import.meta.env.VITE_DATA_MODE === "demo"
     ? "demo"
     : "api";
-
+/**
+ * Lỗi dùng chung mang cả thông báo và HTTP status. Giao diện dựa vào đây
+ * để báo lỗi phù hợp; status=0 dùng cho lỗi không có phản hồi HTTP hợp lệ.
+ */
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status = 0) {
@@ -37,7 +47,11 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
-
+/**
+ * Đọc phiên từ sessionStorage và kiểm tra các trường cần thiết trước khi dùng.
+ * Không chấp nhận phiên demo cũ khi ứng dụng cấu hình API thật.
+ * Kiểm tra hình dạng phiên ở đây không chứng minh JWT hợp lệ với backend.
+ */
 export function getSession(): Session | null {
   try {
     const s = JSON.parse(sessionStorage.getItem("sportiva-session") || "null");
@@ -61,13 +75,23 @@ export function getSession(): Session | null {
     return null;
   }
 }
-
+/**
+ * Chọn nguồn dữ liệu cho các thao tác theo phiên đang dùng; khi chưa có phiên
+ * thì lấy cấu hình khởi động. Dữ liệu API và localStorage demo là hai nguồn riêng.
+ */
 export function mode() {
   return getSession()?.mode || configuredMode;
 }
-
+/**
+ * Nếu VITE_API_BASE_URL trống, trình duyệt gọi cùng origin /api/v1; proxy của Vite
+ * chuyển tiếp tới backend khi dev/preview. Nếu đặt URL, chỉ đặt origin, không lặp /api/v1.
+ */
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-
+/**
+ * Điểm gửi HTTP dùng chung: ghép URL, thêm Bearer token của phiên API và timeout
+ * 15 giây. T mô tả kiểu trả về cho TypeScript; không tự xác minh mọi trường JSON.
+ * Đọc text trước để chấp nhận cả phản hồi rỗng và báo cáo dạng văn bản.
+ */
 export async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -141,28 +165,43 @@ export async function request<T>(
     clearTimeout(timer);
   }
 }
-
+/**
+ * Helper cho POST: chuyển object thành JSON rồi dùng request để giữ chung
+ * cách gắn token, timeout và xử lý lỗi.
+ */
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, {
     method: "POST",
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
-
+/**
+ * Kiểm tra runtime rằng response danh sách là một mảng. Nếu backend trả object
+ * bao trang thay vì mảng, dừng và báo lỗi thay vì để giao diện gọi .filter bị hỏng.
+ */
 function assertArray<T>(value: T[]): T[] {
   if (!Array.isArray(value))
     throw new ApiError("Dữ liệu API không đúng định dạng danh sách.");
   return value;
 }
-
+/**
+ * Giới hạn sở hữu trong DEMO: chủ tài khoản hoặc nhóm quản lý/lễ tân mới thao tác
+ * được trên thành viên. Nhánh API đi thẳng tới backend để backend quyết định quyền.
+ */
 function ownOrStaff(
   memberId: number,
   permission: Permission = "memberships.assist",
 ) {
   const s = getSession();
-  if (!s || (s.user.id !== memberId && !can(s, permission, readDemo())))
+  const db = readDemo();
+  const actor = db.users.find((u) => u.id === s?.user.id);
+  if (
+    !s ||
+    !actor ||
+    actor.status !== "ACTIVE" ||
+    (actor.id !== memberId && !can({ ...s, user: actor }, permission, db))
+  )
     throw new ApiError("Bạn không có quyền truy cập thành viên này.", 403);
 }
-
 function requirePermission(permission: Permission) {
   const s = getSession();
   const db = readDemo();
@@ -175,50 +214,126 @@ function requirePermission(permission: Permission) {
   )
     throw new ApiError("Bạn không có quyền thực hiện thao tác này.", 403);
 }
+/**
+ * Bảo vệ thao tác ghi trong DEMO; managerOnly yêu cầu quản lý. Đây chỉ là
+ * quy tắc mô phỏng trong trình duyệt, không phải lớp bảo mật cho SQL Server.
+ */
 
+/**
+ * Sinh ID mới cho mảng demo. API thật dùng ID từ backend/database.
+ */
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
-
-export function updateDemo<T>(
-  action: string,
-  detail: string,
-  fn: (db: ReturnType<typeof readDemo>) => T,
-): T {
-  if (mode() !== "demo") throw new ApiError("Chức năng chưa có API backend.");
-  const db = readDemo();
-  const result = fn(db);
-  saveDemo(db);
-  demoAudit(db, action, detail);
-  return result;
-}
 export const api = {
-  /** API danh mục mới của backend: đổi tên trường DTO sang kiểu frontend, không lấy tên demo thay thế. */
-  async sports(): Promise<Sport[]> {
-    if (mode() !== "api") return readDemo().sports;
-    const rows = assertArray(
-      await request<{ id: number; sportName: string; description?: string }[]>(
-        "/sports",
-      ),
-    );
-    return rows.map((s) => ({
-      id: s.id,
-      name: s.sportName,
-      description: s.description || "",
-    }));
+  /**
+   * Đăng nhập: demo so với tài khoản mẫu và mật khẩu chung; API POST /users/login
+   * nhận token + user. Kiểm tra response tối thiểu rồi trả Session cho AuthProvider.
+   */
+  async login(email: string, password: string): Promise<Session> {
+    if (configuredMode === "demo") {
+      const user = readDemo().users.find(
+        (u) => u.email === email && u.status === "ACTIVE",
+      );
+      if (!user || password !== "Sportiva@123")
+        throw new ApiError(
+          "Dùng tài khoản demo và mật khẩu Sportiva@123, hoặc chọn vai trò bên dưới.",
+          401,
+        );
+      return { token: "demo-local-only", user, mode: "demo" };
+    }
+    const data = await post<{ token: string; user: User }>("/users/login", {
+      email,
+      password,
+    });
+    if (
+      !data?.token ||
+      !data.user?.id ||
+      ![
+        "CENTER_MANAGER",
+        "MANAGER",
+        "COACH",
+        "MEMBER",
+        "RECEPTIONIST",
+      ].includes(data.user.roleName)
+    )
+      throw new ApiError("Phản hồi đăng nhập không hợp lệ.");
+    return { ...data, mode: "api" };
   },
-  async rooms(): Promise<FacilityRoom[]> {
-    if (mode() !== "api") return readDemo().rooms;
-    const rows = assertArray(
-      await request<{ id: number; roomName: string; capacity: number }[]>(
-        "/rooms",
-      ),
-    );
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.roomName,
-      capacity: r.capacity,
-      description: "",
-    }));
+  /**
+   * Flow 1: tạo thành viên qua POST /users/register. Nhánh demo kiểm tra trùng
+   * email/điện thoại, luôn gán MEMBER và không lưu mật khẩu nhập từ form.
+   */
+  async register(input: RegisterInput): Promise<User> {
+    if (configuredMode === "api" || mode() === "api")
+      return post("/users/register", input);
+    const db = readDemo();
+    if (db.users.some((u) => u.phone === input.phone))
+      throw new ApiError("Số điện thoại đã được sử dụng.");
+    if (
+      db.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())
+    )
+      throw new ApiError("Email đã được sử dụng.");
+    const user: User = {
+      id: nextId(db.users),
+      email: input.email,
+      fullName: input.fullName,
+      phone: input.phone,
+      roleName: "MEMBER",
+      status: "ACTIVE",
+      createdAt: dateTimeLocal(),
+    };
+    db.users.push(user);
+    demoAudit(db, "Tạo thành viên", user.fullName);
+    return user;
+  },
+  /**
+   * Flow 1: lấy danh sách tài khoản. Việc gọi danh sách ở UI được giới hạn
+   * trong useUsers; quyền truy cập API thực tế vẫn do backend kiểm tra.
+   */
+  async users(): Promise<User[]> {
+    if (mode() === "api") return assertArray(await request<User[]>("/users"));
+    return readDemo().users;
+  },
+  /**
+   * Đọc hồ sơ một người theo ID, dùng cho màn hồ sơ/tra cứu.
+   * Nhánh demo kiểm tra người sở hữu; API xử lý quyền trên tài nguyên ở backend.
+   */
+  async user(id: number): Promise<User> {
+    if (mode() === "api") return request(`/users/${id}`);
+    ownOrStaff(id, "members.read");
+    const user = readDemo().users.find((x) => x.id === id);
+    if (!user) throw new ApiError("Không tìm thấy thành viên.", 404);
+    return user;
+  },
+  /**
+   * Flow 1: đổi trạng thái ACTIVE/INACTIVE/BLOCKED của tài khoản, không đổi vai trò.
+   * Dùng PATCH /users/{id}/status với query status được encode.
+   */
+  async status(id: number, status: string): Promise<User> {
+    if (mode() === "api")
+      return request(
+        `/users/${id}/status?status=${encodeURIComponent(status)}`,
+        { method: "PATCH" },
+      );
+    requirePermission("members.update");
+    const db = readDemo();
+    const user = db.users.find((u) => u.id === id);
+    if (!user) throw new ApiError("Không tìm thấy tài khoản.");
+    if (!["ACTIVE", "INACTIVE", "BLOCKED"].includes(status))
+      throw new ApiError("Trạng thái không hợp lệ.");
+    if (
+      status !== "ACTIVE" &&
+      ["CENTER_MANAGER", "MANAGER"].includes(user.roleName) &&
+      db.users.filter(
+        (u) =>
+          ["CENTER_MANAGER", "MANAGER"].includes(u.roleName) &&
+          u.status === "ACTIVE",
+      ).length <= 1
+    )
+      throw new ApiError("Không thể khóa quản lý cuối cùng.");
+    user.status = status;
+    demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
+    return user;
   },
   /** HLV dùng endpoint tự lấy ID từ JWT; tham số client không được mở rộng lịch của HLV. */
   async classes(coachId?: number): Promise<SportClass[]> {
@@ -235,6 +350,11 @@ export const api = {
       );
     return readDemo().classes.filter((c) => !coachId || c.coachId === coachId);
   },
+  /**
+   * Flow 2: chưa có id thì POST tạo lớp, có id thì PUT cập nhật lớp.
+   * Nhánh demo kiểm tra sức chứa phòng, ID liên quan, lịch trùng phòng/HLV
+   * và không giảm sức chứa dưới số người đã đặt; API phải tự bảo đảm các quy tắc của nó.
+   */
   async saveClass(input: ClassInput, id?: number): Promise<SportClass> {
     if (mode() === "api")
       return id
@@ -298,26 +418,72 @@ export const api = {
     )
       throw new ApiError("Sức chứa nhỏ hơn số người đã đăng ký.");
     const c = { ...input, id: id || nextId(db.classes) };
-
+    const previous = db.classes.find((x) => x.id === id);
     if (id) db.classes = db.classes.map((x) => (x.id === id ? c : x));
     else db.classes.push(c);
-
+    if (
+      previous &&
+      (previous.scheduleTime !== c.scheduleTime ||
+        previous.coachId !== c.coachId ||
+        previous.roomId !== c.roomId)
+    )
+      notify(
+        db,
+        db.bookings
+          .filter((b) => b.classId === id && b.status === "BOOKED")
+          .map((b) => b.memberId),
+        "Thay đổi lịch học",
+        `${c.className}: ${c.scheduleTime}. Vui lòng kiểm tra lịch mới.`,
+        "/schedule",
+        getSession()!.user.id,
+        "SCHEDULE",
+      );
+    notify(
+      db,
+      [c.coachId],
+      id ? "Cập nhật lớp phụ trách" : "Phân công lớp học",
+      `${c.className} · ${c.scheduleTime}`,
+      "/schedule",
+      getSession()!.user.id,
+      "SCHEDULE",
+    );
     demoAudit(db, id ? "Cập nhật lớp học" : "Tạo lớp học", c.className);
     return c;
   },
+  /**
+   * Hủy chính lớp học khác với hủy một booking. Demo đổi lớp và các booking
+   * của lớp sang CANCELLED để thể hiện việc lớp không còn tổ chức.
+   */
   async cancelClass(id: number) {
     if (mode() === "api") return post(`/classes/${id}/cancel`);
     requirePermission("classes.manage");
     const db = readDemo();
     const c = db.classes.find((x) => x.id === id);
     if (!c) throw new ApiError("Lớp không tồn tại.");
-
+    notify(
+      db,
+      [
+        c.coachId,
+        ...db.bookings
+          .filter((b) => b.classId === id && b.status === "BOOKED")
+          .map((b) => b.memberId),
+      ],
+      "Lớp học đã hủy",
+      c.className,
+      "/schedule",
+      getSession()!.user.id,
+      "SCHEDULE",
+    );
     c.status = "CANCELLED";
     db.bookings.forEach((b) => {
       if (b.classId === id) b.status = "CANCELLED";
     });
     demoAudit(db, "Hủy lớp học", c.className);
   },
+  /**
+   * Đọc số chỗ còn lại để khóa nút đăng ký nếu đầy. Dữ liệu này chỉ là ảnh chụp
+   * tại thời điểm tải; backend phải kiểm tra lại khi nhận yêu cầu đặt chỗ.
+   */
   async capacity(id: number): Promise<number> {
     if (mode() === "api") return request(`/classes/${id}/capacity`);
     const db = readDemo();
@@ -358,177 +524,6 @@ export const api = {
         (!classId || b.classId === classId),
     );
   },
-
-  async login(email: string, password: string): Promise<Session> {
-    if (configuredMode === "demo") {
-      const user = readDemo().users.find(
-        (u) => u.email === email && u.status === "ACTIVE",
-      );
-      if (!user || password !== "Sportiva@123")
-        throw new ApiError(
-          "Dùng tài khoản demo và mật khẩu Sportiva@123, hoặc chọn vai trò bên dưới.",
-          401,
-        );
-      return { token: "demo-local-only", user, mode: "demo" };
-    }
-    const data = await post<{ token: string; user: User }>("/users/login", {
-      email,
-      password,
-    });
-    if (
-      !data?.token ||
-      !data.user?.id ||
-      ![
-        "CENTER_MANAGER",
-        "MANAGER",
-        "COACH",
-        "MEMBER",
-        "RECEPTIONIST",
-      ].includes(data.user.roleName)
-    )
-      throw new ApiError("Phản hồi đăng nhập không hợp lệ.");
-    return { ...data, mode: "api" };
-  },
-  async register(input: RegisterInput): Promise<User> {
-    if (configuredMode === "api" || mode() === "api")
-      return post("/users/register", input);
-    const db = readDemo();
-    if (db.users.some((u) => u.phone === input.phone))
-      throw new ApiError("Số điện thoại đã được sử dụng.");
-    if (
-      db.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())
-    )
-      throw new ApiError("Email đã được sử dụng.");
-    const user: User = {
-      id: nextId(db.users),
-      email: input.email,
-      fullName: input.fullName,
-      phone: input.phone,
-      roleName: "MEMBER",
-      status: "ACTIVE",
-      createdAt: dateTimeLocal(),
-    };
-    db.users.push(user);
-    demoAudit(db, "Tạo thành viên", user.fullName);
-    return user;
-  },
-  async users(): Promise<User[]> {
-    if (mode() === "api") return assertArray(await request<User[]>("/users"));
-    return readDemo().users;
-  },
-  async user(id: number): Promise<User> {
-    if (mode() === "api") return request(`/users/${id}`);
-    ownOrStaff(id, "members.read");
-    const user = readDemo().users.find((x) => x.id === id);
-    if (!user) throw new ApiError("Không tìm thấy thành viên.", 404);
-    return user;
-  },
-  async status(id: number, status: string): Promise<User> {
-    if (mode() === "api")
-      return request(
-        `/users/${id}/status?status=${encodeURIComponent(status)}`,
-        { method: "PATCH" },
-      );
-    requirePermission("members.update");
-    const db = readDemo();
-    const user = db.users.find((u) => u.id === id);
-    if (!user) throw new ApiError("Không tìm thấy tài khoản.");
-    if (!["ACTIVE", "INACTIVE", "BLOCKED"].includes(status))
-      throw new ApiError("Trạng thái không hợp lệ.");
-    if (
-      status !== "ACTIVE" &&
-      ["CENTER_MANAGER", "MANAGER"].includes(user.roleName) &&
-      db.users.filter(
-        (u) =>
-          ["CENTER_MANAGER", "MANAGER"].includes(u.roleName) &&
-          u.status === "ACTIVE",
-      ).length <= 1
-    )
-      throw new ApiError("Không thể khóa quản lý cuối cùng.");
-    user.status = status;
-    demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
-    return user;
-  },
-  /** Lịch sử gói theo thành viên; giữ các bản ghi hết hạn/đã hủy để tra cứu. */
-  async subscriptions(memberId: number): Promise<Subscription[]> {
-    if (mode() === "api")
-      return assertArray(
-        await request<Subscription[]>(`/memberships/members/${memberId}`),
-      );
-    ownOrStaff(memberId);
-    return readDemo().subscriptions.filter((s) => s.memberId === memberId);
-  },
-  /** Có renewId thì gia hạn; không có thì đăng ký mới. Backend tự tính ngày hiệu lực.
-   * Đăng ký gói và xác nhận thu tiền là hai nghiệp vụ riêng. */
-  async subscribe(
-    memberId: number,
-    packageId: number,
-    renewId?: number,
-  ): Promise<Subscription> {
-    if (mode() === "api")
-      return renewId
-        ? post(`/memberships/${renewId}/renew?packageId=${packageId}`)
-        : post("/memberships/subscribe", { memberId, packageId });
-    ownOrStaff(memberId);
-    const db = readDemo();
-    if (
-      !db.users.some(
-        (u) =>
-          u.id === memberId && u.roleName === "MEMBER" && u.status === "ACTIVE",
-      )
-    )
-      throw new ApiError("Thành viên không hoạt động.");
-    const pkg = db.packages.find((p) => p.id === packageId);
-    if (!pkg || pkg.status === "INACTIVE")
-      throw new ApiError("Gói tập không tồn tại.");
-    if (
-      !renewId &&
-      db.subscriptions.some(
-        (s) =>
-          s.memberId === memberId &&
-          s.status === "ACTIVE" &&
-          s.endDate >= localDate(),
-      )
-    )
-      throw new ApiError(
-        "Thành viên đã có gói đang hoạt động. Vui lòng chọn Gia hạn.",
-      );
-    if (renewId) {
-      const old = db.subscriptions.find(
-        (s) => s.id === renewId && s.memberId === memberId,
-      );
-      if (!old) throw new ApiError("Không tìm thấy gói cần gia hạn.");
-      old.status = "EXPIRED";
-    }
-    const sub = {
-      id: nextId(db.subscriptions),
-      memberId,
-      packageId,
-      startDate: localDate(),
-      endDate: localDate(addDays(pkg.durationDays)),
-      status: "ACTIVE",
-    };
-    db.subscriptions.push(sub);
-    demoAudit(
-      db,
-      renewId ? "Gia hạn gói tập" : "Đăng ký gói tập",
-      `${pkg.name} · TV${memberId}`,
-    );
-    return sub;
-  },
-  /** Hủy hiệu lực gói, giữ lịch sử; thao tác này không tự hoàn tiền. */
-  async cancelSubscription(id: number, memberId: number) {
-    if (mode() === "api") return post(`/memberships/${id}/cancel`);
-    ownOrStaff(memberId);
-    const db = readDemo();
-    const s = db.subscriptions.find(
-      (x) => x.id === id && x.memberId === memberId,
-    );
-    if (!s) throw new ApiError("Không tìm thấy gói tập.");
-    s.status = "CANCELLED";
-    demoAudit(db, "Hủy gói tập", `Gói đăng ký #${id}`);
-  },
-
   /**
    * Flow 2: POST /classes/{classId}/book?memberId=...; memberId nằm ở query,
    * không gửi JSON body. Demo kiểm tra lớp còn mở/chưa bắt đầu, trùng đăng ký
@@ -583,6 +578,125 @@ export const api = {
     ownOrStaff(b.memberId, "bookings.assist");
     b.status = "CANCELLED";
     demoAudit(db, "Hủy đăng ký lớp", `Đăng ký #${id}`);
+  },
+  /**
+   * Flow 1: đọc lịch sử các gói mà một thành viên đã đăng ký; khác danh mục gói bán.
+   */
+  async subscriptions(memberId: number): Promise<Subscription[]> {
+    if (mode() === "api")
+      return assertArray(
+        await request<Subscription[]>(`/memberships/members/${memberId}`),
+      );
+    ownOrStaff(memberId);
+    return readDemo().subscriptions.filter((s) => s.memberId === memberId);
+  },
+  /**
+   * Có renewId: gọi gia hạn bằng POST /memberships/{id}/renew?packageId=...;
+   * không có renewId: POST /memberships/subscribe với memberId và packageId.
+   * Demo tạo hóa đơn chờ thu cùng đăng ký; API hiện vẫn tách hai thao tác ở backend.
+   */
+  async subscribe(
+    memberId: number,
+    packageId: number,
+    renewId?: number,
+  ): Promise<Subscription> {
+    if (mode() === "api")
+      return renewId
+        ? post(`/memberships/${renewId}/renew?packageId=${packageId}`)
+        : post("/memberships/subscribe", { memberId, packageId });
+    ownOrStaff(memberId);
+    const db = readDemo();
+    if (
+      !db.users.some(
+        (u) =>
+          u.id === memberId && u.roleName === "MEMBER" && u.status === "ACTIVE",
+      )
+    )
+      throw new ApiError("Thành viên không hoạt động hoặc không đúng vai trò.");
+    const pkg = db.packages.find((p) => p.id === packageId);
+    if (!pkg || pkg.status === "INACTIVE")
+      throw new ApiError("Gói tập không tồn tại hoặc ngừng bán.");
+    if (
+      !renewId &&
+      db.subscriptions.some(
+        (s) =>
+          s.memberId === memberId &&
+          s.status === "ACTIVE" &&
+          s.endDate >= localDate(),
+      )
+    )
+      throw new ApiError(
+        "Thành viên đã có gói đang hoạt động. Vui lòng chọn Gia hạn.",
+      );
+    // Gia hạn một bản ghi cũ không được tạo thêm gói song song với gói đang dùng.
+    if (
+      renewId &&
+      db.subscriptions.some(
+        (s) =>
+          s.memberId === memberId &&
+          s.id !== renewId &&
+          s.status === "ACTIVE" &&
+          s.endDate >= localDate(),
+      )
+    )
+      throw new ApiError(
+        "Thành viên đang có gói khác còn hiệu lực. Hãy gia hạn gói đang dùng.",
+      );
+    if (renewId) {
+      const old = db.subscriptions.find(
+        (s) => s.id === renewId && s.memberId === memberId,
+      );
+      if (!old) throw new ApiError("Không tìm thấy gói cần gia hạn.");
+      old.status = "EXPIRED";
+    }
+    const sub = {
+      id: nextId(db.subscriptions),
+      memberId,
+      packageId,
+      startDate: localDate(),
+      endDate: localDate(addDays(pkg.durationDays)),
+      status: "ACTIVE",
+    };
+    db.subscriptions.push(sub);
+    const invoice = {
+      id: nextId(db.invoices),
+      memberId,
+      subscriptionId: sub.id,
+      amount: pkg.price,
+      paymentMethod: "BANK_TRANSFER",
+      paymentStatus: "PENDING",
+      createdAt: dateTimeLocal(),
+    };
+    db.invoices.unshift(invoice);
+    notify(
+      db,
+      [memberId],
+      "Gói tập đang chờ thu tiền",
+      `${pkg.name}. Mở hóa đơn #${invoice.id} để xem thông tin thanh toán.`,
+      "/payments",
+      getSession()!.user.id,
+      "MEMBERSHIP",
+    );
+    demoAudit(
+      db,
+      renewId ? "Gia hạn gói tập" : "Đăng ký gói tập",
+      `${pkg.name} · TV${memberId}`,
+    );
+    return sub;
+  },
+  /**
+   * Hủy hiệu lực gói; thao tác này không tự hoàn tiền hóa đơn đã thanh toán.
+   */
+  async cancelSubscription(id: number, memberId: number) {
+    if (mode() === "api") return post(`/memberships/${id}/cancel`);
+    ownOrStaff(memberId);
+    const db = readDemo();
+    const s = db.subscriptions.find(
+      (x) => x.id === id && x.memberId === memberId,
+    );
+    if (!s) throw new ApiError("Không tìm thấy gói tập.");
+    s.status = "CANCELLED";
+    demoAudit(db, "Hủy gói tập", `Gói đăng ký #${id}`);
   },
   /**
    * Flow 3: có memberId thì lấy hóa đơn của thành viên. Chưa chọn memberId thì
@@ -763,4 +877,50 @@ export const api = {
     demoAudit(db, "Điểm danh", `TV${input.memberId} · Lớp #${input.classId}`);
     return a;
   },
+
+  /** API danh mục mới của backend: đổi tên trường DTO sang kiểu frontend, không lấy tên demo thay thế. */
+  async sports(): Promise<Sport[]> {
+    if (mode() !== "api") return readDemo().sports;
+    const rows = assertArray(
+      await request<{ id: number; sportName: string; description?: string }[]>(
+        "/sports",
+      ),
+    );
+    return rows.map((s) => ({
+      id: s.id,
+      name: s.sportName,
+      description: s.description || "",
+    }));
+  },
+  async rooms(): Promise<FacilityRoom[]> {
+    if (mode() !== "api") return readDemo().rooms;
+    const rows = assertArray(
+      await request<{ id: number; roomName: string; capacity: number }[]>(
+        "/rooms",
+      ),
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.roomName,
+      capacity: r.capacity,
+      description: "",
+    }));
+  },
 };
+/**
+ * Cổng ghi dữ liệu cho module chưa có API. Chỉ chạy trong demo, nhận callback
+ * đổi dữ liệu rồi lưu localStorage và ghi nhật ký. API mode sẽ báo chưa có endpoint
+ * thay vì âm thầm ghi dữ liệu cục bộ và khiến người dùng tưởng đã lưu lên server.
+ */
+export function updateDemo<T>(
+  action: string,
+  detail: string,
+  fn: (db: ReturnType<typeof readDemo>) => T,
+): T {
+  if (mode() !== "demo") throw new ApiError("Chức năng chưa có API backend.");
+  const db = readDemo();
+  const result = fn(db);
+  saveDemo(db);
+  demoAudit(db, action, detail);
+  return result;
+}

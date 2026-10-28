@@ -1,3 +1,4 @@
+/** Giữ bộ dữ liệu đã dùng để kiểm thử các phần phát hành trước. */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -46,7 +47,6 @@ function page(path: string, role: Role) {
 }
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.resetModules();
 });
 
 describe("Lớp học và lịch hoạt động — phần 5", () => {
@@ -179,6 +179,10 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     const bookings = vi.spyOn(api, "bookings");
     const user = userEvent.setup();
     const client = page("/classes", "MEMBER");
+    // Fixture này chưa mua gói; tắt bộ lọc để xem lớp ngoài quyền lợi hiện tại.
+    await user.click(
+      await screen.findByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
+    );
     await user.click(
       (await screen.findAllByRole("button", { name: "Xem lớp học" }))[0],
     );
@@ -325,3 +329,5 @@ describe("Hợp đồng HTTP với backend main mới", () => {
     );
   });
 });
+
+vi.mock("../lib/demo", () => import("./fixtures/published-demo-fixture"));

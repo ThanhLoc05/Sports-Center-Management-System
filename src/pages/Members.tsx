@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUsers, useAction } from "../lib/hooks";
 import { usePermissions } from "../lib/hooks";
 import { ProfileEditor } from "../components/ProfileEditor";
+import { TeamRoleAssignment } from "../components/TeamRoleAssignment";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -29,6 +30,7 @@ import {
   Button,
   Confirm,
   DataTable,
+  Empty,
   ErrorState,
   ExportButton,
   Field,
@@ -56,7 +58,7 @@ export default function Members({ team = false }: { team?: boolean }) {
   const [change, setChange] = useState<{ user: User; status: string } | null>(
     null,
   );
-
+  const [lookup, setLookup] = useState("");
   const client = useQueryClient();
   const toast = useToast();
   const manager = can("members.update");
@@ -175,9 +177,41 @@ export default function Members({ team = false }: { team?: boolean }) {
       {!demo && !manager ? (
         <Panel title="Hỗ trợ thành viên tại quầy">
           <Notice>
-            Backend hiện chỉ cho quản lý xem danh sách/hồ sơ người khác. Lễ tân
-            vẫn có thể tạo thành viên mới tại quầy.
+            Backend hiện chỉ cho quản lý tìm kiếm và xem hồ sơ người khác. Lễ
+            tân có thể thao tác gói tập, booking, điểm danh và hóa đơn bằng ID
+            thành viên.
           </Notice>
+          <form
+            className="inline-lookup"
+            onSubmit={(e) => {
+              e.preventDefault();
+            }}
+          >
+            <Field label="ID thành viên">
+              <input
+                type="number"
+                min="1"
+                required
+                value={lookup}
+                onChange={(e) => setLookup(e.target.value)}
+                placeholder="Nhập ID để hỗ trợ"
+              />
+            </Field>
+            <Link
+              className="btn btn-primary"
+              to={`/memberships?memberId=${encodeURIComponent(lookup)}`}
+            >
+              Gói thành viên
+              <ArrowUpRight size={16} />
+            </Link>
+            <Link
+              className="btn btn-secondary"
+              to={`/bookings?memberId=${encodeURIComponent(lookup)}`}
+            >
+              Đăng ký lớp
+              <ArrowUpRight size={16} />
+            </Link>
+          </form>
         </Panel>
       ) : (
         <Panel>
@@ -393,7 +427,15 @@ export default function Members({ team = false }: { team?: boolean }) {
           </Field>
         </FormModal>
       )}
-      {detail && <MemberDetail user={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <MemberDetail
+          key={detail.id}
+          user={detail}
+          team={team}
+          onRoleSaved={setDetail}
+          onClose={() => setDetail(null)}
+        />
+      )}
       {change && (
         <Confirm
           title="Cập nhật trạng thái tài khoản?"
@@ -407,65 +449,129 @@ export default function Members({ team = false }: { team?: boolean }) {
   );
 }
 /**
- * Chi tiết ghép thông tin User với lịch sử gói đã đăng ký của user.id.
+ * Chi tiết ghép thông tin User với lịch sử gói và booking của user.id.
  * Mỗi query có ID trong key để hồ sơ người này không dùng dữ liệu cache người khác.
  */
-function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
+function MemberDetail({
+  user,
+  team,
+  onRoleSaved,
+  onClose,
+}: {
+  user: User;
+  team: boolean;
+  onRoleSaved: (updated: User) => void;
+  onClose: () => void;
+}) {
+  const member = user.roleName === "MEMBER";
   const subs = useQuery({
     queryKey: ["subscriptions", user.id],
     queryFn: () => api.subscriptions(user.id),
+    enabled: member,
+  });
+  const bookings = useQuery({
+    queryKey: ["bookings", user.id],
+    queryFn: () => api.bookings(user.id),
+    enabled: member,
   });
   return (
-    <Modal title="Thông tin thành viên" onClose={onClose} wide>
-      <div className="member-detail-header">
-        <Avatar name={user.fullName} size="large" />
-        <div>
-          <h2>{user.fullName}</h2>
-          <p>
-            {user.email} · {user.phone}
-          </p>
-          <Badge status={user.status} />
+    <Modal title="Thông tin tài khoản" onClose={onClose} wide>
+      <div className="member-detail">
+        <div className="member-detail-header">
+          <Avatar name={user.fullName} size="large" index={user.id} />
+          <div>
+            <h2>{user.fullName}</h2>
+            <p>
+              {idLabel(user.id)} · {roleLabels[user.roleName]}
+            </p>
+            <Badge status={user.status} />
+          </div>
         </div>
-      </div>
-      <div className="detail-grid">
-        <div>
-          <span>Mục tiêu tập luyện</span>
-          <strong>{user.fitnessGoals || "Chưa cung cấp"}</strong>
+        <div className="detail-grid">
+          <div>
+            <span>Mục tiêu tập luyện</span>
+            <strong>{user.fitnessGoals || "Chưa cung cấp"}</strong>
+          </div>
+          <div>
+            <span>Trình độ</span>
+            <strong>{user.level || "Chưa cung cấp"}</strong>
+          </div>
+          <div>
+            <span>Địa chỉ</span>
+            <strong>{user.address || "Chưa cung cấp"}</strong>
+          </div>
+          <div>
+            <span>Chuyên môn</span>
+            <strong>{user.specialties || "Chưa cung cấp"}</strong>
+          </div>
+          <div>
+            <span>Email</span>
+            <strong>{user.email}</strong>
+            {team && (
+              <TeamRoleAssignment
+                key={user.id + user.roleName}
+                user={user}
+                onSaved={onRoleSaved}
+              />
+            )}
+          </div>
+          <div>
+            <span>Điện thoại</span>
+            <strong>{user.phone || "Chưa cung cấp"}</strong>
+          </div>
         </div>
-        <div>
-          <span>Trình độ</span>
-          <strong>{user.level || "Chưa cung cấp"}</strong>
-        </div>
-        <div>
-          <span>Địa chỉ</span>
-          <strong>{user.address || "Chưa cung cấp"}</strong>
-        </div>
-      </div>
-      <h3>Lịch sử gói tập</h3>
-      {subs.isPending ? (
-        <Loading />
-      ) : subs.error ? (
-        <ErrorState error={subs.error} retry={subs.refetch} />
-      ) : (
-        <div className="detail-sub-list">
-          {subs.data?.length ? (
-            subs.data.map((s) => (
-              <div key={s.id}>
-                <strong>Gói #{s.packageId}</strong>
-                <small>
-                  {dateLabel(s.startDate)} – {dateLabel(s.endDate)}
-                </small>
-                <Badge status={s.status} />
+        {member && (
+          <>
+            <h3>Lịch sử gói tập</h3>
+            {subs.isPending ? (
+              <Loading />
+            ) : subs.error ? (
+              <ErrorState error={subs.error} retry={subs.refetch} />
+            ) : subs.data?.length ? (
+              <div className="detail-sub-list">
+                {subs.data.map((s) => (
+                  <div key={s.id}>
+                    <div>
+                      <strong>Gói #{s.packageId}</strong>
+                      <small>
+                        {dateLabel(s.startDate)} – {dateLabel(s.endDate)}
+                      </small>
+                    </div>
+                    <Badge status={s.status} />
+                  </div>
+                ))}
               </div>
-            ))
-          ) : (
-            <p>Chưa đăng ký gói tập.</p>
-          )}
-        </div>
-      )}
-      <Link to={`/memberships?memberId=${user.id}`} className="btn btn-primary">
-        Quản lý gói tập
-      </Link>
+            ) : (
+              <Empty
+                title="Chưa có gói tập"
+                description="Đăng ký gói để bắt đầu hành trình."
+              />
+            )}
+            <div className="detail-booking-count">
+              <span>Lớp đang đăng ký</span>
+              <strong>
+                {bookings.data?.filter((b) => b.status === "BOOKED").length ??
+                  "—"}
+              </strong>
+            </div>
+            <div className="detail-actions">
+              <Link
+                className="btn btn-primary"
+                to={`/memberships?memberId=${user.id}`}
+              >
+                Quản lý gói tập
+                <ArrowUpRight size={16} />
+              </Link>
+              <Link
+                className="btn btn-secondary"
+                to={`/bookings?memberId=${user.id}`}
+              >
+                Xem đăng ký lớp
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
     </Modal>
   );
 }

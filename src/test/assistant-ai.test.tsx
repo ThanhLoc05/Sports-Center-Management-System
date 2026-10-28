@@ -254,8 +254,7 @@ describe("Gemini qua cổng riêng Vercel", () => {
       goal: "Tăng sức mạnh",
       level: "Mới bắt đầu",
       duration: 30,
-      completedSessions: readDemo().logs.filter((log) => log.memberId === 10)
-        .length,
+      completedSessions: 1,
     });
     expect(readDemo().plans).toHaveLength(before);
     await user.click(

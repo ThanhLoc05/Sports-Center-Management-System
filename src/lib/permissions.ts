@@ -1,11 +1,11 @@
 import type { Role, Session, DemoDatabase } from "./types";
-/** Quyền giao diện/demo; API mode không lấy quyền tự cấp từ localStorage. */
+/** Quyền cố định theo vai trò; bỏ qua mọi cấu hình cấp/thu hồi quyền cũ trong trình duyệt. Backend vẫn kiểm tra quyền API. */
 export const permissionLabels = {
   "members.read": "Xem danh sách thành viên",
   "members.create": "Tạo thành viên",
   "members.update": "Sửa hồ sơ/trạng thái",
   "team.manage": "Quản lý nhân viên",
-  "roles.manage": "Quản lý vai trò và quyền",
+  "roles.manage": "Phân vai trò tài khoản",
   "classes.manage": "Tạo/sửa/hủy lớp",
   "classes.roster": "Xem danh sách học viên của lớp",
   "packages.manage": "Quản lý danh mục gói",
@@ -57,8 +57,7 @@ export function can(
       : session.user;
   if (!user || user.status !== "ACTIVE") return false;
   const role = user.roleName === "MANAGER" ? "CENTER_MANAGER" : user.roleName;
-  const custom = session.mode === "demo" ? db?.permissions?.[role] : undefined;
-  return (custom || defaultPermissions[role]).includes(permission);
+  return defaultPermissions[role].includes(permission);
 }
 export const routePermissions: Record<string, Permission> = {
   "/members": "members.read",
@@ -66,12 +65,11 @@ export const routePermissions: Record<string, Permission> = {
   "/facilities": "facilities.manage",
   "/reports": "reports.read",
   "/audit": "audit.read",
-  "/permissions": "roles.manage",
   "/students": "training.manage",
   "/packages": "packages.manage",
 };
 /** Các trang tự phục vụ luôn giữ quyền xem dữ liệu của chính thành viên.
- * Với nhân viên, menu và URL cùng xét quyền thao tác do quản lý cấp. */
+ * Với nhân viên, menu và URL cùng xét quyền thao tác cố định của từng vai trò. */
 export function routeAllowed(
   session: Session | null,
   path: string,

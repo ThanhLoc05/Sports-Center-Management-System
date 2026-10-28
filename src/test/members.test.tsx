@@ -1,3 +1,4 @@
+/** Giữ bộ dữ liệu đã dùng để kiểm thử các phần phát hành trước. */
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -151,3 +152,5 @@ describe("Quản lý thành viên", () => {
     expect(readDemo().users[0].fullName).not.toBe("Không lưu giả");
   });
 });
+
+vi.mock("../lib/demo", () => import("./fixtures/published-demo-fixture"));

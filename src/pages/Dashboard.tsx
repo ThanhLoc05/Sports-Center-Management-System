@@ -250,10 +250,10 @@ export default function Dashboard() {
             ) : (
               <Link
                 className="btn btn-primary"
-                to={coach ? "/assistant" : "/classes"}
+                to={coach ? "/training?new=1" : "/classes"}
               >
                 <Plus size={17} />
-                {coach ? "Gợi ý bài tập" : "Khám phá lớp học"}
+                {coach ? "Tạo kế hoạch" : "Khám phá lớp học"}
               </Link>
             )}
           </>
@@ -579,7 +579,7 @@ export default function Dashboard() {
                       ? "Theo dõi lịch dạy, điểm danh và xây dựng kế hoạch phù hợp cho từng học viên."
                       : "Chào đón thành viên, theo dõi lượt đến và hỗ trợ mỗi người có một buổi tập trọn vẹn."}
                 </p>
-                <TextLink to={member ? "/assistant" : "/attendance"}>
+                <TextLink to={member ? "/training" : "/attendance"}>
                   {member ? "Xem kế hoạch tập luyện" : "Điểm danh lớp học"}
                 </TextLink>
               </div>
@@ -632,9 +632,9 @@ export default function Dashboard() {
                     tone: "green",
                   },
                   {
-                    to: "/assistant",
+                    to: "/training",
                     icon: Target,
-                    title: "Gợi ý buổi tập",
+                    title: "Kế hoạch tập",
                     desc: "Từng bước tiến bộ",
                     tone: "orange",
                   },
@@ -669,7 +669,7 @@ export default function Dashboard() {
                 );
               })
               .map((a) => (
-                <Link key={a.to + a.title} to={a.to} className="quick-action">
+                <Link key={a.to} to={a.to} className="quick-action">
                   <span className={`quick-icon ${a.tone}`}>
                     <a.icon size={20} />
                   </span>

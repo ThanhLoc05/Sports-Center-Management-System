@@ -44,7 +44,7 @@ import {
   Panel,
 } from "../components/ui";
 import { methodLabels } from "./Payments";
-import { OperationsReport } from "../components/OperationsReport";
+import { OperationsReport } from "./Management";
 export default function Reports() {
   const { session } = useAuth();
   const demo = session!.mode === "demo";

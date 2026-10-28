@@ -28,7 +28,9 @@ export function useDemoData() {
     subscribeDemo,
     () =>
       session?.mode === "demo"
-        ? localStorage.getItem("sportiva-auth-demo-v1") || ""
+        ? localStorage.getItem("sportiva-demo-v1") ||
+          localStorage.getItem("sportiva-auth-demo-v1") ||
+          ""
         : "",
     () => "",
   );
