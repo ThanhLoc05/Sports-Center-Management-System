@@ -50,3 +50,12 @@ test-results/
 .local/
 # Metadata triển khai chỉ lưu trên máy
 .vercel/
+
+# Tài liệu cá nhân và ảnh kiểm thử chỉ giữ trên máy, không đưa lên Git.
+/docs/screenshots/
+/docs/BAO-CAO*.md
+/docs/GIAI-THICH-FRONTEND.md
+/docs/LUONG-NGHIEP-VU.md
+/docs/API-GIA-HAN-THANH-TOAN.md
+/docs/KICH-BAN-DEMO*.md
+/HUONG-DAN-BAN-GIAO.*
