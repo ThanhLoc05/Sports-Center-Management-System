@@ -3,10 +3,12 @@ import { BankSettings } from "./components/PaymentQr";
 import Payments from "./pages/Payments";
 import { MembershipNotifications } from "./components/MembershipCheckout";
 import Attendance from "./pages/Attendance";
+import Reports from "./pages/Reports";
+import Dashboard from "./pages/Dashboard";
 /** Router của các phần đã đưa lên main. Mỗi route có vai trò cụ thể; kiểm tra FE không thay thế quyền trên backend. */
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
-import { Notice, PageHeader, Panel } from "./components/ui";
+import { PageHeader, Panel } from "./components/ui";
 import { useAuth } from "./lib/auth";
 import { isManager, roleLabels } from "./lib/types";
 import type { Role } from "./lib/types";
@@ -88,6 +90,8 @@ function WorkspaceLayout() {
       session!.user.roleName === "MEMBER" ? "Lịch sử điểm danh" : "Điểm danh",
   });
   if (isManager(session!.user.roleName))
+    items.push({ to: "/reports", label: "Báo cáo doanh thu" });
+  if (isManager(session!.user.roleName))
     items.push({ to: "/payment-settings", label: "Tài khoản nhận tiền & QR" });
   return (
     <Layout
@@ -98,32 +102,6 @@ function WorkspaceLayout() {
       }}
       onSignOut={signOut}
     />
-  );
-}
-function Welcome() {
-  const { session } = useAuth();
-  const user = session!.user;
-  const titles: Record<Role, string> = {
-    CENTER_MANAGER: "Không gian quản lý trung tâm",
-    MANAGER: "Không gian quản lý trung tâm",
-    COACH: "Không gian huấn luyện viên",
-    MEMBER: "Không gian thành viên",
-    RECEPTIONIST: "Không gian lễ tân",
-  };
-  return (
-    <>
-      <PageHeader
-        title={titles[user.roleName]}
-        description={`Xin chào, ${user.fullName}.`}
-      />
-      <Panel title="Tài khoản của bạn">
-        <p>{user.email}</p>
-        <p>{roleLabels[user.roleName]}</p>
-      </Panel>
-      {session!.mode === "demo" && (
-        <Notice>Dữ liệu minh họa trên trình duyệt.</Notice>
-      )}
-    </>
   );
 }
 function Access() {
@@ -154,7 +132,7 @@ export default function App() {
       <Route path="/register" element={<AuthPage key="register" register />} />
       <Route element={<Protected />}>
         <Route element={<WorkspaceLayout />}>
-          <Route index element={<Welcome />} />
+          <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="classes" element={<Classes />} />
@@ -181,6 +159,7 @@ export default function App() {
           </Route>
           <Route element={<Protected roles={["CENTER_MANAGER", "MANAGER"]} />}>
             <Route path="/access" element={<Access />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="packages" element={<PackagesPage />} />
             <Route
               path="payment-settings"

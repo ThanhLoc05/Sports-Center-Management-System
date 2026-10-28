@@ -33,10 +33,10 @@ async function register(confirm = "test-password") {
 }
 describe("Form và không gian theo vai trò", () => {
   it.each([
-    ["Quản lý trung tâm", "Không gian quản lý trung tâm"],
-    ["Huấn luyện viên", "Không gian huấn luyện viên"],
-    ["Thành viên", "Không gian thành viên"],
-    ["Nhân viên lễ tân", "Không gian lễ tân"],
+    ["Quản lý trung tâm", "Chào Lộc, ngày mới tốt lành"],
+    ["Huấn luyện viên", "Chào Hương, ngày mới tốt lành"],
+    ["Thành viên", "Chào Anh, ngày mới tốt lành"],
+    ["Nhân viên lễ tân", "Chào Trang, ngày mới tốt lành"],
   ])("opens %s and logs out", async (role, title) => {
     page();
     await userEvent.click(screen.getByRole("button", { name: role }));
@@ -95,7 +95,9 @@ describe("Form và không gian theo vai trò", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
     expect(
-      await screen.findByRole("heading", { name: "Không gian thành viên" }),
+      await screen.findByRole("heading", {
+        name: "Chào thử, ngày mới tốt lành",
+      }),
     ).toBeVisible();
   });
 });
