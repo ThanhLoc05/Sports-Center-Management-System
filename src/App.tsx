@@ -1,4 +1,5 @@
 import Bookings from "./pages/Bookings";
+import { BankSettings } from "./components/PaymentQr";
 /** Router của các phần đã đưa lên main. Mỗi route có vai trò cụ thể; kiểm tra FE không thay thế quyền trên backend. */
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -74,6 +75,8 @@ function WorkspaceLayout() {
         ? "Danh sách đăng ký lớp"
         : "Đăng ký lớp",
   });
+  if (isManager(session!.user.roleName))
+    items.push({ to: "/payment-settings", label: "Tài khoản nhận tiền & QR" });
   return (
     <Layout
       items={items}
@@ -165,6 +168,18 @@ export default function App() {
           <Route element={<Protected roles={["CENTER_MANAGER", "MANAGER"]} />}>
             <Route path="/access" element={<Access />} />
             <Route path="packages" element={<PackagesPage />} />
+            <Route
+              path="payment-settings"
+              element={
+                <>
+                  <PageHeader
+                    title="Tài khoản nhận tiền & QR"
+                    description="Cấu hình tài khoản nhận tiền trên trình duyệt. Khi có cấu hình chung từ server, hóa đơn ưu tiên dữ liệu server."
+                  />
+                  <BankSettings />
+                </>
+              }
+            />
           </Route>
           <Route
             path="*"

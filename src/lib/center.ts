@@ -1,3 +1,6 @@
+import type { TrainingPlan } from "./types";
+import { coachMembers, planMembers } from "./entitlements";
+import { notify } from "./notifications";
 /** Ghi hồ sơ demo; không giả lập thành công khi thiếu API cập nhật. */
 import type { User, Package } from "./types";
 import { ApiError, getSession, updateDemo } from "./api";
@@ -114,4 +117,104 @@ export function savePackage(input: Omit<Package, "id">, id?: number) {
     else db.packages.push(pkg);
     return pkg;
   });
+}
+
+export function reportTransfer(invoiceId: number) {
+  const actor = getSession();
+  return updateDemo("Báo đã chuyển khoản", `Hóa đơn #${invoiceId}`, (db) => {
+    const invoice = db.invoices.find(
+      (i) => i.id === invoiceId && i.memberId === actor?.user.id,
+    );
+    if (!invoice || invoice.paymentStatus !== "PENDING")
+      throw new ApiError("Chỉ báo giao dịch cho hóa đơn chờ thu của mình.");
+    if (invoice.transferReportedAt)
+      throw new ApiError("Đã gửi báo giao dịch, vui lòng chờ lễ tân kiểm tra.");
+    invoice.transferReportedAt = dateTimeLocal();
+    notify(
+      db,
+      db.users
+        .filter((u) =>
+          can({ token: "demo", user: u, mode: "demo" }, "payments.collect", db),
+        )
+        .map((u) => u.id),
+      "Cần đối chiếu chuyển khoản",
+      `Hóa đơn #${invoiceId}. Chỉ xác nhận khi đã nhận tiền.`,
+      `/payments?memberId=${invoice.memberId}`,
+      actor!.user.id,
+      "PAYMENT",
+    );
+  });
+}
+
+export function savePlan(
+  input: Omit<TrainingPlan, "id" | "createdAt">,
+  id?: number,
+) {
+  const actor = requireDemoPermission("training.manage");
+  return updateDemo(
+    id ? "Sửa kế hoạch" : "Giao kế hoạch",
+    input.title,
+    (db) => {
+      const old = db.plans.find((p) => p.id === id);
+      if (id && !old) throw new ApiError("Không tìm thấy kế hoạch cần sửa.");
+      if (
+        !db.users.some(
+          (u) =>
+            u.id === input.coachId &&
+            u.roleName === "COACH" &&
+            u.status === "ACTIVE",
+        )
+      )
+        throw new ApiError("HLV không hợp lệ.");
+      if (
+        !input.classId &&
+        !db.users.some(
+          (u) =>
+            u.id === input.memberId &&
+            u.roleName === "MEMBER" &&
+            u.status === "ACTIVE",
+        )
+      )
+        throw new ApiError("Học viên không hoạt động.");
+      if (
+        actor.roleName === "COACH" &&
+        ((old && old.coachId !== actor.id) || input.coachId !== actor.id)
+      )
+        throw new ApiError("Chỉ quản lý kế hoạch mình phụ trách.", 403);
+      if (
+        input.classId &&
+        !db.classes.some(
+          (c) =>
+            c.id === input.classId &&
+            (actor.roleName !== "COACH" || c.coachId === actor.id),
+        )
+      )
+        throw new ApiError("Lớp không thuộc phạm vi phụ trách.", 403);
+      if (
+        !input.classId &&
+        actor.roleName === "COACH" &&
+        !coachMembers(db, actor.id).some((u) => u.id === input.memberId)
+      )
+        throw new ApiError("Học viên không thuộc phạm vi phụ trách.", 403);
+      if (!input.title.trim() || !input.exercises.trim())
+        throw new ApiError("Tên kế hoạch và bài tập là bắt buộc.");
+      const plan = {
+        ...input,
+        id: id || Math.max(0, ...db.plans.map((p) => p.id)) + 1,
+        createdAt: old?.createdAt || dateTimeLocal(),
+      };
+      if (id) db.plans = db.plans.map((p) => (p.id === id ? plan : p));
+      else db.plans.push(plan);
+      notify(
+        db,
+        planMembers(plan, db),
+        "Kế hoạch / bài tập từ HLV",
+        `${plan.title}. ${plan.notes}`,
+        "/training",
+        actor.id,
+        "HOMEWORK",
+      );
+      return plan;
+    },
+  );
 }
