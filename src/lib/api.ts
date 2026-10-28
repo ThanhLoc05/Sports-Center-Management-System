@@ -1,3 +1,12 @@
+import type {
+  Invoice,
+  InvoiceInput,
+  Attendance,
+  AttendanceInput,
+} from "./types";
+import { classEligibility } from "./entitlements";
+import { notify } from "./notifications";
+/** Các API đã phát hành được giữ nguyên; bổ sung booking, hóa đơn, doanh thu và điểm danh. */
 /** API đã đưa lên main: xác thực, hồ sơ, gói tập, lớp học và lịch hoạt động. Backend kiểm tra quyền trên dữ liệu thật. */
 import type {
   Mode,
@@ -16,7 +25,9 @@ import { can } from "./permissions";
 import type { Permission } from "./permissions";
 import { addDays, localDate, dateTimeLocal, parseDate } from "./utils";
 export const configuredMode: Mode =
-  import.meta.env.VITE_DATA_MODE === "demo" ? "demo" : "api";
+  import.meta.env.MODE === "test" && import.meta.env.VITE_DATA_MODE === "demo"
+    ? "demo"
+    : "api";
 
 export class ApiError extends Error {
   status: number;
@@ -516,5 +527,240 @@ export const api = {
     if (!s) throw new ApiError("Không tìm thấy gói tập.");
     s.status = "CANCELLED";
     demoAudit(db, "Hủy gói tập", `Gói đăng ký #${id}`);
+  },
+
+  /**
+   * Flow 2: POST /classes/{classId}/book?memberId=...; memberId nằm ở query,
+   * không gửi JSON body. Demo kiểm tra lớp còn mở/chưa bắt đầu, trùng đăng ký
+   * và còn chỗ rồi lưu BOOKED. Lỗi API không được coi là đăng ký thành công.
+   */
+  async book(classId: number, memberId: number): Promise<Booking> {
+    if (mode() === "api")
+      return post(`/classes/${classId}/book?memberId=${memberId}`);
+    ownOrStaff(memberId, "bookings.assist");
+    const db = readDemo();
+    const c = db.classes.find((x) => x.id === classId);
+    if (
+      !c ||
+      c.status !== "SCHEDULED" ||
+      parseDate(c.scheduleTime) <= new Date()
+    )
+      throw new ApiError("Lớp không còn mở đăng ký.");
+    if (
+      db.bookings.some(
+        (b) =>
+          b.memberId === memberId &&
+          b.classId === classId &&
+          b.status === "BOOKED",
+      )
+    )
+      throw new ApiError("Thành viên đã đăng ký lớp này.");
+    // Kiểm tra và ghi trong cùng lượt xử lý demo, tránh hai thao tác cùng lấy chỗ cuối.
+    const eligibility = classEligibility(db, classId, memberId);
+    if (!eligibility.allowed) throw new ApiError(eligibility.reason);
+    const booking = {
+      id: nextId(db.bookings),
+      classId,
+      memberId,
+      status: "BOOKED",
+      bookedAt: dateTimeLocal(),
+      subscriptionId: eligibility.subscription?.id,
+    };
+    db.bookings.push(booking);
+    demoAudit(db, "Đăng ký lớp", `${c.className} · TV${memberId}`);
+    return booking;
+  },
+  /**
+   * Hủy một lượt đăng ký bằng DELETE /bookings/{id}. Demo giữ bản ghi và chuyển
+   * sang CANCELLED để trả chỗ; không xóa lớp học.
+   */
+  async cancelBooking(id: number) {
+    if (mode() === "api")
+      return request(`/bookings/${id}`, { method: "DELETE" });
+    const db = readDemo();
+    const b = db.bookings.find((x) => x.id === id);
+    if (!b) throw new ApiError("Không tìm thấy đăng ký.");
+    ownOrStaff(b.memberId, "bookings.assist");
+    b.status = "CANCELLED";
+    demoAudit(db, "Hủy đăng ký lớp", `Đăng ký #${id}`);
+  },
+  /**
+   * Flow 3: có memberId thì lấy hóa đơn của thành viên. Chưa chọn memberId thì
+   * API chỉ trả hóa đơn PENDING, không phải toàn bộ lịch sử thu tiền của trung tâm.
+   */
+  async invoices(memberId?: number): Promise<Invoice[]> {
+    if (mode() === "api")
+      return assertArray(
+        await request<Invoice[]>(
+          memberId
+            ? `/payments/members/${memberId}/invoices`
+            : "/payments/invoices/pending",
+        ),
+      );
+    if (memberId) ownOrStaff(memberId, "payments.collect");
+    else requirePermission("payments.collect");
+    return readDemo()
+      .invoices.filter((i) => !memberId || i.memberId === memberId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+  /**
+   * Tạo bản ghi hóa đơn từ payload. Màn Payments chủ động gửi PENDING;
+   * chỉ tạo hóa đơn không đồng nghĩa tiền đã thực nhận.
+   */
+  async invoice(input: InvoiceInput): Promise<Invoice> {
+    if (mode() === "api") return post("/payments/invoices", input);
+    requirePermission("payments.collect");
+    if (!Number.isSafeInteger(input.amount) || input.amount <= 0)
+      throw new ApiError("Số tiền phải là số nguyên VND lớn hơn 0.");
+    const db = readDemo();
+    if (
+      !db.users.some((u) => u.id === input.memberId && u.roleName === "MEMBER")
+    )
+      throw new ApiError("Không tìm thấy thành viên nhận hóa đơn.");
+    if (input.paymentStatus !== "PENDING")
+      throw new ApiError(
+        "Hóa đơn mới phải chờ thanh toán; xác nhận thu tiền là thao tác riêng.",
+      );
+    if (
+      !["BANK_TRANSFER", "CASH", "CREDIT_CARD", "VNPAY"].includes(
+        input.paymentMethod,
+      )
+    )
+      throw new ApiError("Phương thức thanh toán không hợp lệ.");
+    if (
+      input.subscriptionId &&
+      !db.subscriptions.some(
+        (s) => s.id === input.subscriptionId && s.memberId === input.memberId,
+      )
+    )
+      throw new ApiError("Đăng ký gói không thuộc thành viên trên hóa đơn.");
+    const inv = {
+      ...input,
+      id: nextId(db.invoices),
+      createdAt: dateTimeLocal(),
+    };
+    db.invoices.unshift(inv);
+    demoAudit(db, "Tạo hóa đơn", `HD${inv.id} · ${inv.amount} VND`);
+    return inv;
+  },
+  /**
+   * Flow 3: gọi /pay để xác nhận thu tiền hoặc /refund để ghi nhận hoàn tiền.
+   * Đây là cập nhật trạng thái nghiệp vụ; code không tự chuyển khoản ngân hàng
+   * và không tích hợp cổng VNPay chỉ vì có lựa chọn phương thức VNPAY.
+   */
+  async pay(id: number, refund = false): Promise<Invoice> {
+    if (mode() === "api")
+      return post(`/payments/invoices/${id}/${refund ? "refund" : "pay"}`);
+    requirePermission(refund ? "payments.refund" : "payments.collect");
+    const db = readDemo();
+    const inv = db.invoices.find((i) => i.id === id);
+    if (!inv) throw new ApiError("Không tìm thấy hóa đơn.");
+    if (refund ? inv.paymentStatus !== "PAID" : inv.paymentStatus !== "PENDING")
+      throw new ApiError("Trạng thái hóa đơn không phù hợp.");
+    inv.paymentStatus = refund ? "REFUNDED" : "PAID";
+    if (!refund) inv.paidAt = dateTimeLocal();
+    notify(
+      db,
+      [inv.memberId],
+      refund ? "Đã ghi nhận hoàn tiền" : "Đã xác nhận thu tiền",
+      `Hóa đơn #${id}`,
+      "/payments",
+      getSession()!.user.id,
+      "PAYMENT",
+    );
+    demoAudit(db, refund ? "Hoàn tiền" : "Xác nhận thanh toán", `HD${id}`);
+    return inv;
+  },
+  /**
+   * Đọc tổng doanh thu theo khoảng LocalDateTime. Tham số được encode và không
+   * thêm Z vì backend dùng giờ địa phương trung tâm. Demo chỉ cộng hóa đơn PAID.
+   */
+  async revenue(start: string, end: string): Promise<number> {
+    if (mode() === "api")
+      return request(
+        `/payments/revenue?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`,
+      );
+    return readDemo()
+      .invoices.filter(
+        (i) =>
+          i.paymentStatus === "PAID" &&
+          i.createdAt >= start &&
+          i.createdAt <= end,
+      )
+      .reduce((sum, i) => sum + i.amount, 0);
+  },
+  /**
+   * Flow 4: đọc điểm danh theo lớp hoặc lịch sử một thành viên trong khoảng ngày.
+   * Sau phản hồi, frontend lọc ngày để màn hình nhất quán với khoảng đang chọn.
+   */
+  async attendance(
+    memberId?: number,
+    classId?: number,
+    start = localDate(addDays(-30)),
+    end = localDate(),
+  ): Promise<Attendance[]> {
+    if (mode() === "api") {
+      if (!memberId && !classId)
+        throw new ApiError("Chọn lớp hoặc thành viên để xem điểm danh.");
+      return assertArray(
+        await request<Attendance[]>(
+          classId
+            ? `/attendance/classes/${classId}`
+            : `/attendance/members/${memberId}?startDate=${start}&endDate=${end}`,
+        ),
+      ).filter(
+        (a) =>
+          a.checkedInAt.slice(0, 10) >= start &&
+          a.checkedInAt.slice(0, 10) <= end,
+      );
+    }
+    return readDemo().attendance.filter(
+      (a) =>
+        (!memberId || a.memberId === memberId) &&
+        (!classId || a.classId === classId) &&
+        a.checkedInAt.slice(0, 10) >= start &&
+        a.checkedInAt.slice(0, 10) <= end,
+    );
+  },
+  /**
+   * Gửi classId, memberId, checkedInBy, status để ghi nhận điểm danh.
+   * Trong demo: thành viên không tự điểm danh và không được ghi trùng một lớp.
+   */
+  async checkIn(input: AttendanceInput): Promise<Attendance> {
+    if (mode() === "api") return post("/attendance", input);
+    requirePermission("attendance.record");
+    const s = getSession();
+    if (!s || s.user.roleName === "MEMBER")
+      throw new ApiError("Bạn không có quyền điểm danh.", 403);
+    const db = readDemo();
+    if (
+      db.attendance.some(
+        (a) => a.classId === input.classId && a.memberId === input.memberId,
+      )
+    )
+      throw new ApiError("Thành viên đã được điểm danh trong lớp này.");
+    const clazz = db.classes.find((c) => c.id === input.classId);
+    if (
+      !clazz ||
+      clazz.status === "CANCELLED" ||
+      !db.bookings.some(
+        (b) =>
+          b.classId === input.classId &&
+          b.memberId === input.memberId &&
+          b.status === "BOOKED",
+      )
+    )
+      throw new ApiError("Chỉ điểm danh học viên đang đăng ký lớp hợp lệ.");
+    if (s.user.roleName === "COACH" && clazz.coachId !== s.user.id)
+      throw new ApiError("Bạn không phụ trách lớp này.", 403);
+    const a = {
+      ...input,
+      checkedInBy: s.user.id,
+      id: nextId(db.attendance),
+      checkedInAt: dateTimeLocal(),
+    };
+    db.attendance.push(a);
+    demoAudit(db, "Điểm danh", `TV${input.memberId} · Lớp #${input.classId}`);
+    return a;
   },
 };

@@ -274,8 +274,7 @@ export function Notice({
 export function DemoOnly({ children }: { children?: ReactNode }) {
   return (
     <Notice tone="warning">
-      {children ||
-        "Chức năng này chưa có endpoint trong backend hiện tại. Có thể trải nghiệm đầy đủ ở chế độ demo local."}
+      {children || "Chức năng này chưa có endpoint trong backend hiện tại."}
     </Notice>
   );
 }

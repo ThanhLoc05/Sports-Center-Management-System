@@ -1,4 +1,10 @@
-/* Style dùng chung cho các phần frontend đã đưa lên main. */
+.transfer-reported {
+  display: block;
+  margin-top: 6px;
+  color: var(--green);
+  font-size: 12px;
+}
+/* Bố cục cho các chức năng bổ sung; tái sử dụng màu và component của giao diện hiện có. */
 .permission-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -19,6 +25,62 @@
   padding: 0;
   accent-color: var(--green);
 }
+.notification-card {
+  padding: 18px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.notification-card.unread {
+  border-left: 4px solid var(--green);
+  background: #f5f9f1;
+}
+.notification-card > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.notification-card p {
+  white-space: pre-wrap;
+  margin: 10px 0;
+}
+.notification-card small {
+  color: var(--muted);
+}
+.payment-qr {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8faf5;
+  margin: 8px 0 24px;
+}
+.qr-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  margin: 18px 0;
+}
+.qr-layout img {
+  max-width: 100%;
+  height: auto;
+  background: white;
+}
+.qr-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.qr-details > strong {
+  font-size: 24px;
+  color: var(--green);
+}
+.qr-details p {
+  margin: 8px 0;
+}
+.qr-details .btn {
+  margin: 5px 6px 5px 0;
+}
 .class-filter-bar {
   flex-wrap: wrap;
 }
@@ -33,4 +95,41 @@
   .permission-grid {
     grid-template-columns: 1fr;
   }
+  .qr-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .qr-layout img {
+    margin: auto;
+  }
+  .payment-qr {
+    padding: 14px;
+  }
+  .notification-card > div:first-child {
+    flex-direction: column;
+    gap: 3px;
+  }
+}
+@media print {
+  .payment-qr {
+    display: none;
+  }
+}
+
+/* Chọn nguồn trả lời; luôn phân biệt AI bên ngoài và tra cứu dữ liệu trung tâm. */
+.assistant-mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.assistant-mode > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.assistant-progress {
+  padding: 10px 24px;
+  margin: 0;
+  font-size: 13px;
 }

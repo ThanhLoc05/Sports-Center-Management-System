@@ -1,4 +1,5 @@
-/** Router xác thực và các phần nghiệp vụ đã hoàn thiện trên main. */
+import Bookings from "./pages/Bookings";
+/** Router của các phần đã đưa lên main. Mỗi route có vai trò cụ thể; kiểm tra FE không thay thế quyền trên backend. */
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import { Notice, PageHeader, Panel } from "./components/ui";
@@ -66,6 +67,13 @@ function WorkspaceLayout() {
           : "Lịch hoạt động",
     },
   );
+  items.push({
+    to: "/bookings",
+    label:
+      session!.user.roleName === "COACH"
+        ? "Danh sách đăng ký lớp"
+        : "Đăng ký lớp",
+  });
   return (
     <Layout
       items={items}
@@ -135,6 +143,7 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="classes" element={<Classes />} />
           <Route path="schedule" element={<Schedule />} />
+          <Route path="bookings" element={<Bookings />} />
           <Route
             element={
               <Protected

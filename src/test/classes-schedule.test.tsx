@@ -175,7 +175,7 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     ).toBe(true);
     client.clear();
   });
-  it("member views class details without querying the private class roster or exposing future booking actions", async () => {
+  it("member can open booking without querying the private class roster", async () => {
     const bookings = vi.spyOn(api, "bookings");
     const user = userEvent.setup();
     const client = page("/classes", "MEMBER");
@@ -189,8 +189,8 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     ).toBeVisible();
     expect(bookings).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("button", { name: "Đăng ký lớp học" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Đăng ký lớp học" }),
+    ).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Tạo lớp học" }),
     ).not.toBeInTheDocument();

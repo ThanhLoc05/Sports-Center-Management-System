@@ -1,3 +1,5 @@
+import { parseDate } from "../lib/utils";
+import BookingForm from "../components/BookingForm";
 import { UserProfileModal } from "../components/ProfileEditor";
 import { usePermissions } from "../lib/hooks";
 
@@ -560,7 +562,7 @@ function ClassCard({
 /**
  * Ghép dữ liệu lớp, capacity và danh sách booking để xem chi tiết.
  * Chỉ nhân viên có quyền mới tải danh sách đăng ký; học viên không gọi endpoint
- * roster của người khác. Thao tác đặt/hủy chỗ thuộc phần cập nhật tiếp theo.
+ * roster của người khác. Nút đăng ký mở form kiểm tra gói còn hiệu lực và chỗ trống.
  */
 export function ClassDetail({
   item: c,
@@ -577,6 +579,8 @@ export function ClassDetail({
   const users = useUsers();
 
   const [showCoach, setShowCoach] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const { session } = useAuth();
   const can = usePermissions();
 
   const capacity = useQuery({
@@ -669,6 +673,30 @@ export function ClassDetail({
               </div>
             ))}
           <div className="detail-actions">
+            {(session!.user.roleName === "MEMBER" || can("bookings.assist")) &&
+              c.status === "SCHEDULED" &&
+              parseDate(c.scheduleTime) > new Date() && (
+                <Button
+                  disabled={
+                    capacity.isPending ||
+                    !!capacity.error ||
+                    (capacity.data ?? 0) <= 0
+                  }
+                  onClick={() => setBooking(true)}
+                >
+                  {session!.user.roleName === "MEMBER"
+                    ? "Đăng ký lớp học"
+                    : "Đăng ký cho thành viên"}
+                </Button>
+              )}
+            {session!.user.roleName === "COACH" && can("attendance.record") && (
+              <Link
+                className="btn btn-secondary"
+                to={"/attendance?classId=" + c.id}
+              >
+                Điểm danh lớp
+              </Link>
+            )}
             {onEdit && (
               <Button variant="secondary" onClick={onEdit}>
                 <Pencil size={16} />
@@ -683,6 +711,9 @@ export function ClassDetail({
           </div>
         </div>
       </Modal>
+      {booking && (
+        <BookingForm classId={c.id} onClose={() => setBooking(false)} />
+      )}
       {showCoach &&
         (users.data?.find((u) => u.id === c.coachId) ? (
           <UserProfileModal

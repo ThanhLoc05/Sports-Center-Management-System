@@ -48,3 +48,5 @@ test-results/
 
 ### Dữ liệu local ###
 .local/
+# Metadata triển khai chỉ lưu trên máy
+.vercel/

@@ -44,17 +44,6 @@ export function usePermissions() {
  * không chạy query này cho lễ tân, HLV hay thành viên. Màn cần tra cứu nhưng
  * không có danh sách sẽ dùng ID. Demo có dữ liệu cục bộ nên được đọc danh sách.
  */
-export function useClasses() {
-  const { session } = useAuth();
-  const coachId =
-    session?.user.roleName === "COACH" ? session.user.id : undefined;
-  return useQuery({
-    queryKey: ["classes", coachId],
-    queryFn: () => api.classes(coachId),
-    enabled: !!session,
-  });
-}
-
 export function useUsers() {
   const { session } = useAuth();
   return useQuery({
@@ -69,7 +58,16 @@ export function useUsers() {
  * HLV gửi coachId của chính mình để tải lịch phụ trách; vai trò khác không
  * thêm bộ lọc đó. coachId cũng nằm trong queryKey để không dùng nhầm cache.
  */
-
+export function useClasses() {
+  const { session } = useAuth();
+  const coachId =
+    session?.user.roleName === "COACH" ? session.user.id : undefined;
+  return useQuery({
+    queryKey: ["classes", coachId],
+    queryFn: () => api.classes(coachId),
+    enabled: !!session,
+  });
+}
 /**
  * Bọc một thao tác ghi để dùng chung cách báo thành công/thất bại.
  * Chỉ sau khi Promise thành công mới đánh dấu cache cũ bằng invalidateQueries;
