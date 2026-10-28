@@ -42,7 +42,17 @@ import {
   Panel,
   useToast,
 } from "../components/ui";
+import { MembershipCheckoutPage } from "../components/MembershipCheckout";
 export default function Memberships() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? (
+    <MembershipCheckoutPage />
+  ) : (
+    <LegacyMemberships />
+  );
+}
+/** Nhánh fixture chỉ dùng cho kiểm thử hồi quy; bản dev/build luôn vào luồng API phía trên. */
+function LegacyMemberships() {
   const { session } = useAuth();
   const can = usePermissions();
   const [params] = useSearchParams();
@@ -333,6 +343,12 @@ export default function Memberships() {
                     <div className="row-actions">
                       <button
                         className="subtle-link"
+                        disabled={!!active && active.id !== s.id}
+                        title={
+                          active && active.id !== s.id
+                            ? "Hãy gia hạn gói đang có hiệu lực"
+                            : undefined
+                        }
                         onClick={() => setAction({ renew: s })}
                       >
                         <RefreshCw size={14} />
@@ -380,7 +396,7 @@ export default function Memberships() {
             setMemberId(String(id));
             await client.invalidateQueries();
             toast(
-              "Đã lưu gói thành viên. Việc thu tiền được lễ tân xác nhận riêng.",
+              "Đã lưu gói thành viên. Thanh toán được ghi nhận riêng trong mục Hóa đơn.",
             );
           }}
         >
@@ -428,7 +444,7 @@ export default function Memberships() {
           )}
           <Notice>
             {demo
-              ? "Đăng ký gói chưa phải xác nhận thanh toán. Vui lòng liên hệ lễ tân để kiểm tra việc thu tiền."
+              ? "Demo sẽ tạo hóa đơn chờ thu theo giá gói. Mở Hóa đơn để xem QR; gói chỉ dùng đặt lớp sau khi nhân viên xác nhận thu tiền."
               : "Backend hiện tách đăng ký gói và tạo hóa đơn. Liên hệ lễ tân để lập phiếu và xác nhận thanh toán."}
           </Notice>
         </FormModal>

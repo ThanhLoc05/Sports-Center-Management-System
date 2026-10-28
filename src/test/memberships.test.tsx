@@ -138,15 +138,13 @@ describe("Gói tập và lịch sử sử dụng", () => {
       client.clear();
     },
   );
-  it("shows member packages but does not expose future module links", async () => {
+  it("shows member packages with the payment module now available", async () => {
     const client = page("/memberships", "MEMBER");
     expect(
       await screen.findByRole("heading", { name: "Gói thành viên" }),
     ).toBeVisible();
     expect(screen.getByRole("heading", { name: "Essential" })).toBeVisible();
-    expect(
-      screen.queryByRole("link", { name: "Thanh toán" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Thanh toán" })).toBeVisible();
     client.clear();
   });
   it("does not let COACH access the memberships page", async () => {
