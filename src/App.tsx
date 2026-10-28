@@ -5,6 +5,7 @@ import { MembershipNotifications } from "./components/MembershipCheckout";
 import Attendance from "./pages/Attendance";
 import Reports from "./pages/Reports";
 import Dashboard from "./pages/Dashboard";
+import Assistant from "./pages/Assistant";
 /** Router của các phần đã đưa lên main. Mỗi route có vai trò cụ thể; kiểm tra FE không thay thế quyền trên backend. */
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -91,6 +92,7 @@ function WorkspaceLayout() {
   });
   if (isManager(session!.user.roleName))
     items.push({ to: "/reports", label: "Báo cáo doanh thu" });
+  items.push({ to: "/assistant", label: "Trợ lý tập luyện AI" });
   if (isManager(session!.user.roleName))
     items.push({ to: "/payment-settings", label: "Tài khoản nhận tiền & QR" });
   return (
@@ -134,6 +136,7 @@ export default function App() {
         <Route element={<WorkspaceLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="assistant" element={<Assistant />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="classes" element={<Classes />} />
           <Route path="schedule" element={<Schedule />} />
