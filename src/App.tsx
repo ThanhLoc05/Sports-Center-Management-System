@@ -2,6 +2,7 @@ import Bookings from "./pages/Bookings";
 import { BankSettings } from "./components/PaymentQr";
 import Payments from "./pages/Payments";
 import { MembershipNotifications } from "./components/MembershipCheckout";
+import Attendance from "./pages/Attendance";
 /** Router của các phần đã đưa lên main. Mỗi route có vai trò cụ thể; kiểm tra FE không thay thế quyền trên backend. */
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -81,6 +82,11 @@ function WorkspaceLayout() {
     items.push({ to: "/payments", label: "Thanh toán" });
   if (session!.user.roleName === "MEMBER")
     items.push({ to: "/notifications", label: "Xác nhận gói tập" });
+  items.push({
+    to: "/attendance",
+    label:
+      session!.user.roleName === "MEMBER" ? "Lịch sử điểm danh" : "Điểm danh",
+  });
   if (isManager(session!.user.roleName))
     items.push({ to: "/payment-settings", label: "Tài khoản nhận tiền & QR" });
   return (
@@ -150,6 +156,7 @@ export default function App() {
         <Route element={<WorkspaceLayout />}>
           <Route index element={<Welcome />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="attendance" element={<Attendance />} />
           <Route path="classes" element={<Classes />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="bookings" element={<Bookings />} />
