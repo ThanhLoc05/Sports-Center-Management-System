@@ -10,7 +10,7 @@ import {
   usePermissions,
   useUsers,
 } from "../lib/hooks";
-import type { Package, User } from "../lib/types";
+import type { MembershipPackage, Package, User } from "../lib/types";
 import {
   markNotificationsRead,
   savePackage,
@@ -24,8 +24,10 @@ import {
   Button,
   DataTable,
   Empty,
+  ErrorState,
   Field,
   FormModal,
+  Loading,
   Notice,
   PageHeader,
   Panel,
@@ -37,6 +39,12 @@ import { UserProfileModal } from "../components/ProfileEditor";
 
 export function PackagesPage() {
   const db = useDemoData();
+  const { session } = useAuth();
+  const packages = useQuery<MembershipPackage[]>({
+    queryKey: ["membershipPackages"],
+    queryFn: api.membershipPackages,
+    enabled: session?.mode === "api",
+  });
   const [edit, setEdit] = useState<Package | true | null>(null);
   const client = useQueryClient();
   const toast = useToast();
@@ -44,7 +52,11 @@ export function PackagesPage() {
     <>
       <PageHeader
         title="Danh mục gói tập"
-        description="Quản lý học phí, thời hạn, bộ môn được học và hạn mức đăng ký lớp."
+        description={
+          db
+            ? "Quản lý học phí, thời hạn, bộ môn được học và hạn mức đăng ký lớp."
+            : "Danh mục học phí, thời hạn và cấp STANDARD/VIP của gói tập."
+        }
         actions={
           <Button disabled={!db} onClick={() => setEdit(true)}>
             Thêm gói tập
@@ -53,11 +65,56 @@ export function PackagesPage() {
       />
       {!db && (
         <Notice>
-          Đang chờ API danh mục/quyền lợi gói. Không sử dụng giá hoặc quyền lợi
-          demo cho dữ liệu thật.
+          Danh mục được đọc từ backend. Màn hình hiện chỉ hỗ trợ xem, chưa mở
+          thao tác thêm hoặc chỉnh sửa gói qua API.
         </Notice>
       )}
       <Panel>
+        {/* Giữ nguyên DTO API; không suy thêm bộ môn hoặc hạn mức từ dữ liệu demo. */}
+        {!db ? (
+          packages.isPending ? (
+            <Loading />
+          ) : packages.error ? (
+            <ErrorState error={packages.error} retry={packages.refetch} />
+          ) : !packages.data?.length ? (
+            <Empty
+              title="Chưa có gói tập"
+              description="Danh mục gói tập hiện đang trống."
+            />
+          ) : (
+            <DataTable<MembershipPackage>
+              rows={packages.data}
+              columns={[
+                {
+                  key: "name",
+                  label: "Gói",
+                  render: (p) => <strong>{p.packageName}</strong>,
+                },
+                { key: "price", label: "Học phí", render: (p) => money(p.price) },
+                {
+                  key: "days",
+                  label: "Thời hạn",
+                  render: (p) => `${p.durationDays} ngày`,
+                },
+                {
+                  key: "access",
+                  label: "Cấp gói",
+                  render: (p) => p.accessLevel || "Chưa xác định",
+                },
+                {
+                  key: "description",
+                  label: "Mô tả",
+                  render: (p) => p.description || "—",
+                },
+                {
+                  key: "status",
+                  label: "Trạng thái",
+                  render: (p) => <Badge status={p.status} />,
+                },
+              ]}
+            />
+          )
+        ) : (
         <DataTable
           rows={db?.packages || []}
           columns={[
@@ -101,6 +158,7 @@ export function PackagesPage() {
             },
           ]}
         />
+        )}
       </Panel>
       {edit && db && (
         <FormModal
