@@ -13,6 +13,7 @@ import type {
   ClassInput,
   Invoice,
   InvoiceInput,
+  MembershipPackage,
   Mode,
   RegisterInput,
   Session,
@@ -580,8 +581,35 @@ export const api = {
     demoAudit(db, "Hủy đăng ký lớp", `Đăng ký #${id}`);
   },
   /**
-   * Flow 1: đọc lịch sử các gói mà một thành viên đã đăng ký; khác danh mục gói bán.
+   * Đọc gói đang hiệu lực do backend xác định theo ngày hiện tại.
    */
+  async activeSubscription(memberId: number): Promise<Subscription | null> {
+    if (!Number.isSafeInteger(memberId) || memberId < 1)
+      throw new ApiError("Mã thành viên không hợp lệ.");
+    try {
+      const subscription = await request<Subscription>(
+        `/memberships/members/${memberId}/active`,
+      );
+      if (
+        !subscription ||
+        typeof subscription !== "object" ||
+        Array.isArray(subscription)
+      )
+        throw new ApiError("Dữ liệu gói đang hiệu lực không hợp lệ.");
+      return subscription;
+    } catch (error) {
+      // Chỉ 404 là chưa có gói; lỗi quyền/kết nối phải được giữ nguyên.
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  },
+  async membershipPackages(): Promise<MembershipPackage[]> {
+    // Gói ngừng bán vẫn có thể cấp quyền cho subscription còn hiệu lực.
+    return assertArray(
+      await request<MembershipPackage[]>("/memberships/packages"),
+    );
+  },
+  /** Flow 1: lịch sử các kỳ gói đã đăng ký, khác danh mục gói bán. */
   async subscriptions(memberId: number): Promise<Subscription[]> {
     if (mode() === "api")
       return assertArray(

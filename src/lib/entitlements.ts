@@ -1,5 +1,81 @@
-import type { DemoDatabase, TrainingPlan, Subscription } from "./types";
+import type {
+  AccessLevel,
+  DemoDatabase,
+  MembershipPackage,
+  TrainingPlan,
+  Subscription,
+} from "./types";
 import { localDate, parseDate } from "./utils";
+
+/** Chuẩn hóa giống BookingService: null/rỗng là STANDARD, giá trị lạ không cấp quyền. */
+export function normalizeAccessLevel(value: unknown): AccessLevel | null {
+  if (value == null) return "STANDARD";
+  if (typeof value !== "string") return null;
+  const level = value.trim().toUpperCase() || "STANDARD";
+  return level === "STANDARD" || level === "VIP" ? level : null;
+}
+
+export function classAccessAllowed(
+  packageLevel: AccessLevel,
+  requiredLevel: unknown,
+): boolean {
+  const required = normalizeAccessLevel(requiredLevel);
+  // VIP học được cả hai cấp; STANDARD không được nâng quyền vào lớp VIP.
+  return (
+    (packageLevel === "STANDARD" || packageLevel === "VIP") &&
+    required !== null &&
+    (required === "STANDARD" || packageLevel === "VIP")
+  );
+}
+
+type ApiMembershipAccess =
+  | {
+      allowed: true;
+      accessLevel: AccessLevel;
+      subscription: Subscription;
+      pkg: MembershipPackage;
+      reason: string;
+    }
+  | { allowed: false; reason: string };
+
+export function apiMembershipAccess(
+  subscription: Subscription | null,
+  packages: readonly MembershipPackage[],
+  memberId: number,
+  today = localDate(),
+): ApiMembershipAccess {
+  if (!subscription)
+    return { allowed: false, reason: "Chưa có gói tập còn hiệu lực." };
+  if (subscription.memberId !== memberId)
+    return { allowed: false, reason: "Gói tập không thuộc thành viên đang chọn." };
+  const validDate = (value: string) =>
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(parseDate(value).getTime()) &&
+    localDate(parseDate(value)) === value;
+  if (
+    subscription.status !== "ACTIVE" ||
+    !validDate(subscription.startDate) ||
+    !validDate(subscription.endDate) ||
+    subscription.startDate > today ||
+    subscription.endDate < today
+  )
+    return { allowed: false, reason: "Gói tập chưa có hiệu lực hoặc đã hết hạn." };
+  // Ghép bằng ID, không suy cấp từ tên/giá và không loại gói đã ngừng bán.
+  const pkg = packages.find((p) => p.id === subscription.packageId);
+  if (!pkg)
+    return { allowed: false, reason: "Không tìm thấy quyền lợi của gói tập." };
+  const accessLevel = normalizeAccessLevel(pkg.accessLevel);
+  if (!accessLevel)
+    return { allowed: false, reason: "Cấp quyền của gói tập không hợp lệ." };
+  return {
+    allowed: true,
+    accessLevel,
+    subscription,
+    pkg,
+    reason: `Gói ${accessLevel} còn hiệu lực.`,
+  };
+}
 /** Gói còn hiệu lực theo ngày trung tâm, không chỉ dựa vào nhãn ACTIVE. */
 export function activeSubscription(db: DemoDatabase, memberId: number) {
   return db.subscriptions.find(

@@ -95,6 +95,16 @@ export interface Subscription {
   endDate: string;
   status: string;
 }
+/** Danh mục gói từ /memberships/packages, khác dữ liệu Package của demo. */
+export interface MembershipPackage {
+  id: number;
+  packageName: string;
+  durationDays: number;
+  price: number;
+  accessLevel: string | null;
+  description?: string;
+  status: string;
+}
 /**
  * Hóa đơn ghi nhận số tiền, phương thức và trạng thái thu tiền. subscriptionId
  * có thể trống nếu hóa đơn không gắn với một đăng ký gói cụ thể.

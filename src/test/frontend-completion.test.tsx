@@ -298,7 +298,8 @@ describe("QR và form đặt lớp phản ánh trạng thái hiện tại", () =
         status: "SCHEDULED",
       },
     ]);
-    vi.spyOn(api, "subscriptions").mockResolvedValue([]);
+    vi.spyOn(api, "activeSubscription").mockResolvedValue(null);
+    vi.spyOn(api, "membershipPackages").mockResolvedValue([]);
     vi.spyOn(api, "capacity").mockResolvedValue(5);
     const booking = vi.spyOn(api, "book");
     const { client } = wrap(<BookingForm classId={88} onClose={() => {}} />);
@@ -335,13 +336,21 @@ describe("QR và form đặt lớp phản ánh trạng thái hiện tại", () =
         status: "SCHEDULED",
       },
     ]);
-    vi.spyOn(api, "subscriptions").mockResolvedValue([
+    vi.spyOn(api, "activeSubscription").mockResolvedValue({
+      id: 7,
+      memberId: 10,
+      packageId: 3,
+      startDate: "2020-01-01",
+      endDate: "2099-12-31",
+      status: "ACTIVE",
+    });
+    vi.spyOn(api, "membershipPackages").mockResolvedValue([
       {
-        id: 7,
-        memberId: 10,
-        packageId: 3,
-        startDate: "2020-01-01",
-        endDate: "2099-12-31",
+        id: 3,
+        packageName: "Gói API",
+        durationDays: 30,
+        price: 500000,
+        accessLevel: "STANDARD",
         status: "ACTIVE",
       },
     ]);

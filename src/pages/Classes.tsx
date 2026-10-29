@@ -2,7 +2,12 @@ import { parseDate } from "../lib/utils";
 import BookingForm from "../components/BookingForm";
 import { UserProfileModal } from "../components/ProfileEditor";
 import { useDemoData, usePermissions } from "../lib/hooks";
-import { classEligibility, membershipAccess } from "../lib/entitlements";
+import {
+  apiMembershipAccess,
+  classAccessAllowed,
+  classEligibility,
+  membershipAccess,
+} from "../lib/entitlements";
 
 /**
  * FLOW 2 — QUẢN LÝ LỚP, PHÂN CÔNG HLV VÀ XEM LỊCH.
@@ -226,6 +231,33 @@ export default function Classes() {
   const member = session!.user.roleName === "MEMBER";
   const [eligibleOnly, setEligibleOnly] = useState(member);
   const access = db && member ? membershipAccess(db, session!.user.id) : null;
+  const apiMember = member && session!.mode === "api";
+  const activeMembership = useQuery({
+    queryKey: ["activeSubscription", session!.user.id],
+    queryFn: () => api.activeSubscription(session!.user.id),
+    enabled: apiMember,
+  });
+  const membershipPackages = useQuery({
+    queryKey: ["membershipPackages"],
+    queryFn: api.membershipPackages,
+    enabled: apiMember,
+  });
+  const accessError = activeMembership.error || membershipPackages.error;
+  const accessLoading =
+    apiMember &&
+    (activeMembership.isPending ||
+      membershipPackages.isPending ||
+      activeMembership.isFetching ||
+      membershipPackages.isFetching);
+  // Chưa có kết quả hoặc API báo lỗi thì không mặc định thành viên đủ quyền.
+  const apiAccess =
+    apiMember && !accessLoading && !accessError
+      ? apiMembershipAccess(
+          activeMembership.data ?? null,
+          membershipPackages.data ?? [],
+          session!.user.id,
+        )
+      : null;
   const manager = can("classes.manage"),
     demo = session!.mode === "demo",
     coach = session!.user.roleName === "COACH";
@@ -251,8 +283,10 @@ export default function Classes() {
     (c) =>
       matches(search, c.className) &&
       (!eligibleOnly ||
-        !db ||
-        classEligibility(db, c.id, session!.user.id).allowed) &&
+        (db
+          ? classEligibility(db, c.id, session!.user.id).allowed
+          : !!apiAccess?.allowed &&
+            classAccessAllowed(apiAccess.accessLevel, c.requiredAccessLevel))) &&
       (sport === "all" || c.sportId === Number(sport)) &&
       (status === "all" || c.status === status),
   );
@@ -285,8 +319,23 @@ export default function Classes() {
                 ? `${access.pkg.name} · ${access.reason}`
                 : demo
                   ? "Đăng ký gói tập để chọn lớp phù hợp."
-                  : "API chưa có danh mục quyền lợi gói để xác minh bộ môn được học."}
+                  : accessError
+                    ? "Chưa xác minh được quyền lợi gói tập."
+                    : accessLoading
+                      ? "Đang kiểm tra quyền lợi gói tập…"
+                      : apiAccess?.allowed
+                        ? `${apiAccess.pkg.packageName} · ${apiAccess.reason}`
+                        : apiAccess?.reason}
             </p>
+            {apiMember && accessError && (
+              <ErrorState
+                error={accessError}
+                retry={() => {
+                  void activeMembership.refetch();
+                  void membershipPackages.refetch();
+                }}
+              />
+            )}
             <label className="check-option">
               <input
                 type="checkbox"
@@ -362,7 +411,7 @@ export default function Classes() {
           </div>
         </div>
       </div>
-      {classes.isPending ? (
+      {classes.isPending || (eligibleOnly && accessLoading && !accessError) ? (
         <Loading />
       ) : classes.error ? (
         <ErrorState error={classes.error} retry={classes.refetch} />

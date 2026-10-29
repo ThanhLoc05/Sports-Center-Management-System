@@ -5,6 +5,8 @@ import { useAuth } from "../lib/auth";
 import { useClasses, useDemoData, useUsers } from "../lib/hooks";
 import {
   activeSubscription,
+  apiMembershipAccess,
+  classAccessAllowed,
   classEligibility,
   membershipAccess,
   subscriptionUsage,
@@ -14,7 +16,6 @@ import {
   dateLabel,
   timeLabel,
   parseDate,
-  localDate,
   errorText,
 } from "../lib/utils";
 import { Field, FormModal, Notice, useToast } from "./ui";
@@ -38,13 +39,19 @@ export default function BookingForm({
   const client = useQueryClient();
   const toast = useToast();
   const member = session!.user.roleName === "MEMBER";
+  // MEMBER dùng chính mình; nhân viên đặt hộ phải kiểm tra gói của người được chọn.
   const [selectedMember, setMember] = useState(
     member ? session!.user.id : memberId || 0,
   );
   const [selectedClass, setClass] = useState(classId || 0);
-  const subscriptions = useQuery({
-    queryKey: ["subscriptions", selectedMember],
-    queryFn: () => api.subscriptions(selectedMember),
+  const activeMembership = useQuery({
+    queryKey: ["activeSubscription", selectedMember],
+    queryFn: () => api.activeSubscription(selectedMember),
+    enabled: !db && selectedMember > 0,
+  });
+  const membershipPackages = useQuery({
+    queryKey: ["membershipPackages"],
+    queryFn: api.membershipPackages,
     enabled: !db && selectedMember > 0,
   });
   const capacity = useQuery({
@@ -52,15 +59,26 @@ export default function BookingForm({
     queryFn: () => api.capacity(selectedClass),
     enabled: !db && selectedClass > 0,
   });
+  const membershipError = activeMembership.error || membershipPackages.error;
+  const membershipLoading =
+    activeMembership.isPending ||
+    membershipPackages.isPending ||
+    activeMembership.isFetching ||
+    membershipPackages.isFetching;
+  // Query theo memberId; không dùng quyền cũ khi đổi thành viên hoặc API báo lỗi.
+  const apiAccess =
+    !db && selectedMember > 0 && !membershipLoading && !membershipError
+      ? apiMembershipAccess(
+          activeMembership.data ?? null,
+          membershipPackages.data ?? [],
+          selectedMember,
+        )
+      : null;
   const subscription = db
     ? activeSubscription(db, selectedMember)
-    : subscriptions.data?.find(
-        (s) =>
-          s.memberId === selectedMember &&
-          s.status === "ACTIVE" &&
-          s.startDate <= localDate() &&
-          s.endDate >= localDate(),
-      );
+    : apiAccess?.allowed
+      ? apiAccess.subscription
+      : undefined;
   const pkg = db?.packages.find((p) => p.id === subscription?.packageId);
   const access =
     db && selectedMember ? membershipAccess(db, selectedMember) : null;
@@ -73,26 +91,30 @@ export default function BookingForm({
   // Ngày hết hạn và sức chứa lấy từ API thật; backend vẫn kiểm tra lại khi nhận POST.
   const apiReason = !selectedMember
     ? "Chọn thành viên."
-    : subscriptions.isPending
-      ? "Đang kiểm tra gói tập…"
-      : subscriptions.error
-        ? errorText(subscriptions.error)
-        : !subscription
-          ? "Chưa có gói còn hiệu lực. Vui lòng đăng ký hoặc gia hạn gói."
+    : membershipError
+      ? errorText(membershipError)
+      : membershipLoading
+        ? "Đang kiểm tra gói tập…"
+        : !apiAccess?.allowed || !subscription
+          ? activeMembership.data === null
+            ? "Chưa có gói còn hiệu lực. Vui lòng đăng ký hoặc gia hạn gói."
+            : apiAccess?.reason || "Chưa xác minh được quyền lợi gói tập."
           : !clazz
             ? "Chọn lớp học."
-            : clazz.status !== "SCHEDULED" ||
-                parseDate(clazz.scheduleTime) <= new Date()
-              ? "Lớp không còn mở đăng ký."
-              : clazz.scheduleTime.slice(0, 10) > subscription.endDate
-                ? "Buổi học diễn ra sau ngày hết hạn gói."
-                : capacity.isPending
-                  ? "Đang kiểm tra chỗ trống…"
-                  : capacity.error
-                    ? errorText(capacity.error)
-                    : (capacity.data ?? 0) <= 0
-                      ? "Lớp đã đủ số lượng đăng ký."
-                      : "";
+            : !classAccessAllowed(apiAccess.accessLevel, clazz.requiredAccessLevel)
+              ? "Cấp gói không đáp ứng cấp yêu cầu của lớp học."
+              : clazz.status !== "SCHEDULED" ||
+                  parseDate(clazz.scheduleTime) <= new Date()
+                ? "Lớp không còn mở đăng ký."
+                : clazz.scheduleTime.slice(0, 10) > subscription.endDate
+                  ? "Buổi học diễn ra sau ngày hết hạn gói."
+                  : capacity.isPending
+                    ? "Đang kiểm tra chỗ trống…"
+                    : capacity.error
+                      ? errorText(capacity.error)
+                      : (capacity.data ?? 0) <= 0
+                        ? "Lớp đã đủ số lượng đăng ký."
+                        : "";
   const allowed = db ? !!eligibility?.allowed : !apiReason;
   return (
     <FormModal
@@ -148,7 +170,7 @@ export default function BookingForm({
       )}
       <Notice>
         {subscription
-          ? `${pkg?.name || `Gói #${subscription.packageId}`} · đến ${dateLabel(subscription.endDate)}`
+          ? `${pkg?.name || (apiAccess?.allowed ? `${apiAccess.pkg.packageName} · ${apiAccess.accessLevel}` : `Gói #${subscription.packageId}`)} · đến ${dateLabel(subscription.endDate)}`
           : selectedMember
             ? "Chưa có gói đang hoạt động."
             : "Chọn thành viên để xem quyền lợi gói."}
@@ -177,15 +199,18 @@ export default function BookingForm({
       )}
       {!db && (
         <Notice>
-          Gói và thời hạn được đọc từ backend. API hiện chưa cung cấp bộ môn/hạn
-          mức của gói để lọc quyền lợi; backend quyết định điều kiện còn lại.
+          Cấp gói và thời hạn được đọc từ backend. Phù hợp cấp gói chưa bảo đảm
+          đăng ký thành công; backend kiểm tra các điều kiện còn lại.
         </Notice>
       )}
-      {subscriptions.error && !db && (
+      {membershipError && !db && (
         <button
           type="button"
           className="text-link"
-          onClick={() => void subscriptions.refetch()}
+          onClick={() => {
+            void activeMembership.refetch();
+            void membershipPackages.refetch();
+          }}
         >
           Thử lại kiểm tra gói
         </button>
@@ -208,13 +233,19 @@ export default function BookingForm({
               const reason =
                 check && !check.allowed
                   ? check.reason
-                  : !db && parseDate(c.scheduleTime) <= new Date()
-                    ? "Lớp không còn mở đăng ký."
-                    : !db &&
-                        subscription &&
-                        c.scheduleTime.slice(0, 10) > subscription.endDate
-                      ? "Sau ngày hết hạn gói."
-                      : "";
+                  : !db &&
+                      (!apiAccess?.allowed ||
+                        !classAccessAllowed(apiAccess.accessLevel, c.requiredAccessLevel))
+                    ? apiAccess?.allowed
+                      ? "Cấp gói không đáp ứng cấp yêu cầu của lớp học."
+                      : "Chưa xác minh được quyền lợi gói tập."
+                    : !db && parseDate(c.scheduleTime) <= new Date()
+                      ? "Lớp không còn mở đăng ký."
+                      : !db &&
+                          subscription &&
+                          c.scheduleTime.slice(0, 10) > subscription.endDate
+                        ? "Sau ngày hết hạn gói."
+                        : "";
               return (
                 <option key={c.id} value={c.id} disabled={!!reason}>
                   {c.className} · {dateLabel(c.scheduleTime)}{" "}
@@ -246,7 +277,7 @@ export default function BookingForm({
         : selectedMember > 0 && (
             <Notice tone={apiReason ? "warning" : "info"}>
               {apiReason ||
-                `Còn ${capacity.data} chỗ. Gói đang có hiệu lực cho ngày học này.`}
+                `Còn ${capacity.data} chỗ. Cấp gói phù hợp; backend sẽ xác nhận đăng ký.`}
             </Notice>
           )}
     </FormModal>
