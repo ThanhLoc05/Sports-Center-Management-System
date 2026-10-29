@@ -1,15 +1,13 @@
 /*
-    Cài đặt mới SportsCenterDB cho SQL Server 2019.
+    TAO LAI DATABASE SPORTSCENTERDB - SQL SERVER 2019
 
-    CẢNH BÁO NGUY HIỂM: Script sẽ xóa toàn bộ SportsCenterDB hiện tại,
-    bao gồm tất cả tài khoản, lớp, hóa đơn và dữ liệu khác, sau đó tạo lại.
-    Hãy sao lưu nếu cần giữ bất kỳ dữ liệu nào.
+    CANH BAO: Script nay xoa vinh vien database SportsCenterDB cu va toan bo du lieu ben trong.
+    Hay sao luu database truoc neu can giu lai tai khoan, lop, hoa don hoac lich su.
 
-    Cách dùng: mở file trong SSMS, kết nối SQL Server, chọn Execute (F5).
-    Tài khoản SQL cần quyền ALTER/DROP và CREATE DATABASE.
-
-    Script tạo cấu trúc tương ứng với backend 106 file Java tại thư mục gốc:
-    src/main/java/com/sportscenter.
+    Cach chay: mo file trong SSMS, ket noi dung SQL Server, bam Execute (F5).
+    Tai khoan SQL can quyen ALTER/DROP database va CREATE DATABASE.
+    Script tao schema theo backend goc src/main, them danh muc bo mon, phong va goi mau.
+    Script khong tao tai khoan/coaches vi mat khau phai duoc ma hoa BCrypt.
 */
 USE master;
 GO
@@ -23,11 +21,8 @@ GO
 
 CREATE DATABASE [SportsCenterDB];
 GO
-
-USE SportsCenterDB;
+USE [SportsCenterDB];
 GO
-
-/* Tạo bảng, ràng buộc, chỉ mục và danh mục cơ bản theo schema hiện hành. */
 /*
   SportsCenterDB baseline schema for SQL Server.
 
@@ -155,6 +150,47 @@ BEGIN
     );
 END;
 
+/* Đơn đăng ký/gia hạn lưu ảnh chụp giá gói và chỉ được kích hoạt sau khi thu tiền. */
+IF OBJECT_ID(N'dbo.membership_orders', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.membership_orders (
+        membership_order_id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_membership_orders PRIMARY KEY,
+        member_id INT NOT NULL,
+        package_id INT NOT NULL,
+        order_kind NVARCHAR(20) NOT NULL,
+        source_subscription_id INT NULL,
+        source_package_id INT NULL,
+        package_name_snapshot NVARCHAR(255) NOT NULL,
+        package_price_snapshot DECIMAL(18,2) NOT NULL,
+        package_duration_days_snapshot INT NOT NULL,
+        package_status_snapshot NVARCHAR(20) NOT NULL,
+        payment_method NVARCHAR(30) NOT NULL,
+        status NVARCHAR(30) NOT NULL CONSTRAINT DF_membership_orders_status DEFAULT N'PENDING_PAYMENT',
+        idempotency_key NVARCHAR(100) NOT NULL,
+        request_fingerprint CHAR(64) NOT NULL,
+        created_by INT NOT NULL,
+        confirmed_by INT NULL,
+        bank_transaction_id NVARCHAR(100) NULL,
+        confirmation_key NVARCHAR(100) NULL,
+        confirmation_fingerprint CHAR(64) NULL,
+        version INT NOT NULL CONSTRAINT DF_membership_orders_version DEFAULT (0),
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_membership_orders_created_at DEFAULT SYSDATETIME(),
+        confirmed_at DATETIME2 NULL,
+        CONSTRAINT FK_membership_orders_members FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+        CONSTRAINT FK_membership_orders_packages FOREIGN KEY (package_id) REFERENCES dbo.membership_packages(package_id),
+        CONSTRAINT FK_membership_orders_source_subscription FOREIGN KEY (source_subscription_id) REFERENCES dbo.member_subscriptions(subscription_id),
+        CONSTRAINT FK_membership_orders_source_package FOREIGN KEY (source_package_id) REFERENCES dbo.membership_packages(package_id),
+        CONSTRAINT FK_membership_orders_created_by FOREIGN KEY (created_by) REFERENCES dbo.users(user_id),
+        CONSTRAINT FK_membership_orders_confirmed_by FOREIGN KEY (confirmed_by) REFERENCES dbo.users(user_id),
+        CONSTRAINT CK_membership_orders_kind CHECK (order_kind IN (N'NEW', N'RENEWAL')),
+        CONSTRAINT CK_membership_orders_method CHECK (payment_method IN (N'CASH', N'BANK_TRANSFER')),
+        CONSTRAINT CK_membership_orders_status CHECK (status IN (N'PENDING_PAYMENT', N'CONFIRMED', N'CANCELLED')),
+        CONSTRAINT CK_membership_orders_snapshot CHECK (package_price_snapshot > 0 AND package_duration_days_snapshot > 0 AND version >= 0),
+        CONSTRAINT CK_membership_orders_source CHECK ((order_kind = N'NEW' AND source_subscription_id IS NULL AND source_package_id IS NULL) OR (order_kind = N'RENEWAL' AND source_subscription_id IS NOT NULL AND source_package_id IS NOT NULL)),
+        CONSTRAINT UQ_membership_orders_creator_key UNIQUE (created_by, idempotency_key)
+    );
+END;
+
 /* Eligible members book directly; membership payment is handled by the package invoice. */
 IF OBJECT_ID(N'dbo.class_bookings', N'U') IS NULL
 BEGIN
@@ -177,6 +213,7 @@ BEGIN
     CREATE TABLE dbo.invoices (
         invoice_id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_invoices PRIMARY KEY,
         subscription_id INT NULL,
+        membership_order_id INT NULL,
         member_id INT NOT NULL,
         receptionist_id INT NULL,
         amount DECIMAL(18,2) NOT NULL,
@@ -187,6 +224,7 @@ BEGIN
         paid_at DATETIME2 NULL,
         refunded_at DATETIME2 NULL,
         CONSTRAINT FK_invoices_subscriptions FOREIGN KEY (subscription_id) REFERENCES dbo.member_subscriptions(subscription_id),
+        CONSTRAINT FK_invoices_membership_orders FOREIGN KEY (membership_order_id) REFERENCES dbo.membership_orders(membership_order_id),
         CONSTRAINT FK_invoices_members FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
         CONSTRAINT FK_invoices_receptionists FOREIGN KEY (receptionist_id) REFERENCES dbo.users(user_id),
         CONSTRAINT CK_invoices_amount CHECK (amount >= 0),
@@ -360,6 +398,28 @@ IF NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_name = N'Fitness')
 IF NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_name = N'Boxing')
     INSERT INTO dbo.sports (sport_name, description) VALUES (N'Boxing', N'Lớp boxing rèn luyện kỹ thuật và thể lực');
 
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Sân đa năng 1')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Sân đa năng 1', 20);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Sân đa năng 2')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Sân đa năng 2', 20);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Phòng tập nhóm')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Phòng tập nhóm', 16);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Hồ bơi')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Hồ bơi', 12);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 1 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói STANDARD 1 tháng', 30, 500000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 3 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói STANDARD 3 tháng', 90, 1350000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 1 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói VIP 1 tháng', 30, 800000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói VIP 3 tháng', 90, 2100000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
+
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'VNPAY')
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'VNPAY', N'VNPay', 0);
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'MOMO')
@@ -391,6 +451,17 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.payme
         WHERE provider_transaction_reference IS NOT NULL;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.payment_transactions') AND name = N'IX_payment_transactions_invoice_status')
     CREATE INDEX IX_payment_transactions_invoice_status ON dbo.payment_transactions (invoice_id, status, created_at);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.invoices') AND name = N'UX_invoices_membership_order')
+    CREATE UNIQUE INDEX UX_invoices_membership_order ON dbo.invoices (membership_order_id)
+        WHERE membership_order_id IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'UX_membership_orders_bank_transaction')
+    CREATE UNIQUE INDEX UX_membership_orders_bank_transaction ON dbo.membership_orders (bank_transaction_id)
+        WHERE bank_transaction_id IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'IX_membership_orders_member_status_created')
+    CREATE INDEX IX_membership_orders_member_status_created ON dbo.membership_orders (member_id, status, created_at DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'UX_membership_orders_one_pending_per_member')
+    CREATE UNIQUE INDEX UX_membership_orders_one_pending_per_member ON dbo.membership_orders (member_id)
+        WHERE status = N'PENDING_PAYMENT';
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.attendances') AND name = N'IX_attendances_member_time')
     CREATE INDEX IX_attendances_member_time ON dbo.attendances (member_id, checked_in_at);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.support_tickets') AND name = N'IX_support_tickets_status_created')
@@ -398,7 +469,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.suppo
 
 COMMIT TRANSACTION;
 
-/* Thêm mô tả cho từng bảng để xem trực tiếp trong SSMS (Properties > Extended Properties). */
+/* Mô tả bảng để nhóm xem trực tiếp trong SSMS (Properties > Extended Properties). */
 DECLARE @TableDescriptions TABLE (TableName SYSNAME NOT NULL, Description NVARCHAR(1000) NOT NULL);
 INSERT INTO @TableDescriptions (TableName, Description) VALUES
 (N'roles', N'Danh mục vai trò được cấp cho tài khoản: MEMBER, COACH, RECEPTIONIST, CENTER_MANAGER.'),
@@ -408,11 +479,12 @@ INSERT INTO @TableDescriptions (TableName, Description) VALUES
 (N'rooms', N'Danh mục phòng hoặc sân tập và sức chứa tối đa.'),
 (N'membership_packages', N'Gói hội viên, thời hạn, giá bán và cấp quyền STANDARD hoặc VIP để đăng ký lớp.'),
 (N'classes', N'Lịch từng buổi học, bộ môn, huấn luyện viên, phòng, sức chứa và cấp quyền yêu cầu.'),
-(N'member_subscriptions', N'Đăng ký gói của hội viên cùng thời hạn và trạng thái thanh toán/hiệu lực.'),
+(N'member_subscriptions', N'Kỳ sử dụng gói của hội viên cùng thời hạn và trạng thái hiệu lực.'),
+(N'membership_orders', N'Yêu cầu mua/gia hạn, snapshot giá gói, idempotency và thông tin nhân viên xác nhận thanh toán.'),
 (N'class_bookings', N'Đăng ký chỗ của hội viên vào một buổi học; không lưu giá vì quyền vào lớp đến từ gói hội viên.'),
-(N'invoices', N'Hóa đơn thu tiền gói hội viên hoặc khoản thu khác; lưu số tiền, phương thức và trạng thái thanh toán.'),
-(N'payment_providers', N'Danh mục cổng thanh toán trực tuyến; mặc định tắt đến khi tích hợp gateway thật.'),
-(N'payment_transactions', N'Từng lần giao dịch thanh toán/hoàn tiền, mã tham chiếu và trạng thái phản hồi từ cổng.'),
+(N'invoices', N'Hóa đơn của đơn gói hoặc khoản thu khác; lưu số tiền, phương thức và trạng thái thanh toán.'),
+(N'payment_providers', N'Danh mục cổng thanh toán; mặc định tắt cho đến khi tích hợp thật.'),
+(N'payment_transactions', N'Từng lần thanh toán/hoàn tiền qua nhà cung cấp và trạng thái phản hồi.'),
 (N'attendances', N'Điểm danh hội viên theo buổi học và nhân viên ghi nhận.'),
 (N'feedbacks', N'Đánh giá/nhận xét giữa hội viên, huấn luyện viên hoặc về lớp học.'),
 (N'support_tickets', N'Yêu cầu hỗ trợ của hội viên và nội dung phản hồi/xử lý.'),
@@ -448,17 +520,12 @@ END;
 CLOSE table_description_cursor;
 DEALLOCATE table_description_cursor;
 
-/* Dữ liệu danh mục mẫu. Tài khoản, lớp học và giao dịch được tạo qua nghiệp vụ ứng dụng. */
-IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name=N'Sân đa năng 1')
-    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Sân đa năng 1', 20);
-IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name=N'Sân đa năng 2')
-    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Sân đa năng 2', 20);
-IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name=N'Phòng tập nhóm')
-    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Phòng tập nhóm', 16);
-IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name=N'Hồ bơi')
-    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Hồ bơi', 12);
-
-/* Xác nhận các bảng đã tạo. */
+/* Kiem tra nhanh danh muc sau khi tao database. */
+SELECT role_id, role_name FROM dbo.roles ORDER BY role_id;
+SELECT sport_id, sport_name, description FROM dbo.sports ORDER BY sport_id;
+SELECT room_id, room_name, capacity FROM dbo.rooms ORDER BY room_id;
+SELECT package_id, package_name, duration_days, price, access_level, status
+FROM dbo.membership_packages ORDER BY package_id;
 SELECT t.name AS table_name,
        CONVERT(NVARCHAR(1000), ep.value) AS table_description
 FROM sys.tables AS t
@@ -466,3 +533,5 @@ LEFT JOIN sys.extended_properties AS ep
     ON ep.class=1 AND ep.major_id=t.object_id AND ep.minor_id=0 AND ep.name=N'MS_Description'
 WHERE t.schema_id=SCHEMA_ID(N'dbo')
 ORDER BY t.name;
+
+/* Sau khi tao tai khoan COACH ACTIVE tren ung dung, co the chay sample-classes.sql de them lop mau. */

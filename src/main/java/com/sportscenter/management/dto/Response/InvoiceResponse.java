@@ -16,6 +16,8 @@ public class InvoiceResponse {
 
     private Integer subscriptionId;
 
+    private Integer membershipOrderId;
+
     private Integer memberId;
 
     private Integer receptionistId;

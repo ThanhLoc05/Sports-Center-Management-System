@@ -29,11 +29,13 @@ USE SportsCenterDB;
 GO
 ```
 
-Sau đó mở `src/main/resources/db/schema.sql`, chọn database `SportsCenterDB` và chạy. Script tạo bảng, ràng buộc và danh mục cơ bản, gồm bốn vai trò `CENTER_MANAGER`, `COACH`, `RECEPTIONIST`, `MEMBER`.
+Sau đó mở `src/main/resources/db/schema.sql`, chọn database `SportsCenterDB` và chạy. Script tạo bảng, ràng buộc và dữ liệu danh mục cơ bản: bốn vai trò, bộ môn, phòng và các gói STANDARD/VIP mẫu.
 
-Database đã có dữ liệu cần sao lưu và đối chiếu cấu trúc với backend mới trước khi cập nhật. `schema.sql` dành cho cài mới, không tự chuyển đổi bảng cũ; Hibernate dùng `ddl-auto: validate`. **Không dùng `recreate-sports-center-sql2019.sql` để cập nhật DB đang dùng: file đó xóa toàn bộ database.**
+Nếu muốn xóa toàn bộ rồi tạo lại database, mở và chạy trực tiếp `src/main/resources/db/recreate-sports-center-sql2019.sql` trong SSMS. Script này xóa vĩnh viễn database `SportsCenterDB` trước khi tạo lại schema mới; hãy sao lưu trước nếu cần giữ bất kỳ dữ liệu nào. Để nạp dữ liệu demo gồm tài khoản, gói, đơn/hóa đơn, lớp và dữ liệu tập luyện, chạy `src/main/resources/db/sample-running-data.sql` sau đó. Tài khoản demo dùng chung mật khẩu `Sportiva@2026`; chỉ dùng local/demo và đổi mật khẩu nếu tiếp tục sử dụng. Script riêng `sample-classes.sql` chỉ cần dùng khi muốn thêm các lớp mẫu khác sau khi đã có HLV `ACTIVE`.
 
-Các script trong `src/main/resources/db/migration/` chạy thủ công khi cần: V3 tạo phiếu hỗ trợ, V4 thêm chi tiết kết quả tập luyện, V5 chuyển vai trò `MANAGER` cũ sang `CENTER_MANAGER`. V4 yêu cầu bảng `workout_logs` đã tồn tại. Xem `docs/DATABASE-DESIGN.md` và thống nhất migration với nhóm BE trước khi đổi DB có dữ liệu.
+Database đã có dữ liệu nhưng muốn giữ lại thì không chạy script recreate; sao lưu và dùng migration phù hợp. `schema.sql` dành cho cài mới, không tự chuyển đổi bảng cũ; Hibernate dùng `ddl-auto: validate`.
+
+Các script trong `src/main/resources/db/migration/` chạy thủ công khi cần: V3 tạo phiếu hỗ trợ, V4 thêm chi tiết kết quả tập luyện, V5 chuyển vai trò `MANAGER` cũ sang `CENTER_MANAGER`, V6 thêm đơn đăng ký/gia hạn gói chờ thanh toán. V4 yêu cầu bảng `workout_logs` đã tồn tại. Với database đã có dữ liệu, sao lưu trước rồi chạy migration V6; không chạy lại toàn bộ schema để thay migration.
 
 Trong Windows Services, dịch vụ thường tên `SQL Server (SQLEXPRESS)` hoặc `SQL Server (MSSQLSERVER)`. Mở SSMS không đồng nghĩa dịch vụ SQL Server đã chạy. Cần cấu hình TCP/IP và cổng đúng với `DB_URL`.
 
@@ -135,8 +137,8 @@ Quyền theo vai trò là cố định. URL cũ `/permissions` chuyển về `/t
 FE có các trang thành viên/đội ngũ, lớp/lịch, booking, gói tập, hóa đơn/QR, điểm danh, tổng quan/báo cáo, tập luyện, thông báo/hỗ trợ, nhật ký và AI. Có giao diện không đồng nghĩa mọi thao tác đã có API thật.
 
 - FE đang gọi các API xác thực, tài khoản, trạng thái/vai trò, danh mục phòng/bộ môn để chọn lớp, lớp/lịch HLV, booking, gói đã đăng ký, hóa đơn, thu tiền, điểm danh, doanh thu.
-- Luồng mới **đăng ký/gia hạn → chọn tiền mặt/chuyển khoản → hóa đơn chờ thu → xác nhận rồi kích hoạt gói** có FE theo hợp đồng `/membership-packages` và `/membership-orders`. BE trong Git hiện **chưa triển khai những endpoint này**. FE báo chưa hỗ trợ, không gọi API gia hạn ngay để giả thành công.
-- QR thật cần cấu hình ngân hàng, số tài khoản, chủ tài khoản trong Cài đặt. QR chứa tiền và nội dung đối soát hóa đơn/thành viên. Quét QR không chứng minh tiền đã tới; tự xác nhận cần webhook ngân hàng hoặc nhà cung cấp thanh toán ở BE.
+- Luồng **đăng ký/gia hạn → chọn tiền mặt/chuyển khoản → tạo MembershipOrder và Invoice PENDING → lễ tân xác nhận → kích hoạt gói** đã có API trong backend gốc. Gói cũ được giữ nguyên khi đơn còn chờ. Xác nhận đơn gói không dùng API thu hóa đơn cũ.
+- QR được tạo ở frontend theo số tiền backend trả về và nội dung `HD{invoiceId} TV{memberId}`. Cần cấu hình đúng ngân hàng, số tài khoản và chủ tài khoản trên máy frontend; nếu thiếu, giao diện chỉ hiển thị QR minh họa. Quét QR không chứng minh tiền đã tới: hiện lễ tân phải đối chiếu sao kê và nhập mã giao dịch. Webhook tự xác nhận chưa được tích hợp.
 - Một số màn tập luyện, hỗ trợ, thông báo, nhật ký, chỉnh danh mục vẫn theo hợp đồng FE cũ và chưa nối các controller mới. API mode khóa hoặc báo các thao tác chưa hỗ trợ; cần đối chiếu DTO để nối tiếp, không trình bày các phần đó như đã hoạt động với SQL.
 - Backend kiểm tra quyền và sở hữu tài nguyên. Chặn route/ẩn nút ở FE không thay thế kiểm tra tại BE.
 
@@ -179,7 +181,7 @@ npm ci
 | Hibernate thiếu bảng/cột               | DB khác phiên bản model; thống nhất migration, không đổi `ddl-auto` để che lỗi                   |
 | 401                                    | Đăng nhập lại, JWT có thể hết hạn hoặc đổi secret                                                |
 | 403                                    | Vai trò và quyền trên tài nguyên đang thao tác                                                   |
-| 404/405 khi gia hạn chờ thu            | Hợp đồng mới chưa có BE, gói chưa được gia hạn                                                   |
+| 404/405 khi gia hạn chờ thu            | Kiểm tra đã chạy migration V6, đúng backend gốc và đúng phiên bản frontend chưa                 |
 | Cổng 8080/5173 bị chiếm                | Xác định tiến trình đang chạy trước khi dừng hoặc đổi cổng                                       |
 | Vercel mở được nhưng dữ liệu không tải | BE local không phải URL công khai; deploy cần BE online/proxy phù hợp                            |
 

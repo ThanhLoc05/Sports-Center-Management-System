@@ -21,13 +21,11 @@ import java.util.List;
  * Phân quyền và luồng nghiệp vụ:
  * 1. Xem danh sách gói tập (GET /packages): Công khai cho khách vãng lai và mọi học viên.
  * 2. Tạo gói tập mới (POST /packages): Chỉ dành riêng cho Quản lý trung tâm.
- * 3. Đăng ký gói tập (POST /subscribe):
- *    - Học viên: Chỉ được đăng ký cho chính mình.
- *    - Lễ tân / Quản lý: Có quyền làm thủ tục đăng ký gói tập cho học viên tại quầy.
+ * 3. Đăng ký/gia hạn gói mới dùng MembershipOrderController; API subscribe/renew cũ
+ *    được giữ route để báo chuyển đổi, không còn tạo hoặc kích hoạt gói.
  * 4. Xem gói tập đang hoạt động / lịch sử / ngày hết hạn:
  *    - Chỉ chính chủ học viên hoặc Lễ tân/Quản lý mới được xem (chống xem trộm dữ liệu giữa các học viên).
- * 5. Gia hạn (renew) và Hủy gói tập (cancel):
- *    - Học viên tự gia hạn hoặc Lễ tân/Quản lý thực hiện tại quầy.
+ * 5. Hủy gói vẫn theo API hiện có; mua/gia hạn chỉ hoàn tất sau xác nhận thu tiền.
  */
 @RestController
 @RequestMapping("/api/v1/memberships")
@@ -38,8 +36,9 @@ public class MembershipController {
     private final SecurityUtils securityUtils;
 
     /**
-     * XEM DANH SÁCH TẤT CẢ CÁC GÓI TẬP (PACKAGES)
-     * - Công khai: Khách xem giá và số ngày để lựa chọn đăng ký.
+     * Lấy danh mục gói theo API quản lý gói cũ.
+     * Endpoint này giữ tương thích cho các màn hình cũ; checkout mới dùng
+     * GET /api/v1/membership-packages để nhận đúng cấu trúc dữ liệu theo hợp đồng mới.
      */
     @GetMapping("/packages")
     public List<MembershipPackageResponse> getPackages() {
@@ -47,8 +46,8 @@ public class MembershipController {
     }
 
     /**
-     * TẠO GÓI TẬP MỚI (CREATE PACKAGE)
-     * - Bảo mật: CHỈ Quản lý trung tâm mới có quyền tạo gói tập và định giá.
+     * Tạo gói hội viên mới từ thông tin quản lý cung cấp.
+     * Chỉ CENTER_MANAGER được đặt tên, thời hạn, giá và cấp quyền cho gói.
      */
     @PostMapping("/packages")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -58,50 +57,22 @@ public class MembershipController {
     }
 
     /**
-     * ĐĂNG KÝ GÓI TẬP (SUBSCRIBE PACKAGE)
-     * - Luồng xử lý:
-     *   1. Xác định ID người đang gọi từ JWT.
-     *   2. Nếu là MEMBER, kiểm tra: memberId gửi lên phải chính là currentUserId (chống đăng ký hộ trái phép).
-     *   3. Nếu là Lễ tân (RECEPTIONIST) hoặc Quản lý: Được phép đăng ký cho bất kỳ memberId nào tại quầy.
-     *   4. Service kiểm tra xem học viên có đang có gói tập ACTIVE nào không (mỗi lúc chỉ có 1 gói hoạt động).
+     * Route đăng ký cũ được giữ để client cũ nhận thông báo chuyển đổi.
+     * Không tạo subscription hoặc hóa đơn tại đây; client phải dùng
+     * POST /api/v1/membership-orders để tránh kích hoạt gói trước khi thu tiền.
+     * Kết quả dự kiến là HTTP 409 Conflict kèm hướng dẫn endpoint mới.
      */
     @PostMapping("/subscribe")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberSubscriptionResponse> subscribe(@Valid @RequestBody MemberSubscriptionRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Thông tin đăng ký gói không được để trống");
-        }
-        Integer currentUserId = securityUtils.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        // Nếu client không gửi memberId, tự động gán ID của tài khoản đang đăng nhập
-        if (request.getMemberId() == null) {
-            request.setMemberId(currentUserId);
-        }
-
-        // Hội viên chỉ đăng ký cho chính mình; nhân viên được phép hỗ trợ hội viên khác.
-        if (securityUtils.hasRole("MEMBER") && !currentUserId.equals(request.getMemberId())) {
-            return ResponseEntity.status(403).build();
-        }
-
-        // Chỉ chính chủ HOẶC Lễ tân/Quản lý mới được thao tác
-        if (!currentUserId.equals(request.getMemberId()) &&
-                !(securityUtils.isReceptionist() || securityUtils.isCenterManager())) {
-            return ResponseEntity.status(403).build();
-        }
-        if (!securityUtils.hasRole("MEMBER") && !securityUtils.isReceptionist()
-                && !securityUtils.isCenterManager()) {
-            return ResponseEntity.status(403).build();
-        }
-
-        return ResponseEntity.status(201).body(membershipService.subscribeMembershipPackage(request));
+        throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "API đăng ký cũ đã được thay bằng POST /api/v1/membership-orders để tạo hóa đơn chờ trước khi thu tiền.");
     }
 
     /**
-     * XEM GÓI TẬP ĐANG HOẠT ĐỘNG (ACTIVE MEMBERSHIP)
-     * - Bảo mật: Chỉ chính chủ học viên hoặc Lễ tân/Quản lý mới được xem.
+     * Lấy gói đang có hiệu lực theo ngày hiện tại của một thành viên.
+     * Chỉ chủ tài khoản, lễ tân hoặc quản lý được xem; không có kết quả thì trả 404.
      */
     @GetMapping("/members/{memberId}/active")
     @PreAuthorize("isAuthenticated()")
@@ -114,8 +85,8 @@ public class MembershipController {
     }
 
     /**
-     * XEM TOÀN BỘ LỊCH SỬ ĐĂNG KÝ GÓI TẬP CỦA HỌC VIÊN
-     * - Bảo mật: Chặn không cho học viên khác xem trộm lịch sử đăng ký.
+     * Lấy lịch sử subscription của thành viên để hiển thị các kỳ đã mua/gia hạn.
+     * Chỉ chủ tài khoản, lễ tân hoặc quản lý được xem; MEMBER khác bị từ chối 403.
      */
     @GetMapping("/members/{memberId}")
     @PreAuthorize("isAuthenticated()")
@@ -127,7 +98,8 @@ public class MembershipController {
     }
 
     /**
-     * TRA CỨU NGÀY HẾT HẠN GÓI TẬP CỦA HỌC VIÊN
+     * Trả ngày kết thúc của gói đang có hiệu lực.
+     * Trả 404 khi thành viên chưa có gói đang hiệu lực; giới hạn xem như API lịch sử.
      */
     @GetMapping("/members/{memberId}/expiration")
     @PreAuthorize("isAuthenticated()")
@@ -140,25 +112,23 @@ public class MembershipController {
     }
 
     /**
-     * GIA HẠN GÓI TẬP (RENEW SUBSCRIPTION)
-     * - Học viên tự gia hạn hoặc Lễ tân gia hạn hộ tại quầy.
+     * Route gia hạn cũ được giữ để client cũ nhận lỗi hướng dẫn.
+     * Không tạo kỳ mới ngay khi được gọi; dùng MembershipOrder để đợi xác nhận thu tiền.
+     * Kết quả dự kiến là HTTP 409 Conflict.
      */
     @PostMapping("/{subscriptionId}/renew")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberSubscriptionResponse> renew(
             @PathVariable Integer subscriptionId, @RequestParam Integer packageId) {
-        var subscription = membershipService.getSubscriptionById(subscriptionId);
-        if (subscription == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if (!securityUtils.isOwnerOrAuthorized(subscription.getMemberId())) {
-            return ResponseEntity.status(403).build();
-        }
-        return ResponseEntity.ok(membershipService.renewSubscription(subscriptionId, packageId));
+        throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "API gia hạn cũ đã được thay bằng POST /api/v1/membership-orders; gói chỉ đổi sau khi xác nhận thu tiền.");
     }
 
     /**
-     * HỦY GÓI TẬP (CANCEL SUBSCRIPTION)
+     * Hủy subscription đang hoạt động hoặc chờ thanh toán theo chính sách cũ.
+     * Kiểm tra chủ sở hữu/nhân viên trước khi chuyển trạng thái sang CANCELLED.
+     * Việc hủy subscription không tự hoàn tiền hóa đơn đã thanh toán.
      */
     @PostMapping("/{subscriptionId}/cancel")
     @PreAuthorize("isAuthenticated()")

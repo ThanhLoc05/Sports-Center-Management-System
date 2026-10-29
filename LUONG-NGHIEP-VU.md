@@ -94,22 +94,24 @@ Lớp không thu phí riêng. Quyền đặt lớp phụ thuộc vào gói đang
 
 **Hiện trạng:** có API danh sách và cập nhật trạng thái cho quản lý. Cập nhật hồ sơ từ form, đổi mật khẩu, tạo nhân viên, gán quyền và nhật ký server còn thiếu endpoint tương ứng. Tìm kiếm/lọc danh sách hiện chủ yếu xử lý trên dữ liệu frontend đã tải.
 
-### 4.4. Đăng ký gói hội viên
+### 4.4. Đăng ký/gia hạn gói và thu tiền
 
-**Điều kiện:** hội viên tồn tại; gói đang hoạt động, còn hiệu lực và hội viên không có gói đang chờ thanh toán/trái quy tắc đăng ký hiện tại.
+**Điều kiện:** thành viên tồn tại; gói đang mở bán và có giá/thời hạn hợp lệ; phương thức chỉ là `CASH` hoặc `BANK_TRANSFER`.
 
-1. Chọn gói có tên, thời hạn, giá và cấp quyền (`STANDARD` hoặc `VIP`).
-2. Thành viên đăng ký cho mình; lễ tân/quản lý có thể hỗ trợ theo quyền.
-3. Backend tạo `member_subscriptions` ở `PENDING_PAYMENT` và hóa đơn `PENDING` theo giá gói.
-4. Khi nhân viên xác nhận đã thu (hoặc cổng online được tích hợp xác minh thành công), hóa đơn thành `PAID`, subscription thành `ACTIVE`.
-5. Gói VIP mở quyền đặt lớp STANDARD và VIP; gói STANDARD chỉ mở lớp STANDARD.
+1. Thành viên chọn gói và phương thức. Khi gia hạn, gửi thêm mã gói đang dùng; không gửi giá, trạng thái thanh toán hay ngày hiệu lực.
+2. Frontend gọi `POST /api/v1/membership-orders` với `Idempotency-Key`. Member chỉ được tạo đơn cho mình; lễ tân/quản lý có thể hỗ trợ. Một member chỉ có tối đa một yêu cầu `PENDING_PAYMENT`.
+3. Backend lấy giá/thời hạn từ `membership_packages`, lưu ảnh chụp thông tin gói vào `membership_orders`, rồi tạo hóa đơn `PENDING` liên kết qua `membership_order_id` trong cùng transaction. Chưa tạo hoặc đổi subscription ở bước này.
+4. Đơn tiền mặt: lễ tân nhận đủ tiền rồi xác nhận. Đơn chuyển khoản: QR chứa đúng số tiền hóa đơn và nội dung `HD{invoiceId} TV{memberId}`; lễ tân phải kiểm tra tiền vào sao kê và nhập mã giao dịch thật.
+5. `POST /api/v1/membership-orders/{id}/confirm-payment` chỉ cho lễ tân/quản lý. Backend kiểm tra version, hóa đơn còn `PENDING`, ghi người xác nhận và mã giao dịch duy nhất, tạo subscription mới, đổi invoice sang `PAID` và order sang `CONFIRMED` trong cùng transaction.
+6. Nếu gia hạn, gói cũ giữ nguyên trong lúc chờ và vẫn dùng được đến hết ngày đã mua. Sau xác nhận, kỳ mới bắt đầu ngày kế tiếp nếu gói cũ còn hạn, hoặc từ hôm nay nếu đã hết hạn. Backend chỉ đổi gói cũ sang `EXPIRED` ngay nếu kỳ đó đã hết; quyền truy cập còn dựa trên `startDate`/`endDate`. Kết thúc kỳ tính bao gồm ngày bắt đầu (`endDate = startDate + durationDays - 1`).
+7. Gói `VIP` mở quyền đặt lớp `STANDARD` và `VIP`; gói `STANDARD` chỉ mở quyền lớp `STANDARD`.
 
-**Hiện trạng:** API đăng ký đã tạo subscription chờ thanh toán và hóa đơn; chức năng xác nhận hóa đơn kích hoạt gói. Database/API gói có giá và cấp quyền, không có phí theo từng lớp.
+**Hiện trạng:** backend gốc đã có API và migration V6 cho luồng đơn/hóa đơn chờ và xác nhận thủ công. API `subscribe`/`renew` cũ trả lỗi hướng dẫn dùng MembershipOrder để không kích hoạt trước khi thu tiền. Webhook ngân hàng, gửi email/SMS và hủy đơn đang chờ chưa có.
 ### 4.5. Gia hạn, hủy và hết hiệu lực gói
 
 | Thao tác | Luồng và kết quả |
 |---|---|
-| Gia hạn | Chọn gói mới → backend tính kỳ mới nối tiếp ngày hết hạn hiện tại (nếu còn hạn) hoặc bắt đầu từ hôm nay → tạo subscription `PENDING_PAYMENT` và hóa đơn `PENDING` → thanh toán thành công mới kích hoạt kỳ mới. |
+| Gia hạn | Chọn gói mới → tạo order `PENDING_PAYMENT` và invoice `PENDING`, không đổi gói cũ → lễ tân xác nhận đã thu → trong cùng transaction tạo subscription `ACTIVE` cho kỳ mới, có thể bắt đầu sau ngày kết thúc gói đang dùng. |
 | Hủy gói | Chuyển subscription đang `ACTIVE` hoặc `PENDING_PAYMENT` thành `CANCELLED`. Hủy gói không tự hoàn hóa đơn đã trả; cần áp dụng chính sách hoàn riêng. |
 | Hết hạn | Quyền lớp chỉ hợp lệ khi subscription `ACTIVE` và `end_date` chưa qua. Không khẳng định có job tự cập nhật mọi bản ghi thành `EXPIRED` nếu chưa có cơ chế đó. |
 ## 5. Flow 2 — Lớp học, booking và lịch (bắt buộc)
@@ -169,24 +171,24 @@ Gói lưu `access_level` (`STANDARD`/`VIP`), còn lớp lưu `required_access_le
 
 ### 6.1. Tạo hóa đơn mua/gia hạn gói
 
-Hóa đơn liên kết với `member_subscriptions` qua `subscription_id` (hoặc là khoản thu thủ công). Booking lớp không có hóa đơn vì lớp không thu phí riêng.
+Hóa đơn đăng ký/gia hạn mới liên kết với `membership_orders` qua `membership_order_id`. Sau khi xác nhận, hóa đơn còn liên kết với subscription được tạo qua `subscription_id`. Booking lớp không có hóa đơn vì lớp không thu phí riêng.
 
-1. Hội viên chọn gói STANDARD hoặc VIP; giá và thời hạn lấy từ `membership_packages`.
-2. Backend tạo subscription `PENDING_PAYMENT` và hóa đơn `PENDING` đúng giá gói.
-3. Sau khi tiền được xác nhận, hóa đơn chuyển `PAID`, subscription chuyển `ACTIVE`.
+1. Backend nhận `packageId`, loại thao tác suy ra từ `sourceSubscriptionId`, cùng `paymentMethod`; giá luôn đọc từ danh mục gói.
+2. Backend tạo order và hóa đơn `PENDING` nguyên tử; snapshot ngăn thay đổi giá danh mục làm đổi số tiền đơn đã lập.
+3. Chỉ endpoint xác nhận MembershipOrder của lễ tân/quản lý mới chuyển invoice sang `PAID` và kích hoạt subscription. API `/payments/invoices/{id}/pay` bị chặn với hóa đơn thuộc đơn gói.
 4. Hủy booking không hủy gói và không hoàn tiền gói. Hủy subscription/hoàn tiền cần theo chính sách riêng.
 
-**Hiện trạng:** luồng đăng ký/gia hạn đã tạo subscription chờ thanh toán và hóa đơn PENDING; khi nhân viên xác nhận hóa đơn đã trả, gói được kích hoạt. Cần sửa API lập hóa đơn để số tiền luôn do backend lấy từ gói, không cho client tự gửi số tiền/trạng thái PAID.
+**Hiện trạng:** endpoint đơn mới, kiểm tra quyền/chủ đơn, idempotency, chống đơn chờ trùng, snapshot gói, kiểm tra version, transaction thanh toán-kích hoạt và ghi mã giao dịch ngân hàng đã có ở backend gốc. Database đang chạy phải áp dụng migration V6.
 
 ### 6.2. Thanh toán tại quầy và online
 
-**Tại quầy:** lễ tân/quản lý kiểm tra đã nhận tiền rồi xác nhận hóa đơn `PENDING` thành `PAID`. Hệ thống kích hoạt subscription liên quan.
+**Tiền mặt:** lễ tân nhận đủ tiền rồi xác nhận order. Backend ghi nhân viên xác nhận, thời điểm, invoice `PAID` và subscription `ACTIVE` trong cùng transaction.
 
-**Online theo thiết kế:** backend tạo `payment_transactions` cho hóa đơn gói, chuyển người dùng tới cổng, xác minh callback/webhook (chữ ký, mã đơn, số tiền), rồi mới cập nhật `PAID` và kích hoạt subscription. Kết quả quay về trình duyệt tự nó không phải bằng chứng đã thu tiền.
+**Chuyển khoản QR:** frontend tạo QR với đúng số tiền và nội dung `HD{invoiceId} TV{memberId}`. QR là thông tin chuyển khoản đã điền sẵn, không phải bằng chứng tiền đã vào. Hiện lễ tân xác minh sao kê và nhập mã giao dịch; backend không cho dùng lại mã giao dịch cho đơn khác.
 
-Danh mục hiện có VNPay, MoMo, ZaloPay và PayOS, nhưng cả bốn đang `is_enabled = 0`. Cần tích hợp, cấu hình khóa bí mật, xác minh callback và thử nghiệm từng cổng trước khi bật. Việc ghi tên cổng vào hóa đơn chưa chứng minh đã có giao dịch online thật.
+**Tự xác nhận online:** chưa tích hợp. Cần chọn ngân hàng/provider và có webhook HTTPS; backend phải xác minh chữ ký, chống phát lại, đúng tài khoản nhận/số tiền/nội dung và gọi chung nghiệp vụ xác nhận hiện tại. Các provider VNPay/MoMo/ZaloPay/PayOS đang tắt; không được hiểu là đã tích hợp chỉ vì có trong danh mục.
 
-**Hiện trạng:** API thu tiền tại quầy/đổi trạng thái hóa đơn đã có; chưa có checkout/callback online. Không có thanh toán/hoàn tiền theo từng booking lớp.
+**Hiện trạng:** đã có xác nhận thu tiền mặt và đối soát chuyển khoản thủ công. Mã giao dịch chuyển khoản được lưu duy nhất trên MembershipOrder; luồng này chưa ghi bản ghi `payment_transactions` vì chưa có gateway. Chưa có cổng checkout, webhook tự động, endpoint hủy/timeout đơn chờ, tài khoản ngân hàng tập trung, thông báo email/SMS hoặc quy trình refund riêng cho MembershipOrder. Không có thanh toán/hoàn tiền booking lớp.
 
 ### 6.3. Hủy gói và hoàn tiền
 
@@ -249,8 +251,9 @@ Khi bảo vệ nên gọi là “mô phỏng luồng gợi ý bài tập”, kh�
 | Lượt sử dụng gói (`MemberSubscription`) | Quyền sử dụng gói của thành viên trong khoảng thời gian; chỉ `ACTIVE` và chưa hết hạn mới được dùng để đặt lớp. |
 | Lớp (`Classes`) | Một buổi cụ thể, có bộ môn, HLV, phòng, sức chứa và `required_access_level`; không có giá lớp riêng. |
 | Booking (`ClassBooking`) | Hội viên đủ điều kiện ghi danh vào lớp; không phát sinh hóa đơn riêng. |
-| Hóa đơn (`Invoice`) | Khoản tiền mua/gia hạn gói hoặc khoản thu thủ công; lớp không liên kết hóa đơn. |
-| Giao dịch (`PaymentTransaction`) | Một lần thử thu/hoàn cho hóa đơn gói. |
+| Đơn gói (`MembershipOrder`) | Yêu cầu đăng ký/gia hạn, snapshot giá gói, idempotency, nhân viên xác nhận và trạng thái chờ/hoàn tất. |
+| Hóa đơn (`Invoice`) | Khoản tiền; đơn mua/gia hạn mới liên kết cả MembershipOrder và subscription sau khi xác nhận. Lớp không liên kết hóa đơn. |
+| Giao dịch (`PaymentTransaction`) | Bảng dành cho giao dịch qua nhà cung cấp; hiện chưa được dùng trong luồng chuyển khoản QR đối soát thủ công. |
 | Điểm danh (`Attendance`) | Ghi nhận có mặt/vắng; booking không đồng nghĩa đã tham gia buổi tập. |
 
 Quy tắc cấp quyền: gói STANDARD → lớp STANDARD; gói VIP → lớp STANDARD và VIP. Booking hợp lệ cần subscription `ACTIVE`, ngày hết hạn còn hiệu lực, lớp `SCHEDULED`, còn chỗ và không trùng lịch.
@@ -265,16 +268,17 @@ Hội viên chọn lớp
 → Hội viên xem lịch và HLV/lễ tân điểm danh
 ```
 
-Thanh toán online chỉ nằm ở luồng mua/gia hạn gói: backend tạo giao dịch cho hóa đơn gói, cổng trả kết quả, backend xác minh rồi mới kích hoạt subscription. Trang frontend không tự xác nhận thanh toán thành công.
+Thanh toán gói đi theo luồng: `Memberships.tsx` → `MembershipCheckout.tsx` → `membership-checkout.ts` → `POST /membership-orders` → `MembershipOrderController` → `MembershipOrderService` → lưu `membership_orders` + `invoices` chờ. QR được dựng ở `PaymentQr.tsx` từ `payment-qr.ts`. Lễ tân đối chiếu rồi gọi `POST /membership-orders/{id}/confirm-payment`; service khóa đơn, kiểm tra version/mã giao dịch, cập nhật invoice và subscription cùng transaction. Frontend chỉ hiển thị thành công khi tải được order `CONFIRMED` từ backend.
 
 | Luồng | Trang frontend chính | API tiêu biểu — tiền tố `/api/v1` |
 |---|---|---|
 | Tài khoản | `Auth.tsx`, `Members.tsx`, `Settings.tsx` | `POST /users/register`, `POST /users/login`, `GET /users`, `PATCH /users/{id}/status` |
-| Gói | `Memberships.tsx` | `GET/POST /memberships/packages`, `POST /memberships/subscribe`, renew/cancel |
+| Gói | `Memberships.tsx`, `MembershipCheckout.tsx` | `GET /membership-packages`, `POST/GET /membership-orders`, `POST /membership-orders/{id}/confirm-payment`; API subscribe/renew cũ đã bị chặn |
 | Lớp | `Classes.tsx`, `Schedule.tsx` | `GET/POST /classes`, `PUT /classes/{id}`, `POST /classes/{id}/cancel`; request/response có cấp truy cập |
 | Booking | `Classes.tsx`, `Bookings.tsx` | `POST /classes/{id}/book?memberId=...`, `DELETE /bookings/{id}`; backend kiểm tra quyền gói |
-| Hóa đơn gói | `Payments.tsx` | `POST /payments/invoices`, `POST /payments/invoices/{id}/pay`, `POST /payments/invoices/{id}/refund` |
-| Thanh toán online gói | `Payments.tsx` | Checkout/callback từng nhà cung cấp: cần hoàn thiện, chưa hoạt động |
+| Hóa đơn gói | `Payments.tsx`, `MembershipCheckout.tsx` | `/membership-orders`; hóa đơn đơn gói không thu qua `/payments/invoices/{id}/pay` |
+| Chuyển khoản QR | `PaymentQr.tsx` | VietQR điền sẵn; lễ tân xác nhận thủ công qua `confirm-payment` sau khi đối chiếu sao kê |
+| Tự xác nhận chuyển khoản | — | Webhook ngân hàng/provider chưa tích hợp; cần thông tin kết nối và kiểm thử thật |
 | Báo cáo | `Reports.tsx` | `/payments/revenue`; nên chuyển sang thời điểm thu/hoàn |
 | Điểm danh | `Attendance.tsx` | `POST /attendance`, `GET /attendance/classes/{id}`, `GET /attendance/members/{id}` |
 
@@ -286,7 +290,7 @@ Thanh toán online chỉ nằm ở luồng mua/gia hạn gói: backend tạo gia
 4. **Kiểm tra quyền:** tài khoản STANDARD thử lớp thường được; thử lớp VIP bị từ chối. Tài khoản VIP có thể đăng ký cả hai nếu còn chỗ và không trùng lịch.
 5. **Lịch và điểm danh:** booking thành công thì xuất hiện trên lịch; HLV/lễ tân điểm danh.
 6. **Báo cáo:** quản lý xem doanh thu từ hóa đơn gói đã `PAID`; lớp không tạo khoản thu riêng.
-7. **Kết thúc:** phân biệt phần API đã có với tích hợp thanh toán online còn cần hoàn thiện.
+7. **Kết thúc:** phân biệt QR chuyển khoản được tạo sẵn với việc xác nhận tiền thật; hiện xác nhận thủ công, webhook tự động còn cần tích hợp.
 ## 14. Quyền lợi VIP có thể bổ sung
 
 Nên bắt đầu với các quyền dễ giải thích và dễ kiểm soát:

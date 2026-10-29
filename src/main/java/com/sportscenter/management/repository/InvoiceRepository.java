@@ -18,6 +18,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
 
     Optional<Invoice> findFirstBySubscriptionIdOrderByCreatedAtDesc(Integer subscriptionId);
 
+    Optional<Invoice> findByMembershipOrderId(Integer membershipOrderId);
+
     List<Invoice> findByPaymentStatus(String paymentStatus);
 
     List<Invoice> findByPaymentStatusAndCreatedAtBetween(

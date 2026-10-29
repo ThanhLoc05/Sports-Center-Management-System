@@ -25,6 +25,9 @@ public class Invoice {
     @Column(name = "subscription_id")
     private Integer subscriptionId;
 
+    @Column(name = "membership_order_id")
+    private Integer membershipOrderId;
+
     @Column(name = "member_id", nullable = false)
     private Integer memberId;
 

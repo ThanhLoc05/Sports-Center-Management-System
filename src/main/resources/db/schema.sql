@@ -125,6 +125,47 @@ BEGIN
     );
 END;
 
+/* Đơn đăng ký/gia hạn lưu ảnh chụp giá gói và chỉ được kích hoạt sau khi thu tiền. */
+IF OBJECT_ID(N'dbo.membership_orders', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.membership_orders (
+        membership_order_id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_membership_orders PRIMARY KEY,
+        member_id INT NOT NULL,
+        package_id INT NOT NULL,
+        order_kind NVARCHAR(20) NOT NULL,
+        source_subscription_id INT NULL,
+        source_package_id INT NULL,
+        package_name_snapshot NVARCHAR(255) NOT NULL,
+        package_price_snapshot DECIMAL(18,2) NOT NULL,
+        package_duration_days_snapshot INT NOT NULL,
+        package_status_snapshot NVARCHAR(20) NOT NULL,
+        payment_method NVARCHAR(30) NOT NULL,
+        status NVARCHAR(30) NOT NULL CONSTRAINT DF_membership_orders_status DEFAULT N'PENDING_PAYMENT',
+        idempotency_key NVARCHAR(100) NOT NULL,
+        request_fingerprint CHAR(64) NOT NULL,
+        created_by INT NOT NULL,
+        confirmed_by INT NULL,
+        bank_transaction_id NVARCHAR(100) NULL,
+        confirmation_key NVARCHAR(100) NULL,
+        confirmation_fingerprint CHAR(64) NULL,
+        version INT NOT NULL CONSTRAINT DF_membership_orders_version DEFAULT (0),
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_membership_orders_created_at DEFAULT SYSDATETIME(),
+        confirmed_at DATETIME2 NULL,
+        CONSTRAINT FK_membership_orders_members FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+        CONSTRAINT FK_membership_orders_packages FOREIGN KEY (package_id) REFERENCES dbo.membership_packages(package_id),
+        CONSTRAINT FK_membership_orders_source_subscription FOREIGN KEY (source_subscription_id) REFERENCES dbo.member_subscriptions(subscription_id),
+        CONSTRAINT FK_membership_orders_source_package FOREIGN KEY (source_package_id) REFERENCES dbo.membership_packages(package_id),
+        CONSTRAINT FK_membership_orders_created_by FOREIGN KEY (created_by) REFERENCES dbo.users(user_id),
+        CONSTRAINT FK_membership_orders_confirmed_by FOREIGN KEY (confirmed_by) REFERENCES dbo.users(user_id),
+        CONSTRAINT CK_membership_orders_kind CHECK (order_kind IN (N'NEW', N'RENEWAL')),
+        CONSTRAINT CK_membership_orders_method CHECK (payment_method IN (N'CASH', N'BANK_TRANSFER')),
+        CONSTRAINT CK_membership_orders_status CHECK (status IN (N'PENDING_PAYMENT', N'CONFIRMED', N'CANCELLED')),
+        CONSTRAINT CK_membership_orders_snapshot CHECK (package_price_snapshot > 0 AND package_duration_days_snapshot > 0 AND version >= 0),
+        CONSTRAINT CK_membership_orders_source CHECK ((order_kind = N'NEW' AND source_subscription_id IS NULL AND source_package_id IS NULL) OR (order_kind = N'RENEWAL' AND source_subscription_id IS NOT NULL AND source_package_id IS NOT NULL)),
+        CONSTRAINT UQ_membership_orders_creator_key UNIQUE (created_by, idempotency_key)
+    );
+END;
+
 /* Eligible members book directly; membership payment is handled by the package invoice. */
 IF OBJECT_ID(N'dbo.class_bookings', N'U') IS NULL
 BEGIN
@@ -147,6 +188,7 @@ BEGIN
     CREATE TABLE dbo.invoices (
         invoice_id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_invoices PRIMARY KEY,
         subscription_id INT NULL,
+        membership_order_id INT NULL,
         member_id INT NOT NULL,
         receptionist_id INT NULL,
         amount DECIMAL(18,2) NOT NULL,
@@ -157,6 +199,7 @@ BEGIN
         paid_at DATETIME2 NULL,
         refunded_at DATETIME2 NULL,
         CONSTRAINT FK_invoices_subscriptions FOREIGN KEY (subscription_id) REFERENCES dbo.member_subscriptions(subscription_id),
+        CONSTRAINT FK_invoices_membership_orders FOREIGN KEY (membership_order_id) REFERENCES dbo.membership_orders(membership_order_id),
         CONSTRAINT FK_invoices_members FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
         CONSTRAINT FK_invoices_receptionists FOREIGN KEY (receptionist_id) REFERENCES dbo.users(user_id),
         CONSTRAINT CK_invoices_amount CHECK (amount >= 0),
@@ -330,6 +373,28 @@ IF NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_name = N'Fitness')
 IF NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_name = N'Boxing')
     INSERT INTO dbo.sports (sport_name, description) VALUES (N'Boxing', N'Lớp boxing rèn luyện kỹ thuật và thể lực');
 
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Sân đa năng 1')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Sân đa năng 1', 20);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Sân đa năng 2')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Sân đa năng 2', 20);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Phòng tập nhóm')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Phòng tập nhóm', 16);
+IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Hồ bơi')
+    INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Hồ bơi', 12);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 1 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói STANDARD 1 tháng', 30, 500000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 3 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói STANDARD 3 tháng', 90, 1350000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 1 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói VIP 1 tháng', 30, 800000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
+IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
+    VALUES (N'Gói VIP 3 tháng', 90, 2100000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
+
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'VNPAY')
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'VNPAY', N'VNPay', 0);
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'MOMO')
@@ -361,6 +426,17 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.payme
         WHERE provider_transaction_reference IS NOT NULL;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.payment_transactions') AND name = N'IX_payment_transactions_invoice_status')
     CREATE INDEX IX_payment_transactions_invoice_status ON dbo.payment_transactions (invoice_id, status, created_at);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.invoices') AND name = N'UX_invoices_membership_order')
+    CREATE UNIQUE INDEX UX_invoices_membership_order ON dbo.invoices (membership_order_id)
+        WHERE membership_order_id IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'UX_membership_orders_bank_transaction')
+    CREATE UNIQUE INDEX UX_membership_orders_bank_transaction ON dbo.membership_orders (bank_transaction_id)
+        WHERE bank_transaction_id IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'IX_membership_orders_member_status_created')
+    CREATE INDEX IX_membership_orders_member_status_created ON dbo.membership_orders (member_id, status, created_at DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'UX_membership_orders_one_pending_per_member')
+    CREATE UNIQUE INDEX UX_membership_orders_one_pending_per_member ON dbo.membership_orders (member_id)
+        WHERE status = N'PENDING_PAYMENT';
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.attendances') AND name = N'IX_attendances_member_time')
     CREATE INDEX IX_attendances_member_time ON dbo.attendances (member_id, checked_in_at);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.support_tickets') AND name = N'IX_support_tickets_status_created')

@@ -124,6 +124,12 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
 
+        if (invoice.getMembershipOrderId() != null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Hóa đơn gói phải được xác nhận trong yêu cầu gói để đồng bộ tiền và thời hạn.");
+        }
+
         if (!"PENDING".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ hóa đơn đang chờ thanh toán mới có thể được thanh toán");
         }
@@ -151,6 +157,12 @@ public class PaymentServiceImpl implements PaymentService {
     public InvoiceResponse refundInvoice(Integer invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+
+        if (invoice.getMembershipOrderId() != null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Hóa đơn thuộc yêu cầu gói; luồng hoàn tiền cho yêu cầu này chưa được mở.");
+        }
 
         if (!"PAID".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hoàn tiền cho hóa đơn đã thanh toán");
@@ -219,6 +231,7 @@ public class PaymentServiceImpl implements PaymentService {
         return InvoiceResponse.builder()
                 .id(invoice.getId())
                 .subscriptionId(invoice.getSubscriptionId())
+                .membershipOrderId(invoice.getMembershipOrderId())
                 .memberId(invoice.getMemberId())
                 .receptionistId(invoice.getReceptionistId())
                 .amount(invoice.getAmount())
