@@ -17,6 +17,9 @@ import com.sportscenter.management.repository.MembershipOrderRepository;
 import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +46,9 @@ public class MembershipOrderService {
     private final InvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
     private final SecurityUtils securityUtils;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<MembershipOfferResponse> getPackages() {
@@ -202,6 +208,9 @@ public class MembershipOrderService {
         if (!Objects.equals(order.getVersion(), request.getVersion())) {
             throw conflict("Yêu cầu đã được cập nhật bởi người khác. Tải lại dữ liệu rồi thử lại.");
         }
+        // Luôn khóa đơn trước, rồi thành viên; các lần xác nhận cùng người phải chờ nhau trước khi tính kỳ cuối.
+        userRepository.findByIdForUpdate(order.getMemberId())
+                .orElseThrow(() -> conflict("Thành viên của yêu cầu không còn tồn tại."));
         Invoice invoice = invoiceRepository.findByMembershipOrderId(orderId)
                 .orElseThrow(() -> new IllegalStateException("Yêu cầu gói chưa có hóa đơn liên kết"));
         if (!"PENDING".equals(invoice.getPaymentStatus())) {
@@ -218,11 +227,20 @@ public class MembershipOrderService {
         if (order.getSourceSubscriptionId() != null) {
             source = subscriptionRepository.findById(order.getSourceSubscriptionId())
                     .orElseThrow(() -> new IllegalStateException("Không tìm thấy gói cũ cần gia hạn"));
+            // Đọc lại trạng thái nguồn sau khóa thành viên, kể cả entity đã có trong persistence context.
+            entityManager.refresh(source, LockModeType.PESSIMISTIC_WRITE);
             if (!Objects.equals(source.getMemberId(), order.getMemberId())) {
                 throw new IllegalStateException("Gói cũ không thuộc thành viên của đơn");
             }
-            if ("ACTIVE".equals(source.getStatus()) && !source.getEndDate().isBefore(today)) {
-                startDate = source.getEndDate().plusDays(1);
+            if ((!"ACTIVE".equals(source.getStatus()) && !"EXPIRED".equals(source.getStatus()))
+                    || source.getStartDate() == null || source.getEndDate() == null
+                    || source.getStartDate().isAfter(source.getEndDate())) {
+                throw conflict("Kỳ nguồn không còn hợp lệ để gia hạn.");
+            }
+            // Kỳ ACTIVE tương lai đã được xác nhận cũng phải được giữ nguyên, không nối lại từ kỳ nguồn cũ.
+            LocalDate lastEndDate = subscriptionRepository.findLastActiveEndDate(order.getMemberId()).orElse(null);
+            if (lastEndDate != null && !lastEndDate.isBefore(today)) {
+                startDate = lastEndDate.plusDays(1);
             }
         }
         LocalDate endDate = startDate.plusDays(order.getPackageDurationDays() - 1L);

@@ -32,6 +32,13 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
      */
     List<MemberSubscription> findByMemberId(Integer memberId);
 
+    @Query("SELECT ms.memberId FROM MemberSubscription ms WHERE ms.id = :subscriptionId")
+    Optional<Integer> findMemberIdById(@Param("subscriptionId") Integer subscriptionId);
+
+    @Query("SELECT MAX(ms.endDate) FROM MemberSubscription ms WHERE ms.memberId = :memberId " +
+            "AND ms.status = 'ACTIVE' AND ms.startDate <= ms.endDate")
+    Optional<LocalDate> findLastActiveEndDate(@Param("memberId") Integer memberId);
+
     /**
      * Find subscriptions by status
      * @param status Subscription status (ACTIVE, EXPIRED, CANCELLED)

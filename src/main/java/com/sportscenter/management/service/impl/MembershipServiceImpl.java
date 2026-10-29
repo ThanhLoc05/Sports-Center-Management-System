@@ -13,6 +13,9 @@ import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.MembershipService;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +34,9 @@ public class MembershipServiceImpl implements MembershipService {
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
     private final InvoiceRepository invoiceRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -204,8 +210,15 @@ public class MembershipServiceImpl implements MembershipService {
 
     @Override
     public MemberSubscriptionResponse cancelSubscription(Integer subscriptionId) {
+        Integer memberId = subscriptionRepository.findMemberIdById(subscriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Đăng ký không tồn tại"));
+        // Cùng khóa thành viên với confirm; không lấy khóa đơn trong luồng hủy.
+        userRepository.findByIdForUpdate(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại"));
         MemberSubscription subscription = subscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new IllegalArgumentException("Đăng ký không tồn tại"));
+        // Controller có thể đã đọc entity trước đó; refresh sau khóa để không kiểm tra trạng thái cache cũ.
+        entityManager.refresh(subscription, LockModeType.PESSIMISTIC_WRITE);
 
         if (!"ACTIVE".equals(subscription.getStatus()) && !"PENDING_PAYMENT".equals(subscription.getStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hủy gói tập đang hoạt động hoặc đang chờ thanh toán");
