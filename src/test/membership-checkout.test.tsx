@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import {
   MembershipOrderDetail,
   MembershipNotifications,
   MembershipCheckoutPage,
+  MembershipOrders,
 } from "../components/MembershipCheckout";
 import {
   membershipCheckout,
@@ -79,6 +80,24 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 const clients: QueryClient[] = [];
+function accessCache() {
+  const client = clients[clients.length - 1];
+  client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity } });
+  for (const memberId of [3, 4, 5]) {
+    client.setQueryData(["activeSubscription", memberId], subscription);
+    client.setQueryData(["subscriptions", memberId], [subscription]);
+    client.setQueryData(["invoices", String(memberId)], [pending.invoice]);
+  }
+  client.setQueryData(["invoices", ""], [pending.invoice]);
+  return client;
+}
+function expectMemberRefresh(client: QueryClient) {
+  for (const memberId of [3, 4, 5]) {
+    for (const key of [["activeSubscription", memberId], ["subscriptions", memberId], ["invoices", String(memberId)]])
+      expect(client.getQueryState(key)?.isInvalidated).toBe(memberId === 4);
+  }
+  expect(client.getQueryState(["invoices", ""])?.isInvalidated).toBe(true);
+}
 afterEach(() => {
   for (const c of clients) c.clear();
   clients.length = 0;
@@ -268,6 +287,7 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
       <MembershipOrderDetail orderId={20} onClose={() => {}} />,
       "RECEPTIONIST",
     );
+    const client = accessCache();
     const button = await screen.findByRole("button", {
       name: "Xác nhận thu tiền và kích hoạt gói",
     });
@@ -284,6 +304,62 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     const post = calls.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(post[0]).toBe("/api/v1/membership-orders/20/confirm-payment");
     expect(JSON.parse(String(post[1]!.body))).toEqual({ version: 0 });
+    await waitFor(() => expectMemberRefresh(client));
+  });
+  it.each(["detail", "list"])("refreshes only the member caches when %s polling detects confirmation", async (view) => {
+    let paid = false;
+    const calls = vi.fn(async () => json(view === "list" ? [paid ? confirmed() : pending] : paid ? confirmed() : pending));
+    vi.stubGlobal("fetch", calls);
+    wrap(view === "list" ? <MembershipOrders memberId={4} /> : <MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    const client = accessCache();
+    await screen.findByText(view === "list" ? "Chờ thanh toán / xác nhận" : /Đơn đang chờ nhận tiền mặt/);
+    expect(client.getQueryState(["activeSubscription", 4])?.isInvalidated).toBe(false);
+    paid = true;
+    await waitFor(() => expectMemberRefresh(client), { timeout: 12000 });
+    expect(calls.mock.calls.length).toBeGreaterThan(1);
+  }, 15000);
+  it.each(["CANCELLED", "PENDING_PAYMENT", "UNKNOWN"])("disables renewal of %s subscriptions", async (status) => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/membership-packages") ? json([pkg]) : url.includes("/memberships/members/") ? json([{ ...subscription, status }]) : json([]),
+    ));
+    wrap(<MembershipCheckoutPage />);
+    expect(await screen.findByRole("button", { name: "Gia hạn" })).toBeDisabled();
+  });
+  it("blocks cached renewal while history refetch is pending and after an API error", async () => {
+    let fail = false;
+    let finish!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("/memberships/members/"))
+        return fail ? new Promise<Response>((resolve) => { finish = resolve; }) : json([subscription]);
+      return json(url.endsWith("/membership-packages") ? [pkg] : []);
+    }));
+    wrap(<MembershipCheckoutPage />);
+    const button = await screen.findByRole("button", { name: "Gia hạn" });
+    expect(button).toBeEnabled();
+    await userEvent.setup().click(button);
+    const submit = await screen.findByRole("button", { name: "Tiếp tục đến thanh toán" });
+    await waitFor(() => expect(submit).toBeEnabled());
+    const client = clients[clients.length - 1];
+    fail = true;
+    let request!: Promise<void>;
+    await act(async () => { request = client.refetchQueries({ queryKey: ["subscriptions", 4] }); });
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(submit).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gia hạn gói tập" })).toBeDisabled();
+    await act(async () => { finish(json({ message: "History unavailable" }, 500)); await request; });
+    expect(button).toBeDisabled();
+    expect(submit).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gia hạn gói tập" })).toBeDisabled();
+  });
+  it("shows the future effective date for a paid STANDARD to VIP renewal without replacing current access", async () => {
+    const future = confirmed({ ...pending, package: { ...pkg, id: 2, name: "VIP TEST" } });
+    future.subscription = { ...subscription, id: 11, packageId: 2, startDate: "2099-01-02", endDate: "2099-01-31" };
+    vi.stubGlobal("fetch", vi.fn(async () => json(future)));
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    const client = accessCache();
+    expect(await screen.findByText(/quyền mới chưa áp dụng trước ngày này/)).toHaveTextContent("02/01/2099");
+    await waitFor(() => expectMemberRefresh(client));
+    expect(client.getQueryData(["activeSubscription", 4])).toEqual(subscription);
   });
   it("QR appearance never confirms payment; staff must provide a bank transaction and acknowledge receipt", async () => {
     const bankOrder = {

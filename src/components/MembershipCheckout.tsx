@@ -57,6 +57,24 @@ const positiveId = (text: string | null) =>
 const pendingInterval = (query: { state: { error: unknown } }) =>
   query.state.error ? false : 10000;
 
+function useConfirmedMemberships(orders?: MembershipOrder[]) {
+  const client = useQueryClient();
+  const confirmed = useRef(new Set<number>());
+  useEffect(() => {
+    for (const order of orders || []) {
+      if (order.status !== "CONFIRMED" || confirmed.current.has(order.id)) continue;
+      confirmed.current.add(order.id);
+      // Xác nhận ở máy khác cũng phải tải lại quyền thật, không tự cấp quyền từ đơn.
+      void client.invalidateQueries({ queryKey: ["activeSubscription", order.memberId] });
+      void client.invalidateQueries({ queryKey: ["subscriptions", order.memberId] });
+      void client.invalidateQueries({
+        predicate: ({ queryKey }) => queryKey[0] === "invoices" &&
+          (!queryKey[1] || Number(queryKey[1]) === order.memberId),
+      });
+    }
+  }, [orders, client]);
+}
+
 export function MembershipCheckoutPage() {
   const { session } = useAuth();
   const member = session!.user.roleName === "MEMBER";
@@ -80,6 +98,7 @@ export function MembershipCheckoutPage() {
     source?: Subscription;
     offer?: MembershipOffer;
   } | null>(null);
+  const historyReady = !subscriptions.isPending && !subscriptions.isFetching && !subscriptions.error;
   const active = subscriptions.data?.find(
     (s) =>
       s.status === "ACTIVE" &&
@@ -94,7 +113,7 @@ export function MembershipCheckoutPage() {
         actions={
           <Button
             disabled={
-              !selected || subscriptions.isPending || !!subscriptions.error
+              !selected || !historyReady
             }
             onClick={() => setDraft({ source: active })}
           >
@@ -156,8 +175,7 @@ export function MembershipCheckoutPage() {
                 <Button
                   disabled={
                     !selected ||
-                    subscriptions.isPending ||
-                    !!subscriptions.error
+                    !historyReady
                   }
                   onClick={() => setDraft({ source: active, offer: pkg })}
                 >
@@ -221,7 +239,7 @@ export function MembershipCheckoutPage() {
                 render: (s) => (
                   <Button
                     variant="secondary"
-                    disabled={!!active && active.id !== s.id}
+                    disabled={!historyReady || !["ACTIVE", "EXPIRED"].includes(s.status) || (!!active && active.id !== s.id)}
                     onClick={() => setDraft({ source: s })}
                   >
                     Gia hạn
@@ -235,9 +253,10 @@ export function MembershipCheckoutPage() {
       {draft && (
         <MembershipOrderForm
           memberId={selected!}
-          source={draft.source}
+          source={subscriptions.data?.find((s) => s.id === draft.source?.id) || draft.source}
           offer={draft.offer}
           users={users.data || []}
+          historyReady={historyReady && (!draft.source || !!subscriptions.data?.some((s) => s.id === draft.source!.id))}
           onClose={() => setDraft(null)}
         />
       )}
@@ -250,12 +269,14 @@ export function MembershipOrderForm({
   source,
   offer,
   users = [],
+  historyReady = true,
   onClose,
 }: {
   memberId: number;
   source?: Subscription;
   offer?: MembershipOffer;
   users?: import("../lib/types").User[];
+  historyReady?: boolean;
   onClose: () => void;
 }) {
   const { session } = useAuth();
@@ -278,9 +299,12 @@ export function MembershipOrderForm({
     <FormModal
       title={source ? "Yêu cầu gia hạn gói tập" : "Yêu cầu đăng ký gói tập"}
       submitLabel="Tiếp tục đến thanh toán"
-      submitDisabled={!selected || packages.isPending || !!packages.error}
+      submitDisabled={!selected || packages.isPending || !!packages.error || (!!source && (!historyReady || !["ACTIVE", "EXPIRED"].includes(source.status)))}
       onClose={onClose}
       onSubmit={async (data) => {
+        // Không gia hạn từ lịch sử cache khi đang tải lại hoặc API đã lỗi.
+        if (source && (!historyReady || !["ACTIVE", "EXPIRED"].includes(source.status)))
+          throw Error("Chưa có dữ liệu hợp lệ để gia hạn gói này.");
         if (!selected)
           throw Error("Chọn gói có giá từ trung tâm trước khi tiếp tục.");
         const target =
@@ -384,6 +408,7 @@ export function MembershipOrders({
     retry: false,
     refetchInterval: pendingInterval,
   });
+  useConfirmedMemberships(query.error ? undefined : query.data);
   const fromUrl = paymentPage ? positiveId(params.get("orderId")) : undefined;
   const detailId = fromUrl || selected;
   const rows = (query.data || []).filter(
@@ -508,6 +533,7 @@ export function MembershipOrderDetail({
         : 8000,
   });
   const order = query.data;
+  useConfirmedMemberships(query.error || !order ? undefined : [order]);
   const owner =
     order && (order.memberId === session!.user.id || can("payments.collect"));
   const [checked, setChecked] = useState(false),
@@ -522,11 +548,10 @@ export function MembershipOrderDetail({
       lastStatus.current === "PENDING_PAYMENT"
     ) {
       toast(
-        "Gói tập đã được xác nhận. Bạn có thể xem thời hạn mới trong Gói thành viên.",
+        order.subscription!.startDate > localDate()
+          ? "Đã xác nhận thanh toán. Gói mới có hiệu lực từ " + dateLabel(order.subscription!.startDate) + "."
+          : "Gói tập đã được xác nhận. Bạn có thể xem thời hạn mới trong Gói thành viên.",
       );
-      void client.invalidateQueries({
-        queryKey: ["subscriptions", order.memberId],
-      });
       void client.invalidateQueries({ queryKey: ["membership-orders"] });
     }
     lastStatus.current = order?.status;
@@ -575,6 +600,9 @@ export function MembershipOrderDetail({
                 Đã xác nhận {orderAction(order)} {order.package.name}. Thời hạn:{" "}
                 {dateLabel(order.subscription!.startDate)} –{" "}
                 {dateLabel(order.subscription!.endDate)}.{" "}
+                {order.subscription!.startDate > localDate() && (
+                  <>Gói mới có hiệu lực từ {dateLabel(order.subscription!.startDate)}; quyền mới chưa áp dụng trước ngày này. </>
+                )}
                 <Link to="/memberships" onClick={onClose}>
                   Xem gói tập
                 </Link>
@@ -626,12 +654,6 @@ export function MembershipOrderDetail({
                           );
                           await client.invalidateQueries({
                             queryKey: ["membership-orders"],
-                          });
-                          await client.invalidateQueries({
-                            queryKey: ["subscriptions", order.memberId],
-                          });
-                          await client.invalidateQueries({
-                            queryKey: ["invoices"],
                           });
                         } catch (err) {
                           setError(errorText(err));
@@ -735,6 +757,9 @@ export function MembershipNotifications() {
               <p>
                 Thời hạn: {dateLabel(order.subscription!.startDate)} –{" "}
                 {dateLabel(order.subscription!.endDate)}
+                {order.subscription!.startDate > localDate() && (
+                  <> · Gói mới có hiệu lực từ {dateLabel(order.subscription!.startDate)}; quyền mới chưa áp dụng trước ngày này.</>
+                )}
               </p>
               <Link to={`/payments?orderId=${order.id}`}>
                 Xem chi tiết hóa đơn
