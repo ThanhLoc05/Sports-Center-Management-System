@@ -53,6 +53,8 @@ export interface RegisterInput {
  * Lớp học nối bộ môn, phòng và HLV bằng các ID; scheduleTime là giờ bắt đầu
  * và durationMinutes là thời lượng. Đây là dữ liệu nguồn để dựng lịch học.
  */
+export type AccessLevel = "STANDARD" | "VIP";
+
 export interface SportClass {
   id: number;
   className: string;
@@ -62,6 +64,7 @@ export interface SportClass {
   maxCapacity: number;
   scheduleTime: string;
   durationMinutes: number;
+  requiredAccessLevel: AccessLevel;
   status: string;
 }
 /**

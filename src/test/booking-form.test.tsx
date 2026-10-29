@@ -40,6 +40,7 @@ describe("Đặt lớp ở API mode không bị luồng demo chặn", () => {
           coachId: 3,
           scheduleTime: "2099-12-01T09:00:00",
           durationMinutes: 60,
+          requiredAccessLevel: "STANDARD",
           maxCapacity: 20,
           status: "SCHEDULED",
         },

@@ -25,6 +25,7 @@ const input = (): ClassInput => ({
   maxCapacity: 15,
   scheduleTime: `${localDate(addDays(5))}T14:00:00`,
   durationMinutes: 60,
+  requiredAccessLevel: "STANDARD",
   status: "SCHEDULED",
 });
 function page(path: string, role: Role) {
@@ -293,29 +294,40 @@ describe("Hợp đồng HTTP với backend main mới", () => {
       }),
     );
   });
-  it("sends exact create/update/cancel endpoints and reads backend capacity", async () => {
-    const api = await liveModule();
-    const payload = input();
-    const saved = { ...payload, id: 78 };
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(json(saved, 201))
-      .mockResolvedValueOnce(json({ ...saved, maxCapacity: 12 }))
-      .mockResolvedValueOnce(json({ ...saved, status: "CANCELLED" }))
-      .mockResolvedValueOnce(json(4));
-    vi.stubGlobal("fetch", fetch);
-    await api.saveClass(payload);
-    await api.saveClass({ ...payload, maxCapacity: 12 }, 78);
-    await api.cancelClass(78);
-    expect(await api.capacity(78)).toBe(4);
-    expect(fetch.mock.calls.map((c) => [c[0], c[1].method || "GET"])).toEqual([
-      ["/api/v1/classes", "POST"],
-      ["/api/v1/classes/78", "PUT"],
-      ["/api/v1/classes/78/cancel", "POST"],
-      ["/api/v1/classes/78/capacity", "GET"],
-    ]);
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(payload);
-  });
+  it.each(["STANDARD", "VIP"] as const)(
+    "sends %s in create/update payloads and reads backend capacity",
+    async (level) => {
+      const api = await liveModule();
+      const payload = { ...input(), requiredAccessLevel: level };
+      const saved = { ...payload, id: 78 };
+      const fetch = vi
+        .fn()
+        .mockResolvedValueOnce(json(saved, 201))
+        .mockResolvedValueOnce(json({ ...saved, maxCapacity: 12 }))
+        .mockResolvedValueOnce(json({ ...saved, status: "CANCELLED" }))
+        .mockResolvedValueOnce(json(4));
+      vi.stubGlobal("fetch", fetch);
+      expect(await api.saveClass(payload)).toEqual(saved);
+      expect(
+        await api.saveClass({ ...payload, maxCapacity: 12 }, 78),
+      ).toEqual({ ...saved, maxCapacity: 12 });
+      await api.cancelClass(78);
+      expect(await api.capacity(78)).toBe(4);
+      expect(fetch.mock.calls.map((c) => [c[0], c[1].method || "GET"])).toEqual(
+        [
+          ["/api/v1/classes", "POST"],
+          ["/api/v1/classes/78", "PUT"],
+          ["/api/v1/classes/78/cancel", "POST"],
+          ["/api/v1/classes/78/capacity", "GET"],
+        ],
+      );
+      expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(payload);
+      expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
+        ...payload,
+        maxCapacity: 12,
+      });
+    },
+  );
   it("propagates backend validation failures instead of reporting a successful save", async () => {
     const api = await liveModule();
     vi.stubGlobal(

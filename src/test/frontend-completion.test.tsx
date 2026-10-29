@@ -294,6 +294,7 @@ describe("QR và form đặt lớp phản ánh trạng thái hiện tại", () =
         maxCapacity: 20,
         scheduleTime: "2099-12-01T09:00:00",
         durationMinutes: 60,
+        requiredAccessLevel: "STANDARD",
         status: "SCHEDULED",
       },
     ]);
@@ -330,6 +331,7 @@ describe("QR và form đặt lớp phản ánh trạng thái hiện tại", () =
         maxCapacity: 20,
         scheduleTime: "2099-12-01T09:00:00",
         durationMinutes: 60,
+        requiredAccessLevel: "STANDARD",
         status: "SCHEDULED",
       },
     ]);

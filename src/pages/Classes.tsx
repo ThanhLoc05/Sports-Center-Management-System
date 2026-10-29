@@ -30,7 +30,7 @@ import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
 import { api } from "../lib/api";
 
-import type { SportClass } from "../lib/types";
+import type { AccessLevel, SportClass } from "../lib/types";
 import {
   addDays,
   dateLabel,
@@ -97,6 +97,7 @@ export function ClassForm({
             maxCapacity: Number(data.get("maxCapacity")),
             scheduleTime: String(data.get("scheduleTime")),
             durationMinutes: Number(data.get("durationMinutes")),
+            requiredAccessLevel: data.get("requiredAccessLevel") as AccessLevel,
             status: item?.status || "SCHEDULED",
           },
           item?.id,
@@ -120,6 +121,16 @@ export function ClassForm({
         />
       </Field>
       <div className="form-grid">
+        <Field label="Cấp độ yêu cầu">
+          <select
+            name="requiredAccessLevel"
+            required
+            defaultValue={item?.requiredAccessLevel ?? "STANDARD"}
+          >
+            <option value="STANDARD">STANDARD</option>
+            <option value="VIP">VIP</option>
+          </select>
+        </Field>
         <Field label="Bộ môn">
           <select name="sportId" required defaultValue={item?.sportId || ""}>
             <option value="" disabled>
@@ -412,6 +423,11 @@ export default function Classes() {
                   `HLV #${c.coachId}`,
               },
               {
+                key: "accessLevel",
+                label: "Cấp độ yêu cầu",
+                render: (c) => c.requiredAccessLevel,
+              },
+              {
                 key: "capacity",
                 label: "Sức chứa",
                 render: (c) => `${c.maxCapacity} người`,
@@ -552,6 +568,7 @@ function ClassCard({
           <span>{coachName}</span>
         </div>
         <div className="class-card-meta">
+          <span>Cấp độ: {c.requiredAccessLevel}</span>
           <span>
             <CalendarDays size={15} />
             {dateLabel(c.scheduleTime, {
@@ -648,6 +665,10 @@ export function ClassDetail({
             <Badge status={c.status} />
           </div>
           <div className="detail-grid">
+            <div>
+              <span>Cấp độ yêu cầu</span>
+              <strong>{c.requiredAccessLevel}</strong>
+            </div>
             <div>
               <span>Huấn luyện viên</span>
               <strong>

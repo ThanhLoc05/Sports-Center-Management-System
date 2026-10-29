@@ -109,6 +109,7 @@ export function seedDatabase(): DemoDatabase {
       Number(v[6]),
     ),
     durationMinutes: i % 3 === 0 ? 60 : 45,
+    requiredAccessLevel: "STANDARD" as const,
     status: "SCHEDULED",
   }));
   const bookings = classes.flatMap((c, i) =>

@@ -96,6 +96,7 @@ function initialClasses(): SportClass[] {
       maxCapacity: 20,
       scheduleTime: localDate(addDays(1)) + "T08:00:00",
       durationMinutes: 60,
+      requiredAccessLevel: "STANDARD",
       status: "SCHEDULED",
     },
     {
@@ -107,6 +108,7 @@ function initialClasses(): SportClass[] {
       maxCapacity: 20,
       scheduleTime: localDate(addDays(2)) + "T10:00:00",
       durationMinutes: 60,
+      requiredAccessLevel: "STANDARD",
       status: "SCHEDULED",
     },
   ];

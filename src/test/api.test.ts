@@ -44,6 +44,7 @@ describe("Backend contract: BE branch DTOs and controller paths", () => {
       maxCapacity: 20,
       scheduleTime: "2026-10-20T08:00:00",
       durationMinutes: 60,
+      requiredAccessLevel: "STANDARD" as const,
       status: "SCHEDULED",
     };
     await api.saveClass(input);
