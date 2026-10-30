@@ -21,6 +21,9 @@ import type {
   Subscription,
   SupportTicket,
   SupportTicketInput,
+  Feedback,
+  FeedbackInput,
+  CoachFeedbackResponse,
   User,
 } from "./types";
 
@@ -177,6 +180,28 @@ const post = <T>(path: string, body?: unknown) =>
     method: "POST",
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
+function feedbackActor() {
+  const session = getSession();
+  if (session?.mode !== "api" || !["MEMBER", "COACH", "RECEPTIONIST", "CENTER_MANAGER"].includes(session.user.roleName))
+    throw new ApiError("Bạn không có quyền truy cập đánh giá.", 403);
+  return session.user;
+}
+function feedbackId(id: number) {
+  if (!Number.isSafeInteger(id) || id < 1) throw new ApiError("ID đối tượng đánh giá không hợp lệ.");
+  return id;
+}
+function feedbackResponse(value: Feedback): Feedback {
+  if (!value || !Number.isSafeInteger(value.id) || value.id < 1 ||
+      !Number.isSafeInteger(value.fromUserId) || value.fromUserId < 1 ||
+      (value.toUserId !== null && (!Number.isSafeInteger(value.toUserId) || value.toUserId < 1)) ||
+      (value.classId !== null && (!Number.isSafeInteger(value.classId) || value.classId < 1)) ||
+      (value.rating !== null && (!Number.isInteger(value.rating) || value.rating < 1 || value.rating > 5)) ||
+      typeof value.comment !== "string" ||
+      !["MEMBER_TO_COACH", "CLASS_FEEDBACK", "COACH_TO_MEMBER"].includes(value.type) ||
+      (value.createdAt !== null && typeof value.createdAt !== "string"))
+    throw new ApiError("Dữ liệu đánh giá từ máy chủ không hợp lệ.");
+  return value;
+}
 function supportActor(roles = ["MEMBER", "RECEPTIONIST", "CENTER_MANAGER"]) {
   const session = getSession();
   if (session?.mode !== "api" || !roles.includes(session.user.roleName))
@@ -234,6 +259,43 @@ function requirePermission(permission: Permission) {
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 export const api = {
+  async coachFeedback(coachId: number): Promise<CoachFeedbackResponse> {
+    feedbackActor();
+    const result = await request<CoachFeedbackResponse>(`/feedbacks/coach/${feedbackId(coachId)}`);
+    if (!result || result.coachId !== coachId || !Number.isFinite(result.averageRating) ||
+        !Number.isInteger(result.totalReviews) || result.totalReviews < 0)
+      throw new ApiError("Dữ liệu tổng hợp đánh giá HLV không hợp lệ.");
+    return { ...result, feedbacks: assertArray(result.feedbacks).map(feedbackResponse) };
+  },
+  async classFeedback(classId: number): Promise<Feedback[]> {
+    feedbackActor();
+    return assertArray(await request<Feedback[]>(`/feedbacks/class/${feedbackId(classId)}`)).map(feedbackResponse);
+  },
+  async memberFeedback(memberId: number): Promise<Feedback[]> {
+    const actor = feedbackActor();
+    if (actor.id !== memberId && !["RECEPTIONIST", "CENTER_MANAGER"].includes(actor.roleName))
+      throw new ApiError("Bạn không có quyền xem nhận xét của thành viên này.", 403);
+    return assertArray(await request<Feedback[]>(`/feedbacks/member/${feedbackId(memberId)}`)).map(feedbackResponse);
+  },
+  async createFeedback(input: FeedbackInput): Promise<Feedback> {
+    const actor = feedbackActor();
+    if (!["MEMBER", "COACH"].includes(actor.roleName)) throw new ApiError("Vai trò này không được gửi đánh giá.", 403);
+    if (!input.comment.trim()) throw new ApiError("Nội dung đánh giá không được để trống.");
+    const rating = input.rating ?? null;
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5))
+      throw new ApiError("Điểm đánh giá phải là số nguyên từ 1 đến 5.");
+    const classTarget = input.classId !== undefined;
+    if ((input.toUserId !== undefined) === classTarget || (actor.roleName === "COACH" && classTarget))
+      throw new ApiError("Chọn đúng đối tượng nhận đánh giá.");
+    // Không gửi fromUserId/type; Backend xác định người gửi và loại từ phiên đăng nhập.
+    const target = classTarget ? { classId: feedbackId(input.classId!) } : { toUserId: feedbackId(input.toUserId!) };
+    const result = feedbackResponse(await post<Feedback>("/feedbacks", { ...target, rating, comment: input.comment.trim() }));
+    const expectedType = actor.roleName === "COACH" ? "COACH_TO_MEMBER" : classTarget ? "CLASS_FEEDBACK" : "MEMBER_TO_COACH";
+    if (result.fromUserId !== actor.id || result.type !== expectedType ||
+        (classTarget ? result.classId !== input.classId : result.toUserId !== input.toUserId))
+      throw new ApiError("Phản hồi đánh giá không khớp yêu cầu đã gửi.");
+    return result;
+  },
   async supportTickets(): Promise<SupportTicket[]> {
     const actor = supportActor();
     return assertArray(await request<SupportTicket[]>(

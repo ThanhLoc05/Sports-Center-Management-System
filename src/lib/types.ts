@@ -184,6 +184,29 @@ export interface TrainingLog {
   metric?: number;
   metricLabel?: string;
 }
+export type FeedbackType = "MEMBER_TO_COACH" | "CLASS_FEEDBACK" | "COACH_TO_MEMBER";
+export interface Feedback {
+  id: number;
+  fromUserId: number;
+  toUserId: number | null;
+  classId: number | null;
+  rating: number | null;
+  comment: string;
+  type: FeedbackType;
+  createdAt: string | null;
+}
+export interface FeedbackInput {
+  toUserId?: number;
+  classId?: number;
+  rating?: number | null;
+  comment: string;
+}
+export interface CoachFeedbackResponse {
+  coachId: number;
+  averageRating: number;
+  totalReviews: number;
+  feedbacks: Feedback[];
+}
 export interface SupportTicket {
   id: number;
   memberId: number;

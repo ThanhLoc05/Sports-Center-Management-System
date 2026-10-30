@@ -29,6 +29,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const Training = lazy(() => import("./pages/Training"));
 const Assistant = lazy(() => import("./pages/Assistant"));
 const Support = lazy(() => import("./pages/Support"));
+const Feedback = lazy(() => import("./pages/Feedback"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Profile })),
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="attendance" element={<Attendance />} />
               <Route path="assistant" element={<Assistant />} />
               <Route path="support" element={<Support />} />
+              <Route path="feedback" element={<Feedback />} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<Profile />} />
               {/* URL cũ chuyển về Đội ngũ, không còn màn chỉnh quyền. */}

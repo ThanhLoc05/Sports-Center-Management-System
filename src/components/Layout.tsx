@@ -63,6 +63,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
   {
     label: "KHÔNG GIAN LÀM VIỆC",
     items: [
+      { to: "/feedback", label: "Đánh giá", icon: MessageCircle, roles: ["MEMBER", "COACH", "RECEPTIONIST", "CENTER_MANAGER"] },
       { to: "/", label: "Tổng quan", icon: LayoutDashboard, roles: all },
       { to: "/members", label: "Thành viên", icon: Users, roles: staff },
       {
