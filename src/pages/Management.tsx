@@ -1,4 +1,11 @@
-/** Các màn bổ sung cho topic. Mọi thao tác chưa có endpoint đều được đánh dấu demo. */
+import ApiPackages from "../components/ApiPackages";
+import ApiStudents from "../components/ApiStudents";
+import ApiNotifications from "../components/ApiNotifications";
+/**
+ * Điều hướng các màn quản lý theo phiên đăng nhập: API thật dùng component Api*.
+ * Nhánh Legacy giữ phục vụ chế độ dữ liệu mẫu trong kiểm thử, không dùng thay API lỗi.
+ * Chức năng chưa có API được hiển thị rõ trạng thái chờ kết nối ở component tương ứng.
+ */
 import { useState } from "react";
 import { MembershipNotifications } from "../components/MembershipCheckout";
 import { Link } from "react-router-dom";
@@ -38,6 +45,10 @@ import {
 import { UserProfileModal } from "../components/ProfileEditor";
 
 export function PackagesPage() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? <ApiPackages /> : <LegacyPackagesPage />;
+}
+function LegacyPackagesPage() {
   const db = useDemoData();
   const { session } = useAuth();
   const packages = useQuery<MembershipPackage[]>({
@@ -90,7 +101,11 @@ export function PackagesPage() {
                   label: "Gói",
                   render: (p) => <strong>{p.packageName}</strong>,
                 },
-                { key: "price", label: "Học phí", render: (p) => money(p.price) },
+                {
+                  key: "price",
+                  label: "Học phí",
+                  render: (p) => money(p.price),
+                },
                 {
                   key: "days",
                   label: "Thời hạn",
@@ -115,49 +130,49 @@ export function PackagesPage() {
             />
           )
         ) : (
-        <DataTable
-          rows={db?.packages || []}
-          columns={[
-            {
-              key: "name",
-              label: "Gói",
-              render: (p) => <strong>{p.name}</strong>,
-            },
-            { key: "price", label: "Học phí", render: (p) => money(p.price) },
-            {
-              key: "days",
-              label: "Thời hạn",
-              render: (p) => `${p.durationDays} ngày`,
-            },
-            {
-              key: "sports",
-              label: "Bộ môn",
-              render: (p) =>
-                p.sportIds
-                  ?.map((id) => db?.sports.find((s) => s.id === id)?.name)
-                  .join(", ") || "Tất cả bộ môn",
-            },
-            {
-              key: "limit",
-              label: "Lượt lớp",
-              render: (p) => p.classLimit || "Không giới hạn",
-            },
-            {
-              key: "status",
-              label: "Trạng thái",
-              render: (p) => <Badge status={p.status || "ACTIVE"} />,
-            },
-            {
-              key: "actions",
-              label: "Thao tác",
-              render: (p) => (
-                <Button variant="ghost" onClick={() => setEdit(p)}>
-                  Chỉnh sửa
-                </Button>
-              ),
-            },
-          ]}
-        />
+          <DataTable
+            rows={db?.packages || []}
+            columns={[
+              {
+                key: "name",
+                label: "Gói",
+                render: (p) => <strong>{p.name}</strong>,
+              },
+              { key: "price", label: "Học phí", render: (p) => money(p.price) },
+              {
+                key: "days",
+                label: "Thời hạn",
+                render: (p) => `${p.durationDays} ngày`,
+              },
+              {
+                key: "sports",
+                label: "Bộ môn",
+                render: (p) =>
+                  p.sportIds
+                    ?.map((id) => db?.sports.find((s) => s.id === id)?.name)
+                    .join(", ") || "Tất cả bộ môn",
+              },
+              {
+                key: "limit",
+                label: "Lượt lớp",
+                render: (p) => p.classLimit || "Không giới hạn",
+              },
+              {
+                key: "status",
+                label: "Trạng thái",
+                render: (p) => <Badge status={p.status || "ACTIVE"} />,
+              },
+              {
+                key: "actions",
+                label: "Thao tác",
+                render: (p) => (
+                  <Button variant="ghost" onClick={() => setEdit(p)}>
+                    Chỉnh sửa
+                  </Button>
+                ),
+              },
+            ]}
+          />
         )}
       </Panel>
       {edit && db && (
@@ -279,6 +294,10 @@ export function PackagesPage() {
 }
 
 export function StudentsPage() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? <ApiStudents /> : <LegacyStudentsPage />;
+}
+function LegacyStudentsPage() {
   const db = useDemoData();
   const { session } = useAuth();
   const [search, setSearch] = useState("");
@@ -349,6 +368,8 @@ export function NotificationsPage() {
   const { session } = useAuth();
   return session?.mode === "api" && session.user.roleName === "MEMBER" ? (
     <MembershipNotifications />
+  ) : session?.mode === "api" ? (
+    <ApiNotifications />
   ) : (
     <LegacyNotificationsPage />
   );
@@ -564,7 +585,11 @@ export function OperationsReport({
       <div className="mini-stats">
         <div>
           <p>Thành viên có ngày tạo trong kỳ</p>
-          <strong>{newMembers.length}</strong>
+          <strong>
+            {users.data?.some((u) => u.roleName === "MEMBER" && !u.createdAt)
+              ? "Chưa có dữ liệu"
+              : newMembers.length}
+          </strong>
         </div>
         <div>
           <p>Lượt đăng ký ghi nhận trong kỳ</p>

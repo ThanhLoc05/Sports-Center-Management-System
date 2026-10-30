@@ -1,3 +1,4 @@
+import { ApiProfile } from "../components/ApiProfileEditor";
 /**
  * CÀI ĐẶT HIỂN THỊ, THÔNG TIN KẾT NỐI VÀ HỒ SƠ NGƯỜI DÙNG.
  * Tùy chọn giao diện/khôi phục demo là thao tác cục bộ. Nút kiểm tra kết nối gọi
@@ -255,10 +256,14 @@ export default function Settings() {
   );
 }
 /**
- * Đọc hồ sơ từ api.user theo session.user.id. Form cập nhật thông tin/mục tiêu
- * chỉ ghi trong demo vì backend chưa có API cập nhật hồ sơ tương ứng.
+ * Phiên API dùng ApiProfile để đọc/cập nhật hồ sơ theo ID tài khoản đăng nhập.
+ * Nhánh LegacyProfile giữ cách hiển thị dữ liệu mẫu phục vụ kiểm thử.
  */
 export function Profile() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? <ApiProfile /> : <LegacyProfile />;
+}
+function LegacyProfile() {
   const { session } = useAuth();
   const demo = session!.mode === "demo";
   const [edit, setEdit] = useState(false);

@@ -1,3 +1,4 @@
+import { ApiProfileEditor } from "./ApiProfileEditor";
 import { useAuth } from "../lib/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Role, User } from "../lib/types";
@@ -5,7 +6,19 @@ import { roleLabels } from "../lib/types";
 import { saveUser } from "../lib/center";
 import { Field, FormModal, Notice, Modal, Avatar, useToast } from "./ui";
 /** Hồ sơ dùng chung, không tự gán quyền từ form sửa thông tin. */
-export function ProfileEditor({
+export function ProfileEditor(props: {
+  user?: User;
+  team?: boolean;
+  onClose: () => void;
+}) {
+  const { session } = useAuth();
+  return session?.mode === "api" ? (
+    <ApiProfileEditor {...props} />
+  ) : (
+    <LegacyProfileEditor {...props} />
+  );
+}
+function LegacyProfileEditor({
   user,
   team = false,
   onClose,

@@ -79,7 +79,9 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     for (const pkg of catalog) {
       const name = await screen.findByText(pkg.packageName);
       const row = within(name.closest("tr")!);
-      expect(row.getByText(money(pkg.price).replace(/\s+/g, " "))).toBeVisible();
+      expect(
+        row.getByText(money(pkg.price).replace(/\s+/g, " ")),
+      ).toBeVisible();
       expect(row.getByText(`${pkg.durationDays} ngày`)).toBeVisible();
       expect(row.getByText(pkg.accessLevel!)).toBeVisible();
       expect(row.getByText(pkg.description!)).toBeVisible();
@@ -205,13 +207,13 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     client.clear();
   });
 
-  it("keeps catalog read-only and does not call checkout or write endpoints", async () => {
+  it("opens the create form without writing until the manager submits", async () => {
     const client = page();
     expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
     const add = screen.getByRole("button", { name: "Thêm gói tập" });
-    expect(add).toBeDisabled();
+    expect(add).toBeEnabled();
     await userEvent.setup().click(add);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Thêm gói tập" })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Chỉnh sửa" }),
     ).not.toBeInTheDocument();

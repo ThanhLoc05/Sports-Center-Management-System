@@ -1,7 +1,7 @@
+import ApiFacilities from "../components/ApiFacilities";
 /**
- * DANH MỤC PHÒNG TẬP/BỘ MÔN — giao diện quản lý đang phục vụ demo.
- * Chỉ ghi localStorage qua updateDemo; backend hiện chưa có controller danh mục.
- * Xóa/sửa ở màn demo này không làm thay đổi danh mục trong SQL Server.
+ * Phiên API dùng ApiFacilities để tải/tạo bộ môn và phòng tập qua backend.
+ * Chỉnh sửa chưa có API chỉ cho xem lại; LegacyFacilities phục vụ kiểm thử demo.
  */
 import { useState } from "react";
 import { Dumbbell, DoorOpen, Pencil, Plus, Trash2 } from "lucide-react";
@@ -22,6 +22,10 @@ import {
   useToast,
 } from "../components/ui";
 export default function Facilities() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? <ApiFacilities /> : <LegacyFacilities />;
+}
+function LegacyFacilities() {
   const { session } = useAuth();
   const demo = session!.mode === "demo";
   const [tab, setTab] = useState<"rooms" | "sports">("rooms");

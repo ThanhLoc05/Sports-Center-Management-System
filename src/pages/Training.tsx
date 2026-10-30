@@ -1,4 +1,8 @@
-/** Kế hoạch cá nhân/cả lớp, giao bài và ghi kết quả theo từng buổi. Hiện backend chưa có API training. */
+import ApiTraining from "../components/ApiTraining";
+/**
+ * Phiên API dùng ApiTraining để lưu giáo án, kết quả và nhận xét qua backend.
+ * LegacyTraining giữ luồng dữ liệu mẫu cho kiểm thử các phần đã có trước.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,6 +32,10 @@ import {
   useToast,
 } from "../components/ui";
 export default function Training() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? <ApiTraining /> : <LegacyTraining />;
+}
+function LegacyTraining() {
   const { session } = useAuth();
   const db = useDemoData();
   const can = usePermissions();

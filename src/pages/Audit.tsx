@@ -1,6 +1,7 @@
+import ApiAudit from "../components/ApiAudit";
 /**
- * NHẬT KÝ THAO TÁC DEMO: hiển thị người làm, hành động, chi tiết và thời gian.
- * Nguồn là readDemo().audit do demoAudit ghi; chưa phải audit log từ backend.
+ * Phiên API dùng ApiAudit: giao diện tra cứu đang chờ nguồn nhật ký từ backend.
+ * LegacyAudit giữ dữ liệu mẫu cho kiểm thử, không dùng làm nhật ký chính thức.
  */
 import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
@@ -17,6 +18,10 @@ import {
   SearchInput,
 } from "../components/ui";
 export default function Audit() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? <ApiAudit /> : <LegacyAudit />;
+}
+function LegacyAudit() {
   const { session } = useAuth();
   const demo = session!.mode === "demo";
   const [search, setSearch] = useState("");

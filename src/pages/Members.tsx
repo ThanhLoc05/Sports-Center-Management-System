@@ -1,3 +1,4 @@
+import { operations } from "../lib/operations-api";
 /**
  * FLOW 1 — QUẢN LÝ THÀNH VIÊN VÀ ĐỘI NGŨ. Prop team chọn nhóm nhân sự thay vì học viên.
  * Tìm kiếm/bộ lọc xử lý trên dữ liệu đã tải. Tạo mới dùng cùng API đăng ký MEMBER;
@@ -121,7 +122,7 @@ export default function Members({ team = false }: { team?: boolean }) {
               />
             )}
             {(team ? can("team.manage") : can("members.create")) && (
-              <Button disabled={team && !demo} onClick={() => setCreate(true)}>
+              <Button onClick={() => setCreate(true)}>
                 <Plus size={17} />
                 {team ? "Thêm nhân viên" : "Thêm thành viên"}
               </Button>
@@ -308,7 +309,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                   label: "Thao tác",
                   render: (u) => (
                     <div className="row-actions">
-                      {demo &&
+                      {(demo || u.roleName === "MEMBER" || team) &&
                         can(
                           u.roleName === "MEMBER"
                             ? "members.update"
@@ -464,6 +465,14 @@ function MemberDetail({
   onClose: () => void;
 }) {
   const member = user.roleName === "MEMBER";
+  const { session } = useAuth();
+  // Hồ sơ luyện tập được tải riêng theo memberId khi mở chi tiết thành viên.
+  const profile = useQuery({
+    queryKey: ["member-profile", user.id],
+    queryFn: () => operations.profile(user.id),
+    enabled: session?.mode === "api" && member,
+    retry: false,
+  });
   const subs = useQuery({
     queryKey: ["subscriptions", user.id],
     queryFn: () => api.subscriptions(user.id),
@@ -490,7 +499,11 @@ function MemberDetail({
         <div className="detail-grid">
           <div>
             <span>Mục tiêu tập luyện</span>
-            <strong>{user.fitnessGoals || "Chưa cung cấp"}</strong>
+            <strong>
+              {profile.data?.fitnessGoals ||
+                user.fitnessGoals ||
+                "Chưa cung cấp"}
+            </strong>
           </div>
           <div>
             <span>Trình độ</span>
@@ -498,7 +511,9 @@ function MemberDetail({
           </div>
           <div>
             <span>Địa chỉ</span>
-            <strong>{user.address || "Chưa cung cấp"}</strong>
+            <strong>
+              {profile.data?.address || user.address || "Chưa cung cấp"}
+            </strong>
           </div>
           <div>
             <span>Chuyên môn</span>
@@ -520,6 +535,9 @@ function MemberDetail({
             <strong>{user.phone || "Chưa cung cấp"}</strong>
           </div>
         </div>
+        {member && profile.error && session?.mode === "api" && (
+          <ErrorState error={profile.error} retry={profile.refetch} />
+        )}
         {member && (
           <>
             <h3>Lịch sử gói tập</h3>

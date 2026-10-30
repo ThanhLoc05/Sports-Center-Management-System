@@ -1,3 +1,5 @@
+import { useAssignedStudents } from "../lib/use-coach-data";
+import { operations } from "../lib/operations-api";
 import { parseDate } from "../lib/utils";
 /**
  * FLOW 5/6 — AI Gemini qua Vercel Function và tra cứu dữ liệu tại trung tâm.
@@ -54,11 +56,17 @@ export default function Assistant() {
   const [recommendCoach, setRecommendCoach] = useState(
     session!.user.roleName === "COACH" ? session!.user.id : 0,
   );
+  const assigned = useAssignedStudents();
   const students = db
     ? session!.user.roleName === "COACH"
       ? coachMembers(db, session!.user.id)
       : db.users.filter((u) => u.roleName === "MEMBER")
-    : [];
+    : assigned.data.map((s) => ({
+        ...s,
+        id: s.memberId,
+        roleName: "MEMBER" as const,
+        status: "ACTIVE",
+      }));
   const [messages, setMessages] = useState<Message[]>([]);
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [statusRetry, setStatusRetry] = useState(0);
@@ -506,6 +514,19 @@ export default function Assistant() {
                 )
               : "";
             if (online) {
+              if (
+                session!.user.roleName !== "MEMBER" &&
+                (!target || !students.some((s) => s.id === target))
+              )
+                throw new Error("Chọn học viên trong phạm vi phụ trách.");
+              // Dùng số buổi từ nhật ký backend làm ngữ cảnh AI; lỗi tải phải báo lại, không giả bằng 0.
+              const history = !db
+                ? session!.user.roleName === "COACH"
+                  ? (await operations.logs("coach", session!.user.id)).filter(
+                      (l) => l.memberId === target,
+                    )
+                  : await operations.logs("member", target)
+                : [];
               const controller = new AbortController();
               request.current = controller;
               const result = await suggestAiWorkout(
@@ -513,9 +534,9 @@ export default function Assistant() {
                   goal: chosenGoal,
                   level,
                   duration,
-                  completedSessions:
-                    db?.logs.filter((log) => log.memberId === target).length ||
-                    0,
+                  completedSessions: db
+                    ? db.logs.filter((log) => log.memberId === target).length
+                    : history.length,
                 },
                 controller.signal,
               );
@@ -533,7 +554,7 @@ export default function Assistant() {
             }
           }}
         >
-          {demo && session!.user.roleName !== "MEMBER" && (
+          {session!.user.roleName !== "MEMBER" && (
             <Field label="Học viên nhận gợi ý">
               <select
                 name="recommendMember"
@@ -613,6 +634,34 @@ export default function Assistant() {
             <Button variant="secondary" onClick={() => setPlan("")}>
               Đóng
             </Button>
+            {!demo &&
+              session!.user.roleName === "COACH" &&
+              recommendMember > 0 && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      // AI chỉ đề xuất; HLV xem xét rồi chủ động lưu thành giáo án chính thức.
+                      await operations.savePlan({
+                        title: `Gợi ý tập luyện · ${goal}`,
+                        description: plan,
+                        coachId: session!.user.id,
+                        memberId: recommendMember,
+                      });
+                      setPlan("");
+                      toast("Đã lưu giáo án sau khi HLV xem xét.");
+                    } catch (e) {
+                      toast(
+                        e instanceof Error
+                          ? e.message
+                          : "Không lưu được giáo án.",
+                        "error",
+                      );
+                    }
+                  }}
+                >
+                  HLV duyệt và lưu giáo án
+                </Button>
+              )}
             {demo && session!.user.roleName === "MEMBER" && (
               <Button
                 onClick={() => {
