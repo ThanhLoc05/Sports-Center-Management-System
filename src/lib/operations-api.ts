@@ -188,6 +188,9 @@ export const operations = {
   createSport(sportName: string, description: string) {
     role(["CENTER_MANAGER", "MANAGER"]);
     if (!sportName.trim()) throw new ApiError("Nhập tên bộ môn.");
+    // Cột mô tả NVARCHAR(255): chặn sớm thay vì để database từ chối khi lưu.
+    if (description.trim().length > 255)
+      throw new ApiError("Mô tả bộ môn không được vượt quá 255 ký tự.");
     return send("/sports", "POST", {
       sportName: sportName.trim(),
       description: description.trim(),

@@ -158,7 +158,8 @@ export default function ApiFacilities() {
             </Field>
           ) : (
             <Field label="Mô tả">
-              <textarea name="description" maxLength={2000} />
+              <textarea name="description" maxLength={255} />
+              <small>Tối đa 255 ký tự.</small>
             </Field>
           )}
         </FormModal>
