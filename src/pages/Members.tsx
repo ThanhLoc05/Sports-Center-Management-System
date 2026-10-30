@@ -4,7 +4,7 @@ import { operations } from "../lib/operations-api";
  * Tìm kiếm/bộ lọc xử lý trên dữ liệu đã tải. Tạo mới dùng cùng API đăng ký MEMBER;
  * đổi trạng thái tài khoản không phải chức năng gán lại vai trò.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowUpRight,
   MoreHorizontal,
@@ -50,7 +50,7 @@ export default function Members({ team = false }: { team?: boolean }) {
   const { session } = useAuth();
   const can = usePermissions();
   const [editUser, setEditUser] = useState<User | null>(null);
-  const users = useUsers();
+  const users = useUsers(!team);
   const [search, setSearch] = useState(params.get("q") || "");
   const [status, setStatus] = useState("all");
   const [role, setRole] = useState("all");
@@ -60,10 +60,23 @@ export default function Members({ team = false }: { team?: boolean }) {
     null,
   );
   const [lookup, setLookup] = useState("");
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const lookupRequest = useRef(0);
+  const pendingLookup = useRef<number | null>(null);
   const client = useQueryClient();
   const toast = useToast();
   const manager = can("members.update");
   const demo = session!.mode === "demo";
+  const receptionist = session!.user.roleName === "RECEPTIONIST";
+  const openDetail = (user: User) => {
+    // Chọn từ danh sách cũng phải vô hiệu hóa request tra cứu ID còn đang chờ.
+    ++lookupRequest.current;
+    pendingLookup.current = null;
+    setLookupBusy(false);
+    setLookupError("");
+    setDetail(user);
+  };
   /**
    * Cùng danh sách User nhưng team=true lấy nhân sự khác MEMBER; trang thành viên
    * chỉ lấy MEMBER. Các điều kiện search/status/role tiếp theo chỉ lọc mảng này.
@@ -175,17 +188,42 @@ export default function Members({ team = false }: { team?: boolean }) {
           Danh sách và cập nhật trạng thái hoạt động đã được tích hợp.
         </Notice>
       )}
-      {!demo && !manager ? (
+      {!demo && !team && receptionist && (
         <Panel title="Hỗ trợ thành viên tại quầy">
           <Notice>
-            Backend hiện chỉ cho quản lý tìm kiếm và xem hồ sơ người khác. Lễ
-            tân có thể thao tác gói tập, booking, điểm danh và hóa đơn bằng ID
-            thành viên.
+            Nhập ID để tra cứu chính xác hoặc tìm trong danh sách thành viên bên dưới.
           </Notice>
           <form
             className="inline-lookup"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
+              const id = Number(lookup);
+              if (!Number.isSafeInteger(id) || id < 1) {
+                setLookupError("ID thành viên phải là số nguyên dương hợp lệ.");
+                return;
+              }
+              if (pendingLookup.current === id) return;
+              const request = ++lookupRequest.current;
+              pendingLookup.current = id;
+              setLookupBusy(true);
+              setLookupError("");
+              setDetail(null);
+              try {
+                const found = await api.user(id);
+                // Không mở kết quả của ID cũ khi người dùng đã đổi nội dung tra cứu.
+                if (request !== lookupRequest.current) return;
+                if (found.id !== id || found.roleName !== "MEMBER")
+                  throw Error("Tài khoản này không phải thành viên hợp lệ.");
+                setDetail(found);
+              } catch (error) {
+                if (request === lookupRequest.current)
+                  setLookupError(error instanceof Error ? error.message : "Không tải được thành viên.");
+              } finally {
+                if (request === lookupRequest.current) {
+                  pendingLookup.current = null;
+                  setLookupBusy(false);
+                }
+              }
             }}
           >
             <Field label="ID thành viên">
@@ -194,10 +232,17 @@ export default function Members({ team = false }: { team?: boolean }) {
                 min="1"
                 required
                 value={lookup}
-                onChange={(e) => setLookup(e.target.value)}
+                onChange={(e) => {
+                  setLookup(e.target.value);
+                  ++lookupRequest.current;
+                  pendingLookup.current = null;
+                  setLookupBusy(false);
+                  setLookupError("");
+                }}
                 placeholder="Nhập ID để hỗ trợ"
               />
             </Field>
+            <Button type="submit" loading={lookupBusy}>Xem hồ sơ</Button>
             <Link
               className="btn btn-primary"
               to={`/memberships?memberId=${encodeURIComponent(lookup)}`}
@@ -213,8 +258,10 @@ export default function Members({ team = false }: { team?: boolean }) {
               <ArrowUpRight size={16} />
             </Link>
           </form>
+          {lookupError && <p role="alert" className="form-error">{lookupError}</p>}
         </Panel>
-      ) : (
+      )}
+      {(demo || manager || receptionist) && (
         <Panel>
           <div className="table-toolbar">
             <div>
@@ -272,7 +319,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                   render: (u) => (
                     <button
                       className="person-cell"
-                      onClick={() => setDetail(u)}
+                      onClick={() => openDetail(u)}
                     >
                       <Avatar name={u.fullName} index={u.id} />
                       <span>
@@ -324,7 +371,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                         )}
                       <button
                         className="subtle-link"
-                        onClick={() => setDetail(u)}
+                        onClick={() => openDetail(u)}
                       >
                         Chi tiết
                         <ArrowUpRight size={14} />
@@ -466,6 +513,9 @@ function MemberDetail({
 }) {
   const member = user.roleName === "MEMBER";
   const { session } = useAuth();
+  const [editProfile, setEditProfile] = useState(false);
+  const canEditProfile = session?.mode === "api" && member &&
+    ["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"].includes(session.user.roleName);
   // Hồ sơ luyện tập được tải riêng theo memberId khi mở chi tiết thành viên.
   const profile = useQuery({
     queryKey: ["member-profile", user.id],
@@ -484,6 +534,7 @@ function MemberDetail({
     enabled: member,
   });
   return (
+    <>
     <Modal title="Thông tin tài khoản" onClose={onClose} wide>
       <div className="member-detail">
         <div className="member-detail-header">
@@ -538,6 +589,15 @@ function MemberDetail({
         {member && profile.error && session?.mode === "api" && (
           <ErrorState error={profile.error} retry={profile.refetch} />
         )}
+        {member && session?.mode === "api" && (profile.isPending ? <Loading /> :
+          !profile.error && <>
+            {profile.data === null && <Notice>Thành viên chưa có hồ sơ.</Notice>}
+            <div className="detail-grid">
+              <div><span>Ngày sinh</span><strong>{profile.data?.dob ? dateLabel(profile.data.dob) : "Chưa cung cấp"}</strong></div>
+              <div><span>Giới tính</span><strong>{profile.data?.gender || "Chưa cung cấp"}</strong></div>
+            </div>
+            {canEditProfile && <Button disabled={!profile.isSuccess || profile.isFetching} onClick={() => setEditProfile(true)}>Sửa hồ sơ thành viên</Button>}
+          </>)}
         {member && (
           <>
             <h3>Lịch sử gói tập</h3>
@@ -591,5 +651,7 @@ function MemberDetail({
         )}
       </div>
     </Modal>
+    {editProfile && <ProfileEditor user={user} onClose={() => setEditProfile(false)} />}
+    </>
   );
 }

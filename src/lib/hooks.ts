@@ -42,18 +42,17 @@ export function usePermissions() {
   return (permission: Permission) => can(session, permission, db || undefined);
 }
 /**
- * API danh sách toàn bộ tài khoản chỉ dành cho quản lý; vì vậy ở API mode
- * không chạy query này cho lễ tân, HLV hay thành viên. Màn cần tra cứu nhưng
- * không có danh sách sẽ dùng ID. Demo có dữ liệu cục bộ nên được đọc danh sách.
+ * Chỉ màn tra cứu thành viên bật danh sách cho lễ tân; các màn khác giữ quyền tải cũ.
  */
-export function useUsers() {
+export function useUsers(allowReceptionist = false) {
   const { session } = useAuth();
   return useQuery({
     queryKey: ["users"],
     queryFn: api.users,
     enabled:
       !!session &&
-      (session.mode === "demo" || isManager(session.user.roleName)),
+      (session.mode === "demo" || isManager(session.user.roleName) ||
+        (allowReceptionist && session.user.roleName === "RECEPTIONIST")),
   });
 }
 /**
