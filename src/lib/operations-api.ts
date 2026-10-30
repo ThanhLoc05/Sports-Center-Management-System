@@ -6,12 +6,14 @@
  * Lỗi từ backend được trả về màn hình, không dùng dữ liệu mẫu để giả lưu thành công.
  */
 import { ApiError, getSession, request } from "./api";
-export interface MemberProfile {
+export interface MemberProfileInput {
+  dob: string | null;
+  gender: string | null;
+  address: string | null;
+  fitnessGoals: string | null;
+}
+export interface MemberProfile extends MemberProfileInput {
   memberId: number;
-  dob?: string;
-  gender?: string;
-  address?: string;
-  fitnessGoals?: string;
 }
 export interface ClassStudent {
   memberId: number;
@@ -78,18 +80,38 @@ function list<T>(v: T[]): T[] {
 }
 const send = <T>(path: string, method: string, body: unknown) =>
   request<T>(path, { method, body: JSON.stringify(body) });
+function profileResponse(value: MemberProfile, memberId: number): MemberProfile {
+  if (!value || value.memberId !== memberId ||
+      [value.dob, value.gender, value.address, value.fitnessGoals]
+        .some((field) => field !== null && typeof field !== "string"))
+    throw new ApiError("Dữ liệu hồ sơ không hợp lệ hoặc không thuộc thành viên đang xem.");
+  return value;
+}
 export const operations = {
   async students(classId: number) {
     return list(
       await request<ClassStudent[]>(`/classes/${id(classId)}/students`),
     );
   },
-  profile(userId: number) {
-    return request<MemberProfile>(`/users/${id(userId)}/profile`);
+  async profile(userId: number): Promise<MemberProfile | null> {
+    const memberId = id(userId);
+    try {
+      return profileResponse(await request<MemberProfile>(`/users/${memberId}/profile`), memberId);
+    } catch (error) {
+      // Chỉ 404 là chưa có hồ sơ; lỗi quyền/kết nối không được biến thành dữ liệu trống.
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
   },
-  saveProfile(userId: number, input: Omit<MemberProfile, "memberId">) {
-    role(["CENTER_MANAGER", "MANAGER", "RECEPTIONIST", "MEMBER"]);
-    return send<MemberProfile>(`/users/${id(userId)}/profile`, "PUT", input);
+  async saveProfile(userId: number, input: MemberProfileInput): Promise<MemberProfile> {
+    const actor = role(["CENTER_MANAGER", "MANAGER", "RECEPTIONIST", "MEMBER"]);
+    const memberId = id(userId);
+    if (actor.user.roleName === "MEMBER" && actor.user.id !== memberId)
+      throw new ApiError("Bạn chỉ được cập nhật hồ sơ của chính mình.", 403);
+    const { dob, gender, address, fitnessGoals } = input;
+    return profileResponse(await send<MemberProfile>(`/users/${memberId}/profile`, "PUT", {
+      dob, gender, address, fitnessGoals,
+    }), memberId);
   },
   async plans(kind: "coach" | "member" | "class", target: number) {
     return list(

@@ -5,6 +5,7 @@ import { api, ApiError } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { assignTeamRole } from "../lib/team-role";
 import { useAuth } from "../lib/auth";
+import { localDate } from "../lib/utils";
 import type { Role, User } from "../lib/types";
 import {
   Field,
@@ -37,11 +38,13 @@ export function ApiProfileEditor({
   const client = useQueryClient();
   const toast = useToast();
   const [created, setCreated] = useState<User | null>(null);
+  const permitted = !!user && (session!.user.id === user.id ||
+    ["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"].includes(session!.user.roleName));
   // Hồ sơ chưa tồn tại (404) được phép nhập mới; lỗi kết nối/quyền phải xử lý trước khi lưu.
   const q = useQuery({
     queryKey: ["member-profile", user?.id],
     queryFn: () => operations.profile(user!.id),
-    enabled: !!user && user.roleName === "MEMBER",
+    enabled: permitted && user!.roleName === "MEMBER",
     retry: false,
   });
   if (!user && team)
@@ -137,39 +140,45 @@ export function ApiProfileEditor({
       title="Cập nhật hồ sơ học viên"
       onClose={onClose}
       submitDisabled={
-        q.isPending ||
-        (!!q.error && !(q.error instanceof ApiError && q.error.status === 404))
+        !permitted || !q.isSuccess || q.isFetching
       }
       onSubmit={async (d) => {
-        await operations.saveProfile(user.id, {
-          dob: String(d.get("dob")) || undefined,
-          gender: String(d.get("gender")) || undefined,
-          address: String(d.get("address")).trim(),
-          fitnessGoals: String(d.get("fitnessGoals")).trim(),
+        if (!permitted || !q.isSuccess || q.isFetching)
+          throw new ApiError("Chưa tải được hồ sơ hợp lệ để cập nhật.");
+        // Giữ null ở trường không đổi; PUT luôn gửi đủ bốn trường để không mất dữ liệu khác.
+        const fieldValue = (name: "gender" | "address" | "fitnessGoals") => {
+          const value = String(d.get(name) || "");
+          return value === "" && q.data?.[name] === null ? null : value;
+        };
+        const saved = await operations.saveProfile(user.id, {
+          dob: String(d.get("dob") || "") || null,
+          gender: fieldValue("gender"),
+          address: fieldValue("address"),
+          fitnessGoals: fieldValue("fitnessGoals"),
         });
-        await client.invalidateQueries({
-          queryKey: ["member-profile", user.id],
-        });
+        // Các màn của Manager/Coach đọc cùng key nên nhận ngay phản hồi thật sau khi lưu.
+        client.setQueryData(["member-profile", user.id], saved);
+        void client.invalidateQueries({ queryKey: ["assigned-students"] });
         toast("Đã lưu hồ sơ học viên vào hệ thống.");
       }}
     >
       <p>
         {user.fullName} · {user.email}
       </p>
-      {q.isPending ? (
+      {!permitted ? <Notice>Bạn không có quyền cập nhật hồ sơ này.</Notice> : q.isPending || q.isFetching ? (
         <Loading />
-      ) : q.error &&
-        !(q.error instanceof ApiError && q.error.status === 404) ? (
+      ) : q.error ? (
         <ErrorState error={q.error} retry={q.refetch} />
       ) : (
         <div key={q.data?.memberId || "new"}>
+          {q.data === null && <Notice>Chưa có hồ sơ. Bạn có thể bổ sung thông tin.</Notice>}
           <Field label="Ngày sinh">
-            <input type="date" name="dob" defaultValue={q.data?.dob || ""} />
+            <input type="date" name="dob" max={localDate()} defaultValue={q.data?.dob || ""} />
           </Field>
           <Field label="Giới tính">
             <input
               name="gender"
-              maxLength={30}
+              maxLength={255}
               defaultValue={q.data?.gender || ""}
             />
           </Field>
@@ -183,7 +192,7 @@ export function ApiProfileEditor({
           <Field label="Mục tiêu tập luyện">
             <textarea
               name="fitnessGoals"
-              maxLength={2000}
+              maxLength={255}
               defaultValue={q.data?.fitnessGoals || ""}
             />
           </Field>
@@ -212,7 +221,7 @@ export function ApiProfile() {
         title="Hồ sơ cá nhân"
         actions={
           user.roleName === "MEMBER" ? (
-            <Button onClick={() => setEdit(true)}>Cập nhật hồ sơ</Button>
+            <Button disabled={!q.isSuccess || q.isFetching} onClick={() => setEdit(true)}>Cập nhật hồ sơ</Button>
           ) : undefined
         }
       />
@@ -227,9 +236,11 @@ export function ApiProfile() {
             <ErrorState error={q.error} retry={q.refetch} />
           ) : (
             <>
+              {q.data === null && <Notice>Chưa có hồ sơ. Bạn có thể bổ sung thông tin.</Notice>}
               <p>Mục tiêu: {q.data?.fitnessGoals || "Chưa cung cấp"}</p>
               <p>Địa chỉ: {q.data?.address || "Chưa cung cấp"}</p>
               <p>Ngày sinh: {q.data?.dob || "Chưa cung cấp"}</p>
+              <p>Giới tính: {q.data?.gender || "Chưa cung cấp"}</p>
             </>
           ))}
       </Panel>

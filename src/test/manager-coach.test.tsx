@@ -240,6 +240,8 @@ describe("Manager và Coach — UX và ghi dữ liệu", () => {
     const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
       json({
         memberId: 10,
+        dob: null,
+        gender: null,
         address: "Địa chỉ TEST",
         fitnessGoals: "Mục tiêu từ API",
       }),

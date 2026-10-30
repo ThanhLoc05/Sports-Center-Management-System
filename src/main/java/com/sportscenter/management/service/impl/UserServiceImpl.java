@@ -167,7 +167,8 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
         MemberProfile profile = profileRepository.findById(memberId)
-                .orElseGet(() -> MemberProfile.builder().memberId(memberId).build());
+                // Để ID null cho persist; @MapsId lấy khóa từ user, tránh merge nhầm hồ sơ mới.
+                .orElseGet(() -> MemberProfile.builder().build());
         profile.setUser(user);
 
         profile.setDob(request.getDob());
