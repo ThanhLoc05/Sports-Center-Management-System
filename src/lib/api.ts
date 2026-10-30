@@ -19,6 +19,8 @@ import type {
   Session,
   SportClass,
   Subscription,
+  SupportTicket,
+  SupportTicketInput,
   User,
 } from "./types";
 
@@ -175,6 +177,12 @@ const post = <T>(path: string, body?: unknown) =>
     method: "POST",
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
+function supportActor(roles = ["MEMBER", "RECEPTIONIST", "CENTER_MANAGER"]) {
+  const session = getSession();
+  if (session?.mode !== "api" || !roles.includes(session.user.roleName))
+    throw new ApiError("Bạn không có quyền thực hiện thao tác hỗ trợ này.", 403);
+  return session.user;
+}
 /**
  * Kiểm tra runtime rằng response danh sách là một mảng. Nếu backend trả object
  * bao trang thay vì mảng, dừng và báo lỗi thay vì để giao diện gọi .filter bị hỏng.
@@ -226,6 +234,35 @@ function requirePermission(permission: Permission) {
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 export const api = {
+  async supportTickets(): Promise<SupportTicket[]> {
+    const actor = supportActor();
+    return assertArray(await request<SupportTicket[]>(
+      actor.roleName === "MEMBER" ? "/support-tickets/my" : "/support-tickets",
+    ));
+  },
+  async supportTicket(id: number): Promise<SupportTicket> {
+    const actor = supportActor();
+    if (!Number.isSafeInteger(id) || id < 1) throw new ApiError("Mã phiếu không hợp lệ.");
+    const ticket = await request<SupportTicket>(`/support-tickets/${id}`);
+    if (!ticket || ticket.id !== id || (actor.roleName === "MEMBER" && ticket.memberId !== actor.id))
+      throw new ApiError("Phiếu trả về không thuộc yêu cầu đang xem.");
+    return ticket;
+  },
+  createSupportTicket(input: SupportTicketInput): Promise<SupportTicket> {
+    // Chỉ MEMBER tạo cho mình; không mở tạo hộ dù Backend có tùy chọn memberId.
+    supportActor(["MEMBER"]);
+    const subject = input.subject.trim(), content = input.content.trim();
+    if (!subject || !content) throw new ApiError("Tiêu đề và nội dung không được để trống.");
+    return post<SupportTicket>("/support-tickets", { subject, content });
+  },
+  resolveSupportTicket(id: number, response: string): Promise<SupportTicket> {
+    supportActor(["RECEPTIONIST", "CENTER_MANAGER"]);
+    if (!Number.isSafeInteger(id) || id < 1) throw new ApiError("Mã phiếu không hợp lệ.");
+    if (!response.trim()) throw new ApiError("Nội dung phản hồi không được để trống.");
+    return request<SupportTicket>(`/support-tickets/${id}/resolve`, {
+      method: "PATCH", body: JSON.stringify({ response: response.trim() }),
+    });
+  },
   /**
    * Đăng nhập: demo so với tài khoản mẫu và mật khẩu chung; API POST /users/login
    * nhận token + user. Kiểm tra response tối thiểu rồi trả Session cho AuthProvider.

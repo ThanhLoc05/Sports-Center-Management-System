@@ -184,6 +184,18 @@ export interface TrainingLog {
   metric?: number;
   metricLabel?: string;
 }
+export interface SupportTicket {
+  id: number;
+  memberId: number;
+  subject: string;
+  content: string;
+  status: "OPEN" | "RESOLVED" | "CANCELLED";
+  response: string | null;
+  resolvedBy: number | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+export type SupportTicketInput = Pick<SupportTicket, "subject" | "content">;
 export interface SupportRequest {
   id: number;
   memberId: number;

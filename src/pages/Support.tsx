@@ -1,28 +1,30 @@
 /**
- * YÊU CẦU HỖ TRỢ — thành viên gửi phiếu, nhân viên theo dõi/xử lý trong demo.
- * Dữ liệu nằm ở readDemo().tickets; chưa có API gửi yêu cầu lên trung tâm thật.
+ * Support API dùng DTO riêng; nhánh demo giữ dữ liệu và thao tác local hiện có.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, LifeBuoy, Plus } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useUsers } from "../lib/hooks";
 import { readDemo } from "../lib/demo";
-import { updateDemo } from "../lib/api";
+import { api, ApiError, getSession, updateDemo } from "../lib/api";
 
 import { usePermissions } from "../lib/hooks";
 import { requireDemoPermission } from "../lib/center";
-import type { SupportRequest } from "../lib/types";
+import type { SupportRequest, SupportTicket } from "../lib/types";
 import { dateLabel, dateTimeLocal, idLabel, matches } from "../lib/utils";
 import {
   Badge,
   Button,
   DataTable,
   DemoOnly,
+  ErrorState,
   Field,
   FormModal,
   MemberField,
+  Loading,
   Modal,
+  Notice,
   PageHeader,
   Panel,
   SearchInput,
@@ -30,6 +32,122 @@ import {
   useToast,
 } from "../components/ui";
 export default function Support() {
+  const { session } = useAuth();
+  return session?.mode === "api"
+    ? <ApiSupport key={`${session.user.id}:${session.user.roleName}`} />
+    : <DemoSupport />;
+}
+function ApiSupport() {
+  const { session } = useAuth();
+  const actor = session!.user;
+  const member = actor.roleName === "MEMBER";
+  const staff = ["RECEPTIONIST", "CENTER_MANAGER"].includes(actor.roleName);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [create, setCreate] = useState(false);
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const creating = useRef(false);
+  const client = useQueryClient();
+  const toast = useToast();
+  // Tách cache theo tài khoản/vai trò; đổi tài khoản không giữ phiếu hoặc form của người trước.
+  const scope = ["support-tickets", actor.id, actor.roleName] as const;
+  const tickets = useQuery({ queryKey: scope, queryFn: api.supportTickets, enabled: member || staff, retry: false });
+  const currentActor = () => {
+    const current = getSession();
+    return current?.mode === "api" && current.user.id === actor.id && current.user.roleName === actor.roleName;
+  };
+  const saved = async (ticket: SupportTicket) => {
+    if (!currentActor()) return;
+    client.setQueryData([...scope, "detail", ticket.id], ticket);
+    await client.invalidateQueries({ queryKey: scope });
+  };
+  const rows = (tickets.data || []).filter(t =>
+    (staff || t.memberId === actor.id) && (status === "all" || status === t.status) &&
+    matches(search, t.subject, t.content, idLabel(t.id, "HT"), t.memberId),
+  );
+  return <>
+    <PageHeader eyebrow="WE'RE HERE TO HELP" title="Yêu cầu hỗ trợ"
+      description="Mỗi câu hỏi đều xứng đáng được lắng nghe."
+      actions={member ? <Button onClick={() => setCreate(true)}><Plus size={17} />Tạo yêu cầu hỗ trợ</Button> : undefined} />
+    {!member && !staff ? <Notice>Vai trò của bạn chưa được hỗ trợ tại màn hình này.</Notice> : <>
+      <div className="support-intro"><span><LifeBuoy size={34} strokeWidth={1.4} /></span><div>
+        <h2>Cần một người đồng hành?</h2><p>Gửi câu hỏi về gói tập, lịch học hoặc trải nghiệm tại trung tâm. Lễ tân sẽ là người tiếp nhận.</p>
+      </div></div>
+      <Panel>
+        <div className="table-toolbar"><div><h2>{staff ? "Tất cả yêu cầu" : "Yêu cầu của tôi"}<span className="count-chip">{rows.length}</span></h2></div>
+          <div className="table-filters">
+            <SearchInput value={search} onChange={setSearch} placeholder="Tìm yêu cầu..." />
+            <Select label="Trạng thái yêu cầu" value={status} onChange={setStatus}>
+              <option value="all">Tất cả trạng thái</option><option value="OPEN">Chờ tiếp nhận</option><option value="RESOLVED">Đã xử lý</option>
+            </Select>
+          </div>
+        </div>
+        {tickets.isPending ? <Loading /> : tickets.error ? <ErrorState error={tickets.error} retry={tickets.refetch} /> :
+          <DataTable rows={rows} columns={[
+            { key: "id", label: "Mã yêu cầu", render: t => <span className="mono">{idLabel(t.id, "HT")}</span> },
+            { key: "subject", label: "Nội dung", render: t => <button className="table-name" onClick={() => setDetailId(t.id)}>{t.subject}</button> },
+            { key: "member", label: "Người gửi", render: t => `Thành viên #${t.memberId}` },
+            { key: "date", label: "Ngày tiếp nhận", render: t => dateLabel(t.createdAt) },
+            { key: "status", label: "Trạng thái", render: t => <Badge status={t.status} /> },
+            { key: "action", label: "Thao tác", render: t => <button className="subtle-link" onClick={() => setDetailId(t.id)}>Xem yêu cầu</button> },
+          ]} />}
+      </Panel>
+    </>}
+    {create && member && <FormModal title="Yêu cầu hỗ trợ mới" submitLabel="Gửi yêu cầu" onClose={() => setCreate(false)}
+      onSubmit={async d => {
+        if (creating.current) return;
+        creating.current = true;
+        try {
+          const ticket = await api.createSupportTicket({ subject: String(d.get("subject") || ""), content: String(d.get("content") || "") });
+          await saved(ticket);
+          if (currentActor()) toast("Đã gửi yêu cầu hỗ trợ.");
+        } finally { creating.current = false; }
+      }}>
+      <Field label="Tiêu đề"><input name="subject" required maxLength={255} /></Field>
+      <Field label="Nội dung chi tiết"><textarea name="content" required rows={5} /></Field>
+    </FormModal>}
+    {detailId !== null && <ApiSupportDetail key={detailId} id={detailId} scope={scope} staff={staff}
+      onClose={() => setDetailId(null)} onSaved={saved} currentActor={currentActor} />}
+  </>;
+}
+function ApiSupportDetail({ id, scope, staff, onClose, onSaved, currentActor }: {
+  id: number; scope: readonly [string, number, string]; staff: boolean; onClose: () => void;
+  onSaved: (ticket: SupportTicket) => Promise<void>; currentActor: () => boolean;
+}) {
+  const ticket = useQuery({ queryKey: [...scope, "detail", id], queryFn: () => api.supportTicket(id), retry: false });
+  const [resolve, setResolve] = useState(false);
+  const resolving = useRef(false);
+  const toast = useToast();
+  const data = ticket.data;
+  return <>
+    <Modal title="Chi tiết yêu cầu hỗ trợ" onClose={onClose}>
+      {ticket.isPending || ticket.isFetching ? <Loading /> : ticket.error ? <ErrorState error={ticket.error} retry={ticket.refetch} /> : data &&
+        <div className="support-detail">
+          <h3>{data.subject}</h3><Badge status={data.status} /><p>{data.content}</p>
+          <p>Ngày tiếp nhận: {dateLabel(data.createdAt)}</p>
+          {data.response && <><h3>Phản hồi từ trung tâm</h3><p>{data.response}</p></>}
+          {data.resolvedBy !== null && <p>Người xử lý: #{data.resolvedBy}</p>}
+          {data.resolvedAt && <p>Ngày xử lý: {dateLabel(data.resolvedAt)}</p>}
+          {staff && data.status === "OPEN" && <Button onClick={() => setResolve(true)}>Xử lý yêu cầu</Button>}
+        </div>}
+    </Modal>
+    {resolve && staff && <FormModal title="Xử lý yêu cầu hỗ trợ" submitLabel="Đánh dấu đã xử lý" onClose={() => setResolve(false)}
+      submitDisabled={ticket.isFetching || !!ticket.error || data?.status !== "OPEN"}
+      onSubmit={async d => {
+        if (resolving.current) return;
+        if (ticket.isFetching || ticket.error || data?.status !== "OPEN") throw new ApiError("Phiếu không còn sẵn sàng để xử lý. Vui lòng tải lại.");
+        resolving.current = true;
+        try {
+          const updated = await api.resolveSupportTicket(id, String(d.get("response") || ""));
+          await onSaved(updated);
+          if (currentActor()) toast("Đã giải quyết yêu cầu hỗ trợ.");
+        } finally { resolving.current = false; }
+      }}>
+      <Field label="Nội dung phản hồi"><textarea name="response" required rows={5} /></Field>
+    </FormModal>}
+  </>;
+}
+function DemoSupport() {
   const { session } = useAuth();
   const can = usePermissions();
   const demo = session!.mode === "demo",
