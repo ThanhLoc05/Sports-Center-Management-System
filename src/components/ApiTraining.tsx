@@ -5,11 +5,12 @@
  * Mỗi lần lưu thành công sẽ làm mới cache tương ứng để cập nhật màn hình.
  */
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
 import { useAssignedStudents } from "../lib/use-coach-data";
 import { operations } from "../lib/operations-api";
+import { api } from "../lib/api";
 import type { WorkoutPlan, WorkoutLog, Exercise } from "../lib/operations-api";
 import { dateLabel, matches } from "../lib/utils";
 import {
@@ -30,6 +31,10 @@ import {
 } from "./ui";
 export default function ApiTraining() {
   const { session } = useAuth();
+  return <TrainingContent key={`${session?.user.id}:${session?.user.roleName}`} />;
+}
+function TrainingContent() {
+  const { session } = useAuth();
   const actor = session!.user;
   const member = actor.roleName === "MEMBER";
   const coach = actor.roleName === "COACH";
@@ -44,18 +49,43 @@ export default function ApiTraining() {
       );
   const scope = member ? actor.id : coachId;
   const plans = useQuery({
-    queryKey: ["workout-plans", member ? "member" : "coach", scope],
+    queryKey: ["workout-plans", member ? "member" : "coach", scope, actor.id, actor.roleName],
     queryFn: () => operations.plans(member ? "member" : "coach", scope),
     enabled: !!scope,
   });
+  const bookings = useQuery({
+    queryKey: ["bookings", actor.id],
+    queryFn: () => api.bookings(actor.id),
+    enabled: member,
+    retry: false,
+  });
+  // Chỉ BOOKED cho phép đọc giáo án lớp; không dùng danh sách booking cache khi đang tải lại/lỗi.
+  const classIds = member && bookings.isSuccess && !bookings.isFetching
+    ? [...new Set(bookings.data.filter(b => b.memberId === actor.id && b.status === "BOOKED").map(b => b.classId))]
+    : [];
+  const classPlans = useQueries({ queries: classIds.map(classId => ({
+    queryKey: ["workout-plans", "class", classId, actor.id, actor.roleName],
+    queryFn: () => operations.plans("class", classId),
+    retry: false,
+  })) });
+  // Mỗi lớp là một query riêng: lỗi một lớp không che giáo án cá nhân hoặc các lớp còn lại.
+  const combinedPlans = [...new Map([
+    ...(plans.data || []),
+    ...classPlans.flatMap(q => q.isError || q.isFetching ? [] : q.data || []),
+  ].map(p => [p.id, p])).values()];
+  const planLoading = plans.isPending || (member && (bookings.isPending || bookings.isFetching ||
+    classPlans.some(q => q.isPending || q.isFetching)));
+  const planError = !!plans.error || (member && !!bookings.error) || classPlans.some(q => !!q.error);
   const logs = useQuery({
-    queryKey: ["workout-logs", member ? "member" : "coach", scope],
+    queryKey: ["workout-logs", member ? "member" : "coach", scope, actor.id, actor.roleName],
     queryFn: () => operations.logs(member ? "member" : "coach", scope),
     enabled: !!scope,
   });
   const [search, setSearch] = useState("");
   const [edit, setEdit] = useState<WorkoutPlan | true | null>(null);
-  const [detail, setDetail] = useState<WorkoutPlan | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
+  // Chỉ giữ ID; chi tiết luôn lấy từ nguồn hiện được phép hiển thị, không giữ object lớp cũ khi mất quyền/refetch.
+  const detail = combinedPlans.find(p => p.id === detailId);
   const [remove, setRemove] = useState<WorkoutPlan | null>(null);
   const [newLog, setNewLog] = useState(false);
   const [feedback, setFeedback] = useState<WorkoutLog | null>(null);
@@ -104,7 +134,16 @@ export default function ApiTraining() {
             <Field label="Huấn luyện viên">
               <select
                 value={coachId || ""}
-                onChange={(e) => setCoach(e.target.value)}
+                onChange={(e) => {
+                  setCoach(e.target.value);
+                  // Đổi HLV phải bỏ ngữ cảnh/form cũ trước khi tải dữ liệu của người mới.
+                  setStudent("");
+                  setEdit(null);
+                  setDetailId(null);
+                  setRemove(null);
+                  setNewLog(false);
+                  setFeedback(null);
+                }}
               >
                 <option value="">Chọn HLV</option>
                 {users.data
@@ -136,13 +175,17 @@ export default function ApiTraining() {
         />
         {!scope ? (
           <Empty title="Chọn huấn luyện viên" />
-        ) : plans.isPending ? (
-          <Loading />
-        ) : plans.error ? (
-          <ErrorState error={plans.error} retry={plans.refetch} />
-        ) : (
+        ) : <>
+          {plans.error && <ErrorState error={plans.error} retry={plans.refetch} />}
+          {member && bookings.error && <ErrorState error={bookings.error} retry={bookings.refetch} />}
+          {classPlans.map((q, i) => q.error && <div key={classIds[i]}>
+            <Notice>Không tải được giáo án lớp #{classIds[i]}.</Notice>
+            <ErrorState error={q.error} retry={q.refetch} />
+          </div>)}
+          {planLoading && <Loading />}
+          {(combinedPlans.length > 0 || (!planLoading && !planError)) && (
           <DataTable
-            rows={(plans.data || []).filter((p) =>
+            rows={combinedPlans.filter((p) =>
               matches(search, p.title, p.description),
             )}
             columns={[
@@ -150,7 +193,7 @@ export default function ApiTraining() {
                 key: "title",
                 label: "Giáo án",
                 render: (p) => (
-                  <Button variant="ghost" onClick={() => setDetail(p)}>
+                  <Button variant="ghost" onClick={() => setDetailId(p.id)}>
                     {p.title}
                   </Button>
                 ),
@@ -186,7 +229,8 @@ export default function ApiTraining() {
               },
             ]}
           />
-        )}
+          )}
+        </>}
       </Panel>
       <Panel title="Kết quả và tiến độ học viên">
         {!member && (
@@ -268,7 +312,7 @@ export default function ApiTraining() {
         )}
       </Panel>
       {detail && (
-        <Modal title={detail.title} onClose={() => setDetail(null)}>
+        <Modal title={detail.title} onClose={() => setDetailId(null)}>
           <p style={{ whiteSpace: "pre-wrap" }}>{detail.description}</p>
         </Modal>
       )}
