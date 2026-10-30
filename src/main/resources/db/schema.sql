@@ -1,12 +1,87 @@
 /*
-  SportsCenterDB baseline schema for SQL Server.
-
-  Run against a newly created, empty SportsCenterDB. This is intentionally
-  not an automatic Flyway migration. It creates missing objects but does not
-  alter or repair existing tables. Review and migrate existing data separately.
+  SportsCenterDB — tạo mới hoặc bổ sung cấu trúc thiếu cho database local cũ.
+  Cập nhật 30/10/2026: đồng bộ schema với backend mới, giữ dữ liệu hiện có.
+  - Chọn đúng database của dự án trong SSMS và sao lưu trước khi Execute.
+  - Chỉ thêm cột/bảng thiếu; không DROP/TRUNCATE bảng, không xóa tài khoản/hóa đơn.
+  - Gói và lớp cũ mặc định STANDARD, không tự suy đoán hoặc nâng thành VIP.
+  - Chỉ seed gói/bộ môn/phòng mẫu khi database chưa có dữ liệu nghiệp vụ.
+  - Có thể chạy lại. GO tách batch để SQL Server nhận các cột vừa thêm.
+  Đây là script chạy thủ công, không được Spring Boot tự chạy.
 */
 SET XACT_ABORT ON;
+IF DB_NAME() IN (N'master', N'model', N'msdb', N'tempdb')
+    THROW 51000, N'Hãy chọn database của dự án trước khi chạy schema.sql.', 1;
 BEGIN TRANSACTION;
+
+/* Bổ sung cột cho bảng đã tồn tại từ bản BE cũ; bảng chưa có sẽ được tạo bên dưới. */
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.membership_packages', N'access_level') IS NULL
+    ALTER TABLE dbo.membership_packages ADD access_level NVARCHAR(30) NOT NULL
+        CONSTRAINT DF_membership_packages_access_level DEFAULT N'STANDARD' WITH VALUES;
+
+IF OBJECT_ID(N'dbo.classes', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.classes', N'required_access_level') IS NULL
+    ALTER TABLE dbo.classes ADD required_access_level NVARCHAR(30) NOT NULL
+        CONSTRAINT DF_classes_access_level DEFAULT N'STANDARD' WITH VALUES;
+
+IF OBJECT_ID(N'dbo.invoices', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH(N'dbo.invoices', N'membership_order_id') IS NULL
+        ALTER TABLE dbo.invoices ADD membership_order_id INT NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'currency') IS NULL
+        ALTER TABLE dbo.invoices ADD currency CHAR(3) NOT NULL
+            CONSTRAINT DF_invoices_currency DEFAULT ('VND') WITH VALUES;
+    IF COL_LENGTH(N'dbo.invoices', N'paid_at') IS NULL
+        ALTER TABLE dbo.invoices ADD paid_at DATETIME2 NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refunded_at') IS NULL
+        ALTER TABLE dbo.invoices ADD refunded_at DATETIME2 NULL;
+END;
+/* BE mới có @Nationalized: JDBC đọc bằng getNString nên cột VARCHAR cũ
+   phải chuyển sang NVARCHAR. Chỉ mở rộng kiểu, giữ tên/ID và dữ liệu hiện có. */
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.roles') AND name = N'role_name' AND system_type_id = 167)
+BEGIN
+    /* Giữ lại đúng tên ràng buộc UNIQUE đang dùng, không thay khóa chính/FK role_id. */
+    DECLARE @RoleNameUnique SYSNAME, @RoleNameSql NVARCHAR(MAX);
+    SELECT @RoleNameUnique = kc.name
+    FROM sys.key_constraints kc
+    JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
+    JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+    WHERE kc.parent_object_id = OBJECT_ID(N'dbo.roles') AND kc.type = 'UQ'
+        AND c.name = N'role_name' AND ic.key_ordinal = 1
+        AND (SELECT COUNT(*) FROM sys.index_columns keys_ WHERE keys_.object_id = kc.parent_object_id
+             AND keys_.index_id = kc.unique_index_id AND keys_.key_ordinal > 0) = 1;
+    IF @RoleNameUnique IS NOT NULL
+    BEGIN
+        SET @RoleNameSql = N'ALTER TABLE dbo.roles DROP CONSTRAINT ' + QUOTENAME(@RoleNameUnique);
+        EXEC sys.sp_executesql @RoleNameSql;
+    END;
+    ALTER TABLE dbo.roles ALTER COLUMN role_name NVARCHAR(255) NOT NULL;
+    IF @RoleNameUnique IS NOT NULL
+    BEGIN
+        SET @RoleNameSql = N'ALTER TABLE dbo.roles ADD CONSTRAINT ' + QUOTENAME(@RoleNameUnique) + N' UNIQUE (role_name)';
+        EXEC sys.sp_executesql @RoleNameSql;
+    END;
+END;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.rooms') AND name = N'room_name' AND system_type_id = 167)
+    ALTER TABLE dbo.rooms ALTER COLUMN room_name NVARCHAR(255) NOT NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.sports') AND name = N'sport_name' AND system_type_id = 167)
+    ALTER TABLE dbo.sports ALTER COLUMN sport_name NVARCHAR(255) NOT NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.sports') AND name = N'description' AND system_type_id = 167)
+    ALTER TABLE dbo.sports ALTER COLUMN description NVARCHAR(255) NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.member_profiles') AND name = N'gender' AND system_type_id = 167)
+    ALTER TABLE dbo.member_profiles ALTER COLUMN gender NVARCHAR(255) NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.member_profiles') AND name = N'address' AND system_type_id = 167)
+    ALTER TABLE dbo.member_profiles ALTER COLUMN address NVARCHAR(255) NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.member_profiles') AND name = N'fitness_goals'
+    AND (system_type_id = 167 OR (system_type_id = 231 AND max_length <> -1)))
+    ALTER TABLE dbo.member_profiles ALTER COLUMN fitness_goals NVARCHAR(MAX) NULL;
+
+
+/* Giữ transaction qua batch; không COMMIT riêng các cột trước phần tạo bảng. */
+GO
+/* Dừng nếu batch bổ sung cột phía trên chưa mở/giữ được transaction. */
+IF @@TRANCOUNT = 0 OR XACT_STATE() <> 1
+    THROW 51001, N'Batch cập nhật cấu trúc trước đó chưa thành công; không chạy tiếp.', 1;
 
 IF OBJECT_ID(N'dbo.roles', N'U') IS NULL
 BEGIN
@@ -42,7 +117,7 @@ BEGIN
         dob DATE NULL,
         gender NVARCHAR(255) NULL,
         address NVARCHAR(255) NULL,
-        fitness_goals NVARCHAR(255) NULL,
+        fitness_goals NVARCHAR(MAX) NULL,
         CONSTRAINT FK_member_profiles_users FOREIGN KEY (member_id) REFERENCES dbo.users(user_id)
     );
 END;
@@ -142,12 +217,12 @@ BEGIN
         payment_method NVARCHAR(30) NOT NULL,
         status NVARCHAR(30) NOT NULL CONSTRAINT DF_membership_orders_status DEFAULT N'PENDING_PAYMENT',
         idempotency_key NVARCHAR(100) NOT NULL,
-        request_fingerprint CHAR(64) NOT NULL,
+        request_fingerprint VARCHAR(64) NOT NULL,
         created_by INT NOT NULL,
         confirmed_by INT NULL,
         bank_transaction_id NVARCHAR(100) NULL,
         confirmation_key NVARCHAR(100) NULL,
-        confirmation_fingerprint CHAR(64) NULL,
+        confirmation_fingerprint VARCHAR(64) NULL,
         version INT NOT NULL CONSTRAINT DF_membership_orders_version DEFAULT (0),
         created_at DATETIME2 NOT NULL CONSTRAINT DF_membership_orders_created_at DEFAULT SYSDATETIME(),
         confirmed_at DATETIME2 NULL,
@@ -360,6 +435,13 @@ IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'RECEPTIONIST')
 IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'CENTER_MANAGER')
     INSERT INTO dbo.roles (role_name) VALUES (N'CENTER_MANAGER');
 
+/* Database đang dùng: không tự thêm gói/phòng/bộ môn mẫu khi nâng cấp cấu trúc. */
+IF NOT EXISTS (SELECT 1 FROM dbo.users)
+    AND NOT EXISTS (SELECT 1 FROM dbo.membership_packages)
+    AND NOT EXISTS (SELECT 1 FROM dbo.classes)
+    AND NOT EXISTS (SELECT 1 FROM dbo.sports)
+    AND NOT EXISTS (SELECT 1 FROM dbo.rooms)
+BEGIN
 IF NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_name = N'Cầu lông')
     INSERT INTO dbo.sports (sport_name, description) VALUES (N'Cầu lông', N'Lớp cầu lông theo trình độ');
 IF NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_name = N'Bóng rổ')
@@ -394,6 +476,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
     VALUES (N'Gói VIP 3 tháng', 90, 2100000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
+
+END;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'VNPAY')
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'VNPAY', N'VNPay', 0);
@@ -441,5 +525,23 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.atten
     CREATE INDEX IX_attendances_member_time ON dbo.attendances (member_id, checked_in_at);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.support_tickets') AND name = N'IX_support_tickets_status_created')
     CREATE INDEX IX_support_tickets_status_created ON dbo.support_tickets (status, created_at);
+
+
+/* Entity MembershipOrder dùng String: VARCHAR(64), không phải CHAR(64).
+   Chuyển đúng kiểu cho DB đã chạy schema/V6 cũ; giữ nguyên nội dung hash. */
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'request_fingerprint' AND system_type_id = 175)
+    ALTER TABLE dbo.membership_orders ALTER COLUMN request_fingerprint VARCHAR(64) NOT NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.membership_orders') AND name = N'confirmation_fingerprint' AND system_type_id = 175)
+    ALTER TABLE dbo.membership_orders ALTER COLUMN confirmation_fingerprint VARCHAR(64) NULL;
+/* Ràng buộc cho cột vừa thêm ở DB cũ. Tạo bảng mới ở trên đã có các ràng buộc này. */
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_membership_packages_access_level' AND parent_object_id = OBJECT_ID(N'dbo.membership_packages'))
+    ALTER TABLE dbo.membership_packages WITH CHECK ADD CONSTRAINT CK_membership_packages_access_level
+        CHECK (access_level IN (N'STANDARD', N'VIP'));
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_classes_access_level' AND parent_object_id = OBJECT_ID(N'dbo.classes'))
+    ALTER TABLE dbo.classes WITH CHECK ADD CONSTRAINT CK_classes_access_level
+        CHECK (required_access_level IN (N'STANDARD', N'VIP'));
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_invoices_membership_orders' AND parent_object_id = OBJECT_ID(N'dbo.invoices'))
+    ALTER TABLE dbo.invoices WITH CHECK ADD CONSTRAINT FK_invoices_membership_orders
+        FOREIGN KEY (membership_order_id) REFERENCES dbo.membership_orders(membership_order_id);
 
 COMMIT TRANSACTION;
