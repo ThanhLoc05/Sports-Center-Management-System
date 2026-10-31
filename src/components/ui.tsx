@@ -91,7 +91,7 @@ export function Badge({
     RESOLVED: "Đã xử lý",
   };
   return (
-    <span className={`badge badge-${(status || "neutral").toLowerCase()}`}>
+    <span className={`badge badge-${(status || "neutral").toLowerCase()} ${status === "PENDING" ? "status-unpaid" : status === "PAID" ? "status-paid" : ""}`}>
       <span className="badge-dot" />
       {children || labels[status || ""] || status}
     </span>
@@ -587,17 +587,19 @@ export function Confirm({
   onClose,
   onConfirm,
   danger = true,
+  className = "",
 }: {
   title: string;
   description: string;
   onClose: () => void;
   onConfirm: () => Promise<unknown>;
   danger?: boolean;
+  className?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   return (
-    <Modal title={title} onClose={onClose} dismissible={!busy}>
+    <Modal title={title} onClose={onClose} dismissible={!busy} className={className}>
       <p className="confirm-description">{description}</p>
       {err && (
         <p className="form-error" role="alert">

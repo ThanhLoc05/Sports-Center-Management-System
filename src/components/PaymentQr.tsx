@@ -41,7 +41,7 @@ function LocalBankSettings() {
     return () => window.removeEventListener("storage", refresh);
   }, []);
   return (
-    <Panel
+    <Panel className="panel-spaced"
       title="Tài khoản nhận tiền & QR"
       description="Nhập tài khoản ngân hàng trung tâm đang sử dụng. Mỗi hóa đơn tự điền số tiền và nội dung chuyển khoản."
     >
@@ -157,6 +157,7 @@ function LocalBankSettings() {
       )}
       {review && (
         <Modal
+          className="content-preview-dialog"
           title="Xem lại tài khoản nhận tiền trung tâm"
           onClose={() => setReview(null)}
         >
@@ -331,7 +332,7 @@ export function PaymentQr({
   )
     return null;
   return (
-    <section className="payment-qr" aria-label="Thanh toán QR">
+    <section className="payment-qr status-unpaid" aria-label="Thanh toán QR">
       <h3>Thanh toán bằng QR chuyển khoản</h3>
       <p>
         Thành viên:{" "}

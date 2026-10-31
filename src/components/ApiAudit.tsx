@@ -24,7 +24,7 @@ export default function ApiAudit() {
         Đang chờ kết nối dữ liệu nhật ký từ backend. Chưa có lịch sử thao tác để
         tra cứu hoặc xuất.
       </Notice>
-      <Panel title="Lịch sử thao tác">
+      <Panel className="panel-spaced" title="Lịch sử thao tác">
         <div className="form-grid">
           <Field label="Từ ngày">
             <input type="date" />

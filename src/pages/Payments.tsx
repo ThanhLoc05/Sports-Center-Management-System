@@ -164,7 +164,7 @@ export default function Payments() {
       )}
       <div className="mini-stats">
         <div>
-          <span className="mini-stat-icon green">
+          <span className="mini-stat-icon green status-paid">
             <Wallet size={21} />
           </span>
           <div>
@@ -173,7 +173,7 @@ export default function Payments() {
           </div>
         </div>
         <div>
-          <span className="mini-stat-icon orange">
+          <span className="mini-stat-icon orange status-unpaid">
             <Receipt size={21} />
           </span>
           <div>
@@ -483,6 +483,7 @@ export default function Payments() {
       {change &&
         can(change.refund ? "payments.refund" : "payments.collect") && (
           <Confirm
+            className={change.refund ? "" : "payment-collection-dialog status-unpaid"}
             title={
               change.refund
                 ? "Xác nhận hoàn tiền?"
@@ -536,7 +537,7 @@ function InvoiceDetail({
       <MembershipOrderDetail orderId={i.membershipOrderId} onClose={onClose} />
     );
   return (
-    <Modal title="Chi tiết hóa đơn" onClose={onClose} wide>
+    <Modal className="invoice-detail-dialog" title="Chi tiết hóa đơn" onClose={onClose} wide>
       <PaymentQr invoice={i} />
       <div className="invoice-document" id="print-invoice">
         <div className="invoice-document-top">

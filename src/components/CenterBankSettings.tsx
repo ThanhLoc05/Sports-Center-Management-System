@@ -32,7 +32,7 @@ export function CenterBankSettings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <Panel
+    <Panel className="panel-spaced"
       title="Tài khoản nhận tiền & QR"
       description="Tài khoản ngân hàng dùng chung cho toàn trung tâm."
     >
@@ -71,6 +71,7 @@ export function CenterBankSettings() {
       )}
       {review && (
         <Modal
+          className="content-preview-dialog"
           title={
             review === "clear"
               ? "Gỡ tài khoản nhận tiền"

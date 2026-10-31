@@ -27,7 +27,7 @@ export default function ApiStudents() {
         title="Học viên phụ trách"
         description="Danh sách và mục tiêu lấy từ các lớp bạn được giao."
       />
-      <Panel>
+      <Panel className="panel-spaced">
         <SearchInput
           value={search}
           onChange={setSearch}

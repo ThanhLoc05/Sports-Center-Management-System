@@ -28,7 +28,7 @@
 .notification-card {
   padding: 18px;
   margin: 12px 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   background: var(--surface);
 }
@@ -50,7 +50,7 @@
 }
 .payment-qr {
   padding: 20px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-card);
   border-radius: 14px;
   background: #f8faf5;
   margin: 8px 0 24px;
@@ -156,20 +156,17 @@
   line-height: 1.6;
 }
 
-
-/* Khung riêng cho yêu cầu gói, chi tiết hóa đơn và thanh toán; không đổi giao diện chung. */
+/* Hộp thoại thanh toán có vùng nội dung riêng; chỉ khu vực này cuộn, thanh thao tác luôn ở dưới. */
 .membership-order-dialog {
   display: flex;
   flex-direction: column;
   max-width: 900px;
   overflow: hidden;
 }
-
 .membership-order-dialog .modal-heading {
   flex: 0 0 auto;
   padding: 22px 26px;
 }
-
 .membership-order-body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -179,64 +176,53 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-
 .membership-order-body > * {
   min-width: 0;
 }
-
 .membership-order-full {
   grid-column: 1 / -1;
 }
-
 .membership-order-card {
-  border: 1px solid var(--border-card, var(--line));
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   padding: 18px;
   background: #fff;
   overflow-wrap: anywhere;
 }
-
 .membership-order-card > h3 {
   margin: 0 0 16px;
   font-size: 13px;
   color: var(--green-dark);
 }
-
 .membership-order-card > p {
   margin: 10px 0 0;
   line-height: 1.7;
 }
-
 .membership-order-facts {
   display: grid;
   gap: 14px;
   margin: 0;
 }
-
 .membership-order-facts > div {
   display: grid;
   gap: 5px;
   min-width: 0;
 }
-
 .membership-order-facts dt {
   color: #697465;
   font-size: 11px;
 }
-
 .membership-order-facts dd {
   margin: 0;
   font-weight: 500;
   line-height: 1.65;
 }
-
 .membership-order-facts small {
   display: block;
   margin-top: 3px;
   color: #697465;
   font-weight: 400;
 }
-
 .membership-order-state {
   display: inline-block;
   padding: 4px 9px;
@@ -245,17 +231,14 @@
   color: #82632b;
   font-size: 11px;
 }
-
 .membership-order-state.is-complete {
-  background: var(--status-green-bg, #eef4e7);
-  color: var(--status-green-text, #496a37);
+  background: var(--status-green-bg);
+  color: var(--status-green-text);
 }
-
 .membership-order-package {
   display: block;
   font-size: 16px;
 }
-
 .membership-order-total {
   display: grid;
   gap: 8px;
@@ -263,65 +246,53 @@
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
-
 .membership-order-total > span {
   color: #697465;
   font-size: 11px;
 }
-
 .membership-order-total > strong {
   font-size: 23px;
   line-height: 1.4;
   color: var(--green-dark);
 }
-
 .membership-order-card .notice {
   margin: 12px 0 0;
   line-height: 1.7;
 }
-
 .membership-order-card .notice:first-of-type {
   margin-top: 0;
 }
-
 .membership-order-card .payment-qr {
   margin-bottom: 16px;
 }
-
 .membership-order-card .panel {
   margin-bottom: 0;
 }
-
 .membership-order-card .panel > p,
 .membership-order-card .panel > .notice {
   margin: 12px 16px;
 }
-
 .membership-order-notification > .panel {
   margin-bottom: 0;
   padding: 18px;
 }
-
 .membership-order-notification .panel-heading {
   padding: 0 0 12px;
 }
-
 .membership-order-notification p {
   line-height: 1.7;
   margin: 0 0 12px;
 }
-
 .membership-order-help,
 .membership-order-updated {
   color: #697465;
   font-size: 11px;
   line-height: 1.7;
 }
-
 .membership-order-updated {
   margin: 0;
 }
-
+/* Checkbox không được kế thừa width:100% và padding của ô nhập văn bản dùng chung. */
 .membership-order-receipt {
   display: flex;
   align-items: flex-start;
@@ -330,7 +301,6 @@
   cursor: pointer;
   margin: 16px 0 0;
 }
-
 .membership-order-receipt input[type="checkbox"] {
   flex: 0 0 18px;
   width: 18px;
@@ -340,16 +310,13 @@
   accent-color: var(--green);
   border-radius: 3px;
 }
-
 .membership-order-receipt span {
   flex: 1;
   min-width: 0;
 }
-
 .membership-cash-receipt .form-error {
   margin: 12px 0 0;
 }
-
 .membership-order-footer {
   flex: 0 0 auto;
   display: flex;
@@ -359,7 +326,6 @@
   gap: 12px;
   padding: 16px 26px;
 }
-
 .membership-order-secondary,
 .membership-order-primary {
   display: flex;
@@ -367,23 +333,20 @@
   gap: 8px;
   min-width: 0;
 }
-
 .membership-order-primary {
   margin-left: auto;
 }
-
 .membership-order-footer .btn {
   white-space: normal;
   line-height: 1.5;
 }
-
+/* Bảng đơn tách mã thanh toán và danh tính thành viên thành hai dòng rõ ràng. */
 .membership-orders-panel td small {
   display: block;
   margin-top: 5px;
   line-height: 1.65;
   color: #697465;
 }
-
 .membership-orders-panel > .form-grid,
 .membership-orders-panel > .search-input,
 .membership-orders-panel > p,
@@ -391,119 +354,81 @@
   margin-left: 23px;
   margin-right: 23px;
 }
-
 .membership-orders-panel > .search-input {
   width: auto;
   margin-top: 14px;
   margin-bottom: 16px;
 }
-
 @media (max-width: 640px) {
-.membership-order-dialog .modal-heading {
+  .membership-order-dialog .modal-heading {
     padding: 18px;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-body {
+  .membership-order-body {
     grid-template-columns: minmax(0, 1fr);
     padding: 16px;
     gap: 12px;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-card {
+  .membership-order-card {
     padding: 15px;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-footer {
+  .membership-order-footer {
     padding: 14px 16px;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-secondary,
+  .membership-order-secondary,
   .membership-order-primary {
     width: 100%;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-secondary > .btn {
+  .membership-order-secondary > .btn {
     flex: 1;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-primary {
+  .membership-order-primary {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-primary > .btn:only-child {
+  .membership-order-primary > .btn:only-child {
     grid-column: 2;
   }
-}
-
-@media (max-width: 640px) {
-.membership-order-card .qr-layout {
+  .membership-order-card .qr-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-
 @media print {
-.membership-order-dialog {
+  .membership-order-dialog {
     display: block;
     overflow: visible;
   }
-}
-
-@media print {
-.membership-order-body {
+  .membership-order-body {
     display: block;
     padding: 0;
     overflow: visible;
   }
-}
-
-@media print {
-.membership-order-card {
+  .membership-order-card {
     break-inside: avoid;
     margin-bottom: 12px;
   }
-}
-
-@media print {
-.membership-order-updated,
+  .membership-order-updated,
   .membership-cash-receipt,
   .membership-order-body .btn {
     display: none !important;
   }
 }
 
+/* Checkout chia khung nhập liệu và tóm tắt; chỉ áp dụng cho form đăng ký/gia hạn gói. */
 .membership-checkout-dialog {
   display: flex;
   flex-direction: column;
   max-width: 760px;
   overflow: hidden;
 }
-
 .membership-checkout-dialog .modal-heading {
   flex: 0 0 auto;
 }
-
 .membership-checkout-dialog > form {
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
 }
-
 .membership-checkout-dialog .form-fields {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
@@ -514,82 +439,69 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-
 .membership-checkout-card {
   min-width: 0;
-  border: 1.5px solid var(--border-card, var(--line));
+  border: 1.5px solid var(--border-card);
   border-radius: 12px;
   padding: 18px;
   background: var(--surface);
 }
-
 .membership-checkout-card > h3 {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--green-dark);
 }
-
 .membership-checkout-fields {
   display: grid;
   align-content: start;
   gap: 18px;
 }
-
 .membership-checkout-fields .field {
   margin: 0;
   gap: 7px;
 }
-
 .membership-checkout-fields .field > label {
   font-size: 11px;
 }
-
 .membership-checkout-fields input,
 .membership-checkout-fields select {
   min-width: 0;
   font-size: 12px;
 }
-
 .membership-checkout-summary {
   display: grid;
   align-content: start;
   gap: 18px;
-  background: var(--accent-subtle, #f4f7ef);
+  background: var(--accent-subtle);
   overflow-wrap: anywhere;
 }
-
 .membership-checkout-package {
   display: grid;
   gap: 5px;
 }
-
 .membership-checkout-package > strong {
   font-size: 16px;
   line-height: 1.5;
   color: var(--green-dark);
 }
-
 .membership-checkout-package > span,
 .membership-checkout-facts dt {
   font-size: 11px;
   line-height: 1.6;
   color: #5e6e51;
 }
-
 .membership-checkout-facts {
   display: grid;
   gap: 12px;
   margin: 0;
 }
-
 .membership-checkout-facts > div {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
 }
-
 .membership-checkout-facts dd {
   margin: 0;
   text-align: right;
@@ -597,36 +509,31 @@
   line-height: 1.6;
   font-weight: 500;
 }
-
 .membership-checkout-total {
   display: grid;
   gap: 5px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
-
 .membership-checkout-total > span {
   font-size: 11px;
   color: #5e6e51;
 }
-
 .membership-checkout-total > strong {
   color: var(--green-dark);
   font-size: 27px;
   line-height: 1.3;
   letter-spacing: -0.5px;
 }
-
 .membership-checkout-demo > span {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 5px;
-  background: var(--status-green-bg, #eef4e7);
-  color: var(--status-green-text, #496a37);
+  background: var(--status-green-bg);
+  color: var(--status-green-text);
   font-size: 10px;
   font-weight: 500;
 }
-
 .membership-checkout-demo p,
 .membership-checkout-empty {
   margin: 8px 0 0;
@@ -634,69 +541,793 @@
   line-height: 1.7;
   color: #5e6e51;
 }
-
 .membership-checkout-help {
   grid-column: 1 / -1;
   min-width: 0;
 }
-
 .membership-checkout-dialog .membership-checkout-help .notice {
   margin: 0;
   padding: 13px 15px;
   font-size: 11px;
   line-height: 1.7;
 }
-
 .membership-checkout-dialog .modal-footer {
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
 }
-
 .membership-checkout-dialog .modal-footer .btn {
   min-height: 40px;
   white-space: normal;
   line-height: 1.5;
 }
-
 .membership-checkout-dialog .modal-footer .btn-secondary {
   min-width: 82px;
 }
-
 @media (max-width: 680px) {
-.membership-checkout-dialog .modal-heading {
+  .membership-checkout-dialog .modal-heading {
     padding: 20px;
   }
-}
-
-@media (max-width: 680px) {
-.membership-checkout-dialog .form-fields {
+  .membership-checkout-dialog .form-fields {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     padding: 18px;
   }
-}
-
-@media (max-width: 680px) {
-.membership-checkout-card {
+  .membership-checkout-card {
     padding: 16px;
   }
-}
-
-@media (max-width: 680px) {
-.membership-checkout-summary {
+  .membership-checkout-summary {
     gap: 14px;
   }
-}
-
-@media (max-width: 680px) {
-.membership-checkout-dialog .modal-footer {
+  .membership-checkout-dialog .modal-footer {
     padding: 16px 18px;
+  }
+  .membership-checkout-dialog .modal-footer .btn-primary {
+    flex: 1;
   }
 }
 
+/* Thông tin gói và thao tác lớp học có khoảng đệm riêng, đồng bộ với các panel còn lại. */
+.class-membership-panel .panel-heading {
+  padding: 20px 22px 14px;
+}
+.class-membership-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px 24px;
+  padding: 0 22px 20px;
+}
+.class-membership-overview {
+  display: grid;
+  flex: 1;
+  min-width: 240px;
+  gap: 12px;
+}
+.class-membership-overview > p {
+  margin: 0;
+  color: #5e6e51;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.class-membership-overview .check-option {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.class-membership-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+.class-membership-actions .btn {
+  min-height: 38px;
+  font-size: 11px;
+}
+.class-membership-actions .text-link {
+  font-size: 11px;
+}
 @media (max-width: 680px) {
-.membership-checkout-dialog .modal-footer .btn-primary {
-    flex: 1;
+  .class-membership-panel .panel-heading {
+    padding: 18px 18px 14px;
+  }
+  .class-membership-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 0 18px 18px;
+  }
+  .class-membership-overview {
+    min-width: 0;
+  }
+}
+
+/* Thang khoảng cách và chiều cao chung giúp các trang thẳng mép, các nút/ô nhập cùng hàng. */
+:root {
+  --ui-gutter: 32px;
+  --ui-panel-space: 24px;
+  --ui-control-height: 40px;
+  --payment-unpaid-bg: #fde8e6;
+  --payment-unpaid-border: #e0564a;
+  --payment-unpaid-text: #a8281d;
+  --payment-paid-bg: #dcf3df;
+  --payment-paid-border: #3aa655;
+  --payment-paid-text: #1d6b32;
+}
+.app-body,
+.main-content,
+.panel,
+.table-scroll,
+.page-header > div,
+.panel-heading > div,
+.table-toolbar > div,
+.list-toolbar > div,
+.settings-content,
+.chat-panel {
+  min-width: 0;
+}
+.main-content {
+  padding: 32px var(--ui-gutter);
+}
+.topbar,
+.app-footer {
+  padding-left: var(--ui-gutter);
+  padding-right: var(--ui-gutter);
+}
+.topbar {
+  gap: 16px;
+}
+.breadcrumb {
+  min-width: 0;
+}
+.breadcrumb strong {
+  overflow-wrap: anywhere;
+}
+.topbar-actions,
+.profile-trigger,
+.icon-btn > svg,
+.btn > svg,
+.notice > svg {
+  flex-shrink: 0;
+}
+.page-header {
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin-bottom: 24px;
+}
+.page-header p,
+.panel-heading p {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.page-actions {
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0;
+  max-width: 100%;
+}
+.panel-heading {
+  flex-wrap: wrap;
+  padding: 20px var(--ui-panel-space) 16px;
+  gap: 12px 16px;
+}
+/* Panel có nội dung trực tiếp cần đệm riêng; bảng vẫn được giữ sát mép khung. */
+.panel-spaced > :is(p, .field, .notice, .form-grid, .mini-stats, .inline-lookup, .detail-grid) {
+  margin: 0 var(--ui-panel-space) 16px;
+}
+.panel-spaced > .search-input {
+  margin: 0 var(--ui-panel-space) 16px;
+  width: auto;
+  min-width: 0;
+}
+.panel-spaced > .btn {
+  margin: 0 var(--ui-panel-space) 20px;
+  max-width: calc(100% - 2 * var(--ui-panel-space));
+}
+.panel-spaced > p {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.panel-spaced > .mini-stats {
+  gap: 16px;
+}
+.btn {
+  min-height: var(--ui-control-height);
+  padding: 8px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+  text-align: center;
+}
+.icon-btn {
+  min-width: 36px;
+  min-height: 36px;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),
+select {
+  min-height: var(--ui-control-height);
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+textarea {
+  font-size: 12px;
+  line-height: 1.7;
+}
+input:is([type="checkbox"], [type="radio"]) {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--green);
+}
+.field {
+  margin-bottom: 20px;
+}
+.field > label,
+.field > small {
+  overflow-wrap: anywhere;
+}
+.search-input,
+.select-wrap select {
+  min-height: var(--ui-control-height);
+}
+.search-input input {
+  min-height: calc(var(--ui-control-height) - 3px);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.table-toolbar,
+.table-subtoolbar,
+.list-toolbar,
+.table-filters {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.table-toolbar {
+  padding: 20px var(--ui-panel-space);
+}
+.table-subtoolbar {
+  padding: 0 var(--ui-panel-space) 16px;
+}
+.table-filters .search-input,
+.list-toolbar .search-input {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+}
+.table-filters .select-wrap {
+  flex: 1 1 144px;
+  min-width: 0;
+}
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+/* Nội dung dài được xuống dòng trong ô; bảng nhiều cột cuộn trong khung thay vì đẩy rộng cả trang. */
+/* Giữ từ và ngày liền mạch; chuỗi dài vẫn nằm trong vùng cuộn của bảng. */
+th,
+td {
+  padding: 12px 20px;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.table-scroll table:has(th:nth-child(5)) {
+  min-width: 680px;
+}
+.row-actions {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.person-cell,
+.person-cell > span:last-child,
+.contact-cell {
+  min-width: 0;
+}
+.amount,
+.invoice-total strong,
+.membership-order-total > strong {
+  font-variant-numeric: tabular-nums;
+}
+.table-footer {
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 16px var(--ui-panel-space);
+  font-size: 11px;
+}
+.pagination {
+  gap: 8px;
+  font-size: 11px;
+}
+.pagination button {
+  width: 32px;
+  height: 32px;
+}
+.pagination button:disabled:hover {
+  background: transparent;
+}
+.form-grid,
+.detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+.modal-wide {
+  max-width: min(760px, 100%);
+}
+.modal-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 20px 24px;
+  background: var(--surface);
+}
+.modal-heading h2 {
+  overflow-wrap: anywhere;
+}
+.form-fields {
+  padding: 24px 24px 4px;
+}
+.modal > .detail-grid {
+  padding: 24px;
+}
+.modal .modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  flex-wrap: wrap;
+  align-items: stretch;
+  padding: 16px 24px;
+  gap: 8px;
+}
+.form-error,
+.notice,
+.toast > span {
+  overflow-wrap: anywhere;
+}
+.notice > svg {
+  margin-top: 2px;
+}
+.empty-state,
+.loading-state,
+.error-state {
+  padding: 32px 24px;
+  text-align: center;
+}
+.empty-state p,
+.error-state p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.toast-stack {
+  right: 16px;
+  bottom: 16px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  gap: 12px;
+}
+.toast {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+}
+.toast > svg,
+.toast > button {
+  flex-shrink: 0;
+}
+.toast > svg {
+  margin-top: 2px;
+}
+.toast > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+}
+.stat-card,
+.training-card,
+.class-card,
+.pricing-card {
+  height: 100%;
+}
+.class-card,
+.class-card-body,
+.training-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.class-card-body {
+  flex: 1;
+}
+.class-card-bottom,
+.training-card-footer,
+.pricing-card > .btn {
+  margin-top: auto;
+}
+.class-card-title,
+.training-card-top {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.class-card-title h2,
+.training-card h3,
+.pricing-card h3 {
+  overflow-wrap: anywhere;
+}
+.mini-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.mini-stats > div {
+  min-width: 0;
+  padding: 20px;
+  gap: 16px;
+}
+.mini-stats > div > div {
+  min-width: 0;
+}
+.mini-stats strong {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.report-range {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.report-range .field {
+  min-width: 144px;
+  flex: 1 1 160px;
+}
+.settings-content,
+.profile-details,
+.chat-message,
+.qr-details {
+  overflow-wrap: anywhere;
+}
+.chat-composer {
+  align-items: center;
+  gap: 12px;
+}
+.chat-composer > input {
+  min-width: 0;
+}
+.chat-composer > button {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+}
+.invoice-document-top {
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.qr-layout {
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+}
+.qr-layout img {
+  display: block;
+  max-width: 100%;
+}
+.payment-qr .btn {
+  max-width: 100%;
+}
+/* Chỉ trạng thái thanh toán dùng đỏ/xanh này; chữ và trạng thái hủy/hoàn tiền giữ nguyên. */
+.status-unpaid {
+  --payment-status-bg: var(--payment-unpaid-bg);
+  --payment-status-border: var(--payment-unpaid-border);
+  --payment-status-text: var(--payment-unpaid-text);
+}
+.status-paid {
+  --payment-status-bg: var(--payment-paid-bg);
+  --payment-status-border: var(--payment-paid-border);
+  --payment-status-text: var(--payment-paid-text);
+}
+.status-unpaid:not(.payment-collection-dialog),
+.status-paid,
+.membership-order-state.status-unpaid,
+.membership-order-state.status-paid,
+.payment-collection-dialog .confirm-description {
+  background: var(--payment-status-bg);
+  border: 1px solid var(--payment-status-border);
+  color: var(--payment-status-text);
+}
+.badge.status-unpaid,
+.badge.status-paid,
+.membership-order-state.status-unpaid,
+.membership-order-state.status-paid,
+.payment-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.payment-status::before,
+.membership-order-state:is(.status-unpaid, .status-paid)::before {
+  content: "";
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.payment-qr.status-unpaid > h3,
+.payment-qr.status-unpaid .qr-details > strong {
+  color: var(--payment-status-text);
+}
+.payment-collection-dialog .confirm-description {
+  margin: 20px 24px;
+  padding: 16px;
+  border-radius: 8px;
+}
+/* Các mốc này giữ nội dung chính trong màn hình; bảng/lịch có vùng cuộn riêng. */
+@media (min-width: 1550px) {
+  :root { --ui-gutter: 40px; }
+}
+@media (max-width: 1250px) {
+  :root { --ui-gutter: 24px; }
+  .table-filters { max-width: 100%; }
+}
+@media (max-width: 1000px) {
+  :root { --ui-gutter: 20px; --ui-panel-space: 20px; }
+  .qr-layout { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); }
+  .mini-stats > div { padding: 16px; gap: 12px; }
+}
+@media (max-width: 760px) {
+  :root { --ui-gutter: 16px; --ui-panel-space: 16px; }
+  .main-content { padding-top: 24px; padding-bottom: 24px; }
+  .topbar { gap: 8px; }
+  .topbar-actions { gap: 4px; }
+  .topbar-actions .icon-btn { min-width: 32px; }
+  .global-search { min-width: 32px; min-height: 36px; justify-content: center; }
+  .global-search > span,
+  .global-search > kbd { display: none; }
+  .page-header { gap: 16px; }
+  .page-actions { width: 100%; }
+  .table-toolbar,
+  .table-subtoolbar { gap: 12px; }
+  .table-filters { width: 100%; }
+  .table-filters .search-input,
+  .list-toolbar .search-input { flex-basis: 100%; }
+  .table-filters .select-wrap { flex-basis: 120px; }
+  .form-grid,
+  .detail-grid,
+  .profile-details { grid-template-columns: minmax(0, 1fr); }
+  .modal-overlay { padding: 12px; }
+  .modal { max-height: calc(100dvh - 24px); }
+  .modal-heading { padding: 20px; }
+  .form-fields { padding: 20px 20px 4px; }
+  .modal .modal-footer { padding: 16px 20px; }
+  .modal > .detail-grid { padding: 20px; }
+  .qr-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .qr-layout img { margin: auto; }
+  .invoice-document { padding: 20px; }
+  .invoice-document-top > div:last-child { text-align: left; }
+  .invoice-total { flex-wrap: wrap; gap: 12px 20px; }
+  .mini-stats { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .mini-stats > div { display: flex; align-items: center; }
+  .mini-stat-icon { margin-bottom: 0; }
+  .mini-stats strong { font-size: 24px; }
+  .report-range .field { min-width: 0; flex-basis: 100%; }
+  .report-range > .btn { width: 100%; }
+  .toast-stack { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
+  .payment-collection-dialog .confirm-description { margin: 16px 20px; }
+}
+@media (max-width: 360px) {
+  :root { --ui-gutter: 12px; }
+  .topbar-actions { gap: 0; }
+  .topbar { gap: 4px; }
+  .breadcrumb { gap: 4px; font-size: 11px; }
+  .page-actions .btn { flex: 1 1 auto; }
+  .modal .modal-footer .btn { flex: 1 1 auto; }
+  .membership-order-primary { width: 100%; }
+}
+/* In vẫn giữ chữ trạng thái và đường viền, không để thanh thao tác dính lên phiếu thu. */
+@media print {
+  .modal-heading,
+  .modal .modal-footer { position: static; }
+  .status-unpaid,
+  .status-paid { print-color-adjust: exact; }
+}
+
+/* Các hộp thanh toán đã có khung riêng dùng cùng mép đệm với tiêu đề và thanh thao tác. */
+.membership-order-dialog .modal-heading,
+.membership-checkout-dialog .modal-heading { padding: 20px 24px; }
+.membership-order-body,
+.membership-checkout-dialog .form-fields { padding: 24px; gap: 16px; }
+.inline-lookup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.inline-lookup .field { margin-bottom: 0; min-width: 0; flex: 1 1 160px; }
+.assistant-mode > select { width: auto; flex: 1 1 200px; max-width: 360px; }
+@media (max-width: 760px) {
+  .membership-order-dialog .modal-heading,
+  .membership-checkout-dialog .modal-heading { padding: 20px; }
+  .membership-order-body,
+  .membership-checkout-dialog .form-fields { padding: 20px; }
+  .assistant-mode > select { max-width: 100%; }
+}
+
+/* Tiêu đề chat cần xuống hàng thật; nowrap trong nút từng làm tràn chữ ra ngoài khung. */
+.chat-heading { flex-wrap: wrap; gap: 12px 16px; }
+.chat-heading > div { min-width: 0; }
+.chat-heading > .subtle-link { white-space: normal; max-width: 100%; text-align: left; line-height: 1.5; }
+/* Chỉ nâng nhãn trục biểu đồ, không làm nhỏ các số liệu tổng và tiêu đề. */
+.recharts-cartesian-axis-tick-value { font-size: 11px !important; }
+/* Ô chỉ đọc/vô hiệu vẫn đọc được dữ liệu, đồng thời phân biệt với ô có thể nhập. */
+input[readonly], textarea[readonly], input:disabled, select:disabled, textarea:disabled { background-color: var(--accent-subtle); }
+input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
+
+/* Chấm trạng thái đi cùng nội dung xác nhận để không truyền đạt chỉ bằng màu. */
+.payment-collection-dialog .confirm-description::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: currentColor; vertical-align: middle; }
+
+
+/* Thông báo có một khung chính; bỏ khung lồng để nội dung không sát viền và dễ đọc. */
+.membership-notifications-panel > .notification-card {
+  margin: 0 var(--ui-panel-space) 20px;
+  padding: 20px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.membership-notifications-panel .notification-card > strong {
+  max-width: 100%;
+  white-space: normal;
+}
+.membership-notifications-panel .notification-card > p {
+  margin: 12px 0;
+  line-height: 1.7;
+}
+.membership-notifications-panel .notification-card > .panel {
+  margin: 16px 0 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.membership-notifications-panel .notification-card > .panel > .panel-heading {
+  padding: 0 0 12px;
+}
+.membership-notifications-panel .notification-card > .panel > p {
+  margin: 0 0 12px;
+  line-height: 1.7;
+}
+.membership-notifications-panel .notification-card > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  margin-top: 4px;
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* Trạng thái và nút nằm cạnh nhau trong hồ sơ, tự xuống dòng khi màn hình hẹp. */
+.member-account-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.member-detail-header > div {
+  min-width: 0;
+}
+.member-account-status > .btn {
+  white-space: normal;
+  text-align: left;
+}
+/* Các form chưa nối API dùng chung đệm và hai cột; trường dài chiếm trọn hàng. */
+.pending-editor-dialog {
+  max-width: min(680px, 100%);
+}
+.pending-editor-dialog > .notice {
+  margin: 24px;
+}
+.pending-editor-dialog > form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 16px;
+  padding: 0 24px;
+}
+.pending-editor-dialog > form > .field {
+  margin: 0;
+  min-width: 0;
+}
+.pending-editor-dialog > form > .field:first-child,
+.pending-editor-dialog > form > .field:has(textarea),
+.pending-editor-dialog > form > .modal-footer {
+  grid-column: 1 / -1;
+}
+.pending-editor-dialog > form > .modal-footer {
+  margin: 4px -24px 0;
+}
+@media (max-width: 760px) {
+  .membership-notifications-panel > .notification-card {
+    padding: 16px;
+  }
+  .pending-editor-dialog > .notice {
+    margin: 20px;
+  }
+  .pending-editor-dialog > form {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 20px;
+    gap: 16px;
+  }
+  .pending-editor-dialog > form > .modal-footer {
+    margin: 4px -20px 0;
+  }
+}
+
+/* Dùng cùng lề cho bộ lọc học viên và nội dung xem trước, tránh chữ chạm viền modal. */
+.panel-spaced > .search-input:first-child {
+  margin-top: 20px;
+}
+.content-preview-dialog > :is(p, h3, .notice) {
+  margin: 20px 24px;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+@media (max-width: 760px) {
+  .content-preview-dialog > :is(p, h3, .notice) {
+    margin: 16px 20px;
+  }
+}
+
+/* Bảng 3–4 cột cũng cần đủ chỗ để tên và ngày không bị bẻ thành từng ký tự trên điện thoại. */
+.table-scroll table:has(th:nth-child(3)):not(:has(th:nth-child(4))) {
+  min-width: 440px;
+}
+.table-scroll table:has(th:nth-child(4)):not(:has(th:nth-child(5))) {
+  min-width: 560px;
+}
+
+/* Giữ số tiền liền với đơn vị và chừa lề cho thẻ gói nằm trong panel. */
+.amount,
+.membership-orders-panel td:nth-child(3) {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.panel > .pricing-grid {
+  margin: 0 var(--ui-panel-space) 20px;
+}
+.select-wrap select,
+select:not([multiple]):not([size]) {
+  height: var(--ui-control-height);
+}
+
+
+/* Cùng lề cho hồ sơ mở từ lớp học và QR hóa đơn cũ, tránh nội dung chạm khung modal. */
+.profile-preview-dialog > .member-detail-header {
+  margin: 24px 24px 0;
+}
+.invoice-detail-dialog > .payment-qr {
+  margin: 24px;
+}
+.invoice-detail-dialog .invoice-document td.text-right {
+  white-space: nowrap;
+}
+/* Giữ QR vuông khi ảnh phải co nhỏ trên điện thoại để không méo các ô mã. */
+.qr-layout img {
+  height: auto;
+}
+@media (max-width: 760px) {
+  .profile-preview-dialog > .member-detail-header {
+    margin: 20px 20px 0;
+  }
+  .invoice-detail-dialog > .payment-qr {
+    margin: 20px;
   }
 }

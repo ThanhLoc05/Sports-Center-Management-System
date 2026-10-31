@@ -1,6 +1,6 @@
 /** Giữ bộ dữ liệu đã dùng để kiểm thử các phần phát hành trước. */
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -43,6 +43,43 @@ const registration = {
 };
 
 describe("Quản lý thành viên", () => {
+  // Kiểm tra vị trí mới vẫn giữ xác nhận, quyền truy cập và dữ liệu sau khi lưu.
+  it("updates account status from profile only after confirmation", async () => {
+    const user = userEvent.setup();
+    const client = page("/members", "CENTER_MANAGER");
+    const member = readDemo().users.find((u) => u.roleName === "MEMBER" && u.status === "ACTIVE")!;
+    const statusApi = vi.spyOn(api, "status");
+    await screen.findByRole("heading", { name: "Thành viên" });
+    expect(screen.queryByRole("button", { name: "Thay đổi trạng thái " + member.fullName })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: new RegExp("^" + member.fullName) }));
+    const profile = screen.getByRole("dialog", { name: "Thông tin tài khoản" });
+    const action = within(profile).getByRole("button", { name: "Thay đổi trạng thái " + member.fullName });
+    await user.click(action);
+    expect(statusApi).not.toHaveBeenCalled();
+    let confirmation = screen.getByRole("dialog", { name: "Cập nhật trạng thái tài khoản?" });
+    await user.click(within(confirmation).getByRole("button", { name: "Quay lại" }));
+    expect(statusApi).not.toHaveBeenCalled();
+    expect(profile).toBeVisible();
+    await user.click(action);
+    confirmation = screen.getByRole("dialog", { name: "Cập nhật trạng thái tài khoản?" });
+    await user.click(within(confirmation).getByRole("button", { name: "Xác nhận" }));
+    await waitFor(() => expect(statusApi).toHaveBeenCalledWith(member.id, "INACTIVE"));
+    await waitFor(() => expect(within(profile).getByText("Ngừng hoạt động")).toBeVisible());
+    expect(readDemo().users.find((u) => u.id === member.id)?.status).toBe("INACTIVE");
+    client.clear();
+  });
+  it.each<Role>(["CENTER_MANAGER", "RECEPTIONIST"])("hides status control for own account or receptionist: %s", async (role) => {
+    const user = userEvent.setup();
+    const client = page(role === "CENTER_MANAGER" ? "/team" : "/members", role);
+    const account = role === "CENTER_MANAGER"
+      ? getSession()!.user
+      : readDemo().users.find((u) => u.roleName === "MEMBER")!;
+    await user.click(await screen.findByRole("button", { name: new RegExp("^" + account.fullName) }));
+    const profile = screen.getByRole("dialog", { name: "Thông tin tài khoản" });
+    expect(within(profile).queryByRole("button", { name: /Thay đổi trạng thái/ })).not.toBeInTheDocument();
+    client.clear();
+  });
+
   it("creates MEMBER, prevents duplicate email/phone and never stores passwords", async () => {
     login("RECEPTIONIST");
     const member = await api.register(registration);
@@ -284,6 +321,8 @@ describe("Tra cứu thành viên — API mock", () => {
   });
   it("retains manager status controls", async () => {
     vi.stubGlobal("fetch", lookupServer()); apiMembers("CENTER_MANAGER");
+    // Nút đổi trạng thái nằm trong hồ sơ; quản lý vẫn giữ quyền sau khi ghép code mới.
+    await userEvent.setup().click(await screen.findByRole("button", { name: /^Nguyễn Tra Cứu/ }));
     expect(await screen.findByLabelText("Thay đổi trạng thái Nguyễn Tra Cứu")).toBeVisible();
   });
   it.each(["list", "lookup"])("expires the session on 401 from %s", async (target) => {

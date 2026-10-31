@@ -313,44 +313,50 @@ export default function Classes() {
       />
       <div className="class-filter-bar">
         {member && (
-          <Panel title="Lớp học theo gói của tôi">
-            <p>
-              {access?.pkg
-                ? `${access.pkg.name} · ${access.reason}`
-                : demo
-                  ? "Đăng ký gói tập để chọn lớp phù hợp."
-                  : accessError
-                    ? "Chưa xác minh được quyền lợi gói tập."
-                    : accessLoading
-                      ? "Đang kiểm tra quyền lợi gói tập…"
-                      : apiAccess?.allowed
-                        ? `${apiAccess.pkg.packageName} · ${apiAccess.reason}`
-                        : apiAccess?.reason}
-            </p>
-            {apiMember && accessError && (
-              <ErrorState
-                error={accessError}
-                retry={() => {
-                  void activeMembership.refetch();
-                  void membershipPackages.refetch();
-                }}
-              />
-            )}
-            <label className="check-option">
-              <input
-                type="checkbox"
-                checked={eligibleOnly}
-                onChange={(e) => setEligibleOnly(e.target.checked)}
-              />
-              Chỉ xem lớp phù hợp gói
-            </label>
-            <Link to="/memberships" className="text-link">
-              Xem / đổi gói tập
-            </Link>{" "}
-            ·{" "}
-            <Link to="/payments" className="text-link">
-              Hóa đơn & QR
-            </Link>
+          <Panel className="class-membership-panel" title="Lớp học theo gói của tôi">
+            {/* Tách thông tin, bộ lọc và liên kết thành các khối dễ đọc. */}
+            <div className="class-membership-content">
+              <div className="class-membership-overview">
+                <p>
+                  {access?.pkg
+                    ? `${access.pkg.name} · ${access.reason}`
+                    : demo
+                      ? "Đăng ký gói tập để chọn lớp phù hợp."
+                      : accessError
+                        ? "Chưa xác minh được quyền lợi gói tập."
+                        : accessLoading
+                          ? "Đang kiểm tra quyền lợi gói tập…"
+                          : apiAccess?.allowed
+                            ? `${apiAccess.pkg.packageName} · ${apiAccess.reason}`
+                            : apiAccess?.reason}
+                </p>
+                {apiMember && accessError && (
+                  <ErrorState
+                    error={accessError}
+                    retry={() => {
+                      void activeMembership.refetch();
+                      void membershipPackages.refetch();
+                    }}
+                  />
+                )}
+                <label className="check-option">
+                  <input
+                    type="checkbox"
+                    checked={eligibleOnly}
+                    onChange={(e) => setEligibleOnly(e.target.checked)}
+                  />
+                  <span>Chỉ xem lớp phù hợp gói</span>
+                </label>
+              </div>
+              <nav className="class-membership-actions" aria-label="Thao tác gói tập">
+                <Link to="/memberships" className="btn btn-secondary">
+                  Xem / đổi gói tập
+                </Link>
+                <Link to="/payments" className="text-link">
+                  Hóa đơn & QR
+                </Link>
+              </nav>
+            </div>
           </Panel>
         )}
         <div className="sport-tabs">
@@ -826,6 +832,7 @@ export function ClassDetail({
           />
         ) : (
           <Modal
+            className="content-preview-dialog"
             title={`Huấn luyện viên #${c.coachId}`}
             onClose={() => setShowCoach(false)}
           >

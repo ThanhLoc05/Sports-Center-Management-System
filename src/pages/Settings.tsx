@@ -159,7 +159,7 @@ export default function Settings() {
           )}
           {tab === "integration" && (
             <>
-              <Panel
+              <Panel className="panel-spaced"
                 title="Trạng thái kết nối"
                 description="Frontend không tự chuyển sang demo khi backend gặp lỗi."
               >

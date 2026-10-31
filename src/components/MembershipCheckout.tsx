@@ -141,7 +141,7 @@ export function MembershipCheckoutPage() {
         }
       />
       {!member && (
-        <Panel title="Thành viên cần hỗ trợ">
+        <Panel className="panel-spaced" title="Thành viên cần hỗ trợ">
           <Field label="ID thành viên xem gói">
             <input
               type="number"
@@ -157,7 +157,7 @@ export function MembershipCheckoutPage() {
         <ErrorState error={subscriptions.error} retry={subscriptions.refetch} />
       )}
       {active && (
-        <Panel
+        <Panel className="panel-spaced"
           title={
             packages.data?.find((p) => p.id === active.packageId)?.name ||
             "Gói hiện tại #" + active.packageId
@@ -604,7 +604,11 @@ export function MembershipOrders({
               {
                 key: "status",
                 label: "Trạng thái",
-                render: (o) => orderStatus[o.status],
+                render: (o) => (
+                  <span className={`payment-status ${o.status === "PENDING_PAYMENT" ? "status-unpaid" : o.status === "CONFIRMED" ? "status-paid" : ""}`}>
+                    {orderStatus[o.status]}
+                  </span>
+                ),
               },
               {
                 key: "view",
@@ -756,7 +760,7 @@ export function MembershipOrderDetail({
                     <dt>Trạng thái</dt>
                     <dd>
                       <span
-                        className={`membership-order-state ${order.status === "CONFIRMED" ? "is-complete" : ""}`}
+                        className={`membership-order-state ${order.status === "CONFIRMED" ? "is-complete status-paid" : order.status === "PENDING_PAYMENT" ? "status-unpaid" : ""}`}
                       >
                         {orderStatus[order.status]}
                       </span>
@@ -992,7 +996,7 @@ export function MembershipNotifications() {
         title="Thông báo & bài tập"
         description="Cập nhật xác nhận gói tập của tài khoản đang đăng nhập."
       />
-      <Panel title="Xác nhận đăng ký / gia hạn">
+      <Panel className="membership-notifications-panel" title="Xác nhận đăng ký / gia hạn">
         {query.isPending ? (
           <Loading />
         ) : query.error ? (
@@ -1000,7 +1004,7 @@ export function MembershipNotifications() {
         ) : rows.length ? (
           rows.map((order) => (
             <article className="notification-card" key={order.id}>
-              <strong>
+              <strong className="payment-status status-paid">
                 Đã xác nhận {orderAction(order)} {order.package.name}
               </strong>
               <p>

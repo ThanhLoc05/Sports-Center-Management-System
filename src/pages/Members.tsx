@@ -4,10 +4,9 @@ import { operations } from "../lib/operations-api";
  * Tìm kiếm/bộ lọc xử lý trên dữ liệu đã tải. Tạo mới dùng cùng API đăng ký MEMBER;
  * đổi trạng thái tài khoản không phải chức năng gán lại vai trò.
  */
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
-  MoreHorizontal,
   Plus,
   Shield,
   Users,
@@ -189,7 +188,7 @@ export default function Members({ team = false }: { team?: boolean }) {
         </Notice>
       )}
       {!demo && !team && receptionist && (
-        <Panel title="Hỗ trợ thành viên tại quầy">
+        <Panel className="panel-spaced" title="Hỗ trợ thành viên tại quầy">
           <Notice>
             Nhập ID để tra cứu chính xác hoặc tìm trong danh sách thành viên bên dưới.
           </Notice>
@@ -376,21 +375,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                         Chi tiết
                         <ArrowUpRight size={14} />
                       </button>
-                      {manager && u.id !== session!.user.id && (
-                        <button
-                          aria-label={`Thay đổi trạng thái ${u.fullName}`}
-                          className="icon-btn"
-                          onClick={() =>
-                            setChange({
-                              user: u,
-                              status:
-                                u.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-                            })
-                          }
-                        >
-                          <MoreHorizontal size={18} />
-                        </button>
-                      )}
+
                     </div>
                   ),
                 },
@@ -478,9 +463,25 @@ export default function Members({ team = false }: { team?: boolean }) {
       {detail && (
         <MemberDetail
           key={detail.id}
-          user={detail}
+          user={users.data?.find((u) => u.id === detail.id) || detail}
           team={team}
           onRoleSaved={setDetail}
+          // Đặt thao tác trong hồ sơ để quản lý kiểm tra đúng người trước khi xác nhận.
+          statusAction={manager && detail.id !== session!.user.id ? (
+            <Button
+              variant="secondary"
+              aria-label={"Thay đổi trạng thái " + detail.fullName}
+              onClick={() => {
+                const user = users.data?.find((u) => u.id === detail.id) || detail;
+                setChange({
+                  user,
+                  status: user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                });
+              }}
+            >
+              Cập nhật trạng thái tài khoản
+            </Button>
+          ) : null}
           onClose={() => setDetail(null)}
         />
       )}
@@ -504,11 +505,13 @@ function MemberDetail({
   user,
   team,
   onRoleSaved,
+  statusAction,
   onClose,
 }: {
   user: User;
   team: boolean;
   onRoleSaved: (updated: User) => void;
+  statusAction?: ReactNode;
   onClose: () => void;
 }) {
   const member = user.roleName === "MEMBER";
@@ -544,7 +547,10 @@ function MemberDetail({
             <p>
               {idLabel(user.id)} · {roleLabels[user.roleName]}
             </p>
-            <Badge status={user.status} />
+            <div className="member-account-status">
+              <Badge status={user.status} />
+              {statusAction}
+            </div>
           </div>
         </div>
         <div className="detail-grid">

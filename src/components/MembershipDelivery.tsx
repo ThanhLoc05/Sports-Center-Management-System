@@ -70,7 +70,7 @@ export function TransferVerification({ order }: { order: MembershipOrder }) {
   };
   return (
     <Panel title="Theo dõi chuyển khoản">
-      <p role="status" aria-label="Trạng thái đối soát chuyển khoản">
+      <p className="payment-status status-unpaid" role="status" aria-label="Trạng thái đối soát chuyển khoản">
         {verification
           ? labels[verification.status]
           : "Chờ kết quả xác nhận chuyển khoản từ hệ thống"}

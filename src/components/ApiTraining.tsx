@@ -127,7 +127,7 @@ function TrainingContent() {
         }
       />
       {!member && !coach && (
-        <Panel title="Huấn luyện viên phụ trách">
+        <Panel className="panel-spaced" title="Huấn luyện viên phụ trách">
           {users.error ? (
             <ErrorState error={users.error} retry={users.refetch} />
           ) : (
@@ -167,7 +167,7 @@ function TrainingContent() {
             kiểm tra quyền khi lưu.
           </Notice>
         ))}
-      <Panel title="Danh sách kế hoạch">
+      <Panel className="panel-spaced" title="Danh sách kế hoạch">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -232,7 +232,7 @@ function TrainingContent() {
           )}
         </>}
       </Panel>
-      <Panel title="Kết quả và tiến độ học viên">
+      <Panel className="panel-spaced" title="Kết quả và tiến độ học viên">
         {!member && (
           <Field label="Học viên theo dõi">
             <select
@@ -312,7 +312,7 @@ function TrainingContent() {
         )}
       </Panel>
       {detail && (
-        <Modal title={detail.title} onClose={() => setDetailId(null)}>
+        <Modal className="content-preview-dialog" title={detail.title} onClose={() => setDetailId(null)}>
           <p style={{ whiteSpace: "pre-wrap" }}>{detail.description}</p>
         </Modal>
       )}
@@ -596,7 +596,7 @@ function Progress({ logs }: { logs: WorkoutLog[] }) {
     )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return (
-    <Panel title="Theo dõi tiến độ theo bài tập">
+    <Panel className="panel-spaced" title="Theo dõi tiến độ theo bài tập">
       <Field label="Bài tập theo dõi">
         <select value={selected} onChange={(e) => setExercise(e.target.value)}>
           {names.map((n) => (
