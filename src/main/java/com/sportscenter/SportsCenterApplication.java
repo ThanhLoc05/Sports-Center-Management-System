@@ -12,7 +12,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * - EnableJpaRepositories: Khai báo tường minh package chứa các Repository JPA.
  */
 @SpringBootApplication(scanBasePackages = "com.sportscenter")
-@EnableJpaRepositories(basePackages = "com.sportscenter.management.repository")
+// BỔ SUNG: đăng ký repository package payment để Spring tìm được các bảng ngân hàng/giao dịch/thông báo mới.
+@EnableJpaRepositories(basePackages = {"com.sportscenter.management.repository", "com.sportscenter.management.payment"})
 public class SportsCenterApplication {
     public static void main(String[] args) {
         SpringApplication.run(SportsCenterApplication.class, args);

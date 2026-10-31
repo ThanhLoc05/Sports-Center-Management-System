@@ -1,6 +1,7 @@
 package com.sportscenter.management.service.impl;
 
 import com.sportscenter.auth.SecurityUtils;
+import com.sportscenter.management.payment.*;
 import com.sportscenter.management.dto.Request.ConfirmMembershipOrderRequest;
 import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
@@ -47,6 +48,10 @@ class MembershipOrderServiceTest {
     private final Map<Integer, MembershipOrder> savedOrders = new HashMap<>();
     private final Map<Integer, Invoice> savedInvoices = new HashMap<>();
     private final List<MemberSubscription> periods = new ArrayList<>();
+    private final BankAccountService bankAccounts = mock(BankAccountService.class);
+    private final BankPaymentEventRepository bankEvents = mock(BankPaymentEventRepository.class);
+    private final MembershipNotificationService notifications = mock(MembershipNotificationService.class);
+    private final PaymentIntegrationProperties payment = new PaymentIntegrationProperties();
     private MembershipOrderService service;
     private MembershipServiceImpl memberships;
     private MemberSubscription source;
@@ -54,7 +59,7 @@ class MembershipOrderServiceTest {
     @BeforeEach
     void setUp() {
         service = new MembershipOrderService(orders, packages, subscriptions, invoices,
-                users, security);
+                users, security, bankAccounts, bankEvents, notifications, payment);
         memberships = new MembershipServiceImpl(subscriptions, packages, users, invoices);
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
         ReflectionTestUtils.setField(memberships, "entityManager", entityManager);
@@ -63,6 +68,7 @@ class MembershipOrderServiceTest {
                 .status("ACTIVE").build();
         periods.add(source);
         when(security.getCurrentUserId()).thenReturn(3);
+        when(bankEvents.receivedTotal(anyInt())).thenReturn(BigDecimal.ZERO);
         when(users.findByIdForUpdate(4)).thenReturn(Optional.of(User.builder().id(4).build()));
         when(orders.findByIdForUpdate(anyInt())).thenAnswer(call -> Optional.ofNullable(savedOrders.get(call.getArgument(0))));
         when(orders.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));

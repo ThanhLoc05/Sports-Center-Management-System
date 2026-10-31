@@ -30,6 +30,14 @@ public class ApiExceptionHandler {
                 .body(Map.of("message", "Yêu cầu bị trùng hoặc dữ liệu vừa được cập nhật. Tải lại rồi thử lại."));
     }
 
+    // BỔ SUNG: trả HTTP 409 khi cấu hình/đơn bị cập nhật đồng thời, FE phải tải lại thay vì báo đã thu tiền.
+    /** Tranh chấp version/khóa dữ liệu được báo là xung đột để FE tải lại, không giả báo thành công. */
+    @ExceptionHandler({org.springframework.dao.OptimisticLockingFailureException.class,
+            org.springframework.dao.PessimisticLockingFailureException.class})
+    public ResponseEntity<Map<String, String>> handleConcurrentUpdate(RuntimeException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Dữ liệu vừa được cập nhật. Tải lại rồi thử lại."));
+    }
+
     @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationException(
             org.springframework.web.bind.MethodArgumentNotValidException exception) {

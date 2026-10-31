@@ -19,3 +19,11 @@ security:
   jwt:
     secret: ${JWT_SECRET:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+# Chưa có kết nối SePay thì giữ false; chỉ xác nhận tiền từ giao dịch đã kiểm tra.
+membership:
+  payment:
+    # Chỉ giảm số tiền QR cho các gói demo 1/2/3; giá niêm yết và tiền mặt giữ nguyên.
+    demo-payments-enabled: ${MEMBERSHIP_DEMO_PAYMENTS_ENABLED:false}
+    webhook-enabled: ${SEPAY_WEBHOOK_ENABLED:false}
+    sepay-api-key: ${SEPAY_API_KEY:}

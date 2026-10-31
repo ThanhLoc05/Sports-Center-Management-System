@@ -77,6 +77,25 @@ IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.member_pr
     ALTER TABLE dbo.member_profiles ALTER COLUMN fitness_goals NVARCHAR(MAX) NULL;
 
 
+/* Bản chụp ngân hàng chỉ bổ sung cột; đơn cũ chưa có tài khoản sẽ không tự nhận thanh toán ngân hàng. */
+IF OBJECT_ID(N'dbo.membership_orders', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH(N'dbo.membership_orders', N'payable_amount_snapshot') IS NULL
+        ALTER TABLE dbo.membership_orders ADD payable_amount_snapshot DECIMAL(18,2) NULL;
+    IF COL_LENGTH(N'dbo.membership_orders', N'demo_payment') IS NULL
+        ALTER TABLE dbo.membership_orders ADD demo_payment BIT NOT NULL CONSTRAINT DF_membership_orders_demo DEFAULT (0) WITH VALUES;
+    IF COL_LENGTH(N'dbo.membership_orders', N'bank_bin_snapshot') IS NULL
+        ALTER TABLE dbo.membership_orders ADD bank_bin_snapshot VARCHAR(6) NULL;
+    IF COL_LENGTH(N'dbo.membership_orders', N'bank_name_snapshot') IS NULL
+        ALTER TABLE dbo.membership_orders ADD bank_name_snapshot NVARCHAR(100) NULL;
+    IF COL_LENGTH(N'dbo.membership_orders', N'bank_account_no_snapshot') IS NULL
+        ALTER TABLE dbo.membership_orders ADD bank_account_no_snapshot VARCHAR(19) NULL;
+    IF COL_LENGTH(N'dbo.membership_orders', N'bank_account_name_snapshot') IS NULL
+        ALTER TABLE dbo.membership_orders ADD bank_account_name_snapshot NVARCHAR(100) NULL;
+    IF COL_LENGTH(N'dbo.membership_orders', N'bank_gateway_snapshot') IS NULL
+        ALTER TABLE dbo.membership_orders ADD bank_gateway_snapshot VARCHAR(100) NULL;
+END;
+
 /* Giữ transaction qua batch; không COMMIT riêng các cột trước phần tạo bảng. */
 GO
 /* Dừng nếu batch bổ sung cột phía trên chưa mở/giữ được transaction. */
@@ -223,6 +242,13 @@ BEGIN
         bank_transaction_id NVARCHAR(100) NULL,
         confirmation_key NVARCHAR(100) NULL,
         confirmation_fingerprint VARCHAR(64) NULL,
+        payable_amount_snapshot DECIMAL(18,2) NULL,
+        demo_payment BIT NOT NULL CONSTRAINT DF_membership_orders_demo DEFAULT (0),
+        bank_bin_snapshot VARCHAR(6) NULL,
+        bank_name_snapshot NVARCHAR(100) NULL,
+        bank_account_no_snapshot VARCHAR(19) NULL,
+        bank_account_name_snapshot NVARCHAR(100) NULL,
+        bank_gateway_snapshot VARCHAR(100) NULL,
         version INT NOT NULL CONSTRAINT DF_membership_orders_version DEFAULT (0),
         created_at DATETIME2 NOT NULL CONSTRAINT DF_membership_orders_created_at DEFAULT SYSDATETIME(),
         confirmed_at DATETIME2 NULL,
@@ -425,6 +451,68 @@ BEGIN
         CONSTRAINT CK_workout_log_details_weight CHECK (weight_kg IS NULL OR weight_kg >= 0)
     );
 END;
+
+/* Thanh toán thật: cấu hình dùng chung, giao dịch đã xác thực và thông báo trên website.
+   Không seed STK cá nhân, API key hoặc tài khoản email vào Git/database. */
+/* TẠO MỚI: cấu hình nhận tiền chung, chỉ một bản ghi ID=1 và có version chống ghi đè. */
+IF OBJECT_ID(N'dbo.center_bank_account', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.center_bank_account (
+        id INT NOT NULL CONSTRAINT PK_center_bank_account PRIMARY KEY,
+        bank_bin VARCHAR(6) NOT NULL,
+        bank_name NVARCHAR(100) NOT NULL,
+        account_no VARCHAR(19) NOT NULL,
+        account_name NVARCHAR(100) NOT NULL,
+        gateway_name VARCHAR(100) NOT NULL,
+        enabled BIT NOT NULL,
+        version INT NOT NULL CONSTRAINT DF_center_bank_account_version DEFAULT (0),
+        updated_at DATETIME2 NOT NULL,
+        CONSTRAINT CK_center_bank_account_singleton CHECK (id = 1)
+    );
+END;
+/* TẠO MỚI: sổ giao dịch ngân hàng đã xác thực; provider_event_id duy nhất chống cộng tiền lặp. */
+IF OBJECT_ID(N'dbo.bank_payment_events', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.bank_payment_events (
+        id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_bank_payment_events PRIMARY KEY,
+        provider_event_id BIGINT NOT NULL CONSTRAINT UQ_bank_payment_events_provider UNIQUE,
+        invoice_id INT NOT NULL,
+        payload_fingerprint VARCHAR(64) NOT NULL,
+        amount DECIMAL(18,2) NOT NULL,
+        transfer_content NVARCHAR(1000) NOT NULL,
+        bank_reference VARCHAR(100) NULL,
+        transaction_at DATETIME2 NOT NULL,
+        received_at DATETIME2 NOT NULL,
+        status VARCHAR(30) NOT NULL,
+        CONSTRAINT FK_bank_payment_events_invoice FOREIGN KEY (invoice_id) REFERENCES dbo.invoices(invoice_id),
+        CONSTRAINT CK_bank_payment_events_amount CHECK (amount > 0),
+        CONSTRAINT CK_bank_payment_events_status CHECK (status IN ('RECEIVED', 'APPLIED', 'REVIEW_REQUIRED'))
+    );
+END;
+/* Thông báo trên website: một bản ghi cho một đơn đã hoàn thành. */
+/* TẠO MỚI: thông báo xác nhận trong website, unique order_id để retry không tạo nhiều thông báo. */
+IF OBJECT_ID(N'dbo.membership_notifications', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.membership_notifications (
+        id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_membership_notifications PRIMARY KEY,
+        order_id INT NOT NULL CONSTRAINT UQ_membership_notifications_order UNIQUE,
+        member_id INT NOT NULL,
+        content NVARCHAR(MAX) NOT NULL,
+        created_at DATETIME2 NOT NULL,
+        CONSTRAINT FK_membership_notifications_order FOREIGN KEY (order_id) REFERENCES dbo.membership_orders(membership_order_id),
+        CONSTRAINT FK_membership_notifications_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id)
+    );
+END;
+/* Giữ các thông báo đã có ở bản cấu trúc trước; không xóa dữ liệu lịch sử. */
+IF OBJECT_ID(N'dbo.membership_messages', N'U') IS NOT NULL
+    EXEC(N'INSERT dbo.membership_notifications(order_id, member_id, content, created_at)
+        SELECT m.order_id, m.member_id, m.body, m.notification_sent_at
+        FROM dbo.membership_messages m
+        WHERE NOT EXISTS (SELECT 1 FROM dbo.membership_notifications n WHERE n.order_id = m.order_id)');
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.bank_payment_events') AND name = N'IX_bank_payment_events_invoice')
+    CREATE INDEX IX_bank_payment_events_invoice ON dbo.bank_payment_events(invoice_id, status) INCLUDE (amount);
+
 
 IF NOT EXISTS (SELECT 1 FROM dbo.roles WHERE role_name = N'MEMBER')
     INSERT INTO dbo.roles (role_name) VALUES (N'MEMBER');

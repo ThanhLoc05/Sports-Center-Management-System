@@ -1,6 +1,7 @@
 package com.sportscenter.management.service.impl;
 
 import com.sportscenter.auth.SecurityUtils;
+import com.sportscenter.management.payment.*;
 import com.sportscenter.management.dto.Request.ConfirmMembershipOrderRequest;
 import com.sportscenter.management.dto.Request.MembershipOrderRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
@@ -46,6 +47,11 @@ public class MembershipOrderService {
     private final InvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
     private final SecurityUtils securityUtils;
+    // BỔ SUNG: lấy cấu hình ngân hàng, giao dịch đã đối soát và thông báo cho cùng luồng đơn gói.
+    private final BankAccountService bankAccounts;
+    private final BankPaymentEventRepository bankEvents;
+    private final MembershipNotificationService notifications;
+    private final PaymentIntegrationProperties paymentProperties;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -121,7 +127,7 @@ public class MembershipOrderService {
             throw conflict("Thành viên đã có yêu cầu chờ thanh toán. Hãy mở yêu cầu hiện tại hoặc nhờ lễ tân xử lý.");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         MembershipOrder order = MembershipOrder.builder()
                 .memberId(request.getMemberId())
                 .packageId(pkg.getId())
@@ -140,12 +146,23 @@ public class MembershipOrderService {
                 .version(0)
                 .createdAt(now)
                 .build();
+        // BỔ SUNG: chỉ QR được áp dụng khoản thu demo khi bật rõ; tiền mặt luôn dùng giá gói đầy đủ.
+        boolean demo = "BANK_TRANSFER".equals(order.getPaymentMethod()) && paymentProperties.demoFor(pkg.getId());
+        order.setDemoPayment(demo);
+        order.setPayableAmountSnapshot(demo ? paymentProperties.qrAmount(pkg.getId(), pkg.getPrice()) : pkg.getPrice());
+        // BỔ SUNG: chụp ngân hàng lúc tạo đơn để quản lý đổi cấu hình sau đó không làm đổi QR cũ.
+        if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
+            BankAccountData bank = bankAccounts.requireAccount();
+            order.setBankBinSnapshot(bank.bankBin()); order.setBankNameSnapshot(bank.bankName());
+            order.setBankAccountNoSnapshot(bank.accountNo()); order.setBankAccountNameSnapshot(bank.accountName());
+            order.setBankGatewaySnapshot(bank.gatewayName());
+        }
         order = orderRepository.saveAndFlush(order);
 
         Invoice invoice = Invoice.builder()
                 .membershipOrderId(order.getId())
                 .memberId(order.getMemberId())
-                .amount(order.getPackagePrice())
+                .amount(payable(order))
                 .currency("VND")
                 .paymentMethod(order.getPaymentMethod())
                 .paymentStatus("PENDING")
@@ -180,10 +197,30 @@ public class MembershipOrderService {
         return toResponse(order);
     }
 
+    /** Nhân viên chỉ thu tiền mặt; QR phải do giao dịch ngân hàng đã xác thực kích hoạt. */
     public MembershipOrderResponse confirm(Integer orderId, ConfirmMembershipOrderRequest request, String idempotencyKey) {
+        return confirmInternal(orderId, request, idempotencyKey, false);
+    }
+
+    /** Chỉ webhook service gọi sau khi lưu giao dịch đã xác thực; không có REST endpoint công khai cho hàm này. */
+    public MembershipOrderResponse confirmBankTransfer(Integer orderId, String transactionId) {
+        MembershipOrder order = orderRepository.findByIdForUpdate(orderId).orElseThrow();
+        Invoice invoice = invoiceRepository.findByMembershipOrderId(orderId).orElseThrow();
+        if (!"BANK_TRANSFER".equals(order.getPaymentMethod()) || order.getBankAccountNoSnapshot() == null
+                || !"VND".equals(invoice.getCurrency()) || invoice.getAmount().compareTo(payable(order)) != 0
+                || bankEvents.receivedTotal(invoice.getId()).compareTo(invoice.getAmount()) != 0)
+            throw conflict("Chưa có số tiền chuyển khoản hợp lệ khớp hóa đơn.");
+        ConfirmMembershipOrderRequest request = new ConfirmMembershipOrderRequest();
+        request.setVersion(order.getVersion()); request.setBankTransactionId(transactionId);
+        return confirmInternal(orderId, request, "sepay:" + transactionId, true);
+    }
+
+    private MembershipOrderResponse confirmInternal(Integer orderId, ConfirmMembershipOrderRequest request, String idempotencyKey, boolean gateway) {
         validateIdempotencyKey(idempotencyKey);
         MembershipOrder order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu thanh toán gói."));
+        if (gateway ? !"BANK_TRANSFER".equals(order.getPaymentMethod()) : !"CASH".equals(order.getPaymentMethod()))
+            throw conflict("Đơn QR chỉ được xác nhận qua kết nối giao dịch ngân hàng, không xác nhận tiền mặt thủ công.");
         String bankTransactionId = request.getBankTransactionId() == null
                 ? null : request.getBankTransactionId().trim();
         if ("BANK_TRANSFER".equals(order.getPaymentMethod()) && (bankTransactionId == null || bankTransactionId.isBlank())) {
@@ -221,7 +258,7 @@ public class MembershipOrderService {
             throw conflict("Mã giao dịch ngân hàng này đã được dùng cho yêu cầu khác.");
         }
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         MemberSubscription source = null;
         LocalDate startDate = today;
         if (order.getSourceSubscriptionId() != null) {
@@ -257,20 +294,22 @@ public class MembershipOrderService {
             subscriptionRepository.save(source);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         invoice.setSubscriptionId(subscription.getId());
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(now);
-        invoice.setReceptionistId(currentActorId());
+        invoice.setReceptionistId(gateway ? null : currentActorId());
         invoiceRepository.save(invoice);
 
         order.setStatus("CONFIRMED");
         order.setConfirmedAt(now);
-        order.setConfirmedBy(currentActorId());
+        order.setConfirmedBy(gateway ? null : currentActorId());
         order.setBankTransactionId(bankTransactionId == null || bankTransactionId.isBlank() ? null : bankTransactionId);
         order.setConfirmationKey(idempotencyKey);
         order.setConfirmationFingerprint(confirmationFingerprint);
         order = orderRepository.saveAndFlush(order);
+        // BỔ SUNG: lưu thông báo cùng transaction; lỗi sẽ rollback, không báo gia hạn thành công giả.
+        notifications.notifyConfirmed(order, invoice, subscription);
         return toResponse(order);
     }
 
@@ -278,7 +317,18 @@ public class MembershipOrderService {
         Invoice invoice = invoiceRepository.findByMembershipOrderId(order.getId()).orElse(null);
         MemberSubscription subscription = invoice == null || invoice.getSubscriptionId() == null ? null
                 : subscriptionRepository.findById(invoice.getSubscriptionId()).orElse(null);
+        var member = userRepository.findById(order.getMemberId()).orElse(null);
+        // BỔ SUNG: ghép trạng thái đối soát và thông báo vào response để FE polling đúng dữ liệu đã lưu.
+        var lastEvent = invoice == null ? null : bankEvents.findFirstByInvoiceIdOrderByIdDesc(invoice.getId()).orElse(null);
+        java.math.BigDecimal received = invoice == null ? java.math.BigDecimal.ZERO : bankEvents.receivedTotal(invoice.getId());
         return MembershipOrderResponse.builder()
+                .memberName(member == null ? null : member.getFullName())
+                .bankAccount(order.getBankAccountNoSnapshot() == null ? null : new BankAccountData(order.getBankBinSnapshot(),
+                        order.getBankNameSnapshot(), order.getBankAccountNoSnapshot(), order.getBankAccountNameSnapshot(), order.getBankGatewaySnapshot()))
+                .bankTransfer(!"BANK_TRANSFER".equals(order.getPaymentMethod()) || !"PENDING_PAYMENT".equals(order.getStatus()) ? null :
+                        new MembershipOrderResponse.BankTransfer(received.signum() == 0 ? "WAITING" : "AMOUNT_MISMATCH", received,
+                                lastEvent == null ? null : "SEPAY-" + lastEvent.getProviderEventId(), paymentProperties.ready() && order.getBankAccountNoSnapshot() != null))
+                .delivery(notifications.status(order.getId()))
                 .id(order.getId())
                 .memberId(order.getMemberId())
                 .kind(order.getKind())
@@ -289,6 +339,7 @@ public class MembershipOrderService {
                         .id(order.getPackageId())
                         .name(order.getPackageName())
                         .price(order.getPackagePrice())
+                        .payableAmount(payable(order)).demoPayment(order.isDemoPayment())
                         .durationDays(order.getPackageDurationDays())
                         .status(order.getPackageStatus())
                         .description(packageRepository.findById(order.getPackageId()).map(MembershipPackage::getDescription).orElse(null))
@@ -304,8 +355,14 @@ public class MembershipOrderService {
 
     private MembershipOfferResponse toOffer(MembershipPackage pkg) {
         return MembershipOfferResponse.builder().id(pkg.getId()).name(pkg.getPackageName())
+                .payableAmount(paymentProperties.qrAmount(pkg.getId(), pkg.getPrice())).demoPayment(paymentProperties.demoFor(pkg.getId()))
                 .price(pkg.getPrice()).durationDays(pkg.getDurationDays()).status(pkg.getStatus())
                 .description(pkg.getDescription()).build();
+    }
+
+    /** Đơn cũ chưa có snapshot khoản thu thì giữ đúng giá đã lưu, không tự giảm đơn/hóa đơn cũ. */
+    private java.math.BigDecimal payable(MembershipOrder order) {
+        return order.getPayableAmountSnapshot() == null ? order.getPackagePrice() : order.getPayableAmountSnapshot();
     }
 
     private InvoiceResponse toInvoiceResponse(Invoice invoice) {

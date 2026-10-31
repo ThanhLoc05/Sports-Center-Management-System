@@ -16,7 +16,8 @@ import java.util.List;
 
 /**
  * Nhận request cho quy trình mua/gia hạn có thu tiền: tạo đơn chờ, xem đơn,
- * rồi chỉ nhân viên được phép xác nhận khoản thu để kích hoạt kỳ gói.
+ * rồi chỉ xác nhận khoản thu đã kiểm tra để kích hoạt kỳ gói.
+ * BỔ SUNG: tiền mặt do nhân viên xác nhận; QR chỉ do webhook SePay hợp lệ kích hoạt, không xác nhận thủ công.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -77,7 +78,7 @@ public class MembershipOrderController {
     }
 
     /**
-     * Xác nhận đã nhận tiền mặt hoặc đã đối chiếu chuyển khoản trên sao kê.
+     * Xác nhận đã nhận đủ tiền mặt. Chuyển khoản QR chỉ được xác nhận qua webhook ngân hàng.
      * Chỉ lễ tân/quản lý gọi được; service cập nhật invoice và subscription cùng transaction.
      */
     @PostMapping("/membership-orders/{orderId}/confirm-payment")
@@ -88,4 +89,5 @@ public class MembershipOrderController {
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
         return orderService.confirm(orderId, request, idempotencyKey);
     }
+
 }

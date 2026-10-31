@@ -170,6 +170,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 2. Các API Công khai: Đăng ký, Đăng nhập, Endpoint lỗi nội bộ
                         .requestMatchers("/api/v1/users/register/**", "/api/v1/users/login/**", "/error").permitAll()
+                        // SePay không dùng JWT: controller tự xác thực API key riêng, kết nối mặc định tắt.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/sepay").permitAll()
                         // 3. Khách có thể xem danh sách lớp học và danh sách gói tập công khai
                         .requestMatchers(HttpMethod.GET, "/api/v1/classes/**", "/api/v1/memberships/packages/**",
                                 "/api/v1/sports", "/api/v1/rooms", "/api/v1/feedbacks/coach/**", "/api/v1/feedbacks/class/**").permitAll()
