@@ -1,6 +1,6 @@
 /** Luồng mới: yêu cầu + hóa đơn chờ → thu tiền → backend xác nhận → gói có hiệu lực.
  * Quét QR, mở hóa đơn hoặc bấm chuyển trang không được gọi gia hạn hay tự đặt PAID. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -15,6 +15,8 @@ import type {
 } from "../lib/membership-checkout";
 import type { Subscription } from "../lib/types";
 import { dateLabel, errorText, localDate, money } from "../lib/utils";
+import { MembershipDelivery, TransferVerification } from "./MembershipDelivery";
+import { usePaymentMember } from "../lib/use-payment-member";
 import { PaymentQr } from "./PaymentQr";
 import {
   Badge,
@@ -42,11 +44,21 @@ const orderAction = (order: MembershipOrder) =>
       : "gia hạn với gói mới";
 const orderStatus = {
   PENDING_PAYMENT: "Chờ thanh toán / xác nhận",
-  CONFIRMED: "Đã xác nhận gói",
+  CONFIRMED: "Hoàn thành",
   CANCELLED: "Đã hủy yêu cầu",
 };
 const methodName = (method: string) =>
   method === "CASH" ? "Tiền mặt tại quầy" : "Chuyển khoản QR";
+/** Tên chủ đơn lấy theo memberId, không nhầm với nhân viên thu tiền đang đăng nhập. */
+function OrderMemberLabel({ order }: { order: MembershipOrder }) {
+  const member = usePaymentMember(order.memberId, order.memberName);
+  return (
+    <small>
+      {member.name ? member.name + " · " : ""}TV{order.memberId} · HĐ
+      {order.invoice.id}
+    </small>
+  );
+}
 const positiveId = (text: string | null) =>
   text &&
   /^\d+$/.test(text) &&
@@ -62,13 +74,19 @@ function useConfirmedMemberships(orders?: MembershipOrder[]) {
   const confirmed = useRef(new Set<number>());
   useEffect(() => {
     for (const order of orders || []) {
-      if (order.status !== "CONFIRMED" || confirmed.current.has(order.id)) continue;
+      if (order.status !== "CONFIRMED" || confirmed.current.has(order.id))
+        continue;
       confirmed.current.add(order.id);
       // Xác nhận ở máy khác cũng phải tải lại quyền thật, không tự cấp quyền từ đơn.
-      void client.invalidateQueries({ queryKey: ["activeSubscription", order.memberId] });
-      void client.invalidateQueries({ queryKey: ["subscriptions", order.memberId] });
       void client.invalidateQueries({
-        predicate: ({ queryKey }) => queryKey[0] === "invoices" &&
+        queryKey: ["activeSubscription", order.memberId],
+      });
+      void client.invalidateQueries({
+        queryKey: ["subscriptions", order.memberId],
+      });
+      void client.invalidateQueries({
+        predicate: ({ queryKey }) =>
+          queryKey[0] === "invoices" &&
           (!queryKey[1] || Number(queryKey[1]) === order.memberId),
       });
     }
@@ -98,7 +116,10 @@ export function MembershipCheckoutPage() {
     source?: Subscription;
     offer?: MembershipOffer;
   } | null>(null);
-  const historyReady = !subscriptions.isPending && !subscriptions.isFetching && !subscriptions.error;
+  const historyReady =
+    !subscriptions.isPending &&
+    !subscriptions.isFetching &&
+    !subscriptions.error;
   const active = subscriptions.data?.find(
     (s) =>
       s.status === "ACTIVE" &&
@@ -112,9 +133,7 @@ export function MembershipCheckoutPage() {
         description="Chọn gói, thanh toán và theo dõi xác nhận. Gói hiện tại chỉ thay đổi khi yêu cầu được duyệt."
         actions={
           <Button
-            disabled={
-              !selected || !historyReady
-            }
+            disabled={!selected || !historyReady}
             onClick={() => setDraft({ source: active })}
           >
             {active ? "Gia hạn gói tập" : "Đăng ký gói tập"}
@@ -172,11 +191,14 @@ export function MembershipCheckoutPage() {
                   <strong>{money(pkg.price)}</strong>
                   <span>/ {pkg.durationDays} ngày</span>
                 </div>
+                {pkg.demoPayment && (
+                  <Notice>
+                    Demo chuyển khoản: thực trả {money(pkg.payableAmount!)}. Giá
+                    gói phía trên là giá niêm yết.
+                  </Notice>
+                )}
                 <Button
-                  disabled={
-                    !selected ||
-                    !historyReady
-                  }
+                  disabled={!selected || !historyReady}
                   onClick={() => setDraft({ source: active, offer: pkg })}
                 >
                   {active
@@ -239,7 +261,11 @@ export function MembershipCheckoutPage() {
                 render: (s) => (
                   <Button
                     variant="secondary"
-                    disabled={!historyReady || !["ACTIVE", "EXPIRED"].includes(s.status) || (!!active && active.id !== s.id)}
+                    disabled={
+                      !historyReady ||
+                      !["ACTIVE", "EXPIRED"].includes(s.status) ||
+                      (!!active && active.id !== s.id)
+                    }
                     onClick={() => setDraft({ source: s })}
                   >
                     Gia hạn
@@ -253,10 +279,17 @@ export function MembershipCheckoutPage() {
       {draft && (
         <MembershipOrderForm
           memberId={selected!}
-          source={subscriptions.data?.find((s) => s.id === draft.source?.id) || draft.source}
+          source={
+            subscriptions.data?.find((s) => s.id === draft.source?.id) ||
+            draft.source
+          }
           offer={draft.offer}
           users={users.data || []}
-          historyReady={historyReady && (!draft.source || !!subscriptions.data?.some((s) => s.id === draft.source!.id))}
+          historyReady={
+            historyReady &&
+            (!draft.source ||
+              !!subscriptions.data?.some((s) => s.id === draft.source!.id))
+          }
           onClose={() => setDraft(null)}
         />
       )}
@@ -297,13 +330,24 @@ export function MembershipOrderForm({
   const attempt = useRef({ fingerprint: "", key: "" });
   return (
     <FormModal
+      className="membership-checkout-dialog"
+      description="Chọn gói và phương thức thanh toán để tạo hóa đơn."
       title={source ? "Yêu cầu gia hạn gói tập" : "Yêu cầu đăng ký gói tập"}
       submitLabel="Tiếp tục đến thanh toán"
-      submitDisabled={!selected || packages.isPending || !!packages.error || (!!source && (!historyReady || !["ACTIVE", "EXPIRED"].includes(source.status)))}
+      submitDisabled={
+        !selected ||
+        packages.isPending ||
+        !!packages.error ||
+        (!!source &&
+          (!historyReady || !["ACTIVE", "EXPIRED"].includes(source.status)))
+      }
       onClose={onClose}
       onSubmit={async (data) => {
         // Không gia hạn từ lịch sử cache khi đang tải lại hoặc API đã lỗi.
-        if (source && (!historyReady || !["ACTIVE", "EXPIRED"].includes(source.status)))
+        if (
+          source &&
+          (!historyReady || !["ACTIVE", "EXPIRED"].includes(source.status))
+        )
           throw Error("Chưa có dữ liệu hợp lệ để gia hạn gói này.");
         if (!selected)
           throw Error("Chọn gói có giá từ trung tâm trước khi tiếp tục.");
@@ -335,54 +379,101 @@ export function MembershipOrderForm({
         navigate(`/payments?memberId=${order.memberId}&orderId=${order.id}`);
       }}
     >
-      <MemberField
-        users={users}
-        defaultValue={memberId}
-        selfOnly={session!.user.roleName === "MEMBER" || !!source}
-      />
-      {packages.isPending && <Loading />}
-      {packages.error && (
-        <ErrorState error={packages.error} retry={packages.refetch} />
-      )}
-      <Field label="Gói muốn sử dụng">
-        <select
-          value={packageId || ""}
-          required
-          onChange={(e) => setPackageId(Number(e.target.value))}
-        >
-          <option value="">Chọn gói tập</option>
-          {packages.data?.map((p) => (
-            <option value={p.id} key={p.id}>
-              {p.name} · {money(p.price)} / {p.durationDays} ngày
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Phương thức thanh toán">
-        <select
-          value={method}
-          onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-        >
-          <option value="CASH">Tiền mặt tại quầy</option>
-          <option value="BANK_TRANSFER">Chuyển khoản QR</option>
-        </select>
-      </Field>
-      {selected && (
-        <p>
-          <strong>Tổng tiền: {money(selected.price)}</strong>
-          <br />
-          {source
-            ? source.packageId === selected.id
-              ? "Gia hạn gói hiện tại"
-              : "Gia hạn với gói mới"
-            : "Đăng ký gói mới"}
-        </p>
-      )}
-      <Notice>
-        {method === "CASH"
-          ? "Lễ tân nhận yêu cầu và chỉ xác nhận gói sau khi nhận đủ tiền mặt."
-          : "Hóa đơn sẽ hiển thị QR, đúng số tiền và mã chuyển khoản kèm mã thành viên. Quét QR không tự xác nhận đã nhận tiền."}
-      </Notice>
+      {/* Tách thông tin nhập và tóm tắt để người dùng kiểm tra gói/số tiền trước khi tạo đơn. */}
+      <section className="membership-checkout-card membership-checkout-fields" aria-label="Thông tin yêu cầu">
+        <h3>Thông tin yêu cầu</h3>
+        <MemberField
+          users={users}
+          defaultValue={memberId}
+          selfOnly={session!.user.roleName === "MEMBER" || !!source}
+        />
+        {packages.isPending && <Loading />}
+        {packages.error && (
+          <ErrorState error={packages.error} retry={packages.refetch} />
+        )}
+        <Field label="Gói muốn sử dụng">
+          <select
+            value={packageId || ""}
+            required
+            onChange={(e) => setPackageId(Number(e.target.value))}
+          >
+            <option value="">Chọn gói tập</option>
+            {packages.data?.map((p) => (
+              <option value={p.id} key={p.id}>
+                {p.name} · {money(p.price)} / {p.durationDays} ngày
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Phương thức thanh toán">
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+          >
+            <option value="CASH">Tiền mặt tại quầy</option>
+            <option value="BANK_TRANSFER">Chuyển khoản QR</option>
+          </select>
+        </Field>
+      </section>
+      <section className="membership-checkout-card membership-checkout-summary" aria-label="Tóm tắt yêu cầu">
+        <h3>Tóm tắt yêu cầu</h3>
+        {selected ? (
+          <>
+            <div className="membership-checkout-package">
+              <strong>{selected.name}</strong>
+              <span>
+                {source
+                  ? source.packageId === selected.id
+                    ? "Gia hạn gói hiện tại"
+                    : "Gia hạn với gói mới"
+                  : "Đăng ký gói mới"}
+              </span>
+            </div>
+            <dl className="membership-checkout-facts">
+              <div>
+                <dt>Thời hạn gói</dt>
+                <dd>{selected.durationDays} ngày</dd>
+              </div>
+              {method === "BANK_TRANSFER" && selected.demoPayment && (
+                <div>
+                  <dt>Giá niêm yết</dt>
+                  <dd>{money(selected.price)}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="membership-checkout-total">
+              <span>Tổng tiền thanh toán</span>
+              <strong>
+                {money(
+                  method === "BANK_TRANSFER" && selected.demoPayment
+                    ? selected.payableAmount!
+                    : selected.price,
+                )}
+              </strong>
+            </div>
+            {method === "BANK_TRANSFER" && selected.demoPayment && (
+              <div className="membership-checkout-demo">
+                <span>Demo chuyển khoản</span>
+                <p>
+                  Hóa đơn và QR sử dụng số tiền demo ở trên. Chỉ chuyển đúng
+                  số tiền được ghi trên hóa đơn.
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="membership-checkout-empty">
+            Chọn gói tập để xem thời hạn và số tiền cần thanh toán.
+          </p>
+        )}
+      </section>
+      <div className="membership-checkout-help">
+        <Notice>
+          {method === "CASH"
+            ? "Lễ tân nhận yêu cầu và chỉ xác nhận gói sau khi nhận đủ tiền mặt."
+            : "Hóa đơn sẽ hiển thị QR, đúng số tiền và mã chuyển khoản kèm mã thành viên. Quét QR không tự xác nhận đã nhận tiền."}
+        </Notice>
+      </div>
     </FormModal>
   );
 }
@@ -400,6 +491,8 @@ export function MembershipOrders({
   const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<number | undefined>();
   const [search, setSearch] = useState("");
+  const [methodFilter, setMethodFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const effectiveMember =
     session!.user.roleName === "MEMBER" ? session!.user.id : memberId;
   const query = useQuery({
@@ -414,12 +507,15 @@ export function MembershipOrders({
   const rows = (query.data || []).filter(
     (o) =>
       (can("payments.collect") || o.memberId === session!.user.id) &&
+      (methodFilter === "ALL" || o.invoice.paymentMethod === methodFilter) &&
+      (statusFilter === "ALL" || o.status === statusFilter) &&
       `${o.id} ${o.memberId} ${o.invoice.id} ${o.paymentReference} ${o.package.name}`
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
   return (
     <Panel
+      className="membership-orders-panel"
       title={
         can("payments.collect")
           ? "Yêu cầu đăng ký / gia hạn cần xử lý"
@@ -433,6 +529,40 @@ export function MembershipOrders({
         <ErrorState error={query.error} retry={query.refetch} />
       ) : (
         <>
+          <div className="form-grid">
+            <Field label="Lọc phương thức thanh toán">
+              <select
+                value={methodFilter}
+                onChange={(e) => setMethodFilter(e.target.value)}
+              >
+                <option value="ALL">Tất cả phương thức</option>
+                <option value="CASH">Tiền mặt</option>
+                <option value="BANK_TRANSFER">Chuyển khoản QR</option>
+              </select>
+            </Field>
+            <Field label="Lọc trạng thái đơn">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="PENDING_PAYMENT">Chờ thanh toán</option>
+                <option value="CONFIRMED">Hoàn thành</option>
+                <option value="CANCELLED">Đã hủy</option>
+              </select>
+            </Field>
+          </div>
+          <p className="muted">
+            Đơn tiền mặt do lễ tân xác nhận sau khi nhận tiền. Đơn QR chờ kết
+            quả đối soát từ hệ thống.
+          </p>
+          <Button
+            variant="secondary"
+            loading={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            Tải lại danh sách đơn
+          </Button>
           <SearchInput
             value={search}
             onChange={setSearch}
@@ -447,9 +577,7 @@ export function MembershipOrders({
                 render: (o) => (
                   <>
                     <strong>{o.paymentReference}</strong>
-                    <small>
-                      TV{o.memberId} · HĐ{o.invoice.id}
-                    </small>
+                    <OrderMemberLabel order={o} />
                   </>
                 ),
               },
@@ -493,6 +621,7 @@ export function MembershipOrders({
       )}
       {detailId && (
         <MembershipOrderDetail
+          key={detailId}
           orderId={detailId}
           onClose={() => {
             setSelected(undefined);
@@ -523,25 +652,37 @@ export function MembershipOrderDetail({
   const can = usePermissions();
   const client = useQueryClient();
   const toast = useToast();
+  const cashFormId = useId();
   const query = useQuery({
     queryKey: ["membership-order", orderId],
     queryFn: () => membershipCheckout.detail(orderId),
     retry: false,
+    // Theo dõi trạng thái thật của đơn và thông báo trong website.
     refetchInterval: (q) =>
-      q.state.error || q.state.data?.status !== "PENDING_PAYMENT"
+      q.state.error
         ? false
-        : 8000,
+        : q.state.data?.status === "PENDING_PAYMENT" ||
+            q.state.data?.delivery?.notification?.status === "PENDING"
+          ? 8000
+          : false,
   });
   const order = query.data;
+  const member = usePaymentMember(order?.memberId, order?.memberName);
   useConfirmedMemberships(query.error || !order ? undefined : [order]);
   const owner =
     order && (order.memberId === session!.user.id || can("payments.collect"));
   const [checked, setChecked] = useState(false),
-    [transaction, setTransaction] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const confirmKey = useRef({ fingerprint: "", key: "" });
   const lastStatus = useRef<string | undefined>(undefined);
+  // Đổi đơn phải bỏ xác nhận của phiếu trước; không để checkbox thu tiền bị dùng lại.
+  useEffect(() => {
+    setChecked(false);
+    setError("");
+    confirmKey.current = { fingerprint: "", key: "" };
+    lastStatus.current = undefined;
+  }, [orderId]);
   useEffect(() => {
     if (
       order?.status === "CONFIRMED" &&
@@ -549,94 +690,189 @@ export function MembershipOrderDetail({
     ) {
       toast(
         order.subscription!.startDate > localDate()
-          ? "Đã xác nhận thanh toán. Gói mới có hiệu lực từ " + dateLabel(order.subscription!.startDate) + "."
+          ? "Đã xác nhận thanh toán. Gói mới có hiệu lực từ " +
+              dateLabel(order.subscription!.startDate) +
+              "."
           : "Gói tập đã được xác nhận. Bạn có thể xem thời hạn mới trong Gói thành viên.",
       );
       void client.invalidateQueries({ queryKey: ["membership-orders"] });
     }
     lastStatus.current = order?.status;
   }, [order?.status, order?.memberId, client, toast]);
+  // Nút submit đặt ở footer và liên kết form bằng HTML form/id; kiểm tra thu tiền giữ nguyên.
+  const canCollectCash =
+    !!order &&
+    order.status === "PENDING_PAYMENT" &&
+    order.invoice.paymentMethod === "CASH" &&
+    can("payments.collect");
   return (
     <Modal
       title="Chi tiết hóa đơn gia hạn / đăng ký gói"
       onClose={onClose}
       wide
       dismissible={!busy}
+      className="membership-order-dialog"
     >
       {query.isPending ? (
-        <Loading />
+        <div className="membership-order-body">
+          <Loading />
+        </div>
       ) : query.error ? (
-        <ErrorState error={query.error} retry={query.refetch} />
+        <div className="membership-order-body">
+          <ErrorState error={query.error} retry={query.refetch} />
+        </div>
       ) : !owner ? (
-        <Notice>Không có quyền xem hóa đơn của thành viên này.</Notice>
+        <div className="membership-order-body">
+          <Notice>Không có quyền xem hóa đơn của thành viên này.</Notice>
+        </div>
       ) : (
         order && (
           <>
-            <div className="detail-grid">
-              <div>
-                <span>Mã thanh toán</span>
-                <strong>{order.paymentReference}</strong>
+            <div className="membership-order-body" id="print-invoice">
+              <section
+                className="membership-order-card"
+                aria-label="Thông tin đơn"
+              >
+                <h3>Thông tin đơn</h3>
+                <dl className="membership-order-facts">
+                  <div>
+                    <dt>Mã thanh toán</dt>
+                    <dd>{order.paymentReference}</dd>
+                  </div>
+                  <div>
+                    <dt>Thành viên</dt>
+                    <dd>
+                      {member.name || "Chưa có tên"}
+                      <small>
+                        TV{order.memberId} · Hóa đơn HD{order.invoice.id}
+                      </small>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Phương thức</dt>
+                    <dd>{methodName(order.invoice.paymentMethod)}</dd>
+                  </div>
+                  <div>
+                    <dt>Trạng thái</dt>
+                    <dd>
+                      <span
+                        className={`membership-order-state ${order.status === "CONFIRMED" ? "is-complete" : ""}`}
+                      >
+                        {orderStatus[order.status]}
+                      </span>
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+              <section
+                className="membership-order-card"
+                aria-label="Gói tập và số tiền"
+              >
+                <h3>Gói tập và số tiền</h3>
+                <strong className="membership-order-package">
+                  {order.package.name}
+                </strong>
                 <p>
-                  Thành viên: TV{order.memberId} · Hóa đơn: HD{order.invoice.id}
+                  {order.kind === "RENEWAL"
+                    ? "Gia hạn từ đăng ký #" + order.sourceSubscriptionId
+                    : "Đăng ký gói mới"}{" "}
+                  · {order.package.durationDays} ngày
                 </p>
-              </div>
-              <div>
-                <span>Trạng thái</span>
-                <strong>{orderStatus[order.status]}</strong>
-                <p>{methodName(order.invoice.paymentMethod)}</p>
-              </div>
-            </div>
-            <Panel title={order.package.name}>
-              <p>
-                {order.kind === "RENEWAL"
-                  ? "Gia hạn từ đăng ký #" + order.sourceSubscriptionId
-                  : "Đăng ký gói mới"}{" "}
-                · {order.package.durationDays} ngày
-              </p>
-              <h3>{money(order.invoice.amount)}</h3>
-            </Panel>
-            {order.status === "CONFIRMED" ? (
-              <Notice>
-                Đã xác nhận {orderAction(order)} {order.package.name}. Thời hạn:{" "}
-                {dateLabel(order.subscription!.startDate)} –{" "}
-                {dateLabel(order.subscription!.endDate)}.{" "}
-                {order.subscription!.startDate > localDate() && (
-                  <>Gói mới có hiệu lực từ {dateLabel(order.subscription!.startDate)}; quyền mới chưa áp dụng trước ngày này. </>
+                {order.package.demoPayment && (
+                  <Notice>
+                    ĐƠN DEMO CHUYỂN KHOẢN · Giá niêm yết:{" "}
+                    {money(order.package.price)}. Số tiền thực trả bên dưới được
+                    áp dụng cho hóa đơn và QR.
+                  </Notice>
                 )}
-                <Link to="/memberships" onClick={onClose}>
-                  Xem gói tập
-                </Link>
-              </Notice>
-            ) : (
-              order.status === "PENDING_PAYMENT" && (
+                <div className="membership-order-total">
+                  <span>
+                    Số tiền{" "}
+                    {order.status === "CONFIRMED"
+                      ? "đã thanh toán"
+                      : "cần thanh toán"}
+                  </span>
+                  <strong>{money(order.invoice.amount)}</strong>
+                </div>
+              </section>
+              {order.status === "CONFIRMED" ? (
                 <>
-                  {order.invoice.paymentMethod === "BANK_TRANSFER" ? (
-                    <PaymentQr
-                      invoice={order.invoice}
-                      bankAccount={order.bankAccount}
+                  <section
+                    className="membership-order-card membership-order-full"
+                    aria-label="Kết quả gia hạn"
+                  >
+                    <h3>
+                      Kết quả {order.kind === "RENEWAL" ? "gia hạn" : "đăng ký"}
+                    </h3>
+                    <Notice>
+                      Đã xác nhận {orderAction(order)} {order.package.name}.
+                      Thời hạn: {dateLabel(order.subscription!.startDate)} –{" "}
+                      {dateLabel(order.subscription!.endDate)}.{" "}
+                      {order.subscription!.startDate > localDate() && (
+                        <>
+                          Gói mới có hiệu lực từ{" "}
+                          {dateLabel(order.subscription!.startDate)}; quyền mới
+                          chưa áp dụng trước ngày này.{" "}
+                        </>
+                      )}
+                      <Link to="/memberships" onClick={onClose}>
+                        Xem gói tập
+                      </Link>
+                    </Notice>
+                  </section>
+                  <div className="membership-order-full membership-order-notification">
+                    <MembershipDelivery
+                      order={order}
+                      memberName={member.name}
+                      staff={can("payments.collect")}
+                      compact
                     />
+                  </div>
+                </>
+              ) : order.status === "PENDING_PAYMENT" ? (
+                <section
+                  className="membership-order-card membership-order-full"
+                  aria-label="Thanh toán và xác nhận"
+                >
+                  <h3>
+                    {order.invoice.paymentMethod === "BANK_TRANSFER"
+                      ? "Chuyển khoản và đối soát"
+                      : "Thu tiền mặt tại quầy"}
+                  </h3>
+                  {order.invoice.paymentMethod === "BANK_TRANSFER" ? (
+                    <>
+                      <PaymentQr
+                        invoice={order.invoice}
+                        bankAccount={order.bankAccount}
+                        memberName={member.name}
+                      />
+                      <TransferVerification order={order} />
+                    </>
                   ) : (
                     <Notice>
                       Đơn đang chờ nhận tiền mặt tại quầy. Chỉ sau khi lễ tân
                       nhận đủ tiền và xác nhận, gói mới được gia hạn/kích hoạt.
                     </Notice>
                   )}
-                  <p>
-                    Hệ thống chỉ cập nhật gói sau xác nhận từ máy chủ. Mở hoặc
-                    quét mã không chứng minh tiền đã vào tài khoản.
-                  </p>
-                  {can("payments.collect") && (
+                  {canCollectCash && (
                     <form
+                      id={cashFormId}
+                      className="membership-cash-receipt"
                       onSubmit={async (e) => {
                         e.preventDefault();
-                        if (!checked) return;
+                        if (
+                          !checked ||
+                          busy ||
+                          order.invoice.paymentMethod !== "CASH"
+                        )
+                          return;
                         setBusy(true);
                         setError("");
                         try {
                           const fingerprint = JSON.stringify({
                             orderId,
                             version: order.version,
-                            transaction: transaction.trim(),
+                            method: "CASH",
                           });
                           if (confirmKey.current.fingerprint !== fingerprint)
                             confirmKey.current = {
@@ -645,7 +881,7 @@ export function MembershipOrderDetail({
                             };
                           const updated = await membershipCheckout.confirm(
                             order,
-                            transaction,
+                            "",
                             confirmKey.current.key,
                           );
                           client.setQueryData(
@@ -662,59 +898,76 @@ export function MembershipOrderDetail({
                         }
                       }}
                     >
-                      {order.invoice.paymentMethod === "BANK_TRANSFER" && (
-                        <Field label="Mã giao dịch ngân hàng đã đối chiếu">
-                          <input
-                            required
-                            value={transaction}
-                            onChange={(e) => setTransaction(e.target.value)}
-                            maxLength={100}
-                          />
-                        </Field>
-                      )}
-                      <label className="checkbox-row">
+                      <label className="membership-order-receipt">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={(e) => setChecked(e.target.checked)}
                           required
                         />{" "}
-                        {order.invoice.paymentMethod === "CASH"
-                          ? "Tôi đã nhận đủ tiền mặt cho hóa đơn này"
-                          : "Tôi đã đối chiếu giao dịch thực nhận: đúng mã, tài khoản và số tiền"}
+                        <span>Tôi đã nhận đủ tiền mặt cho hóa đơn này</span>
                       </label>
                       {error && (
                         <p role="alert" className="form-error">
                           {error}
                         </p>
                       )}
-                      <Button
-                        type="submit"
-                        loading={busy}
-                        disabled={
-                          !checked ||
-                          busy ||
-                          (order.invoice.paymentMethod === "BANK_TRANSFER" &&
-                            !transaction.trim())
-                        }
-                      >
-                        Xác nhận thu tiền và kích hoạt gói
-                      </Button>
                     </form>
                   )}
-                </>
-              )
-            )}
-            <div className="modal-footer">
-              <Button variant="secondary" onClick={() => window.print()}>
-                In / Lưu PDF
-              </Button>
-              <Button variant="secondary" onClick={() => void query.refetch()}>
-                Kiểm tra cập nhật
-              </Button>
-              <Button onClick={onClose} disabled={busy}>
-                Đóng
-              </Button>
+                  <p className="membership-order-help">
+                    {order.invoice.paymentMethod === "BANK_TRANSFER"
+                      ? "Quét mã không xác nhận tiền đã vào tài khoản. Trạng thái chỉ thay đổi sau khi hệ thống đối soát giao dịch."
+                      : "Thành viên theo dõi kết quả tại mục Gói thành viên sau khi lễ tân xác nhận thu tiền."}
+                  </p>
+                </section>
+              ) : (
+                <section className="membership-order-card membership-order-full">
+                  <h3>Trạng thái đơn</h3>
+                  <Notice>Yêu cầu đã hủy. Không thanh toán cho đơn này.</Notice>
+                </section>
+              )}
+              <p className="membership-order-updated membership-order-full">
+                Trạng thái được tải từ hệ thống.{" "}
+                {query.isFetching
+                  ? "Đang kiểm tra cập nhật…"
+                  : query.dataUpdatedAt
+                    ? "Cập nhật lúc " +
+                      new Date(query.dataUpdatedAt).toLocaleTimeString("vi-VN")
+                    : ""}
+              </p>
+            </div>
+            <div className="modal-footer membership-order-footer">
+              <div className="membership-order-secondary">
+                <Button variant="secondary" onClick={() => window.print()}>
+                  In / Lưu PDF
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void query.refetch()}
+                >
+                  Kiểm tra cập nhật
+                </Button>
+              </div>
+              <div className="membership-order-primary">
+                {canCollectCash && (
+                  <Button
+                    type="submit"
+                    form={cashFormId}
+                    loading={busy}
+                    disabled={!checked || busy}
+                  >
+                    Xác nhận thu tiền và kích hoạt gói
+                  </Button>
+                )}
+                <Button
+                  variant={canCollectCash ? "secondary" : "primary"}
+                  onClick={onClose}
+                  disabled={busy}
+                >
+                  Đóng
+                </Button>
+              </div>
             </div>
           </>
         )
@@ -758,9 +1011,18 @@ export function MembershipNotifications() {
                 Thời hạn: {dateLabel(order.subscription!.startDate)} –{" "}
                 {dateLabel(order.subscription!.endDate)}
                 {order.subscription!.startDate > localDate() && (
-                  <> · Gói mới có hiệu lực từ {dateLabel(order.subscription!.startDate)}; quyền mới chưa áp dụng trước ngày này.</>
+                  <>
+                    {" "}
+                    · Gói mới có hiệu lực từ{" "}
+                    {dateLabel(order.subscription!.startDate)}; quyền mới chưa
+                    áp dụng trước ngày này.
+                  </>
                 )}
               </p>
+              <MembershipDelivery
+                order={order}
+                memberName={session!.user.fullName}
+              />
               <Link to={`/payments?orderId=${order.id}`}>
                 Xem chi tiết hóa đơn
               </Link>

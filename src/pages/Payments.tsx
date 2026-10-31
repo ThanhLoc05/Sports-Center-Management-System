@@ -16,7 +16,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { MembershipOrders } from "../components/MembershipCheckout";
+import {
+  MembershipOrders,
+  MembershipOrderDetail,
+} from "../components/MembershipCheckout";
 import { transferReference } from "../lib/payment-qr";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -526,6 +529,12 @@ function InvoiceDetail({
   demo: boolean;
   onClose: () => void;
 }) {
+  // Hóa đơn gắn đơn gia hạn phải dùng đúng luồng của đơn, gồm tài khoản nhận tiền và trạng thái đối soát.
+  // Không mở QR riêng từ cấu hình máy rồi làm sai thông tin của cùng một đơn trên màn hóa đơn.
+  if (!demo && i.membershipOrderId)
+    return (
+      <MembershipOrderDetail orderId={i.membershipOrderId} onClose={onClose} />
+    );
   return (
     <Modal title="Chi tiết hóa đơn" onClose={onClose} wide>
       <PaymentQr invoice={i} />

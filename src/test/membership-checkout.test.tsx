@@ -93,7 +93,11 @@ function accessCache() {
 }
 function expectMemberRefresh(client: QueryClient) {
   for (const memberId of [3, 4, 5]) {
-    for (const key of [["activeSubscription", memberId], ["subscriptions", memberId], ["invoices", String(memberId)]])
+    for (const key of [
+      ["activeSubscription", memberId],
+      ["subscriptions", memberId],
+      ["invoices", String(memberId)],
+    ])
       expect(client.getQueryState(key)?.isInvalidated).toBe(memberId === 4);
   }
   expect(client.getQueryState(["invoices", ""])?.isInvalidated).toBe(true);
@@ -306,68 +310,146 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     expect(JSON.parse(String(post[1]!.body))).toEqual({ version: 0 });
     await waitFor(() => expectMemberRefresh(client));
   });
-  it.each(["detail", "list"])("refreshes only the member caches when %s polling detects confirmation", async (view) => {
-    let paid = false;
-    const calls = vi.fn(async () => json(view === "list" ? [paid ? confirmed() : pending] : paid ? confirmed() : pending));
-    vi.stubGlobal("fetch", calls);
-    wrap(view === "list" ? <MembershipOrders memberId={4} /> : <MembershipOrderDetail orderId={20} onClose={() => {}} />);
-    const client = accessCache();
-    await screen.findByText(view === "list" ? "Chờ thanh toán / xác nhận" : /Đơn đang chờ nhận tiền mặt/);
-    expect(client.getQueryState(["activeSubscription", 4])?.isInvalidated).toBe(false);
-    paid = true;
-    await waitFor(() => expectMemberRefresh(client), { timeout: 12000 });
-    expect(calls.mock.calls.length).toBeGreaterThan(1);
-  }, 15000);
-  it.each(["CANCELLED", "PENDING_PAYMENT", "UNKNOWN"])("disables renewal of %s subscriptions", async (status) => {
-    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
-      url.endsWith("/membership-packages") ? json([pkg]) : url.includes("/memberships/members/") ? json([{ ...subscription, status }]) : json([]),
-    ));
-    wrap(<MembershipCheckoutPage />);
-    expect(await screen.findByRole("button", { name: "Gia hạn" })).toBeDisabled();
-  });
+  it.each(["detail", "list"])(
+    "refreshes only the member caches when %s polling detects confirmation",
+    async (view) => {
+      let paid = false;
+      const calls = vi.fn(async () =>
+        json(
+          view === "list"
+            ? [paid ? confirmed() : pending]
+            : paid
+              ? confirmed()
+              : pending,
+        ),
+      );
+      vi.stubGlobal("fetch", calls);
+      wrap(
+        view === "list" ? (
+          <MembershipOrders memberId={4} />
+        ) : (
+          <MembershipOrderDetail orderId={20} onClose={() => {}} />
+        ),
+      );
+      const client = accessCache();
+      await screen.findByText(
+        view === "list"
+          ? "Chờ thanh toán / xác nhận"
+          : /Đơn đang chờ nhận tiền mặt/,
+      );
+      expect(
+        client.getQueryState(["activeSubscription", 4])?.isInvalidated,
+      ).toBe(false);
+      paid = true;
+      await waitFor(() => expectMemberRefresh(client), { timeout: 12000 });
+      expect(calls.mock.calls.length).toBeGreaterThan(1);
+    },
+    15000,
+  );
+  it.each(["CANCELLED", "PENDING_PAYMENT", "UNKNOWN"])(
+    "disables renewal of %s subscriptions",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) =>
+          url.endsWith("/membership-packages")
+            ? json([pkg])
+            : url.includes("/memberships/members/")
+              ? json([{ ...subscription, status }])
+              : json([]),
+        ),
+      );
+      wrap(<MembershipCheckoutPage />);
+      expect(
+        await screen.findByRole("button", { name: "Gia hạn" }),
+      ).toBeDisabled();
+    },
+  );
   it("blocks cached renewal while history refetch is pending and after an API error", async () => {
     let fail = false;
     let finish!: (response: Response) => void;
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (url.includes("/memberships/members/"))
-        return fail ? new Promise<Response>((resolve) => { finish = resolve; }) : json([subscription]);
-      return json(url.endsWith("/membership-packages") ? [pkg] : []);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/memberships/members/"))
+          return fail
+            ? new Promise<Response>((resolve) => {
+                finish = resolve;
+              })
+            : json([subscription]);
+        return json(url.endsWith("/membership-packages") ? [pkg] : []);
+      }),
+    );
     wrap(<MembershipCheckoutPage />);
     const button = await screen.findByRole("button", { name: "Gia hạn" });
     expect(button).toBeEnabled();
     await userEvent.setup().click(button);
-    const submit = await screen.findByRole("button", { name: "Tiếp tục đến thanh toán" });
+    const submit = await screen.findByRole("button", {
+      name: "Tiếp tục đến thanh toán",
+    });
     await waitFor(() => expect(submit).toBeEnabled());
     const client = clients[clients.length - 1];
     fail = true;
     let request!: Promise<void>;
-    await act(async () => { request = client.refetchQueries({ queryKey: ["subscriptions", 4] }); });
+    await act(async () => {
+      request = client.refetchQueries({ queryKey: ["subscriptions", 4] });
+    });
     await waitFor(() => expect(button).toBeDisabled());
     expect(submit).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Gia hạn gói tập" })).toBeDisabled();
-    await act(async () => { finish(json({ message: "History unavailable" }, 500)); await request; });
+    expect(
+      screen.getByRole("button", { name: "Gia hạn gói tập" }),
+    ).toBeDisabled();
+    await act(async () => {
+      finish(json({ message: "History unavailable" }, 500));
+      await request;
+    });
     expect(button).toBeDisabled();
     expect(submit).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Gia hạn gói tập" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Gia hạn gói tập" }),
+    ).toBeDisabled();
   });
   it("shows the future effective date for a paid STANDARD to VIP renewal without replacing current access", async () => {
-    const future = confirmed({ ...pending, package: { ...pkg, id: 2, name: "VIP TEST" } });
-    future.subscription = { ...subscription, id: 11, packageId: 2, startDate: "2099-01-02", endDate: "2099-01-31" };
-    vi.stubGlobal("fetch", vi.fn(async () => json(future)));
+    const future = confirmed({
+      ...pending,
+      package: { ...pkg, id: 2, name: "VIP TEST" },
+    });
+    future.subscription = {
+      ...subscription,
+      id: 11,
+      packageId: 2,
+      startDate: "2099-01-02",
+      endDate: "2099-01-31",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json(future)),
+    );
     wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
     const client = accessCache();
-    expect(await screen.findByText(/quyền mới chưa áp dụng trước ngày này/)).toHaveTextContent("02/01/2099");
+    expect(
+      await screen.findByText(/quyền mới chưa áp dụng trước ngày này/),
+    ).toHaveTextContent("02/01/2099");
     await waitFor(() => expectMemberRefresh(client));
-    expect(client.getQueryData(["activeSubscription", 4])).toEqual(subscription);
+    expect(client.getQueryData(["activeSubscription", 4])).toEqual(
+      subscription,
+    );
   });
-  it("QR appearance never confirms payment; staff must provide a bank transaction and acknowledge receipt", async () => {
+  it("QR waits for backend confirmation and staff cannot manually confirm a transfer", async () => {
     const bankOrder = {
       ...pending,
       invoice: { ...pending.invoice, paymentMethod: "BANK_TRANSFER" },
     };
-    const calls = vi.fn(async (_url: string, init?: RequestInit) =>
-      json(init?.method === "POST" ? confirmed(bankOrder) : bankOrder),
+    let paid = false;
+    const calls = vi.fn(async (url: string, _init?: RequestInit) =>
+      url.includes("/users/")
+        ? json({
+            id: 4,
+            fullName: "Nguyễn Văn An",
+            email: "an@example.test",
+            roleName: "MEMBER",
+          })
+        : json(paid ? confirmed(bankOrder) : bankOrder),
     );
     vi.stubGlobal("fetch", calls);
     const user = userEvent.setup();
@@ -378,26 +460,28 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     expect(
       await screen.findByRole("img", { name: "QR minh họa hóa đơn 30" }),
     ).toBeVisible();
+    expect(
+      screen.queryByRole("button", {
+        name: "Xác nhận thu tiền và kích hoạt gói",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Mã giao dịch ngân hàng đã đối chiếu"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Trạng thái đối soát chuyển khoản" }),
+    ).toHaveTextContent("Chờ kết quả xác nhận chuyển khoản");
+    paid = true;
+    await user.click(screen.getByRole("button", { name: "Kiểm tra cập nhật" }));
+    expect(
+      await screen.findByText(/Đã xác nhận gia hạn gói hiện tại/),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("img", { name: "QR minh họa hóa đơn 30" }),
+    ).not.toBeInTheDocument();
     expect(calls.mock.calls.some(([, init]) => init?.method === "POST")).toBe(
       false,
     );
-    const button = screen.getByRole("button", {
-      name: "Xác nhận thu tiền và kích hoạt gói",
-    });
-    expect(button).toBeDisabled();
-    await user.click(screen.getByRole("checkbox"));
-    expect(button).toBeDisabled();
-    await user.type(
-      screen.getByLabelText("Mã giao dịch ngân hàng đã đối chiếu"),
-      "TEST-BANK-123",
-    );
-    await user.click(button);
-    await screen.findByText(/Đã xác nhận gia hạn gói hiện tại/);
-    const post = calls.mock.calls.find(([, init]) => init?.method === "POST")!;
-    expect(JSON.parse(String(post[1]!.body))).toEqual({
-      version: 0,
-      bankTransactionId: "TEST-BANK-123",
-    });
   });
   it("409 receipt conflict leaves the order pending and reports the error", async () => {
     vi.stubGlobal(

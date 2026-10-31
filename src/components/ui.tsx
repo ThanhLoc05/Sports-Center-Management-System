@@ -289,6 +289,7 @@ export function Modal({
   onClose,
   wide = false,
   dismissible = true,
+  className = "",
 }: {
   title: string;
   description?: string;
@@ -296,6 +297,7 @@ export function Modal({
   onClose: () => void;
   wide?: boolean;
   dismissible?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -348,7 +350,7 @@ export function Modal({
     >
       <div
         ref={ref}
-        className={`modal ${wide ? "modal-wide" : ""}`}
+        className={`modal ${wide ? "modal-wide" : ""} ${className}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
@@ -386,6 +388,7 @@ export function FormModal({
   submitLabel = "Lưu thay đổi",
   submitDisabled = false,
   wide = false,
+  className = "",
 }: {
   title: string;
   description?: string;
@@ -395,6 +398,7 @@ export function FormModal({
   submitLabel?: string;
   submitDisabled?: boolean;
   wide?: boolean;
+  className?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -419,6 +423,7 @@ export function FormModal({
       onClose={onClose}
       wide={wide}
       dismissible={!busy}
+      className={className}
     >
       <form onSubmit={submit}>
         <fieldset disabled={busy} className="form-fields">

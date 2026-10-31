@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { CenterBankSettings } from "./CenterBankSettings";
+import { bankAccountApi } from "../lib/bank-account-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePaymentMember } from "../lib/use-payment-member";
 import type { Invoice } from "../lib/types";
 import { useAuth } from "../lib/auth";
 import {
   buildVietQr,
+  transferContent,
   buildPreviewQr,
   clearBankConfig,
   getBankConfig,
@@ -15,11 +19,22 @@ import { reportTransfer } from "../lib/center";
 import { usePermissions } from "../lib/hooks";
 import { money } from "../lib/utils";
 import { banks } from "../lib/banks";
-import { Button, Field, Notice, Panel, useToast } from "./ui";
+import { Button, Field, Modal, Notice, Panel, useToast } from "./ui";
+/** API thật dùng cấu hình chung trong SQL; cấu hình local chỉ giữ cho kiểm thử dữ liệu mẫu. */
 export function BankSettings() {
+  const { session } = useAuth();
+  return session?.mode === "api" ? (
+    <CenterBankSettings />
+  ) : (
+    <LocalBankSettings />
+  );
+}
+function LocalBankSettings() {
   const can = usePermissions();
   const toast = useToast();
   const [config, setConfig] = useState(getBankConfig);
+  const [scope, setScope] = useState("local");
+  const [review, setReview] = useState<BankConfig | null>(null);
   useEffect(() => {
     const refresh = () => setConfig(getBankConfig());
     window.addEventListener("storage", refresh);
@@ -31,14 +46,18 @@ export function BankSettings() {
       description="Nhập tài khoản ngân hàng trung tâm đang sử dụng. Mỗi hóa đơn tự điền số tiền và nội dung chuyển khoản."
     >
       <Notice>
-        Cấu hình nhận tiền hiện lưu riêng trên trình duyệt này; backend chưa có
-        API đồng bộ cấu hình ngân hàng/đối soát giao dịch.
+        Cấu hình này chỉ dùng trên trình duyệt hiện tại, chưa được đồng bộ cho
+        các máy khác. Khi đơn có tài khoản nhận tiền từ hệ thống, QR ưu tiên
+        thông tin của đơn.
       </Notice>
+      <p className="muted">
+        Trạng thái dùng chung: đang chờ kết nối cấu hình ngân hàng từ backend.
+      </p>
       {!can("roles.manage") ? (
         <p>Chỉ quản lý được thay đổi tài khoản nhận tiền.</p>
       ) : (
         <form
-          key={config ? JSON.stringify(config) : "unconfigured"}
+          key={scope + (config ? JSON.stringify(config) : "unconfigured")}
           className="form-fields"
           onSubmit={(e) => {
             e.preventDefault();
@@ -52,6 +71,10 @@ export function BankSettings() {
                 accountNo: String(d.get("accountNo")).trim(),
                 accountName: String(d.get("accountName")).trim(),
               };
+              if (scope === "center") {
+                setReview(value);
+                return;
+              }
               saveBankConfig(value);
               setConfig(value);
               toast("Đã lưu tài khoản nhận tiền trên trình duyệt.");
@@ -65,6 +88,18 @@ export function BankSettings() {
             }
           }}
         >
+          <Field label="Phạm vi cấu hình ngân hàng">
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value="local">Dùng trên trình duyệt này</option>
+              <option value="center">Dùng chung toàn trung tâm</option>
+            </select>
+          </Field>
+          {scope === "center" && (
+            <Notice>
+              Cấu hình dùng chung đang chờ API lưu từ backend. Bạn có thể nhập
+              và xem lại; dữ liệu ngân hàng hiện tại chưa thay đổi.
+            </Notice>
+          )}
           <div className="form-grid">
             <Field label="Tên ngân hàng">
               <select
@@ -99,8 +134,12 @@ export function BankSettings() {
             </Field>
           </div>
           <div className="row-actions">
-            <Button type="submit">Lưu cấu hình QR</Button>
-            {config && (
+            <Button type="submit">
+              {scope === "center"
+                ? "Xem lại cấu hình trung tâm"
+                : "Lưu cấu hình QR"}
+            </Button>
+            {config && scope === "local" && (
               <Button
                 type="button"
                 variant="secondary"
@@ -116,6 +155,37 @@ export function BankSettings() {
           </div>
         </form>
       )}
+      {review && (
+        <Modal
+          title="Xem lại tài khoản nhận tiền trung tâm"
+          onClose={() => setReview(null)}
+        >
+          <div className="detail-grid">
+            <div>
+              <span>Ngân hàng</span>
+              <strong>{review.bankName}</strong>
+            </div>
+            <div>
+              <span>Số tài khoản</span>
+              <strong>{review.accountNo}</strong>
+            </div>
+            <div>
+              <span>Chủ tài khoản</span>
+              <strong>{review.accountName}</strong>
+            </div>
+          </div>
+          <Notice>
+            Chưa lưu. Chức năng đồng bộ tài khoản nhận tiền toàn trung tâm đang
+            chờ kết nối backend.
+          </Notice>
+          <div className="modal-footer">
+            <Button variant="secondary" onClick={() => setReview(null)}>
+              Quay lại chỉnh sửa
+            </Button>
+            <Button disabled>Lưu cấu hình dùng chung</Button>
+          </div>
+        </Modal>
+      )}
     </Panel>
   );
 }
@@ -123,15 +193,60 @@ export function BankSettings() {
 export function PaymentQr({
   invoice,
   bankAccount,
+  memberName,
 }: {
   invoice: Invoice;
   bankAccount?: BankConfig;
+  memberName?: string;
 }) {
   const { session } = useAuth();
   const client = useQueryClient();
   const [localConfig, setConfig] = useState(getBankConfig);
-  const config = bankAccount || localConfig;
+  // Hóa đơn thuộc đơn gia hạn bắt buộc dùng tài khoản chụp trong đơn, không lấy nhầm cấu hình máy/global đã đổi.
+  const sharedBank = useQuery({
+    queryKey: ["center-bank-account"],
+    queryFn: bankAccountApi.get,
+    retry: false,
+    enabled:
+      session?.mode === "api" &&
+      !invoice.membershipOrderId &&
+      invoice.paymentMethod === "BANK_TRANSFER" &&
+      !bankAccount,
+  });
+  const config =
+    bankAccount ||
+    (session?.mode === "demo"
+      ? localConfig
+      : !invoice.membershipOrderId
+        ? sharedBank.data?.bankAccount
+        : null);
+  const member = usePaymentMember(invoice.memberId, memberName);
+  let content = transferReference(invoice.id, invoice.memberId);
+  let contentError = "";
+  if (member.name) {
+    try {
+      content = transferContent(invoice.id, invoice.memberId, member.name);
+    } catch (e) {
+      contentError =
+        e instanceof Error
+          ? e.message
+          : "Không tạo được nội dung chuyển khoản.";
+    }
+  } else if (config)
+    contentError =
+      "Đang chờ đúng tên thành viên để tạo QR. Không dùng tên người thu ngân.";
+  const qrKey = JSON.stringify([
+    invoice.id,
+    invoice.memberId,
+    invoice.amount,
+    invoice.paymentStatus,
+    invoice.paymentMethod,
+    config,
+    member.name,
+  ]);
+  const [imageKey, setImageKey] = useState("");
   const [image, setImage] = useState("");
+  const visibleImage = imageKey === qrKey ? image : "";
   const [error, setError] = useState("");
   const [reported, setReported] = useState(!!invoice.transferReportedAt);
   const toast = useToast();
@@ -157,6 +272,10 @@ export function PaymentQr({
       invoice.paymentStatus === "PENDING" &&
       invoice.paymentMethod === "BANK_TRANSFER"
     ) {
+      if (contentError) {
+        setError(contentError);
+        return;
+      }
       import("qrcode")
         .then((q) =>
           q.toDataURL(
@@ -166,8 +285,14 @@ export function PaymentQr({
                   invoice.amount,
                   invoice.id,
                   invoice.memberId,
+                  member.name,
                 )
-              : buildPreviewQr(invoice.amount, invoice.id, invoice.memberId),
+              : buildPreviewQr(
+                  invoice.amount,
+                  invoice.id,
+                  invoice.memberId,
+                  member.name,
+                ),
             {
               width: 320,
               margin: 4,
@@ -176,7 +301,10 @@ export function PaymentQr({
           ),
         )
         .then((data) => {
-          if (current) setImage(data);
+          if (current) {
+            setImage(data);
+            setImageKey(qrKey);
+          }
         })
         .catch((e) => {
           if (current)
@@ -187,12 +315,15 @@ export function PaymentQr({
       current = false;
     };
   }, [
+    qrKey,
     config,
     invoice.id,
     invoice.amount,
     invoice.memberId,
     invoice.paymentStatus,
     invoice.paymentMethod,
+    member.name,
+    contentError,
   ]);
   if (
     invoice.paymentStatus !== "PENDING" ||
@@ -202,16 +333,36 @@ export function PaymentQr({
   return (
     <section className="payment-qr" aria-label="Thanh toán QR">
       <h3>Thanh toán bằng QR chuyển khoản</h3>
+      <p>
+        Thành viên:{" "}
+        <strong>{member.name || "Chưa lấy được tên thành viên"}</strong> · TV
+        {invoice.memberId}
+      </p>
+      {member.error && (
+        <Notice>
+          Không tải được tên thành viên.{" "}
+          <Button variant="ghost" onClick={() => void member.refetch()}>
+            Tải lại thông tin thành viên
+          </Button>
+        </Notice>
+      )}
+      {member.name && (
+        <p>
+          Nội dung QR: <strong>{content}</strong>. Tên được chuyển không dấu và
+          có thể rút gọn; mã thanh toán giữ nguyên.
+        </p>
+      )}
       {!config ? (
         <>
           <Notice>
-            QR MINH HỌA — KHÔNG DÙNG ĐỂ CHUYỂN TIỀN. Quản lý vào Cài đặt → Tài
-            khoản nhận tiền & QR để cấu hình ngân hàng sau.
+            QR MINH HỌA — KHÔNG DÙNG ĐỂ CHUYỂN TIỀN. Đơn chưa có tài khoản nhận
+            tiền hợp lệ từ hệ thống; vui lòng liên hệ lễ tân trước khi chuyển
+            khoản.
           </Notice>
           <div className="qr-layout">
-            {image ? (
+            {visibleImage ? (
               <img
-                src={image}
+                src={visibleImage}
                 width={260}
                 height={260}
                 alt={"QR minh họa hóa đơn " + invoice.id}
@@ -225,18 +376,15 @@ export function PaymentQr({
                 Hóa đơn: HD{invoice.id} · Thành viên: TV{invoice.memberId}
               </p>
               <p>
-                Mã thanh toán:{" "}
-                <strong>
-                  {transferReference(invoice.id, invoice.memberId)}
-                </strong>
+                Mã thanh toán: <strong>{content}</strong>
               </p>
               <p>
                 Mã này chỉ chứa văn bản minh họa, không có số tài khoản và không
                 thực hiện giao dịch ngân hàng.
               </p>
               <p>
-                Hóa đơn vẫn chờ thanh toán. Nhân viên chỉ xác nhận đã thu sau
-                khi kiểm tra thực tế.
+                Hóa đơn vẫn chờ thanh toán. QR minh họa không gửi giao dịch đến
+                ngân hàng hoặc tự xác nhận thu tiền.
               </p>
             </div>
           </div>
@@ -244,9 +392,9 @@ export function PaymentQr({
       ) : (
         <>
           <div className="qr-layout">
-            {image ? (
+            {visibleImage ? (
               <img
-                src={image}
+                src={visibleImage}
                 width={260}
                 height={260}
                 alt={`QR chuyển khoản hóa đơn ${invoice.id}`}
@@ -263,18 +411,23 @@ export function PaymentQr({
                 Số tài khoản: <strong>{config.accountNo}</strong>
               </p>
               <p>Chủ tài khoản: {config.accountName}</p>
+              <p className="muted">
+                {bankAccount
+                  ? "Tài khoản nhận tiền được lưu theo đơn này"
+                  : session?.mode === "api"
+                    ? "Tài khoản nhận tiền dùng chung của trung tâm"
+                    : "Tài khoản cấu hình trên trình duyệt này"}
+              </p>
               <p>
-                Nội dung:{" "}
-                <strong>
-                  {transferReference(invoice.id, invoice.memberId)}
-                </strong>
+                Nội dung: <strong>{content}</strong>
               </p>
               <Button
                 variant="secondary"
+                disabled={!!contentError}
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(
-                      `${config.bankName}\n${config.accountNo}\n${config.accountName}\n${invoice.amount}\n${transferReference(invoice.id, invoice.memberId)}`,
+                      `${config.bankName}\n${config.accountNo}\n${config.accountName}\n${invoice.amount}\n${content}`,
                     );
                     toast("Đã sao chép thông tin chuyển khoản.");
                   } catch {
@@ -287,10 +440,10 @@ export function PaymentQr({
               >
                 Sao chép thông tin
               </Button>
-              {image && (
+              {visibleImage && (
                 <a
                   className="btn btn-secondary"
-                  href={image}
+                  href={visibleImage}
                   download={`QR-HD${invoice.id}.png`}
                 >
                   Tải QR
@@ -300,8 +453,8 @@ export function PaymentQr({
           </div>
           <Notice>
             {session!.mode === "demo" ? "Hóa đơn demo. " : ""}Hóa đơn vẫn chờ
-            thu cho đến khi nhân viên kiểm tra đã nhận tiền. Hệ thống chưa tự
-            đối soát ngân hàng.
+            thu cho đến khi hệ thống xác nhận đã nhận đủ tiền. Quét QR không tự
+            hoàn tất đơn hoặc gia hạn gói.
           </Notice>
           {reported && (
             <p className="muted">

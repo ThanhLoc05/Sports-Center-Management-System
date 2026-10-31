@@ -6,6 +6,7 @@ export interface BankConfig {
   bankName: string;
   accountNo: string;
   accountName: string;
+  gatewayName?: string;
 }
 const KEY = "sportiva-bank-config-v1";
 export function getBankConfig(): BankConfig | null {
@@ -17,9 +18,12 @@ export function getBankConfig(): BankConfig | null {
     return null;
   }
 }
-function validateBank(value: BankConfig | null) {
+export function validateBank(value: BankConfig | null) {
   if (
     !value ||
+    [value.bankBin, value.bankName, value.accountNo, value.accountName].some(
+      (v) => typeof v !== "string",
+    ) ||
     !/^\d{6}$/.test(value.bankBin) ||
     !/^\d{6,19}$/.test(value.accountNo) ||
     !value.bankName.trim() ||
@@ -82,11 +86,43 @@ export function transferReference(invoiceId: number, memberId?: number) {
     throw new Error("Mã thanh toán vượt độ dài cho phép, không thể tự cắt mã.");
   return reference;
 }
+/** Nội dung không dấu: giữ nguyên mã hóa đơn/thành viên, chỉ rút gọn tên khi cần.
+ * Trường nội dung 62.08 tối đa 25 ký tự; không cắt mã đối soát để nhét tên.
+ * Tên đầy đủ vẫn được hiển thị ở chi tiết hóa đơn, tên trong QR được báo rõ nếu rút gọn.
+ */
+export function transferContent(
+  invoiceId: number,
+  memberId: number,
+  memberName: string,
+) {
+  const reference = transferReference(invoiceId, memberId);
+  const words = memberName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "D")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length)
+    throw new Error("Chưa có tên thành viên hợp lệ để tạo nội dung QR.");
+  const available = 25 - reference.length - 1;
+  let name = words.join(" ");
+  if (name.length > available)
+    name = words.map((w, i) => (i === words.length - 1 ? w : w[0])).join(" ");
+  if (name.length > available || available < 1)
+    throw new Error(
+      "Mã và tên thành viên quá dài để tạo QR. Vui lòng liên hệ lễ tân; không tự cắt mã thanh toán.",
+    );
+  return reference + " " + name;
+}
 export function buildVietQr(
   config: BankConfig,
   amount: number,
   invoiceId: number,
   memberId?: number,
+  memberName?: string,
 ) {
   validateBank(config);
   if (!Number.isSafeInteger(amount) || amount < 1 || String(amount).length > 13)
@@ -104,7 +140,15 @@ export function buildVietQr(
     field("53", "704") +
     field("54", String(amount)) +
     field("58", "VN") +
-    field("62", field("08", transferReference(invoiceId, memberId))) +
+    field(
+      "62",
+      field(
+        "08",
+        memberName && memberId
+          ? transferContent(invoiceId, memberId, memberName)
+          : transferReference(invoiceId, memberId),
+      ),
+    ) +
     "6304";
   return payload + crc16(payload);
 }
@@ -114,6 +158,7 @@ export function buildPreviewQr(
   amount: number,
   invoiceId: number,
   memberId?: number,
+  memberName?: string,
 ) {
   if (!Number.isSafeInteger(amount) || amount < 1)
     throw new Error("Số tiền hóa đơn không hợp lệ.");
@@ -124,6 +169,10 @@ export function buildPreviewQr(
     (memberId === undefined ? "" : " TV" + memberId) +
     " | " +
     amount +
-    " VND | NOT FOR PAYMENT"
+    " VND" +
+    (memberName && memberId
+      ? " | " + transferContent(invoiceId, memberId, memberName)
+      : "") +
+    " | NOT FOR PAYMENT"
   );
 }
