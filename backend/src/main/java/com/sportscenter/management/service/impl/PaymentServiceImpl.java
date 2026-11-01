@@ -5,6 +5,7 @@ import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.repository.InvoiceRepository;
+import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
@@ -26,19 +27,24 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final InvoiceRepository invoiceRepository;
     private final MemberSubscriptionRepository subscriptionRepository;
+    private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     public InvoiceResponse createInvoice(InvoiceRequest request) {
         if (request == null || request.getMemberId() == null) {
             throw new IllegalArgumentException("Thông tin hóa đơn và thành viên là bắt buộc");
         }
-        // Validate member exists
+        // Chỉ lập hóa đơn cho tài khoản thành viên có thật.
         if (!userRepository.existsById(request.getMemberId())) {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
 
-        // Validate subscription if provided
+        BigDecimal invoiceAmount = request.getAmount();
+
+        // Hóa đơn gói phải lấy giá từ danh mục, không tin số tiền do client gửi lên.
+        // Nếu gói đã có hóa đơn đang chờ thì dùng lại hóa đơn đó, tránh thu trùng.
         if (request.getSubscriptionId() != null) {
             MemberSubscription subscription = subscriptionRepository.findById(request.getSubscriptionId())
                     .orElseThrow(() -> new IllegalArgumentException("Đăng ký không tồn tại"));
@@ -46,42 +52,51 @@ public class PaymentServiceImpl implements PaymentService {
             if (!subscription.getMemberId().equals(request.getMemberId())) {
                 throw new IllegalArgumentException("Đăng ký không thuộc về thành viên này");
             }
-        }
-        Integer receptionistId = request.getReceptionistId();
-        if (receptionistId == null) {
-            String email = SecurityUtils.getCurrentUserEmail();
-            if (email != null) {
-                receptionistId = userRepository.findByEmail(email).map(com.sportscenter.management.entity.User::getId).orElse(null);
+
+            var existingInvoice = invoiceRepository
+                    .findFirstBySubscriptionIdOrderByCreatedAtDesc(request.getSubscriptionId());
+            if (existingInvoice.isPresent()) {
+                if ("PENDING".equals(existingInvoice.get().getPaymentStatus())) {
+                    return mapToResponse(existingInvoice.get());
+                }
+                throw new IllegalArgumentException("Đăng ký này đã có hóa đơn được xử lý");
             }
-        } else if (!userRepository.existsById(receptionistId)) {
+
+            invoiceAmount = packageRepository.findById(subscription.getPackageId())
+                    .orElseThrow(() -> new IllegalArgumentException("Gói hội viên không tồn tại"))
+                    .getPrice();
+        }
+
+        // Người đang đăng nhập là người lập hóa đơn; không dùng mã nhân viên do client tự gửi.
+        Integer receptionistId = securityUtils.getCurrentUserId();
+
+        if (receptionistId != null && !userRepository.existsById(receptionistId)) {
             throw new IllegalArgumentException("Nhân viên thu ngân không tồn tại");
         }
 
-        // Validate amount is positive
-        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        // Hóa đơn thủ công phải có số tiền dương.
+        if (invoiceAmount == null || invoiceAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền phải lớn hơn 0");
         }
 
-        // Validate payment method
-        if (!isValidPaymentMethod(request.getPaymentMethod())) {
+        // Nếu chưa chọn phương thức thì mặc định là tiền mặt tại quầy.
+        String paymentMethod = request.getPaymentMethod() == null ? "CASH" : request.getPaymentMethod();
+        if (!isValidPaymentMethod(paymentMethod)) {
             throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
         }
-        String paymentStatus = request.getPaymentStatus() != null ? request.getPaymentStatus() : "PAID";
-        if (!isValidPaymentStatus(paymentStatus)) {
-            throw new IllegalArgumentException("Trạng thái thanh toán không hợp lệ");
-        }
-
         Invoice invoice = Invoice.builder()
                 .subscriptionId(request.getSubscriptionId())
                 .memberId(request.getMemberId())
                 .receptionistId(receptionistId)
-                .amount(request.getAmount())
-                .paymentMethod(request.getPaymentMethod())
-                .paymentStatus(paymentStatus)
+                .amount(invoiceAmount)
+                .currency("VND")
+                .paymentMethod(paymentMethod)
+                .paymentStatus("PENDING")
                 .createdAt(LocalDateTime.now())
                 .build();
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
+
         return mapToResponse(savedInvoice);
     }
 
@@ -109,12 +124,32 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
 
+        if (invoice.getMembershipOrderId() != null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Hóa đơn gói phải được xác nhận trong yêu cầu gói để đồng bộ tiền và thời hạn.");
+        }
+
         if (!"PENDING".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ hóa đơn đang chờ thanh toán mới có thể được thanh toán");
         }
 
         invoice.setPaymentStatus("PAID");
+        invoice.setPaidAt(LocalDateTime.now());
+        Integer receptionistId = securityUtils.getCurrentUserId();
+        if (receptionistId != null) {
+            invoice.setReceptionistId(receptionistId);
+        }
         Invoice updatedInvoice = invoiceRepository.save(invoice);
+
+        // Chỉ kích hoạt subscription sau khi nhân viên xác nhận hóa đơn đã thu.
+        if (updatedInvoice.getSubscriptionId() != null) {
+            subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+                sub.setStatus("ACTIVE");
+                subscriptionRepository.save(sub);
+            });
+        }
+
         return mapToResponse(updatedInvoice);
     }
 
@@ -123,12 +158,28 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
 
+        if (invoice.getMembershipOrderId() != null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Hóa đơn thuộc yêu cầu gói; luồng hoàn tiền cho yêu cầu này chưa được mở.");
+        }
+
         if (!"PAID".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hoàn tiền cho hóa đơn đã thanh toán");
         }
 
         invoice.setPaymentStatus("REFUNDED");
+        invoice.setRefundedAt(LocalDateTime.now());
         Invoice updatedInvoice = invoiceRepository.save(invoice);
+
+        // Hoàn toàn bộ hóa đơn gói thì hủy subscription liên quan theo chính sách hiện tại.
+        if (updatedInvoice.getSubscriptionId() != null) {
+            subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+                sub.setStatus("CANCELLED");
+                subscriptionRepository.save(sub);
+            });
+        }
+
         return mapToResponse(updatedInvoice);
     }
 
@@ -180,21 +231,23 @@ public class PaymentServiceImpl implements PaymentService {
         return InvoiceResponse.builder()
                 .id(invoice.getId())
                 .subscriptionId(invoice.getSubscriptionId())
+                .membershipOrderId(invoice.getMembershipOrderId())
                 .memberId(invoice.getMemberId())
                 .receptionistId(invoice.getReceptionistId())
                 .amount(invoice.getAmount())
+                .currency(invoice.getCurrency())
                 .paymentMethod(invoice.getPaymentMethod())
                 .paymentStatus(invoice.getPaymentStatus())
                 .createdAt(invoice.getCreatedAt())
+                .paidAt(invoice.getPaidAt())
+                .refundedAt(invoice.getRefundedAt())
                 .build();
     }
 
     private boolean isValidPaymentMethod(String method) {
-        return "CASH".equals(method) || "CREDIT_CARD".equals(method) ||
-                "BANK_TRANSFER".equals(method) || "VNPAY".equals(method);
+        return "CASH".equals(method) || "CREDIT_CARD".equals(method)
+                || "BANK_TRANSFER".equals(method) || "VNPAY".equals(method)
+                || "MOMO".equals(method) || "ZALOPAY".equals(method) || "PAYOS".equals(method);
     }
 
-    private boolean isValidPaymentStatus(String status) {
-        return "PAID".equals(status) || "PENDING".equals(status) || "REFUNDED".equals(status);
-    }
 }

@@ -61,9 +61,9 @@ public class SecurityConfig {
     /**
      * Tải thông tin tài khoản người dùng từ Database dựa trên email đăng nhập.
      * Kiểm tra trạng thái tài khoản: Nếu status != 'ACTIVE' -> vô hiệu hóa tài khoản (disabled).
-     *
-     * [LƯU Ý QUAN TRỌNG]: Tiêm UserRepository qua tham số của @Bean method thay vì tiêm qua constructor
-     * của lớp SecurityConfig. Cách này giúp tách rời vòng đời khởi tạo của SecurityConfig và JPA Repository,
+     * 
+     * [LƯU Ý QUAN TRỌNG]: Tiêm UserRepository qua tham số của @Bean method thay vì tiêm qua constructor 
+     * của lớp SecurityConfig. Cách này giúp tách rời vòng đời khởi tạo của SecurityConfig và JPA Repository, 
      * tránh triệt để lỗi runtime "Parameter 0 of constructor required a bean of type UserRepository that could not be found".
      */
     @Bean
@@ -96,7 +96,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of("*")); // Chấp nhận tất cả nguồn phát request (trong môi trường dev)
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Idempotency-Key"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
 
@@ -170,6 +170,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 2. Các API Công khai: Đăng ký, Đăng nhập, Endpoint lỗi nội bộ
                         .requestMatchers("/api/v1/users/register/**", "/api/v1/users/login/**", "/error").permitAll()
+                        // SePay không dùng JWT: controller tự xác thực API key riêng, kết nối mặc định tắt.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/sepay").permitAll()
                         // 3. Khách có thể xem danh sách lớp học và danh sách gói tập công khai
                         .requestMatchers(HttpMethod.GET, "/api/v1/classes/**", "/api/v1/memberships/packages/**",
                                 "/api/v1/sports", "/api/v1/rooms", "/api/v1/feedbacks/coach/**", "/api/v1/feedbacks/class/**").permitAll()

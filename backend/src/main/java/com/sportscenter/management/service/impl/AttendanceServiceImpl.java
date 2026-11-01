@@ -3,7 +3,10 @@ package com.sportscenter.management.service.impl;
 import com.sportscenter.management.dto.Request.AttendanceRequest;
 import com.sportscenter.management.dto.Response.AttendanceResponse;
 import com.sportscenter.management.entity.Attendance;
+import com.sportscenter.management.entity.ClassBooking;
+import com.sportscenter.management.entity.Classes;
 import com.sportscenter.management.repository.AttendanceRepository;
+import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
@@ -25,45 +28,55 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
     private final ClassRepository classRepository;
+    private final ClassBookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     public AttendanceResponse checkInMember(AttendanceRequest request) {
         if (request == null || request.getClassId() == null || request.getMemberId() == null) {
             throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
-        // Validate class exists
-        if (!classRepository.existsById(request.getClassId())) {
-            throw new IllegalArgumentException("Lớp học không tồn tại");
-        }
+        // Kiểm tra lớp cần điểm danh có tồn tại.
+        Classes clazz = classRepository.findById(request.getClassId())
+                .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        // Validate member exists
+        // Kiểm tra hội viên có tồn tại.
         if (!userRepository.existsById(request.getMemberId())) {
             throw new IllegalArgumentException("Thành viên không tồn tại");
         }
 
-        Integer checkedInBy = request.getCheckedInBy();
-        if (checkedInBy == null) {
-            String email = SecurityUtils.getCurrentUserEmail();
-            if (email != null) {
-                checkedInBy = userRepository.findByEmail(email).map(com.sportscenter.management.entity.User::getId).orElse(null);
-            }
+        // RÀNG BUỘC CHẶT CHẼ: Học viên phải có lượt đặt chỗ BOOKED cho lớp học này
+        Optional<ClassBooking> bookingOpt = bookingRepository.findByClassIdAndMemberId(request.getClassId(), request.getMemberId());
+        if (bookingOpt.isEmpty() || !"BOOKED".equals(bookingOpt.get().getStatus())) {
+            throw new IllegalArgumentException("Học viên chưa đăng ký hoặc đã hủy đặt chỗ cho lớp học này. Không thể điểm danh.");
         }
+
+        // Không tin mã người điểm danh do client gửi lên; lấy danh tính từ tài khoản đã xác thực.
+        Integer checkedInBy = securityUtils.getCurrentUserId();
         if (checkedInBy == null) {
             throw new IllegalArgumentException("Người điểm danh là bắt buộc");
         }
 
-        // Validate checker-in exists
+        // Kiểm tra tài khoản của người đang đăng nhập còn tồn tại.
         if (!userRepository.existsById(checkedInBy)) {
             throw new IllegalArgumentException("Người điểm danh không tồn tại");
         }
 
-        // Validate status
+        // BẢO MẬT: Nếu người điểm danh là HLV (không phải Quản lý hay Lễ tân),
+        // HLV đó bắt buộc phải là người được phân công phụ trách lớp học này
+        if (securityUtils.isCoach() && !securityUtils.isCenterManager() && !securityUtils.isReceptionist()) {
+            if (!checkedInBy.equals(clazz.getCoachId())) {
+                throw new IllegalArgumentException("Huấn luyện viên không được phân công phụ trách lớp học này");
+            }
+        }
+
+        // Chỉ chấp nhận trạng thái có mặt hoặc vắng mặt.
         if (!isValidAttendanceStatus(request.getStatus())) {
             throw new IllegalArgumentException("Trạng thái điểm danh không hợp lệ");
         }
 
-        // Check if already checked in for this class
+        // Một hội viên chỉ có một bản ghi điểm danh cho mỗi lớp.
         Optional<Attendance> existing = attendanceRepository
                 .findByClassIdAndMemberId(request.getClassId(), request.getMemberId());
 

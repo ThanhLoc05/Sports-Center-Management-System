@@ -7,6 +7,8 @@ import com.sportscenter.management.dto.Response.LoginResponse;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
+import com.sportscenter.management.service.BookingService;
+import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.JwtService;
 import com.sportscenter.management.service.UserService;
 import com.sportscenter.auth.SecurityUtils;
@@ -25,7 +27,7 @@ import java.util.List;
  * Phân quyền và luồng nghiệp vụ:
  * 1. Register & Login: Public cho tất cả mọi người.
  * 2. Tra cứu danh sách người dùng (getUsers):
- *    - Dành cho Quản lý trung tâm (CENTER_MANAGER) và Lễ tân (RECEPTIONIST) để tra cứu học viên tại quầy.
+ *    - Dành cho Quản lý trung tâm và Lễ tân để tra cứu học viên tại quầy.
  * 3. Xem và cập nhật thông tin cá nhân (User Details & Member Profile):
  *    - Chính chủ (chủ tài khoản).
  *    - Lễ tân / Quản lý (hỗ trợ cập nhật tại quầy).
@@ -41,6 +43,8 @@ public class UserController {
     private final UserService userService;
     private final JwtService jwtService;
     private final SecurityUtils securityUtils;
+    private final BookingService bookingService;
+    private final ClassService classService;
 
     /**
      * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER)
@@ -72,7 +76,7 @@ public class UserController {
 
     /**
      * TÌM KIẾM VÀ XEM DANH SÁCH NGƯỜI DÙNG
-     * - Phân quyền: Quản lý trung tâm (CENTER_MANAGER) xem toàn bộ nhân sự, Lễ tân (RECEPTIONIST) tìm kiếm học viên tại quầy.
+     * - Phân quyền: Quản lý trung tâm xem toàn bộ nhân sự, Lễ tân tìm kiếm học viên tại quầy.
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'RECEPTIONIST')")
@@ -93,8 +97,7 @@ public class UserController {
         // Cho phép: Chính chủ HOẶC Lễ tân HOẶC HLV HOẶC Quản lý
         boolean isAuthorized = currentUser.equals(userId)
                 || securityUtils.isCenterManager()
-                || securityUtils.isReceptionist()
-                || securityUtils.isCoach();
+                || securityUtils.isReceptionist();
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).build();
@@ -106,7 +109,7 @@ public class UserController {
 
     /**
      * KHÓA / KÍCH HOẠT TÀI KHOẢN (STATUS: ACTIVE / BLOCKED)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER) mới có quyền.
+     * - Bảo mật: CHỈ Quản lý trung tâm mới có quyền.
      */
     @PatchMapping("/{userId}/status")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -116,7 +119,7 @@ public class UserController {
 
     /**
      * CẬP NHẬT VAI TRÒ NGƯỜI DÙNG (ROLE: MEMBER, COACH, RECEPTIONIST, CENTER_MANAGER)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER) mới có quyền phân quyền.
+     * - Bảo mật: CHỈ Quản lý trung tâm mới có quyền phân quyền.
      */
     @PatchMapping("/{userId}/role")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -142,7 +145,7 @@ public class UserController {
         boolean isAuthorized = currentUser.equals(userId)
                 || securityUtils.isCenterManager()
                 || securityUtils.isReceptionist()
-                || securityUtils.isCoach();
+                || (securityUtils.isCoach() && coachTeachesMember(currentUser, userId));
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).build();
@@ -175,5 +178,13 @@ public class UserController {
                 .roleName(user.getRole().getRoleName())
                 .status(user.getStatus())
                 .build();
+    }
+
+    private boolean coachTeachesMember(Integer coachId, Integer memberId) {
+        return bookingService.getMemberBookings(memberId).stream()
+                .filter(booking -> "BOOKED".equals(booking.getStatus()))
+                .anyMatch(booking -> classService.getClassById(booking.getClassId())
+                        .map(clazz -> coachId.equals(clazz.getCoachId()))
+                        .orElse(false));
     }
 }

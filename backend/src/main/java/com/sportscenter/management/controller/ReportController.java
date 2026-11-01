@@ -20,7 +20,7 @@ public class ReportController {
     }
 
     @GetMapping("/revenue")
-    @PreAuthorize("hasRole('CENTER_MANAGER')") // Chỉ Center Manager mới có quyền xem báo cáo
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ResponseEntity<BigDecimal> getRevenueReport(
             @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {

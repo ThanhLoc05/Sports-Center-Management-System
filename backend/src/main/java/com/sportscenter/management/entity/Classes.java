@@ -40,6 +40,9 @@ public class Classes {
     @Column(name = "duration_minutes", nullable = false)
     private Integer durationMinutes;
 
-    @Column(name = "status")
+    @Column(name = "required_access_level", nullable = false)
+    private String requiredAccessLevel;
+
+    @Column(name = "status", nullable = false)
     private String status;
 }

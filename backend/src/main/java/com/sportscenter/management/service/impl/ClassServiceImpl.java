@@ -36,17 +36,14 @@ public class ClassServiceImpl implements ClassService {
                 || request.getClassName() == null || request.getClassName().isBlank()) {
             throw new IllegalArgumentException("Thông tin lớp học và thời gian học là bắt buộc");
         }
-        // Validate sport exists
+        // Kiểm tra bộ môn đã được khai báo trong danh mục.
         if (!sportRepository.existsById(request.getSportId())) {
             throw new IllegalArgumentException("Bộ môn không tồn tại");
         }
 
-        // Validate coach exists
-        if (!userRepository.existsById(request.getCoachId())) {
-            throw new IllegalArgumentException("Huấn luyện viên không tồn tại");
-        }
+        validateCoach(request.getCoachId());
 
-        // Validate room exists
+        // Kiểm tra phòng tồn tại và lớp không vượt quá sức chứa phòng.
         var room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
         if (request.getMaxCapacity() == null || request.getMaxCapacity() <= 0) {
@@ -59,10 +56,15 @@ public class ClassServiceImpl implements ClassService {
             throw new IllegalArgumentException("Thời lượng lớp học phải lớn hơn 0");
         }
 
-        // Validate schedule is in future
+        // Không cho tạo lớp có thời gian bắt đầu trong quá khứ.
         if (request.getScheduleTime().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Thời gian lớp học phải là tương lai");
         }
+
+        int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : 60;
+
+        // Không xếp trùng thời gian của cùng huấn luyện viên hoặc cùng phòng.
+        validateNoScheduleConflict(null, request.getCoachId(), request.getRoomId(), request.getScheduleTime(), duration);
 
         Classes clazz = Classes.builder()
                 .className(request.getClassName())
@@ -71,7 +73,8 @@ public class ClassServiceImpl implements ClassService {
                 .roomId(request.getRoomId())
                 .maxCapacity(request.getMaxCapacity())
                 .scheduleTime(request.getScheduleTime())
-                .durationMinutes(request.getDurationMinutes() != null ? request.getDurationMinutes() : 60)
+                .durationMinutes(duration)
+                .requiredAccessLevel(normalizeAccessLevel(request.getRequiredAccessLevel()))
                 .status("SCHEDULED")
                 .build();
 
@@ -90,7 +93,6 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public List<ClassResponse> getAllClasses(Integer sportId, Integer coachId) {
         List<Classes> classes;
-
         if (sportId != null && coachId != null) {
             classes = classRepository.findBySportIdAndCoachId(sportId, coachId);
         } else if (sportId != null) {
@@ -100,7 +102,6 @@ public class ClassServiceImpl implements ClassService {
         } else {
             classes = classRepository.findAll();
         }
-
         return classes.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -109,14 +110,8 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassResponse> getAvailableClasses() {
-        List<Classes> classes = classRepository.findByStatus("SCHEDULED");
-
-        return classes.stream()
-                .filter(clazz -> {
-                    long currentBookings = bookingRepository.countByClassIdAndStatus(clazz.getId(), "BOOKED");
-                    return currentBookings < clazz.getMaxCapacity() &&
-                            clazz.getScheduleTime().isAfter(LocalDateTime.now());
-                })
+        return classRepository.findFutureScheduledClasses().stream()
+                .filter(c -> getCurrentBookingCount(c.getId()) < c.getMaxCapacity())
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -124,6 +119,9 @@ public class ClassServiceImpl implements ClassService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassResponse> getClassesBySport(Integer sportId) {
+        if (!sportRepository.existsById(sportId)) {
+            throw new IllegalArgumentException("Bộ môn không tồn tại");
+        }
         return classRepository.findBySportId(sportId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -135,7 +133,7 @@ public class ClassServiceImpl implements ClassService {
         Classes clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        long currentBookings = bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
+        long currentBookings = getCurrentBookingCount(classId);
         return Math.max(0, (int) (clazz.getMaxCapacity() - currentBookings));
     }
 
@@ -169,7 +167,7 @@ public class ClassServiceImpl implements ClassService {
             if (request.getMaxCapacity() <= 0) {
                 throw new IllegalArgumentException("Sức chứa lớp học phải lớn hơn 0");
             }
-            if (request.getMaxCapacity() < bookingRepository.countByClassIdAndStatus(classId, "BOOKED")) {
+            if (request.getMaxCapacity() < getCurrentBookingCount(classId)) {
                 throw new IllegalArgumentException("Sức chứa không thể nhỏ hơn số học viên đã đăng ký");
             }
             clazz.setMaxCapacity(request.getMaxCapacity());
@@ -181,9 +179,7 @@ public class ClassServiceImpl implements ClassService {
             clazz.setSportId(request.getSportId());
         }
         if (request.getCoachId() != null) {
-            if (!userRepository.existsById(request.getCoachId())) {
-                throw new IllegalArgumentException("Huấn luyện viên không tồn tại");
-            }
+            validateCoach(request.getCoachId());
             clazz.setCoachId(request.getCoachId());
         }
         if (request.getRoomId() != null) {
@@ -196,6 +192,14 @@ public class ClassServiceImpl implements ClassService {
             }
             clazz.setRoomId(request.getRoomId());
         }
+        if (request.getRequiredAccessLevel() != null) {
+            clazz.setRequiredAccessLevel(normalizeAccessLevel(request.getRequiredAccessLevel()));
+        }
+
+        // Kiểm tra xung đột lịch lần nữa sau khi áp dụng các thay đổi.
+        LocalDateTime effectiveStart = clazz.getScheduleTime();
+        int effectiveDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
+        validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), effectiveStart, effectiveDuration);
 
         Classes updatedClass = classRepository.save(clazz);
         return mapToResponse(updatedClass);
@@ -209,7 +213,7 @@ public class ClassServiceImpl implements ClassService {
         clazz.setStatus("CANCELLED");
         Classes updatedClass = classRepository.save(clazz);
 
-        // Cancel all bookings for this class
+        // Lớp bị hủy thì các lượt đăng ký của lớp cũng không còn hiệu lực.
         bookingRepository.updateBookingStatusByClass(classId, "CANCELLED");
 
         return mapToResponse(updatedClass);
@@ -219,6 +223,44 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public long getCurrentBookingCount(Integer classId) {
         return bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
+    }
+
+    private void validateNoScheduleConflict(
+            Integer excludeClassId, Integer coachId, Integer roomId, LocalDateTime start, int durationMinutes) {
+        LocalDateTime end = start.plusMinutes(durationMinutes);
+
+        List<Classes> scheduledClasses = classRepository.findAll().stream()
+                .filter(c -> "SCHEDULED".equals(c.getStatus()))
+                .filter(c -> excludeClassId == null || !c.getId().equals(excludeClassId))
+                .toList();
+
+        for (Classes other : scheduledClasses) {
+            LocalDateTime otherStart = other.getScheduleTime();
+            int otherDuration = other.getDurationMinutes() != null ? other.getDurationMinutes() : 60;
+            LocalDateTime otherEnd = otherStart.plusMinutes(otherDuration);
+
+            // Hai khoảng giờ bị trùng khi giờ bắt đầu của mỗi lớp nằm trước giờ kết thúc lớp còn lại.
+            if (start.isBefore(otherEnd) && otherStart.isBefore(end)) {
+                if (other.getCoachId().equals(coachId)) {
+                    throw new IllegalArgumentException(String.format(
+                            "Huấn luyện viên đã có lịch dạy lớp '%s' trong khung giờ %s - %s",
+                            other.getClassName(), otherStart.toLocalTime(), otherEnd.toLocalTime()));
+                }
+                if (other.getRoomId().equals(roomId)) {
+                    throw new IllegalArgumentException(String.format(
+                            "Phòng tập đã được xếp cho lớp '%s' trong khung giờ %s - %s",
+                            other.getClassName(), otherStart.toLocalTime(), otherEnd.toLocalTime()));
+                }
+            }
+        }
+    }
+
+    private void validateCoach(Integer coachId) {
+        var coach = userRepository.findById(coachId)
+                .orElseThrow(() -> new IllegalArgumentException("Huấn luyện viên không tồn tại"));
+        if (coach.getRole() == null || !"COACH".equals(coach.getRole().getRoleName())) {
+            throw new IllegalArgumentException("Tài khoản được chọn không phải huấn luyện viên");
+        }
     }
 
     private ClassResponse mapToResponse(Classes clazz) {
@@ -231,7 +273,17 @@ public class ClassServiceImpl implements ClassService {
                 .maxCapacity(clazz.getMaxCapacity())
                 .scheduleTime(clazz.getScheduleTime())
                 .durationMinutes(clazz.getDurationMinutes())
+                .requiredAccessLevel(clazz.getRequiredAccessLevel())
                 .status(clazz.getStatus())
                 .build();
+    }
+
+    private String normalizeAccessLevel(String accessLevel) {
+        String normalized = accessLevel == null || accessLevel.isBlank()
+                ? "STANDARD" : accessLevel.trim().toUpperCase();
+        if (!"STANDARD".equals(normalized) && !"VIP".equals(normalized)) {
+            throw new IllegalArgumentException("Quyền truy cập lớp chỉ được là STANDARD hoặc VIP");
+        }
+        return normalized;
     }
 }

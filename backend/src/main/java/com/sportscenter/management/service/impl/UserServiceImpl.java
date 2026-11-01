@@ -107,9 +107,30 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserResponse updateUserRole(Integer userId, Integer roleId, String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+
+        Role newRole;
+        if (roleId != null) {
+            newRole = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy vai trò với ID: " + roleId));
+        } else if (roleName != null && !roleName.isBlank()) {
+            newRole = roleRepository.findByRoleName(roleName.toUpperCase().trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy vai trò với tên: " + roleName));
+        } else {
+            throw new IllegalArgumentException("Cần cung cấp roleId hoặc roleName để cập nhật vai trò");
+        }
+
+        user.setRole(newRole);
+        User updatedUser = userRepository.save(user);
+        return mapToUserResponse(updatedUser);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Optional<User> authenticate(String email, String password) {
-        Optional<User> user = userRepository.findByEmail(email);
+        Optional<User> user = getUserByEmail(email);
         if (user.isPresent() && "ACTIVE".equals(user.get().getStatus())
                 && passwordEncoder.matches(password, user.get().getPasswordHash())) {
             return user;
@@ -140,8 +161,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public MemberProfileResponse updateProfile(Integer memberId, MemberProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin hồ sơ không được để trống");
+        }
+        User user = userRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
         MemberProfile profile = profileRepository.findById(memberId)
-                .orElse(MemberProfile.builder().memberId(memberId).build());
+                // Để ID null cho persist; @MapsId lấy khóa từ user, tránh merge nhầm hồ sơ mới.
+                .orElseGet(() -> MemberProfile.builder().build());
+        profile.setUser(user);
 
         profile.setDob(request.getDob());
         profile.setGender(request.getGender());
