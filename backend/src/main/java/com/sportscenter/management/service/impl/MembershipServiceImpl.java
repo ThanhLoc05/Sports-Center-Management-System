@@ -81,6 +81,45 @@ public class MembershipServiceImpl implements MembershipService {
     }
 
     @Override
+    public MembershipPackageResponse updatePackage(Integer packageId, MembershipPackageRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin gói tập không được để trống");
+        }
+        MembershipPackage pkg = packageRepository.findById(packageId)
+                .orElseThrow(() -> new IllegalArgumentException("Gói thành viên không tồn tại"));
+
+        if (request.getPackageName() != null && !request.getPackageName().isBlank()) {
+            pkg.setPackageName(request.getPackageName().trim());
+        }
+        if (request.getDurationDays() != null && request.getDurationDays() > 0) {
+            pkg.setDurationDays(request.getDurationDays());
+        }
+        if (request.getPrice() != null && request.getPrice().signum() > 0) {
+            pkg.setPrice(request.getPrice());
+        }
+        if (request.getAccessLevel() != null) {
+            pkg.setAccessLevel(normalizeAccessLevel(request.getAccessLevel()));
+        }
+        if (request.getDescription() != null) {
+            pkg.setDescription(request.getDescription());
+        }
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            pkg.setStatus(request.getStatus().trim().toUpperCase());
+        }
+
+        MembershipPackage updated = packageRepository.save(pkg);
+        return MembershipPackageResponse.builder()
+                .id(updated.getId())
+                .packageName(updated.getPackageName())
+                .durationDays(updated.getDurationDays())
+                .price(updated.getPrice())
+                .accessLevel(updated.getAccessLevel())
+                .description(updated.getDescription())
+                .status(updated.getStatus())
+                .build();
+    }
+
+    @Override
     public MemberSubscriptionResponse subscribeMembershipPackage(MemberSubscriptionRequest request) {
         if (request == null || request.getMemberId() == null || request.getPackageId() == null
                 || request.getStartDate() == null) {
@@ -116,7 +155,7 @@ public class MembershipServiceImpl implements MembershipService {
 
         // Tạo gói tập mới với trạng thái PENDING_PAYMENT (chờ thanh toán)
         LocalDate startDate = request.getStartDate();
-        LocalDate endDate = startDate.plusDays(pkg.getDurationDays());
+        LocalDate endDate = startDate.plusDays(pkg.getDurationDays() - 1L);
 
         MemberSubscription subscription = MemberSubscription.builder()
                 .memberId(request.getMemberId())
@@ -178,10 +217,10 @@ public class MembershipServiceImpl implements MembershipService {
         }
 
         // Gia hạn nối tiếp sau ngày hết hạn cũ hoặc từ ngày hôm nay
-        LocalDate newStartDate = oldSubscription.getEndDate().isAfter(LocalDate.now())
+        LocalDate newStartDate = oldSubscription.getEndDate() != null && oldSubscription.getEndDate().isAfter(LocalDate.now())
                 ? oldSubscription.getEndDate().plusDays(1)
                 : LocalDate.now();
-        LocalDate newEndDate = newStartDate.plusDays(pkg.getDurationDays());
+        LocalDate newEndDate = newStartDate.plusDays(pkg.getDurationDays() - 1L);
 
         MemberSubscription newSubscription = MemberSubscription.builder()
                 .memberId(oldSubscription.getMemberId())

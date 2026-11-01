@@ -93,6 +93,18 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> searchUsers(Integer roleId, String status, String keyword) {
+        String cleanKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+        String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+
+        List<User> users = userRepository.searchUsers(roleId, cleanStatus, cleanKeyword);
+        return users.stream()
+                .map(this::mapToUserResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public UserResponse updateUserStatus(Integer userId, String status) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
@@ -125,6 +137,25 @@ public class UserServiceImpl implements UserService {
         user.setRole(newRole);
         User updatedUser = userRepository.save(user);
         return mapToUserResponse(updatedUser);
+    }
+
+    @Override
+    public void changePassword(Integer userId, String oldPassword, String newPassword, boolean isAdminReset) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+
+        if (!isAdminReset) {
+            if (oldPassword == null || !passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+                throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác");
+            }
+        }
+
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     @Override

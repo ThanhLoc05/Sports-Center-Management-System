@@ -2,6 +2,7 @@ package com.sportscenter.management.service.impl;
 
 import com.sportscenter.management.dto.Request.InvoiceRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
+import com.sportscenter.management.dto.Response.RevenueSummaryResponse;
 import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.repository.InvoiceRepository;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -124,12 +126,6 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
 
-        if (invoice.getMembershipOrderId() != null) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.CONFLICT,
-                    "Hóa đơn gói phải được xác nhận trong yêu cầu gói để đồng bộ tiền và thời hạn.");
-        }
-
         if (!"PENDING".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ hóa đơn đang chờ thanh toán mới có thể được thanh toán");
         }
@@ -157,12 +153,6 @@ public class PaymentServiceImpl implements PaymentService {
     public InvoiceResponse refundInvoice(Integer invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
-
-        if (invoice.getMembershipOrderId() != null) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.CONFLICT,
-                    "Hóa đơn thuộc yêu cầu gói; luồng hoàn tiền cho yêu cầu này chưa được mở.");
-        }
 
         if (!"PAID".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hoàn tiền cho hóa đơn đã thanh toán");
@@ -194,7 +184,9 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
         }
 
-        return invoiceRepository.calculateTotalRevenue(startDate, endDate);
+        BigDecimal gross = invoiceRepository.calculateTotalRevenue(startDate, endDate);
+        BigDecimal refunded = invoiceRepository.calculateTotalRefunded(startDate, endDate);
+        return gross.subtract(refunded);
     }
 
     @Override
@@ -216,7 +208,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
         }
 
-        List<Invoice> invoices = invoiceRepository.findByPaymentStatusAndCreatedAtBetween("PAID", startDate, endDate);
+        List<Invoice> invoices = invoiceRepository.findPaidInvoicesBetween(startDate, endDate);
 
         StringBuilder report = new StringBuilder();
         invoices.stream()
@@ -225,6 +217,40 @@ public class PaymentServiceImpl implements PaymentService {
                 .forEach((method, total) -> report.append(method).append(": ").append(total).append(" VND\n"));
 
         return report.toString();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RevenueSummaryResponse getRevenueSummary(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc không được để trống");
+        }
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
+        }
+
+        BigDecimal gross = invoiceRepository.calculateTotalRevenue(startDate, endDate);
+        BigDecimal refunded = invoiceRepository.calculateTotalRefunded(startDate, endDate);
+        BigDecimal net = gross.subtract(refunded);
+        long paidCount = invoiceRepository.countPaidInvoices(startDate, endDate);
+        long refundedCount = invoiceRepository.countRefundedInvoices(startDate, endDate);
+
+        List<Invoice> paidInvoices = invoiceRepository.findPaidInvoicesBetween(startDate, endDate);
+        Map<String, BigDecimal> byMethod = paidInvoices.stream()
+                .collect(Collectors.groupingBy(Invoice::getPaymentMethod,
+                        Collectors.reducing(BigDecimal.ZERO, Invoice::getAmount, BigDecimal::add)));
+
+        return RevenueSummaryResponse.builder()
+                .startDate(startDate)
+                .endDate(endDate)
+                .totalGrossRevenue(gross)
+                .totalRefunded(refunded)
+                .netRevenue(net)
+                .totalPaidInvoices(paidCount)
+                .totalRefundedInvoices(refundedCount)
+                .revenueByMethod(byMethod)
+                .build();
     }
 
     private InvoiceResponse mapToResponse(Invoice invoice) {
@@ -249,5 +275,4 @@ public class PaymentServiceImpl implements PaymentService {
                 || "BANK_TRANSFER".equals(method) || "VNPAY".equals(method)
                 || "MOMO".equals(method) || "ZALOPAY".equals(method) || "PAYOS".equals(method);
     }
-
 }

@@ -24,6 +24,11 @@ public interface MembershipService {
     MembershipPackageResponse createPackage(MembershipPackageRequest request);
 
     /**
+     * Cập nhật thông tin gói tập (chỉ dành cho Quản lý)
+     */
+    MembershipPackageResponse updatePackage(Integer packageId, MembershipPackageRequest request);
+
+    /**
      * Create a new membership subscription for a member
      * @param request Subscription request
      * @return Created subscription response

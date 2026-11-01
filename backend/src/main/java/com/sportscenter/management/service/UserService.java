@@ -19,6 +19,8 @@ public interface UserService {
 
     List<UserResponse> getAllUsers(Integer roleId);
 
+    List<UserResponse> searchUsers(Integer roleId, String status, String keyword);
+
     UserResponse updateUserStatus(Integer userId, String status);
 
     UserResponse updateUserRole(Integer userId, Integer roleId, String roleName);
@@ -30,4 +32,6 @@ public interface UserService {
     MemberProfileResponse updateProfile(Integer memberId, MemberProfileRequest request);
 
     Optional<MemberProfileResponse> getProfile(Integer memberId);
+
+    void changePassword(Integer userId, String oldPassword, String newPassword, boolean isAdminReset);
 }

@@ -65,4 +65,19 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * @return List of matching users
      */
     List<User> findByRole_IdAndStatus(Integer roleId, String status);
+
+    /**
+     * Tìm kiếm và lọc người dùng theo vai trò, trạng thái và từ khóa (tên, email, số điện thoại)
+     */
+    @Query("SELECT u FROM User u WHERE " +
+            "(:roleId IS NULL OR u.role.id = :roleId) AND " +
+            "(:status IS NULL OR u.status = :status) AND " +
+            "(:keyword IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR u.phone LIKE CONCAT('%', :keyword, '%'))")
+    List<User> searchUsers(
+            @Param("roleId") Integer roleId,
+            @Param("status") String status,
+            @Param("keyword") String keyword
+    );
 }

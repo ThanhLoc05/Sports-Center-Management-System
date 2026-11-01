@@ -25,10 +25,40 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
     List<Invoice> findByPaymentStatusAndCreatedAtBetween(
             String paymentStatus, LocalDateTime startDate, LocalDateTime endDate);
 
-    // Thống kê tổng doanh thu theo khoảng thời gian
+    // Thống kê tổng tiền thực thu (PAID) theo thời điểm thanh toán (paidAt)
     @Query("SELECT COALESCE(SUM(i.amount), 0) FROM Invoice i " +
-            "WHERE i.paymentStatus = 'PAID' AND i.createdAt BETWEEN :startDate AND :endDate")
+            "WHERE i.paymentStatus = 'PAID' AND COALESCE(i.paidAt, i.createdAt) BETWEEN :startDate AND :endDate")
     BigDecimal calculateTotalRevenue(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    // Thống kê tổng tiền hoàn (REFUNDED) theo thời điểm hoàn tiền (refundedAt)
+    @Query("SELECT COALESCE(SUM(i.amount), 0) FROM Invoice i " +
+            "WHERE i.paymentStatus = 'REFUNDED' AND COALESCE(i.refundedAt, i.createdAt) BETWEEN :startDate AND :endDate")
+    BigDecimal calculateTotalRefunded(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    // Lấy danh sách hóa đơn đã thanh toán theo khoảng thời gian thực thu
+    @Query("SELECT i FROM Invoice i " +
+            "WHERE i.paymentStatus = 'PAID' AND COALESCE(i.paidAt, i.createdAt) BETWEEN :startDate AND :endDate")
+    List<Invoice> findPaidInvoicesBetween(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("SELECT COUNT(i) FROM Invoice i " +
+            "WHERE i.paymentStatus = 'PAID' AND COALESCE(i.paidAt, i.createdAt) BETWEEN :startDate AND :endDate")
+    long countPaidInvoices(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("SELECT COUNT(i) FROM Invoice i " +
+            "WHERE i.paymentStatus = 'REFUNDED' AND COALESCE(i.refundedAt, i.createdAt) BETWEEN :startDate AND :endDate")
+    long countRefundedInvoices(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );

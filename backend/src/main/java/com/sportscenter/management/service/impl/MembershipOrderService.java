@@ -219,8 +219,9 @@ public class MembershipOrderService {
         validateIdempotencyKey(idempotencyKey);
         MembershipOrder order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu thanh toán gói."));
-        if (gateway ? !"BANK_TRANSFER".equals(order.getPaymentMethod()) : !"CASH".equals(order.getPaymentMethod()))
-            throw conflict("Đơn QR chỉ được xác nhận qua kết nối giao dịch ngân hàng, không xác nhận tiền mặt thủ công.");
+        if (gateway && !"BANK_TRANSFER".equals(order.getPaymentMethod())) {
+            throw conflict("Giao dịch ngân hàng tự động chỉ áp dụng cho đơn thanh toán chuyển khoản.");
+        }
         String bankTransactionId = request.getBankTransactionId() == null
                 ? null : request.getBankTransactionId().trim();
         if ("BANK_TRANSFER".equals(order.getPaymentMethod()) && (bankTransactionId == null || bankTransactionId.isBlank())) {
