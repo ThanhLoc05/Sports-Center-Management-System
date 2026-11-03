@@ -1,0 +1,212 @@
+package com.sportscenter.management.service.impl;
+
+import com.sportscenter.management.dto.Request.AttendanceRequest;
+import com.sportscenter.management.dto.Response.AttendanceResponse;
+import com.sportscenter.management.entity.Attendance;
+import com.sportscenter.management.entity.ClassBooking;
+import com.sportscenter.management.entity.Classes;
+import com.sportscenter.management.repository.AttendanceRepository;
+import com.sportscenter.management.repository.ClassBookingRepository;
+import com.sportscenter.management.repository.ClassRepository;
+import com.sportscenter.management.repository.UserRepository;
+import com.sportscenter.auth.SecurityUtils;
+import com.sportscenter.management.service.AttendanceService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class AttendanceServiceImpl implements AttendanceService {
+
+    private final AttendanceRepository attendanceRepository;
+    private final ClassRepository classRepository;
+    private final ClassBookingRepository bookingRepository;
+    private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
+
+    @Override
+    public AttendanceResponse checkInMember(AttendanceRequest request) {
+        if (request == null || request.getClassId() == null || request.getMemberId() == null) {
+            throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
+        }
+        // Kiểm tra lớp cần điểm danh có tồn tại.
+        Classes clazz = classRepository.findById(request.getClassId())
+                .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
+
+        // Kiểm tra hội viên có tồn tại.
+        if (!userRepository.existsById(request.getMemberId())) {
+            throw new IllegalArgumentException("Thành viên không tồn tại");
+        }
+
+        // RÀNG BUỘC CHẶT CHẼ: Học viên phải có lượt đặt chỗ BOOKED cho lớp học này
+        Optional<ClassBooking> bookingOpt = bookingRepository.findByClassIdAndMemberId(request.getClassId(), request.getMemberId());
+        if (bookingOpt.isEmpty() || !"BOOKED".equals(bookingOpt.get().getStatus())) {
+            throw new IllegalArgumentException("Học viên chưa đăng ký hoặc đã hủy đặt chỗ cho lớp học này. Không thể điểm danh.");
+        }
+
+        // Không tin mã người điểm danh do client gửi lên; lấy danh tính từ tài khoản đã xác thực.
+        Integer checkedInBy = securityUtils.getCurrentUserId();
+        if (checkedInBy == null) {
+            throw new IllegalArgumentException("Người điểm danh là bắt buộc");
+        }
+
+        // Kiểm tra tài khoản của người đang đăng nhập còn tồn tại.
+        if (!userRepository.existsById(checkedInBy)) {
+            throw new IllegalArgumentException("Người điểm danh không tồn tại");
+        }
+
+        // BẢO MẬT: Nếu người điểm danh là HLV (không phải Quản lý hay Lễ tân),
+        // HLV đó bắt buộc phải là người được phân công phụ trách lớp học này
+        if (securityUtils.isCoach() && !securityUtils.isCenterManager() && !securityUtils.isReceptionist()) {
+            if (!checkedInBy.equals(clazz.getCoachId())) {
+                throw new IllegalArgumentException("Huấn luyện viên không được phân công phụ trách lớp học này");
+            }
+        }
+
+        // Chỉ chấp nhận trạng thái có mặt hoặc vắng mặt.
+        if (!isValidAttendanceStatus(request.getStatus())) {
+            throw new IllegalArgumentException("Trạng thái điểm danh không hợp lệ");
+        }
+
+        // Một hội viên chỉ có một bản ghi điểm danh cho mỗi lớp.
+        Optional<Attendance> existing = attendanceRepository
+                .findByClassIdAndMemberId(request.getClassId(), request.getMemberId());
+
+        if (existing.isPresent()) {
+            throw new IllegalArgumentException("Thành viên đã được điểm danh cho lớp này");
+        }
+
+        Attendance attendance = Attendance.builder()
+                .classId(request.getClassId())
+                .memberId(request.getMemberId())
+                .checkedInBy(checkedInBy)
+                .checkedInAt(LocalDateTime.now())
+                .status(request.getStatus() != null ? request.getStatus() : "PRESENT")
+                .build();
+
+        Attendance savedAttendance = attendanceRepository.save(attendance);
+        return mapToResponse(savedAttendance);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AttendanceResponse> getAttendanceById(Integer attendanceId) {
+        return attendanceRepository.findById(attendanceId)
+                .map(this::mapToResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceResponse> getClassAttendance(Integer classId) {
+        if (!classRepository.existsById(classId)) {
+            throw new IllegalArgumentException("Lớp học không tồn tại");
+        }
+
+        return attendanceRepository.findByClassId(classId).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceResponse> getMemberAttendanceHistory(Integer memberId, LocalDate startDate, LocalDate endDate) {
+        if (!userRepository.existsById(memberId)) {
+            throw new IllegalArgumentException("Thành viên không tồn tại");
+        }
+
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc không được để trống");
+        }
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay().minusNanos(1);
+
+        return attendanceRepository.findByMemberIdAndCheckedInAtBetween(memberId, startDateTime, endDateTime)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public double getMemberAttendanceRate(Integer memberId) {
+        if (!userRepository.existsById(memberId)) {
+            throw new IllegalArgumentException("Thành viên không tồn tại");
+        }
+
+        List<Attendance> allAttendances = attendanceRepository.findByMemberId(memberId);
+
+        if (allAttendances.isEmpty()) {
+            return 0.0;
+        }
+
+        long presentCount = allAttendances.stream()
+                .filter(a -> "PRESENT".equals(a.getStatus()))
+                .count();
+
+        return (double) presentCount / allAttendances.size() * 100;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getAttendanceCount(Integer memberId, LocalDate startDate, LocalDate endDate) {
+        if (!userRepository.existsById(memberId)) {
+            throw new IllegalArgumentException("Thành viên không tồn tại");
+        }
+
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc không được để trống");
+        }
+
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay().minusNanos(1);
+
+        return (int) attendanceRepository.findByMemberIdAndCheckedInAtBetween(memberId, startDateTime, endDateTime)
+                .stream()
+                .filter(a -> "PRESENT".equals(a.getStatus()))
+                .count();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceResponse> getAbsenteeList(Integer classId) {
+        if (!classRepository.existsById(classId)) {
+            throw new IllegalArgumentException("Lớp học không tồn tại");
+        }
+
+        return attendanceRepository.findByClassIdAndStatus(classId, "ABSENT").stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private AttendanceResponse mapToResponse(Attendance attendance) {
+        return AttendanceResponse.builder()
+                .id(attendance.getId())
+                .classId(attendance.getClassId())
+                .memberId(attendance.getMemberId())
+                .checkedInBy(attendance.getCheckedInBy())
+                .checkedInAt(attendance.getCheckedInAt())
+                .status(attendance.getStatus())
+                .build();
+    }
+
+    private boolean isValidAttendanceStatus(String status) {
+        return status == null || status.equals("PRESENT") || status.equals("ABSENT");
+    }
+}

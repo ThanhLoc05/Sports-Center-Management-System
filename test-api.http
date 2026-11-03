@@ -1,0 +1,436 @@
+### ============================================================================
+### SPORTS CENTER MANAGEMENT SYSTEM - API TEST ENDPOINTS
+### ============================================================================
+
+### Base Configuration
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### Replace these with actual valid tokens from your authentication
+@memberToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwaHVjdmluaEBnbWFpbC5jb20iLCJpYXQiOjE3OTI1NjcwNjYsImV4cCI6MTc5MjU3MDY2Nn0.vwghj_fOY-N8kdUT-ZDp40v7xuCk-A8_WuPYs1ds7GA
+@managerToken = Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtYW5hZ2VyQGdtYWlsLmNvbSIsImlhdCI6MTc5MjU2NTIyNywiZXhwIjoxNzkyNTY4ODI3fQ.gaZYdWKZEynCeSv_4HLm8gzsac_MpVpDzc02Qq10mGw
+
+### ============================================================================
+### FLOW 1: MEMBERSHIP SUBSCRIPTION (POST /api/v1/memberships/subscribe)
+### ============================================================================
+
+### 1.1 Subscribe to a membership package (Basic)
+POST {{baseUrl}}/api/v1/memberships/subscribe
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 1007,
+  "packageId": 2,
+  "startDate": "2026-10-21"
+}
+
+### 1.2 Subscribe with different package (Premium package)
+POST {{baseUrl}}/api/v1/memberships/subscribe
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 5,
+  "packageId": 3,
+  "startDate": "2026-10-07"
+}
+
+### 1.3 Subscribe with standard package (3-month plan)
+POST {{baseUrl}}/api/v1/memberships/subscribe
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 6,
+  "packageId": 2,
+  "startDate": "2026-10-01"
+}
+
+### 1.4 Get active membership for a member
+GET {{baseUrl}}/api/v1/memberships/members/1004/active
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.5 Get membership history for a member
+GET {{baseUrl}}/api/v1/memberships/members/1004
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.6 Get subscription expiration date
+GET {{baseUrl}}/api/v1/memberships/members/4/expiration
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.7 Renew a subscription with new package
+POST {{baseUrl}}/api/v1/memberships/6/renew?packageId=2
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 1.8 Cancel a subscription
+POST {{baseUrl}}/api/v1/memberships/1002/cancel
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 2: CLASS BOOKING (POST /api/v1/classes/{classId}/book)
+### ============================================================================
+
+### 2.1 Book a class (Basic booking)
+POST {{baseUrl}}/api/v1/classes/3/book?memberId=6
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.2 Book a different class
+POST {{baseUrl}}/api/v1/classes/2/book?memberId=1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.3 Book a class for another member
+POST {{baseUrl}}/api/v1/classes/3/book?memberId=2
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.4 Book a class for a third member
+POST {{baseUrl}}/api/v1/classes/4/book?memberId=3
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.5 Get a specific booking details
+GET {{baseUrl}}/api/v1/bookings/1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.6 Get all bookings for a specific class
+GET {{baseUrl}}/api/v1/classes/1/bookings
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.7 Get all bookings for a specific member
+GET {{baseUrl}}/api/v1/members/1/bookings
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.8 Cancel a booking
+DELETE {{baseUrl}}/api/v1/bookings/1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.9 Get all bookings for a member (alternative endpoint)
+GET {{baseUrl}}/api/v1/members/2/bookings
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 2.10 Book multiple classes (Sequential bookings for same member)
+POST {{baseUrl}}/api/v1/classes/5/book?memberId=1
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 3: REVENUE REPORTS (GET /api/v1/reports/revenue)
+### ============================================================================
+
+### 3.1 Get revenue report for current month (October 2026)
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-10-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.2 Get revenue report for Q4 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-12-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.3 Get revenue report for last 30 days
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-09-07T00:00:00&endDate=2026-10-07T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.4 Get revenue report for year 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-01-01T00:00:00&endDate=2026-12-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.5 Get revenue report for first half of 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-01-01T00:00:00&endDate=2026-06-30T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.6 Get revenue report for second half of 2026
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-07-01T00:00:00&endDate=2026-12-31T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.7 Get revenue report with manager token (Requires CENTER_MANAGER role)
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-10-07T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 3.8 Attempt to get revenue report without proper authorization (Should fail)
+GET {{baseUrl}}/api/v1/reports/revenue?startDate=2026-10-01T00:00:00&endDate=2026-10-07T23:59:59
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+
+### ============================================================================
+### FLOW 4: CLASS MANAGEMENT
+### ============================================================================
+
+### 4.1 Create a class and assign a coach (Manager or Center Manager only)
+POST {{baseUrl}}/api/v1/classes
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "className": "Beginner Yoga",
+  "sportId": 2,
+  "coachId": 3,
+  "roomId": 1,
+  "maxCapacity": 15,
+  "scheduleTime": "2026-12-01T10:00:00",
+  "durationMinutes": 60
+}
+
+### 4.2 Attempt to create a class with a member token (expected: 403 Forbidden)
+POST {{baseUrl}}/api/v1/classes
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "className": "Beginner Yoga",
+  "sportId": 1,
+  "coachId": 2,
+  "roomId": 1,
+  "maxCapacity": 15,
+  "scheduleTime": "2026-12-01T10:00:00",
+  "durationMinutes": 60
+}
+
+### ============================================================================
+### FLOW 5: SPORTS MANAGEMENT
+### ============================================================================
+
+### 5.1 List sports (public)
+GET {{baseUrl}}/api/v1/sports
+Content-Type: {{contentType}}
+
+### 5.2 Add a sport (Manager or Center Manager only)
+POST {{baseUrl}}/api/v1/sports
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "sportName": "Yoga",
+  "description": "Cân bằng năng lượng cơ thể và thư giản tinh thần"
+}
+
+### 5.3 Attempt to add a sport with a member token (expected: 403 Forbidden)
+POST {{baseUrl}}/api/v1/sports
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "sportName": "Pilates",
+  "description": "Bộ môn rèn luyện sức mạnh và độ dẻo dai"
+}
+
+### ============================================================================
+### FLOW 6: ROOM MANAGEMENT
+### ============================================================================
+
+### 6.1 List rooms (public)
+GET {{baseUrl}}/api/v1/rooms
+Content-Type: {{contentType}}
+
+### 6.2 Add a room (Manager or Center Manager only)
+POST {{baseUrl}}/api/v1/rooms
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "roomName": "Studio B",
+  "capacity": 20
+}
+
+### 6.3 Attempt to add a room with a member token (expected: 403 Forbidden)
+POST {{baseUrl}}/api/v1/rooms
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "roomName": "Studio C",
+  "capacity": 12
+}
+
+### Register a new member
+POST {{baseUrl}}/api/v1/users/register
+Content-Type: {{contentType}}
+
+{
+  "email": "phucvinh@gmail.com",
+  "password": "phucvinh",
+  "fullName": "Tran Phuc Vinh",
+  "phone": "0345887992"
+}
+
+### Login to get access token
+POST {{baseUrl}}/api/v1/users/login
+Content-Type: {{contentType}}
+
+{
+  "email": "phucvinh@gmail.com",
+  "password": "phucvinh"
+}
+
+### Get user details
+GET {{baseUrl}}/api/v1/users/4
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+
+### ============================================================================
+### FLOW 7: USER MANAGEMENT & ROLE UPDATE (Manager only)
+### ============================================================================
+
+### 7.1 Update user role to COACH
+PATCH {{baseUrl}}/api/v1/users/4/role?roleName=COACH
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 7.2 Update user role to RECEPTIONIST
+PATCH {{baseUrl}}/api/v1/users/5/role?roleName=RECEPTIONIST
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### ============================================================================
+### FLOW 8: WORKOUT PLANS (K? HO?CH H?C T?P)
+### ============================================================================
+
+### 8.1 Create a workout plan for a member (Coach/Manager only)
+POST {{baseUrl}}/api/v1/workout-plans
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "title": "Gi�o �n tang co gi?m m? 4 tu?n",
+  "coachId": 3,
+  "memberId": 6,
+  "description": "Tu?n 1-2: Cardio k?t h?p t? nh?. Tu?n 3-4: Tang kh?i lu?ng t?, t?p ng?c/ch�n/lung."
+}
+
+### 8.2 Get workout plans for a member
+GET {{baseUrl}}/api/v1/workout-plans/member/6
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 9: WORKOUT LOGS (NH?T K� K?T QU? T?P LUY?N)
+### ============================================================================
+
+### 9.1 Member or Coach logs exercises after a workout
+POST {{baseUrl}}/api/v1/workout-logs
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "memberId": 6,
+  "coachId": 3,
+  "feedbackFromCoach": "H?c vi�n t?p d�ng form, th? l?c t?t",
+  "details": [
+    {
+      "exerciseName": "Bench Press",
+      "sets": 4,
+      "reps": 10,
+      "weightKg": 40.0
+    },
+    {
+      "exerciseName": "Squat",
+      "sets": 4,
+      "reps": 12,
+      "weightKg": 50.0
+    }
+  ]
+}
+
+### 9.2 Get workout logs for a member
+GET {{baseUrl}}/api/v1/workout-logs/member/6
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### ============================================================================
+### FLOW 10: FEEDBACK & REVIEWS (��NH GI� & NH?N X�T)
+### ============================================================================
+
+### 10.1 Member reviews a Coach
+POST {{baseUrl}}/api/v1/feedbacks
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "fromUserId": 6,
+  "toUserId": 3,
+  "rating": 5,
+  "comment": "Hu?n luy?n vi�n r?t nhi?t t�nh v� hu?ng d?n chu?n form!",
+  "type": "MEMBER_TO_COACH"
+}
+
+### 10.2 Get feedbacks and average rating for a Coach
+GET {{baseUrl}}/api/v1/feedbacks/coach/3
+Content-Type: {{contentType}}
+
+
+### ============================================================================
+### FLOW 11: SUPPORT TICKETS (H? TR? TH�NH VI�N)
+### ============================================================================
+
+### 11.1 Member creates a support ticket
+POST {{baseUrl}}/api/v1/support-tickets
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+{
+  "subject": "Y�u c?u d?i gi? t?p l?p Yoga",
+  "content": "T�i b?n c�ng t�c v�o th? 2, mong trung t�m h? tr? chuy?n sang l?p th? 4."
+}
+
+### 11.2 Member views their own support tickets
+GET {{baseUrl}}/api/v1/support-tickets/my
+Content-Type: {{contentType}}
+Authorization: {{memberToken}}
+
+### 11.3 Receptionist/Manager lists all open tickets
+GET {{baseUrl}}/api/v1/support-tickets?status=OPEN
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+### 11.4 Receptionist resolves a support ticket
+PATCH {{baseUrl}}/api/v1/support-tickets/1/resolve
+Content-Type: {{contentType}}
+Authorization: {{managerToken}}
+
+{
+  "response": "L? t�n d� h? tr? chuy?n l?ch h?c sang th? 4 th�nh c�ng cho b?n."
+}
+
+### ============================================================================
+### NOTES:
+### ============================================================================
+###
+### Before running these tests:
+### 1. Start the Spring Boot application: ./mvnw.cmd spring-boot:run
+### 2. Ensure SQL Server database is running with SportsCenterDB schema
+### 3. Replace @memberToken with actual token from login endpoint
+### 4. Replace @managerToken with token from a CENTER_MANAGER user.
+###    The register endpoint below creates a MEMBER, not a manager account.
+### 5. Adjust memberId, packageId, and classId based on your database data
+### 6. For class creation, use existing sportId, coachId (a COACH user), roomId,
+###    and a scheduleTime in the future
+###
+### Expected Results:
+### - Flow 1: Subscription should return 201 with subscription details
+### - Flow 2: Booking should return 201 with booking details
+### - Flow 3: Revenue report should return 200 with BigDecimal total (Manager only)
+### - Flow 4: Class creation should return 201 with the new class details
+### - Flow 5: Adding a sport should return 201; listing sports should return 200
+### - Flow 6: Adding a room should return 201; listing rooms should return 200
+###
+### ============================================================================
