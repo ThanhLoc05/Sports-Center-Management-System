@@ -197,6 +197,12 @@ public class ClassServiceImpl implements ClassService {
         }
 
         // Kiểm tra xung đột lịch lần nữa sau khi áp dụng các thay đổi.
+        var effectiveRoom = roomRepository.findById(clazz.getRoomId())
+                .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
+        if (clazz.getMaxCapacity() > effectiveRoom.getCapacity()) {
+            throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
+        }
+
         LocalDateTime effectiveStart = clazz.getScheduleTime();
         int effectiveDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
         validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), effectiveStart, effectiveDuration);

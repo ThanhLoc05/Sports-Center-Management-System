@@ -7,10 +7,13 @@ import com.sportscenter.management.dto.Response.WorkoutLogDetailResponse;
 import com.sportscenter.management.dto.Response.WorkoutLogResponse;
 import com.sportscenter.management.entity.WorkoutLog;
 import com.sportscenter.management.entity.WorkoutLogDetail;
+import com.sportscenter.management.repository.ClassBookingRepository;
+import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.repository.WorkoutLogRepository;
 import com.sportscenter.management.service.WorkoutLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,8 @@ public class WorkoutLogServiceImpl implements WorkoutLogService {
 
     private final WorkoutLogRepository logRepository;
     private final UserRepository userRepository;
+    private final ClassRepository classRepository;
+    private final ClassBookingRepository bookingRepository;
     private final SecurityUtils securityUtils;
 
     @Override
@@ -35,16 +40,42 @@ public class WorkoutLogServiceImpl implements WorkoutLogService {
             throw new IllegalArgumentException("Thông tin nhật ký và học viên là bắt buộc");
         }
 
-        if (!userRepository.existsById(request.getMemberId())) {
-            throw new IllegalArgumentException("Học viên không tồn tại");
+        var member = userRepository.findById(request.getMemberId())
+                .orElseThrow(() -> new IllegalArgumentException("Học viên không tồn tại"));
+        if (member.getRole() == null || !"MEMBER".equals(member.getRole().getRoleName())) {
+            throw new IllegalArgumentException("Tài khoản được chọn không phải thành viên");
         }
 
-        Integer coachId = request.getCoachId() != null
-                ? request.getCoachId()
-                : securityUtils.getCurrentUserId();
-
+        Integer coachId = securityUtils.isCoach()
+                ? securityUtils.getCurrentUserId()
+                : request.getCoachId();
         if (coachId == null) {
-            coachId = request.getMemberId(); // Trường hợp học viên tự ghi nhật ký cá nhân
+            throw new IllegalArgumentException("Huấn luyện viên là bắt buộc");
+        }
+        var coach = userRepository.findById(coachId)
+                .orElseThrow(() -> new IllegalArgumentException("Huấn luyện viên không tồn tại"));
+        if (coach.getRole() == null || !"COACH".equals(coach.getRole().getRoleName())) {
+            throw new IllegalArgumentException("Tài khoản được chọn không phải huấn luyện viên");
+        }
+
+        if (request.getScheduleId() != null) {
+            var clazz = classRepository.findById(request.getScheduleId())
+                    .orElseThrow(() -> new IllegalArgumentException("Lớp được chọn không tồn tại"));
+            if (!coachId.equals(clazz.getCoachId())) {
+                throw new AccessDeniedException("Huấn luyện viên không được phân công phụ trách lớp này");
+            }
+            var booking = bookingRepository.findByClassIdAndMemberId(request.getScheduleId(), request.getMemberId());
+            if (booking.isEmpty() || !"BOOKED".equals(booking.get().getStatus())) {
+                throw new IllegalArgumentException("Thành viên chưa có đăng ký còn hiệu lực cho lớp này");
+            }
+        } else if (securityUtils.isCoach()) {
+            boolean assigned = classRepository.findByCoachId(coachId).stream()
+                    .anyMatch(clazz -> bookingRepository.findByClassIdAndMemberId(clazz.getId(), request.getMemberId())
+                            .filter(booking -> "BOOKED".equals(booking.getStatus()))
+                            .isPresent());
+            if (!assigned) {
+                throw new AccessDeniedException("Chỉ có thể ghi kết quả cho học viên đang đăng ký lớp do HLV phụ trách");
+            }
         }
 
         WorkoutLog log = WorkoutLog.builder()

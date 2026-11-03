@@ -22,14 +22,26 @@ function session(role: Role = "CENTER_MANAGER", demo = false) {
 function server() {
   const rooms = [room], sports = [sport];
   return vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
-    const path = String(url), post = init?.method === "POST";
+    const path = String(url), method = init?.method || "GET";
     if (path === "/api/v1/rooms") {
-      if (post) rooms.push({ ...JSON.parse(String(init?.body)), id: 82 });
-      return json(post ? rooms.at(-1) : rooms, post ? 201 : 200);
+      if (method === "POST") rooms.push({ ...JSON.parse(String(init?.body)), id: 82 });
+      return json(method === "POST" ? rooms.at(-1) : rooms, method === "POST" ? 201 : 200);
     }
     if (path === "/api/v1/sports") {
-      if (post) sports.push({ ...JSON.parse(String(init?.body)), id: 92 });
-      return json(post ? sports.at(-1) : sports, post ? 201 : 200);
+      if (method === "POST") sports.push({ ...JSON.parse(String(init?.body)), id: 92 });
+      return json(method === "POST" ? sports.at(-1) : sports, method === "POST" ? 201 : 200);
+    }
+    const roomMatch = path.match(/^\/api\/v1\/rooms\/(\d+)$/);
+    if (roomMatch && method === "PUT") {
+      const current = rooms.find(item => item.id === Number(roomMatch[1]))!;
+      Object.assign(current, JSON.parse(String(init?.body)));
+      return json(current);
+    }
+    const sportMatch = path.match(/^\/api\/v1\/sports\/(\d+)$/);
+    if (sportMatch && method === "PUT") {
+      const current = sports.find(item => item.id === Number(sportMatch[1]))!;
+      Object.assign(current, JSON.parse(String(init?.body)));
+      return json(current);
     }
     throw Error("Unexpected request " + path);
   });
@@ -142,12 +154,33 @@ describe("Rooms/Sports — API catalog", () => {
     page(true); expect(await screen.findByRole("heading", { name: "Không có quyền truy cập" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Thêm phòng tập" })).not.toBeInTheDocument(); expect(posts()).toHaveLength(0);
   });
-  it("does not send PUT/PATCH/DELETE from the pending editor", async () => {
-    session(); vi.stubGlobal("fetch", server()); page(); await screen.findByText(room.roomName);
-    await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa phòng" }));
-    const dialog = within(screen.getByRole("dialog")); await userEvent.click(dialog.getByRole("button", { name: "Xem lại thay đổi" }));
-    expect(dialog.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled();
-    expect(vi.mocked(fetch).mock.calls.every(([, init]) => !["PUT", "PATCH", "DELETE"].includes(init?.method || "GET"))).toBe(true);
+  it.each(["rooms", "sports"])("updates %s through its existing PUT endpoint", async tab => {
+    session(); vi.stubGlobal("fetch", server()); const client = page();
+    await screen.findByText(room.roomName);
+    if (tab === "sports") {
+      await userEvent.click(screen.getByRole("button", { name: "Bộ môn" }));
+      await screen.findByText(sport.sportName);
+    }
+    await userEvent.click(screen.getByRole("button", { name: tab === "rooms" ? "Chỉnh sửa phòng" : "Chỉnh sửa bộ môn" }));
+    const dialog = within(screen.getByRole("dialog"));
+    const nameLabel = tab === "rooms" ? "Tên phòng" : "Tên bộ môn";
+    await userEvent.clear(dialog.getByLabelText(nameLabel));
+    await userEvent.type(dialog.getByLabelText(nameLabel), "Tên đã sửa");
+    if (tab === "rooms") {
+      await userEvent.clear(dialog.getByLabelText("Sức chứa"));
+      await userEvent.type(dialog.getByLabelText("Sức chứa"), "31");
+    } else {
+      await userEvent.clear(dialog.getByLabelText("Mô tả"));
+      await userEvent.type(dialog.getByLabelText("Mô tả"), "Mô tả mới");
+    }
+    await userEvent.click(dialog.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(await screen.findByText("Đã cập nhật danh mục.")).toBeVisible();
+    const [url, init] = vi.mocked(fetch).mock.calls.find(([, call]) => call?.method === "PUT")!;
+    expect(url).toBe(`/api/v1/${tab}/${tab === "rooms" ? room.id : sport.id}`);
+    expect(JSON.parse(String(init?.body))).toEqual(tab === "rooms"
+      ? { roomName: "Tên đã sửa", capacity: 31 }
+      : { sportName: "Tên đã sửa", description: "Mô tả mới" });
+    client.clear();
   });
   it("keeps demo mode local without API requests", async () => {
     session("CENTER_MANAGER", true); vi.stubGlobal("fetch", vi.fn()); page();

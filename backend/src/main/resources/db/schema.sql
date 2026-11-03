@@ -1,5 +1,5 @@
 /*
-  SportsCenterDB — tạo mới hoặc bổ sung cấu trúc thiếu cho database local cũ.
+  SportCenterDB — bổ sung cấu trúc thiếu cho database local cũ hoặc database mới.
   Cập nhật 30/10/2026: đồng bộ schema với backend mới, giữ dữ liệu hiện có.
   - Chọn đúng database của dự án trong SSMS và sao lưu trước khi Execute.
   - Chỉ thêm cột/bảng thiếu; không DROP/TRUNCATE bảng, không xóa tài khoản/hóa đơn.

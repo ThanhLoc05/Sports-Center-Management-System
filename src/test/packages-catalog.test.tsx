@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../lib/auth";
 import { ToastProvider } from "../components/ui";
-import { PackagesPage } from "../pages/Management";
+import ApiPackages from "../components/ApiPackages";
 import * as demo from "../lib/demo";
 import { money } from "../lib/utils";
 import type { MembershipPackage } from "../lib/types";
@@ -44,7 +44,7 @@ function page() {
       <AuthProvider>
         <ToastProvider>
           <MemoryRouter>
-            <PackagesPage />
+            <ApiPackages />
           </MemoryRouter>
         </ToastProvider>
       </AuthProvider>
@@ -228,6 +228,47 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
             url === "/api/v1/memberships/packages" &&
             (!init?.method || init.method === "GET"),
         ),
+    ).toBe(true);
+    client.clear();
+  });
+
+  it("updates a package through the backend PUT endpoint and refreshes the catalog", async () => {
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      if (String(url) === "/api/v1/memberships/packages/87" && init?.method === "PUT") {
+        return json({
+          ...catalog[0],
+          ...JSON.parse(String(init.body)),
+        });
+      }
+      return json(catalog);
+    });
+    const client = page();
+    expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
+    const row = within(screen.getByText(catalog[0].packageName).closest("tr")!);
+    await userEvent.click(row.getByRole("button", { name: "Chỉnh sửa gói" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Chỉnh sửa gói tập" }));
+    await userEvent.clear(dialog.getByLabelText("Tên gói"));
+    await userEvent.type(dialog.getByLabelText("Tên gói"), "Gói đã cập nhật");
+    await userEvent.clear(dialog.getByLabelText("Học phí (VND)"));
+    await userEvent.type(dialog.getByLabelText("Học phí (VND)"), "680000");
+    await userEvent.click(dialog.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(await screen.findByText("Đã cập nhật gói tập.")).toBeVisible();
+    const [url, init] = vi.mocked(fetch).mock.calls.find(([, call]) => call?.method === "PUT")!;
+    expect(url).toBe("/api/v1/memberships/packages/87");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      packageName: "Gói đã cập nhật",
+      price: 680000,
+      durationDays: 31,
+      accessLevel: "STANDARD",
+      description: "Quyền học lớp tiêu chuẩn.",
+      status: "ACTIVE",
+    });
+    expect(
+      vi.mocked(fetch).mock.calls.some(([requestUrl, requestInit]) =>
+        requestUrl === "/api/v1/memberships/packages" &&
+        (!requestInit?.method || requestInit.method === "GET"),
+      ),
     ).toBe(true);
     client.clear();
   });

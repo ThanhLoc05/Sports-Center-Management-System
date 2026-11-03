@@ -4,16 +4,19 @@ import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.dto.Request.WorkoutPlanRequest;
 import com.sportscenter.management.dto.Response.WorkoutPlanResponse;
 import com.sportscenter.management.entity.WorkoutPlan;
-import com.sportscenter.management.repository.WorkoutPlanRepository;
-import com.sportscenter.management.repository.UserRepository;
+import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
+import com.sportscenter.management.repository.UserRepository;
+import com.sportscenter.management.repository.WorkoutPlanRepository;
 import com.sportscenter.management.service.WorkoutPlanService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -25,6 +28,7 @@ public class WorkoutPlanServiceImpl implements WorkoutPlanService {
     private final WorkoutPlanRepository planRepository;
     private final UserRepository userRepository;
     private final ClassRepository classRepository;
+    private final ClassBookingRepository bookingRepository;
     private final SecurityUtils securityUtils;
 
     @Override
@@ -33,9 +37,9 @@ public class WorkoutPlanServiceImpl implements WorkoutPlanService {
             throw new IllegalArgumentException("Thông tin kế hoạch không được để trống");
         }
 
-        Integer coachId = request.getCoachId() != null
-                ? request.getCoachId()
-                : securityUtils.getCurrentUserId();
+        Integer coachId = securityUtils.isCoach()
+                ? securityUtils.getCurrentUserId()
+                : request.getCoachId();
 
         var coach = coachId == null ? Optional.<com.sportscenter.management.entity.User>empty()
                 : userRepository.findById(coachId);
@@ -54,9 +58,12 @@ public class WorkoutPlanServiceImpl implements WorkoutPlanService {
                     || !"MEMBER".equals(member.get().getRole().getRoleName())) {
                 throw new IllegalArgumentException("Hội viên không tồn tại hoặc không phải tài khoản MEMBER");
             }
+            if (securityUtils.isCoach()) {
+                validateCoachHasMember(coachId, request.getMemberId());
+            }
         }
-        if (request.getClassId() != null && !classRepository.existsById(request.getClassId())) {
-            throw new IllegalArgumentException("Lớp được chọn không tồn tại");
+        if (request.getClassId() != null) {
+            validateCoachOwnsClass(coachId, request.getClassId());
         }
         if (request.getTitle() == null || request.getTitle().isBlank()
                 || request.getDescription() == null || request.getDescription().isBlank()) {
@@ -100,13 +107,14 @@ public class WorkoutPlanServiceImpl implements WorkoutPlanService {
                     || !"MEMBER".equals(member.get().getRole().getRoleName())) {
                 throw new IllegalArgumentException("Hội viên không tồn tại hoặc không phải tài khoản MEMBER");
             }
+            if (securityUtils.isCoach()) {
+                validateCoachHasMember(plan.getCoachId(), request.getMemberId());
+            }
             plan.setMemberId(request.getMemberId());
             plan.setClassId(null);
         }
         if (request.getClassId() != null) {
-            if (!classRepository.existsById(request.getClassId())) {
-                throw new IllegalArgumentException("Lớp được chọn không tồn tại");
-            }
+            validateCoachOwnsClass(plan.getCoachId(), request.getClassId());
             plan.setClassId(request.getClassId());
             plan.setMemberId(null);
         }
@@ -163,5 +171,23 @@ public class WorkoutPlanServiceImpl implements WorkoutPlanService {
                 .description(plan.getDescription())
                 .createdAt(plan.getCreatedAt())
                 .build();
+    }
+
+    private void validateCoachOwnsClass(Integer coachId, Integer classId) {
+        var clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new IllegalArgumentException("Lớp được chọn không tồn tại"));
+        if (!Objects.equals(clazz.getCoachId(), coachId)) {
+            throw new AccessDeniedException("Chỉ HLV được phân công cho lớp mới có thể lập giáo án lớp đó");
+        }
+    }
+
+    private void validateCoachHasMember(Integer coachId, Integer memberId) {
+        boolean assigned = classRepository.findByCoachId(coachId).stream()
+                .anyMatch(clazz -> bookingRepository.findByClassIdAndMemberId(clazz.getId(), memberId)
+                        .filter(booking -> "BOOKED".equals(booking.getStatus()))
+                        .isPresent());
+        if (!assigned) {
+            throw new AccessDeniedException("Chỉ có thể lập giáo án cho học viên đang đăng ký lớp do HLV phụ trách");
+        }
     }
 }

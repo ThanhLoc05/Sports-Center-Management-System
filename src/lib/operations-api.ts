@@ -175,15 +175,14 @@ export const operations = {
   },
   createPackage(input: PackageInput) {
     role(["CENTER_MANAGER", "MANAGER"]);
-    if (
-      !input.packageName.trim() ||
-      !Number.isSafeInteger(input.durationDays) ||
-      input.durationDays < 1 ||
-      !Number.isSafeInteger(input.price) ||
-      input.price < 1
-    )
-      throw new ApiError("Tên, thời hạn và giá gói phải hợp lệ.");
-    return send("/memberships/packages", "POST", input);
+    validatePackage(input);
+    return send("/memberships/packages", "POST", normalizedPackage(input));
+  },
+  updatePackage(packageId: number, input: PackageInput) {
+    role(["CENTER_MANAGER", "MANAGER"]);
+    id(packageId);
+    validatePackage(input);
+    return send(`/memberships/packages/${packageId}`, "PUT", normalizedPackage(input));
   },
   createSport(sportName: string, description: string) {
     role(["CENTER_MANAGER", "MANAGER"]);
@@ -200,6 +199,33 @@ export const operations = {
     role(["CENTER_MANAGER", "MANAGER"]);
     if (!roomName.trim() || !Number.isSafeInteger(capacity) || capacity < 1)
       throw new ApiError("Nhập tên và sức chứa phòng hợp lệ.");
-    return send("/rooms", "POST", { roomName: roomName.trim(), capacity });
+    return send("/rooms", "POST", {
+      roomName: roomName.trim(),
+      capacity,
+    });
   },
 };
+
+function validatePackage(input: PackageInput) {
+  if (
+    !input.packageName.trim() ||
+    !Number.isSafeInteger(input.durationDays) ||
+    input.durationDays < 1 ||
+    !Number.isSafeInteger(input.price) ||
+    input.price < 1 ||
+    input.description.length > 255 ||
+    !["STANDARD", "VIP"].includes(input.accessLevel) ||
+    !["ACTIVE", "INACTIVE"].includes(input.status)
+  )
+    throw new ApiError(
+      "Tên, thời hạn, giá, mô tả tối đa 255 ký tự, cấp độ và trạng thái gói phải hợp lệ.",
+    );
+}
+
+function normalizedPackage(input: PackageInput): PackageInput {
+  return {
+    ...input,
+    packageName: input.packageName.trim(),
+    description: input.description.trim(),
+  };
+}

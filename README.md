@@ -28,7 +28,7 @@ Copy-Item .env.example .env.local
 
 Xin nhóm Backend thông tin instance, database riêng và cách xác thực được phép sử dụng. Clone/pull không tạo database hoặc tài khoản. Không mặc định database trên máy khác có cùng tên, schema hoặc dữ liệu.
 
-Schema và migration nằm trong `backend/src/main/resources/db/`. Chỉ áp dụng script sau khi đã kiểm tra database đích và được nhóm duyệt. Không chạy toàn bộ schema hoặc script recreate trên database có dữ liệu. Hibernate giữ `ddl-auto: validate`; không đổi thành `update` hoặc `create` để che lỗi thiếu bảng/cột.
+Database local mặc định là **`SportCenterDB`**. Schema và dữ liệu demo nằm trong `backend/src/main/resources/db/`; các bảng khớp với entity/backend hiện tại, không dùng bộ tên bảng của bản phác thảo `SportsCenterDesign`. Trên database mới, chạy `create-sport-center-sql2019.sql` để tạo database rỗng (script sẽ dừng nếu database đã tồn tại), sau đó chọn `SportCenterDB` trong SSMS và chạy lần lượt `schema.sql`, `sample-running-data.sql`. Không chạy `schema.sql` hoặc script tạo database trên database có dữ liệu nếu chưa kiểm tra/backup. Hibernate giữ `ddl-auto: validate`; không đổi thành `update` hoặc `create` để che lỗi thiếu bảng/cột.
 
 Trong Windows Services, dịch vụ thường tên `SQL Server (SQLEXPRESS)` hoặc `SQL Server (MSSQLSERVER)`. Mở SSMS không đồng nghĩa dịch vụ SQL Server đã chạy. Cần cấu hình TCP/IP và cổng đúng với `DB_URL`.
 
@@ -147,7 +147,7 @@ FE có các trang thành viên/đội ngũ, lớp/lịch, booking, gói tập, h
 - FE đang gọi các API xác thực, tài khoản, trạng thái/vai trò, danh mục phòng/bộ môn để chọn lớp, lớp/lịch HLV, booking, gói đã đăng ký, hóa đơn, thu tiền, điểm danh, doanh thu.
 - Luồng **đăng ký/gia hạn → chọn tiền mặt/chuyển khoản → tạo MembershipOrder và Invoice PENDING → xác nhận thanh toán → kích hoạt gói** có API trong `backend/`. Tiền mặt do nhân viên xác nhận; chuyển khoản được đối soát qua webhook SePay khi được cấu hình. Gói cũ được giữ nguyên khi đơn còn chờ. Xác nhận đơn gói không dùng API thu hóa đơn cũ.
 - QR dùng thông tin ngân hàng và khoản thu do Backend trả về. Quét QR không chứng minh tiền đã tới: webhook SePay phải được xác thực và đối soát hợp lệ trước khi tự xác nhận chuyển khoản. `SEPAY_WEBHOOK_ENABLED` và demo payment mặc định tắt; không đưa API key vào Frontend.
-- Một số màn tập luyện, hỗ trợ, thông báo, nhật ký, chỉnh danh mục vẫn theo hợp đồng FE cũ và chưa nối các controller mới. API mode khóa hoặc báo các thao tác chưa hỗ trợ; cần đối chiếu DTO để nối tiếp, không trình bày các phần đó như đã hoạt động với SQL.
+- API mode đã nối các API hiện có cho hồ sơ, lớp/booking, gói và checkout, hóa đơn, báo cáo, điểm danh, hỗ trợ, đánh giá, tập luyện và cập nhật danh mục gói/phòng/bộ môn. Nhật ký audit phía server và hệ thống thông báo tổng quát chưa có API; không coi dữ liệu demo hoặc bản nháp giao diện là dữ liệu đã lưu trên SQL.
 - Backend kiểm tra quyền và sở hữu tài nguyên. Chặn route/ẩn nút ở FE không thay thế kiểm tra tại BE.
 
 `backend/src/main/resources/db/sample-classes.sql` thêm lớp mẫu cho DB cài mới đã có HLV `ACTIVE`; kiểm tra script trước khi chạy. Lớp được xếp vào các ngày tiếp theo tính từ thời điểm chạy script.

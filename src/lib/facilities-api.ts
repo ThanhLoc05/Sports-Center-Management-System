@@ -59,11 +59,6 @@ function manager() {
 }
 
 export const facilitiesApi = {
-  async getRoom(roomId: number) {
-    apiSession();
-    return request<RoomDto>(`/rooms/${id(roomId)}`);
-  },
-
   async updateRoom(roomId: number, input: RoomInput) {
     manager();
     return request<RoomDto>(`/rooms/${id(roomId)}`, {
@@ -73,16 +68,6 @@ export const facilitiesApi = {
         capacity: capacity(input.capacity),
       }),
     });
-  },
-
-  async deleteRoom(roomId: number) {
-    manager();
-    return request<void>(`/rooms/${id(roomId)}`, { method: "DELETE" });
-  },
-
-  async getSport(sportId: number) {
-    apiSession();
-    return request<SportDto>(`/sports/${id(sportId)}`);
   },
 
   async updateSport(sportId: number, input: SportInput) {
@@ -96,8 +81,4 @@ export const facilitiesApi = {
     });
   },
 
-  async deleteSport(sportId: number) {
-    manager();
-    return request<void>(`/sports/${id(sportId)}`, { method: "DELETE" });
-  },
 };

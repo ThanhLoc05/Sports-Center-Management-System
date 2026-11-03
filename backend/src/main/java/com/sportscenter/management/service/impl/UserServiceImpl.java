@@ -43,7 +43,9 @@ public class UserServiceImpl implements UserService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email đã được đăng ký");
         }
-
+        if (!request.getEmail().matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.com$")) {
+            throw new IllegalArgumentException("Email phải có định dạng đuôi .com");
+        }
         if (userRepository.existsByPhone(request.getPhone())) {
             throw new IllegalArgumentException("Số điện thoại đã được đăng ký");
         }

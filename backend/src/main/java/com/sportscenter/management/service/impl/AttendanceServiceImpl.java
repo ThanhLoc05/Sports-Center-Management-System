@@ -12,6 +12,7 @@ import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.service.AttendanceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,9 +42,13 @@ public class AttendanceServiceImpl implements AttendanceService {
         Classes clazz = classRepository.findById(request.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        // Kiểm tra hội viên có tồn tại.
-        if (!userRepository.existsById(request.getMemberId())) {
-            throw new IllegalArgumentException("Thành viên không tồn tại");
+        var member = userRepository.findById(request.getMemberId())
+                .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại"));
+        if (member.getRole() == null || !"MEMBER".equals(member.getRole().getRoleName())) {
+            throw new IllegalArgumentException("Tài khoản được chọn không phải thành viên");
+        }
+        if ("CANCELLED".equals(clazz.getStatus())) {
+            throw new IllegalArgumentException("Không thể điểm danh cho lớp đã bị hủy");
         }
 
         // RÀNG BUỘC CHẶT CHẼ: Học viên phải có lượt đặt chỗ BOOKED cho lớp học này
@@ -67,7 +72,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         // HLV đó bắt buộc phải là người được phân công phụ trách lớp học này
         if (securityUtils.isCoach() && !securityUtils.isCenterManager() && !securityUtils.isReceptionist()) {
             if (!checkedInBy.equals(clazz.getCoachId())) {
-                throw new IllegalArgumentException("Huấn luyện viên không được phân công phụ trách lớp học này");
+                throw new AccessDeniedException("Huấn luyện viên không được phân công phụ trách lớp học này");
             }
         }
 

@@ -2,9 +2,9 @@
   Du lieu mau lop hoc cho SQL Server 2019.
 
   Cach chay:
-  1. Chay schema.sql tren database SportsCenterDB.
+  1. Chay schema.sql tren database SportCenterDB.
   2. Tao it nhat mot tai khoan COACH trong ung dung.
-  3. Chay file nay trong database SportsCenterDB.
+  3. Chay file nay trong database SportCenterDB.
 
   Script co the chay lai: khong tao trung bo mon, phong hoc hoac lop mau.
   Cac lop mau duoc xep vao cac ngay lien tiep, bat dau tu ngay mai.

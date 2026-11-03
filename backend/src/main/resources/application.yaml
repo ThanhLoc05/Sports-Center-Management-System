@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=true;trustServerCertificate=true;}
+    url: ${DB_URL:jdbc:sqlserver://localhost:1433;databaseName=SportCenterDB;encrypt=true;trustServerCertificate=true;}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

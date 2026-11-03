@@ -1,7 +1,7 @@
-import { PendingEditor } from "./PendingEditor";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { facilitiesApi } from "../lib/facilities-api";
 import { operations } from "../lib/operations-api";
 import {
   Button,
@@ -17,13 +17,14 @@ import {
 } from "./ui";
 /**
  * Hai tab dùng chung bố cục nhưng tải riêng danh sách phòng tập và bộ môn.
- * Form tạo gọi API thật; chỉnh sửa dùng PendingEditor trong lúc chờ API sửa.
+ * Form tạo và chỉnh sửa gọi các endpoint POST/PUT hiện có của backend.
  * Chỉ thông báo thành công và tải lại danh sách sau khi backend chấp nhận.
  */
 export default function ApiFacilities() {
   const [tab, setTab] = useState<"rooms" | "sports">("rooms");
   const [create, setCreate] = useState(false);
   const [edit, setEdit] = useState<{
+    id: number;
     name: string;
     capacity?: number;
     description?: string;
@@ -97,38 +98,62 @@ export default function ApiFacilities() {
         )}
       </Panel>
       <Notice>
-        Có thể thêm và xem danh mục. Backend chưa có API sửa/xóa phòng hoặc bộ
-        môn; giao diện không thực hiện thay đổi đó.
+        Có thể thêm và chỉnh sửa danh mục. Backend chưa cung cấp thao tác xóa;
+        thay đổi sức chứa phòng sẽ bị backend từ chối nếu xung đột với lớp hiện có.
       </Notice>
       {edit && (
-        <PendingEditor
+        <FormModal
           title={tab === "rooms" ? "Chỉnh sửa phòng tập" : "Chỉnh sửa bộ môn"}
           onClose={() => setEdit(null)}
-          fields={[
-            {
-              name: "name",
-              label: tab === "rooms" ? "Tên phòng" : "Tên bộ môn",
-              value: edit.name,
-            },
-            ...(tab === "rooms"
-              ? [
-                  {
-                    name: "capacity",
-                    label: "Sức chứa",
-                    type: "number" as const,
-                    value: edit.capacity || 1,
-                  },
-                ]
-              : [
-                  {
-                    name: "description",
-                    label: "Mô tả",
-                    type: "textarea" as const,
-                    value: edit.description || "",
-                  },
-                ]),
-          ]}
-        />
+          submitLabel="Lưu thay đổi"
+          onSubmit={async (d) => {
+            if (tab === "rooms") {
+              await facilitiesApi.updateRoom(
+                edit.id,
+                {
+                  roomName: String(d.get("name")),
+                  capacity: Number(d.get("capacity")),
+                },
+              );
+            } else {
+              await facilitiesApi.updateSport(
+                edit.id,
+                {
+                  sportName: String(d.get("name")),
+                  description: String(d.get("description")),
+                },
+              );
+            }
+            await client.invalidateQueries({ queryKey: [tab] });
+            setEdit(null);
+            toast("Đã cập nhật danh mục.");
+          }}
+        >
+          <Field label={tab === "rooms" ? "Tên phòng" : "Tên bộ môn"}>
+            <input name="name" required maxLength={255} defaultValue={edit.name} />
+          </Field>
+          {tab === "rooms" ? (
+            <Field label="Sức chứa">
+              <input
+                name="capacity"
+                type="number"
+                min={1}
+                step={1}
+                required
+                defaultValue={edit.capacity}
+              />
+            </Field>
+          ) : (
+            <Field label="Mô tả">
+              <textarea
+                name="description"
+                maxLength={255}
+                defaultValue={edit.description || ""}
+              />
+              <small>Tối đa 255 ký tự.</small>
+            </Field>
+          )}
+        </FormModal>
       )}
       {create && (
         <FormModal

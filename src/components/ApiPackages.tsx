@@ -1,4 +1,3 @@
-import { PendingEditor } from "./PendingEditor";
 import type { MembershipPackage } from "../lib/types";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +22,7 @@ import {
 /**
  * Quản lý xem và tạo gói với học phí, thời hạn, cấp STANDARD/VIP từ backend.
  * Sau khi tạo thành công, tải lại cache danh mục để hiển thị dữ liệu vừa lưu.
- * Sửa gói chỉ cho xem lại bằng PendingEditor vì backend chưa có API cập nhật.
+ * Sửa gói gọi PUT /memberships/packages/{id} và tải lại danh mục sau khi lưu.
  */
 export default function ApiPackages() {
   const q = useQuery({
@@ -91,53 +90,58 @@ export default function ApiPackages() {
         )}
       </Panel>
       <Notice>
-        Backend hỗ trợ xem và tạo gói. Chưa có API thay đổi học phí/thời hạn
-        hoặc ngừng bán gói đã tạo; không ghi đè quyền lợi của kỳ đã mua.
+        Gói đã mua giữ nguyên thông tin kỳ đăng ký; chỉnh sửa danh mục chỉ áp
+        dụng cho các yêu cầu đăng ký mới.
       </Notice>
       {edit && (
-        <PendingEditor
+        <FormModal
           title="Chỉnh sửa gói tập"
           onClose={() => setEdit(null)}
-          fields={[
-            { name: "packageName", label: "Tên gói", value: edit.packageName },
-            {
-              name: "price",
-              label: "Học phí (VND)",
-              type: "number",
-              value: edit.price,
-            },
-            {
-              name: "durationDays",
-              label: "Thời hạn (ngày)",
-              type: "number",
-              value: edit.durationDays,
-            },
-            {
-              name: "description",
-              label: "Mô tả",
-              type: "textarea",
-              value: edit.description || "",
-            },
-            {
-              name: "accessLevel",
-              label: "Cấp gói",
-              value: edit.accessLevel || "STANDARD",
-              options: [
-                { value: "STANDARD", label: "STANDARD" },
-                { value: "VIP", label: "VIP" },
-              ],
-            },
-            {
-              name: "status",
-              label: "Trạng thái bán",
-              value: edit.status,
-              options: [
-                { value: "ACTIVE", label: "Đang bán" },
-                { value: "INACTIVE", label: "Ngừng bán" },
-              ],
-            },
-          ]}
-        />
+          submitLabel="Lưu thay đổi"
+          onSubmit={async (d) => {
+            await operations.updatePackage(edit.id, {
+              packageName: String(d.get("packageName")),
+              price: Number(d.get("price")),
+              durationDays: Number(d.get("durationDays")),
+              accessLevel: String(d.get("accessLevel")) as PackageInput["accessLevel"],
+              description: String(d.get("description")),
+              status: String(d.get("status")) as PackageInput["status"],
+            });
+            await client.invalidateQueries({
+              queryKey: ["membershipPackages"],
+            });
+            await client.invalidateQueries({
+              queryKey: ["membership-packages"],
+            });
+            setEdit(null);
+            toast("Đã cập nhật gói tập.");
+          }}
+        >
+          <Field label="Tên gói">
+            <input name="packageName" required maxLength={150} defaultValue={edit.packageName} />
+          </Field>
+          <Field label="Học phí (VND)">
+            <input name="price" type="number" min={1} step={1} required defaultValue={edit.price} />
+          </Field>
+          <Field label="Thời hạn (ngày)">
+            <input name="durationDays" type="number" min={1} step={1} required defaultValue={edit.durationDays} />
+          </Field>
+          <Field label="Cấp gói">
+            <select name="accessLevel" required defaultValue={edit.accessLevel || "STANDARD"}>
+              <option value="STANDARD">STANDARD</option>
+              <option value="VIP">VIP</option>
+            </select>
+          </Field>
+          <Field label="Mô tả">
+            <textarea name="description" maxLength={255} defaultValue={edit.description || ""} />
+          </Field>
+          <Field label="Trạng thái bán">
+            <select name="status" required defaultValue={edit.status}>
+              <option value="ACTIVE">Đang bán</option>
+              <option value="INACTIVE">Ngừng bán</option>
+            </select>
+          </Field>
+        </FormModal>
       )}
       {create && (
         <FormModal
@@ -185,7 +189,7 @@ export default function ApiPackages() {
             </select>
           </Field>
           <Field label="Mô tả">
-            <textarea name="description" maxLength={2000} />
+            <textarea name="description" maxLength={255} />
           </Field>
           <Field label="Trạng thái">
             <select name="status">

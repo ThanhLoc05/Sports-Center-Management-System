@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 // TẠO MỚI: BankPaymentEventRepository — Tra cứu giao dịch trùng và tính tổng tiền đã nhận hợp lệ cho từng hóa đơn.
-public interface BankPaymentEventRepository extends JpaRepository<BankPaymentEvent, Long> {
+public interface  BankPaymentEventRepository extends JpaRepository<BankPaymentEvent, Long> {
     Optional<BankPaymentEvent> findByProviderEventId(Long eventId);
     Optional<BankPaymentEvent> findFirstByInvoiceIdOrderByIdDesc(Integer invoiceId);
     /** Chỉ cộng các khoản đã kiểm tra đúng tài khoản/đơn, không cộng tiền chuyển sau khi đơn đã đóng. */

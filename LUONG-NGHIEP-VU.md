@@ -23,10 +23,10 @@ Dữ liệu demo không tự đồng bộ giữa các trình duyệt/máy, cũng
 
 | Vai trò                  | Công việc chính                                                                                         | Giới hạn cần nhớ                                                                                                                                 |
 | ------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Center Manager — Quản lý | Quản lý thành viên, theo dõi đội ngũ, tạo/sửa/hủy lớp, phân công HLV, xem báo cáo và ghi nhận hoàn tiền | Giao diện có đội ngũ và ma trận quyền; backend chưa có API tạo nhân viên hoặc đổi vai trò tùy ý.                                                 |
-| Coach — HLV              | Xem lịch phụ trách, điểm danh; tạo kế hoạch và ghi nhật ký tập luyện qua API                 | Backend có API kế hoạch/nhật ký; cần tiếp tục rà soát giới hạn quyền theo HLV phụ trách và hội viên.                                              |
+| Center Manager — Quản lý | Quản lý thành viên, theo dõi đội ngũ, tạo/sửa/hủy lớp, phân công HLV, xem báo cáo và ghi nhận hoàn tiền | Tài khoản đăng ký công khai luôn là MEMBER; quản lý có thể đổi vai trò qua API riêng, còn quyền của từng vai trò là cố định. |
+| Coach — HLV              | Xem lịch phụ trách, điểm danh; tạo kế hoạch và ghi nhật ký tập luyện qua API                 | Backend giới hạn thao tác theo lớp được phân công và hội viên có booking còn hiệu lực; điểm danh gắn với lớp, chưa phải check-in cửa trung tâm. |
 | Member — Thành viên      | Đăng ký tài khoản, đăng ký/gia hạn gói, đặt/hủy lớp, xem lịch, điểm danh và hóa đơn của mình            | Không có quyền quản lý trung tâm. Backend phải kiểm tra quyền sở hữu dữ liệu, không chỉ dựa vào frontend.                                        |
-| Receptionist — Lễ tân    | Tạo thành viên tại quầy, hỗ trợ gói và booking, điểm danh, lập hóa đơn và xác nhận thu tiền             | Theo nghiệp vụ cần tìm hồ sơ thành viên; API danh sách người dùng hiện chỉ cho quản lý, nên API mode có form phải nhập ID. Không được hoàn tiền. |
+| Receptionist — Lễ tân    | Tạo thành viên tại quầy, hỗ trợ gói và booking, điểm danh, lập hóa đơn và xác nhận thu tiền             | Có API tra cứu danh sách người dùng; quyền đổi trạng thái/vai trò và hoàn tiền không thuộc lễ tân. |
 
 Backend dùng vai trò `CENTER_MANAGER` làm vai trò quản lý trung tâm; không tạo thêm vai trò `MANAGER` riêng.
 
@@ -92,7 +92,7 @@ Lớp không thu phí riêng. Quyền đặt lớp phụ thuộc vào gói đang
 
 **Cần phân biệt:** thay đổi trạng thái tài khoản không phải thay đổi vai trò. Danh sách nhân sự không đồng nghĩa đã có luồng tạo tài khoản nhân viên.
 
-**Hiện trạng:** có API danh sách và cập nhật trạng thái cho quản lý. Cập nhật hồ sơ từ form, đổi mật khẩu, tạo nhân viên, gán quyền và nhật ký server còn thiếu endpoint tương ứng. Tìm kiếm/lọc danh sách hiện chủ yếu xử lý trên dữ liệu frontend đã tải.
+**Hiện trạng:** có API danh sách/tra cứu, cập nhật hồ sơ, đổi mật khẩu, trạng thái và vai trò. Đăng ký công khai luôn tạo MEMBER; để thêm nhân viên cần đăng ký tài khoản rồi quản lý gán vai trò. Vai trò có bộ quyền cố định, chưa có API tùy biến quyền. Tìm kiếm/lọc danh sách hiện chủ yếu xử lý trên dữ liệu frontend đã tải.
 
 ### 4.4. Đăng ký/gia hạn gói và thu tiền
 
@@ -236,10 +236,10 @@ Khi bảo vệ nên gọi là “mô phỏng luồng gợi ý bài tập”, kh�
 
 | Nghiệp vụ         | Luồng mục tiêu và hiện trạng                                                                                                                               |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hỗ trợ thành viên | Thành viên gửi phiếu → lễ tân tiếp nhận → xử lý → đánh dấu giải quyết. Backend đã có API tạo, tra cứu và xử lý phiếu; cần xác minh thêm phân quyền xem chi tiết từng phiếu.         |
+| Hỗ trợ thành viên | Thành viên gửi phiếu → lễ tân tiếp nhận → xử lý → đánh dấu giải quyết. Backend có API tạo, tra cứu và xử lý phiếu; thành viên chỉ xem được phiếu của mình, nhân viên được phân quyền xem và xử lý. |
 | Thông báo         | Cần gửi khi đổi/hủy lịch, gần hết gói và các sự kiện liên quan. Hiện có dữ liệu/thông báo minh họa trong demo; chưa có dịch vụ thông báo đầy đủ ở backend. |
 | Nhật ký thao tác  | Quản lý cần biết ai làm gì và khi nào. Demo có log trình duyệt; chưa phải audit log server có kiểm soát truy cập và chống sửa.                             |
-| Phòng/bộ môn/gói  | Quản lý cần duy trì danh mục trước khi vận hành. Backend có API đọc/thêm bộ môn, phòng và gói; cần bổ sung/chỉnh sửa/xóa danh mục nếu quy trình quản trị yêu cầu.                                       |
+| Phòng/bộ môn/gói  | Quản lý cần duy trì danh mục trước khi vận hành. Backend có API đọc/thêm/sửa phòng, bộ môn và gói; API xóa danh mục chưa có. |
 | Phân quyền        | Theo topic, quản lý cấp quyền cho từng vai trò. Hiện có route guard và quyền cố định; chưa có luồng quản lý quyền tùy ý đầy đủ.                            |
 
 ## 11. Phân biệt các đối tượng nghiệp vụ
@@ -315,6 +315,4 @@ Nên bắt đầu với các quyền dễ giải thích và dễ kiểm soát:
 | Thanh toán online đã chạy chưa? | Database đã có danh mục bốn cổng nhưng mặc định tắt; phải hoàn thiện tích hợp và xác minh callback trước khi thu tiền thật. |
 | Có booking nghĩa là đã tập chưa? | Chưa. Cần điểm danh để ghi nhận có mặt/vắng. |
 | AI đã chạy thật chưa? | Chưa; phần gợi ý hiện là mô phỏng theo quy tắc. |
-
-
 
