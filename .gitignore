@@ -38,6 +38,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.backend.example
 coverage/
 playwright-report/
 test-results/

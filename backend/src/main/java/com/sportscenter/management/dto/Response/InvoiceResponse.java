@@ -16,15 +16,23 @@ public class InvoiceResponse {
 
     private Integer subscriptionId;
 
+    private Integer membershipOrderId;
+
     private Integer memberId;
 
     private Integer receptionistId;
 
     private BigDecimal amount;
 
+    private String currency;
+
     private String paymentMethod;
 
     private String paymentStatus;
 
     private LocalDateTime createdAt;
+
+    private LocalDateTime paidAt;
+
+    private LocalDateTime refundedAt;
 }

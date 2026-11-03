@@ -28,9 +28,9 @@ public class Attendance {
     @Column(name = "checked_in_by", nullable = false)
     private Integer checkedInBy;
 
-    @Column(name = "checked_in_at")
+    @Column(name = "checked_in_at", nullable = false)
     private LocalDateTime checkedInAt;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private String status;
 }

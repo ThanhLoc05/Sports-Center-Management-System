@@ -22,7 +22,7 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
      * @return Active subscription if exists
      */
     @Query("SELECT ms FROM MemberSubscription ms WHERE ms.memberId = :memberId " +
-            "AND ms.status = 'ACTIVE' AND ms.endDate >= CURRENT_DATE")
+            "AND ms.status = 'ACTIVE' AND ms.startDate <= CURRENT_DATE AND ms.endDate >= CURRENT_DATE")
     Optional<MemberSubscription> findActiveMembership(@Param("memberId") Integer memberId);
 
     /**
@@ -31,6 +31,13 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
      * @return List of all subscriptions
      */
     List<MemberSubscription> findByMemberId(Integer memberId);
+
+    @Query("SELECT ms.memberId FROM MemberSubscription ms WHERE ms.id = :subscriptionId")
+    Optional<Integer> findMemberIdById(@Param("subscriptionId") Integer subscriptionId);
+
+    @Query("SELECT MAX(ms.endDate) FROM MemberSubscription ms WHERE ms.memberId = :memberId " +
+            "AND ms.status = 'ACTIVE' AND ms.startDate <= ms.endDate")
+    Optional<LocalDate> findLastActiveEndDate(@Param("memberId") Integer memberId);
 
     /**
      * Find subscriptions by status
@@ -53,6 +60,6 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
      * @return true if it has active subscription
      */
     @Query("SELECT CASE WHEN COUNT(ms) > 0 THEN true ELSE false END FROM MemberSubscription ms " +
-            "WHERE ms.memberId = :memberId AND ms.status = 'ACTIVE' AND ms.endDate >= CURRENT_DATE")
+            "WHERE ms.memberId = :memberId AND ms.status = 'ACTIVE' AND ms.startDate <= CURRENT_DATE AND ms.endDate >= CURRENT_DATE")
     boolean hasActiveMembership(@Param("memberId") Integer memberId);
 }

@@ -8,11 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -56,6 +52,33 @@ public class RoomController {
                 .id(saved.getId())
                 .roomName(saved.getRoomName())
                 .capacity(saved.getCapacity())
+                .build());
+    }
+
+    @PutMapping("/{roomId}")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<RoomResponse> updateRoom(
+            @PathVariable Integer roomId,
+            @Valid @RequestBody RoomRequest request) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Phòng không tồn tại"));
+
+        if (request.getRoomName() != null && !request.getRoomName().isBlank()) {
+            String newName = request.getRoomName().trim();
+            if (!newName.equalsIgnoreCase(room.getRoomName()) && roomRepository.existsByRoomName(newName)) {
+                throw new IllegalArgumentException("Tên phòng đã tồn tại");
+            }
+            room.setRoomName(newName);
+        }
+        if (request.getCapacity() != null && request.getCapacity() > 0) {
+            room.setCapacity(request.getCapacity());
+        }
+
+        Room updated = roomRepository.save(room);
+        return ResponseEntity.ok(RoomResponse.builder()
+                .id(updated.getId())
+                .roomName(updated.getRoomName())
+                .capacity(updated.getCapacity())
                 .build());
     }
 }

@@ -225,7 +225,7 @@ export function ApiProfile() {
           ) : undefined
         }
       />
-      <Panel title={user.fullName}>
+      <Panel className="panel-spaced" title={user.fullName}>
         <p>
           {user.email} · {user.phone}
         </p>

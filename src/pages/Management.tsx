@@ -578,7 +578,7 @@ export function OperationsReport({
     ).length,
   }));
   return (
-    <Panel
+    <Panel className="panel-spaced"
       title="Thành viên & tình trạng đăng ký lớp"
       description={`Theo khoảng ${dateLabel(start)} – ${dateLabel(end)}`}
     >

@@ -99,6 +99,66 @@ describe("Backend contract: BE branch DTOs and controller paths", () => {
       "startDate=2026-10-01T00%3A00%3A00",
     );
   });
+  it("loads the backend revenue summary with the selected LocalDateTime range", async () => {
+    const summary = {
+      startDate: "2026-10-01T00:00:00",
+      endDate: "2026-10-15T23:59:59",
+      totalGrossRevenue: 800000,
+      totalRefunded: 100000,
+      netRevenue: 700000,
+      totalPaidInvoices: 2,
+      totalRefundedInvoices: 1,
+      revenueByMethod: { CASH: 500000, BANK_TRANSFER: 300000 },
+    };
+    const fetch = vi.fn().mockResolvedValue(response(summary));
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      api.revenueSummary("2026-10-01T00:00:00", "2026-10-15T23:59:59"),
+    ).resolves.toEqual(summary);
+    expect(fetch.mock.calls[0][0]).toBe(
+      "/api/v1/reports/summary?startDate=2026-10-01T00%3A00%3A00&endDate=2026-10-15T23%3A59%3A59",
+    );
+  });
+  it("loads absentees and attendance rate from the backend", async () => {
+    const absentees = [
+      {
+        id: 8,
+        classId: 2,
+        memberId: 10,
+        checkedInBy: 1,
+        checkedInAt: "2026-10-12T08:00:00",
+        status: "ABSENT",
+      },
+    ];
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response(absentees))
+      .mockResolvedValueOnce(response(75));
+    vi.stubGlobal("fetch", fetch);
+    await expect(api.absentees(2)).resolves.toEqual(absentees);
+    await expect(api.attendanceRate(10)).resolves.toBe(75);
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/v1/attendance/classes/2/absentees",
+      "/api/v1/attendance/members/10/rate",
+    ]);
+  });
+  it("rejects invalid IDs, report ranges and malformed backend responses", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(api.absentees(0)).rejects.toThrow("Mã lớp không hợp lệ");
+    await expect(api.attendanceRate(-1)).rejects.toThrow(
+      "Mã thành viên không hợp lệ",
+    );
+    await expect(
+      api.revenueSummary("2026-10-15T00:00:00", "2026-10-01T00:00:00"),
+    ).rejects.toThrow("Khoảng thời gian báo cáo không hợp lệ");
+    expect(fetch).not.toHaveBeenCalled();
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(101)));
+    await expect(api.attendanceRate(10)).rejects.toThrow(
+      "Tỷ lệ chuyên cần từ máy chủ không hợp lệ",
+    );
+  });
   it("never sends a demo token to a real API", async () => {
     sessionStorage.setItem(
       "sportiva-session",

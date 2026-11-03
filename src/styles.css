@@ -3,6 +3,7 @@
  * responsive và bản in. Class trong TSX chọn quy tắc trình bày ở đây; CSS không gọi API
  * hay thay đổi trạng thái nghiệp vụ. styles-pages.css chứa style đặc thù từng màn.
  */
+/* Nâng chữ nội dung và nhãn nhỏ lên tối thiểu 11px để dễ đọc trên màn hình hẹp. */
 @import url("./styles-pages.css");
 /**
  * Biến thiết kế dùng chung: màu chủ đạo, đường viền, bo góc và chiều rộng sidebar.
@@ -22,7 +23,16 @@
   --green-dark: #194b37;
   --lime: #daeda8;
   --muted: #858d83;
-  --line: #e9ece5;
+  --line: #cdd8c3;
+  /* Tăng tương phản viền và trạng thái xanh trên nền sáng. */
+  --border-card: #bccab0;
+  --focus: #2f7a55;
+  --focus-ring: #2f7a5533;
+  --accent-soft: #d6eab4;
+  --accent-hover: #e7f1d6;
+  --accent-subtle: #edf4e2;
+  --status-green-bg: #dcedc8;
+  --status-green-text: #2f5a24;
   --surface: #fff;
   --radius: 14px;
   --sidebar: 238px;
@@ -67,7 +77,7 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #e0e5dc;
+  border: 1.5px solid var(--border-card);
   border-radius: 8px;
   background: #fff;
   padding: 11px 12px;
@@ -85,8 +95,8 @@ textarea::placeholder {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #6c926d;
-  box-shadow: 0 0 0 3px #3c714714;
+  border-color: var(--focus) !important;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 textarea {
   resize: vertical;
@@ -153,7 +163,7 @@ code,
 }
 kbd {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
 }
 ::selection {
   background: #dceab8;
@@ -238,7 +248,8 @@ kbd {
 .btn-secondary {
   background: #fff;
   color: #43503e;
-  border-color: #e0e5da;
+  border-color: var(--border-card);
+  border-width: 1.5px;
   box-shadow: 0 1px 2px #22331d03;
 }
 .btn-secondary:hover:not(:disabled) {
@@ -343,7 +354,7 @@ kbd {
   left: 0;
   width: var(--sidebar);
   background: #fff;
-  border-right: 1px solid var(--line);
+  border-right: 1.5px solid var(--line);
   padding: 30px 16px 12px;
   display: flex;
   flex-direction: column;
@@ -355,7 +366,7 @@ kbd {
   margin: 29px 0 22px;
   padding: 12px 9px;
   background: #f8f9f5;
-  border: 1px solid #e9ede2;
+  border: 1px solid var(--border-card);
   border-radius: 9px;
   display: flex;
   gap: 9px;
@@ -365,8 +376,8 @@ kbd {
   width: 31px;
   height: 34px;
   border-radius: 8px;
-  background: #eaf0df;
-  color: #5a714b;
+  background: var(--status-green-bg);
+  color: var(--status-green-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -382,7 +393,7 @@ kbd {
 }
 .workspace-card small {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 4px;
   color: #656b5c;
   letter-spacing: -0.1px;
@@ -394,7 +405,7 @@ kbd {
   margin-bottom: 19px;
 }
 .nav-group > p {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 1.05px;
   font-weight: 600;
   color: #65695f;
@@ -415,12 +426,14 @@ kbd {
     color 0.2s;
 }
 .nav-item:hover {
-  background: #f5f7ef;
+  background: var(--accent-hover);
   color: #3e633e;
 }
 .nav-item.active {
-  background: #eaf0df;
-  color: #365c2f;
+  background: var(--accent-soft);
+  border: 0 solid var(--green);
+  border-width: 0 0 0 3px;
+  color: var(--green);
   font-weight: 600;
 }
 .nav-item.active > svg {
@@ -441,14 +454,14 @@ kbd {
   flex: 1;
 }
 .nav-count {
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 5px;
   background: #f0f3e9;
   border-radius: 4px;
   color: #636d54;
 }
 .nav-new {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.5px;
   color: #72674d;
   background: #f7f0df;
@@ -464,17 +477,17 @@ kbd {
   background: #f7f8f2;
   border-radius: 10px;
   position: relative;
-  border: 1px solid #edf0e4;
+  border: 1px solid var(--border-card);
 }
 .help-icon {
   width: 30px;
   height: 30px;
-  background: #e8eed8;
+  background: var(--status-green-bg);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #5b6e46;
+  color: var(--status-green-text);
   margin-bottom: 11px;
 }
 .sidebar-help h4 {
@@ -482,13 +495,13 @@ kbd {
   margin-bottom: 5px;
 }
 .sidebar-help p {
-  font-size: 10px;
+  font-size: 11px;
   color: #686c5e;
   line-height: 1.8;
 }
 .sidebar-help button {
   padding: 10px 0 0;
-  font-size: 10px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -500,7 +513,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   color: #656a5d;
   padding: 15px 7px 0;
 }
@@ -524,7 +537,7 @@ kbd {
 .topbar {
   height: 72px;
   background: #ffffffec;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1.5px solid var(--line);
   padding: 0 36px;
   display: flex;
   align-items: center;
@@ -539,7 +552,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 10px;
+  font-size: 11px;
   color: #666b62;
   white-space: nowrap;
 }
@@ -561,9 +574,9 @@ kbd {
   gap: 9px;
   width: 213px;
   color: #666960;
-  font-size: 10px;
+  font-size: 11px;
   padding: 8px 10px;
-  border: 1px solid #e9ede3;
+  border: 1.5px solid var(--border-card);
   border-radius: 6px;
   background: #fcfcfa;
 }
@@ -571,10 +584,10 @@ kbd {
   margin-left: auto;
   background: #f2f4ed;
   padding: 2px 4px;
-  border: 1px solid #e4e8dc;
+  border: 1px solid var(--border-card);
   border-radius: 3px;
   color: #646a5a;
-  font-size: 10px;
+  font-size: 11px;
 }
 .topbar-divider {
   width: 1px;
@@ -618,7 +631,7 @@ kbd {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: -0.2px;
   color: #71674f;
@@ -627,7 +640,7 @@ kbd {
   width: 29px;
   height: 29px;
   min-width: 29px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .avatar-large {
   width: 70px;
@@ -662,7 +675,7 @@ kbd {
   top: 46px;
   right: 0;
   width: 255px;
-  border: 1px solid #e4e9de;
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   background: white;
   box-shadow: 0 14px 50px #2a3a2520;
@@ -675,7 +688,7 @@ kbd {
 }
 .profile-menu > small {
   color: #646c5d;
-  font-size: 10px;
+  font-size: 11px;
   display: block;
   margin-top: 5px;
   margin-bottom: 13px;
@@ -697,7 +710,7 @@ kbd {
 }
 .dropdown-label {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   color: #666c5c;
   letter-spacing: 1px;
   margin: 13px 7px 6px;
@@ -726,7 +739,7 @@ kbd {
 .app-footer {
   border-top: 1px solid var(--line);
   padding: 17px 36px;
-  font-size: 10px;
+  font-size: 11px;
   color: #666a5c;
   display: flex;
   justify-content: space-between;
@@ -752,7 +765,7 @@ kbd {
   margin-bottom: 25px;
 }
 .eyebrow {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 1.6px;
   color: #656c5b;
@@ -772,7 +785,7 @@ kbd {
 }
 .panel {
   background: #fff;
-  border: 1px solid #e7ebe1;
+  border: 1.5px solid var(--border-card);
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: 0 2px 2px #172b1402;
@@ -790,20 +803,20 @@ kbd {
   font-size: 13px;
 }
 .panel-heading p {
-  font-size: 10px;
+  font-size: 11px;
   color: #666b5d;
   margin-top: 4px;
 }
 .panel-bottom-link {
-  border-top: 1px solid #eef0e9;
+  border-top: 1px solid var(--line);
   padding: 14px;
   text-align: center;
 }
 .panel-bottom-link .text-link {
-  font-size: 10px;
+  font-size: 11px;
 }
 .badge {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
   font-weight: 500;
   color: #676c5e;
@@ -826,8 +839,8 @@ kbd {
 .badge-paid,
 .badge-present,
 .badge-resolved {
-  background: #eef4e7;
-  color: #567146;
+  background: var(--status-green-bg);
+  color: var(--status-green-text);
 }
 .badge-pending,
 .badge-open {
@@ -862,21 +875,21 @@ kbd {
 .tag {
   display: inline-flex;
   padding: 5px 8px;
-  border: 1px solid #e9ede2;
+  border: 1px solid var(--border-card);
   background: #fafbf7;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 11px;
   color: #656c5a;
   white-space: nowrap;
 }
 .tag {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.4px;
 }
 .count-chip {
-  font-size: 10px;
+  font-size: 11px;
   background: #f2f5ec;
-  border: 1px solid #e7ecde;
+  border: 1px solid var(--border-card);
   border-radius: 5px;
   color: #636c55;
   padding: 2px 6px;
@@ -888,10 +901,10 @@ kbd {
   align-items: flex-start;
   gap: 9px;
   padding: 13px 16px;
-  border: 1px solid #e1e9d9;
-  background: #f1f5eb;
+  border: 1px solid var(--border-card);
+  background: var(--accent-subtle);
   border-radius: 9px;
-  font-size: 10px;
+  font-size: 11px;
   color: #626e56;
   line-height: 1.9;
   margin-bottom: 20px;
@@ -925,7 +938,7 @@ kbd {
   color: #5f6c51;
 }
 .empty-state p {
-  font-size: 10px;
+  font-size: 11px;
   max-width: 360px;
   margin: 7px auto 15px;
 }
@@ -961,7 +974,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #e4e9dd;
+  border: 1.5px solid var(--border-card);
   border-radius: 7px;
   padding: 0 11px;
   min-height: 35px;
@@ -974,7 +987,7 @@ kbd {
   box-shadow: none !important;
   background: transparent;
   padding: 8px 0;
-  font-size: 10px;
+  font-size: 11px;
   min-width: 0;
 }
 .search-input button {
@@ -983,8 +996,8 @@ kbd {
   color: #636a59;
 }
 .search-input:focus-within {
-  border-color: #88a06e;
-  box-shadow: 0 0 0 2px #88a06e11;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 .select-wrap {
   position: relative;
@@ -994,11 +1007,11 @@ kbd {
 }
 .select-wrap select {
   appearance: none;
-  font-size: 10px;
+  font-size: 11px;
   padding: 8px 28px 8px 11px;
   min-height: 35px;
   cursor: pointer;
-  border-color: #e4e9dd;
+  border-color: var(--border-card);
 }
 .select-wrap svg {
   position: absolute;
@@ -1013,22 +1026,22 @@ table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 th {
   padding: 12px 21px;
   background: #fafbf7;
-  border-top: 1px solid #edf0e7;
-  border-bottom: 1px solid #edf0e7;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   color: #676c5f;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 400;
   line-height: 1.6;
 }
 td {
   padding: 16px 21px;
-  border-bottom: 1px solid #f0f2eb;
+  border-bottom: 1px solid var(--line);
   color: #646c59;
 }
 tr:last-child td {
@@ -1039,7 +1052,7 @@ tbody tr:hover {
 }
 td strong {
   color: #526146;
-  font-size: 10px;
+  font-size: 11px;
 }
 .person-cell {
   display: flex;
@@ -1054,12 +1067,12 @@ td strong {
   flex-direction: column;
 }
 .person-cell strong {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.8;
 }
 .person-cell small {
-  font-size: 10px;
+  font-size: 11px;
   color: #666b5f;
   margin-top: 2px;
 }
@@ -1069,11 +1082,11 @@ td strong {
   gap: 4px;
 }
 .contact-cell > span {
-  font-size: 10px;
+  font-size: 11px;
   color: #636b5a;
 }
 .contact-cell small {
-  font-size: 10px;
+  font-size: 11px;
   color: #666b60;
 }
 .row-actions {
@@ -1084,7 +1097,7 @@ td strong {
 .row-actions .subtle-link,
 .row-actions .text-link,
 .row-actions .text-danger {
-  font-size: 10px;
+  font-size: 11px;
 }
 .table-toolbar {
   display: flex;
@@ -1097,7 +1110,7 @@ td strong {
   font-size: 13px;
 }
 .table-toolbar p {
-  font-size: 10px;
+  font-size: 11px;
   color: #666c5d;
   margin-top: 4px;
 }
@@ -1120,9 +1133,9 @@ td strong {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #eff2e8;
+  border-top: 1px solid var(--line);
   padding: 13px 22px;
-  font-size: 10px;
+  font-size: 11px;
   color: #666c5d;
 }
 .table-footer strong {
@@ -1133,10 +1146,10 @@ td strong {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .pagination button {
-  border: 1px solid #e6ebdf;
+  border: 1px solid var(--border-card);
   border-radius: 5px;
   display: flex;
   align-items: center;
@@ -1156,7 +1169,7 @@ td strong {
 }
 .mini-stats > div {
   background: white;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--border-card);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -1172,7 +1185,7 @@ td strong {
   height: 46px;
 }
 .mini-stats p {
-  font-size: 10px;
+  font-size: 11px;
   color: #656c5b;
   line-height: 1.7;
 }
@@ -1184,8 +1197,8 @@ td strong {
   margin-top: 5px;
 }
 .green {
-  background: #eef3e5;
-  color: #5a6e47;
+  background: var(--status-green-bg);
+  color: var(--status-green-text);
 }
 .purple {
   background: #f2eef8;
@@ -1204,13 +1217,13 @@ td strong {
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: 11px;
   color: #666c5b;
 }
 .inline-id-field input {
   width: 100px;
   padding: 9px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .inline-lookup {
   display: flex;
@@ -1236,7 +1249,7 @@ td strong {
   font-size: 12px;
 }
 .list-toolbar > div:first-child > .muted {
-  font-size: 10px;
+  font-size: 11px;
   margin-left: 12px;
 }
 .list-toolbar > .table-filters {
@@ -1247,7 +1260,7 @@ td strong {
 }
 .view-toggle {
   display: flex;
-  border: 1px solid #e2e8d9;
+  border: 1px solid var(--border-card);
   border-radius: 7px;
   background: white;
   padding: 3px;
@@ -1260,18 +1273,18 @@ td strong {
   border-radius: 4px;
 }
 .view-toggle button.selected {
-  background: #edf3e2;
-  color: #5a6f47;
+  background: var(--accent-soft);
+  color: var(--green);
 }
 .segmented {
   display: flex;
-  border: 1px solid #e4eadb;
+  border: 1px solid var(--border-card);
   padding: 3px;
   border-radius: 7px;
   background: #f8faf4;
 }
 .segmented > button {
-  font-size: 10px;
+  font-size: 11px;
   padding: 5px 10px;
   color: #646c56;
   border-radius: 4px;
@@ -1319,7 +1332,7 @@ td strong {
 }
 .modal {
   background: #fff;
-  border: 1px solid #e7ecdf;
+  border: 1.5px solid var(--border-card);
   border-radius: 17px;
   width: 100%;
   max-width: 510px;
@@ -1337,14 +1350,14 @@ td strong {
   align-items: flex-start;
   padding: 24px 26px 21px;
   gap: 15px;
-  border-bottom: 1px solid #eef1e7;
+  border-bottom: 1px solid var(--line);
 }
 .modal-heading h2 {
   font-size: 18px;
   letter-spacing: -0.6px;
 }
 .modal-heading p {
-  font-size: 10px;
+  font-size: 11px;
   color: #656c5b;
   margin-top: 5px;
   line-height: 1.8;
@@ -1378,7 +1391,7 @@ td strong {
 .field > small {
   font-weight: 400;
   color: #666b5a;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.8;
 }
 .form-grid {
@@ -1387,7 +1400,7 @@ td strong {
   gap: 0 17px;
 }
 .form-fields .notice {
-  font-size: 10px;
+  font-size: 11px;
   margin-bottom: 16px;
 }
 .form-error {
@@ -1399,7 +1412,7 @@ td strong {
   border-radius: 6px;
   padding: 11px 13px;
   margin: 0 26px 17px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.8;
 }
 .form-error > svg {
@@ -1407,7 +1420,7 @@ td strong {
 }
 .modal-footer {
   padding: 18px 26px;
-  border-top: 1px solid #eff2e8;
+  border-top: 1px solid var(--line);
   display: flex;
   justify-content: flex-end;
   gap: 9px;
@@ -1433,7 +1446,7 @@ td strong {
   overflow-wrap: anywhere;
 }
 .detail-grid > div > span {
-  font-size: 10px;
+  font-size: 11px;
   color: #636a57;
 }
 .detail-grid strong {
@@ -1442,14 +1455,14 @@ td strong {
   color: #5a6f4b;
 }
 .detail-grid small {
-  font-size: 10px;
+  font-size: 11px;
   color: #666d59;
 }
 .detail-actions {
   display: flex;
   gap: 9px;
   padding-top: 24px;
-  border-top: 1px solid #edf2e5;
+  border-top: 1px solid var(--line);
   flex-wrap: wrap;
 }
 .member-detail {
@@ -1464,12 +1477,12 @@ td strong {
   font-size: 20px;
 }
 .member-detail-header p {
-  font-size: 10px;
+  font-size: 11px;
   color: #636a5b;
   margin: 5px 0 9px;
 }
 .member-detail h3 {
-  border-top: 1px solid #edf1e6;
+  border-top: 1px solid var(--line);
   padding-top: 20px;
   font-size: 12px;
 }
@@ -1478,7 +1491,7 @@ td strong {
   align-items: center;
   justify-content: space-between;
   padding: 15px 0;
-  border-bottom: 1px solid #f0f4e9;
+  border-bottom: 1px solid var(--line);
 }
 .detail-sub-list strong {
   display: block;
@@ -1487,7 +1500,7 @@ td strong {
 .detail-sub-list small {
   display: block;
   color: #646b59;
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 5px;
 }
 .detail-booking-count {
@@ -1520,7 +1533,7 @@ td strong {
   background: white;
   padding: 15px 17px;
   border-radius: 10px;
-  border: 1px solid #dfe7d3;
+  border: 1px solid var(--border-card);
   box-shadow: 0 5px 35px #29411a1a;
   color: #54713d;
   font-size: 11px;
@@ -1568,7 +1581,7 @@ td strong {
 }
 .search-results small {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   color: #626b55;
   margin-top: 4px;
 }
@@ -1580,7 +1593,7 @@ td strong {
   align-items: center;
   gap: 12px;
   padding: 16px 0;
-  border-bottom: 1px solid #eff2e8;
+  border-bottom: 1px solid var(--line);
 }
 .notification-icon {
   background: #f7f0de;
@@ -1596,7 +1609,7 @@ td strong {
   font-size: 11px;
 }
 .notification-list p {
-  font-size: 10px;
+  font-size: 11px;
   color: #636b56;
   margin-top: 3px;
 }
@@ -1625,7 +1638,7 @@ td strong {
   margin-top: 7px;
 }
 .help-content > .muted {
-  font-size: 10px;
+  font-size: 11px;
 }
 .not-found {
   min-height: 75vh;
@@ -1648,7 +1661,7 @@ td strong {
   color: #666d58;
 }
 .demo-footnote {
-  font-size: 10px;
+  font-size: 11px;
   color: #656d5c;
   display: flex;
   align-items: center;
@@ -1681,10 +1694,10 @@ td strong {
     padding: 20px 14px;
   }
   .sidebar-help p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .sidebar-help button {
-    font-size: 10px;
+    font-size: 11px;
   }
   h1 {
     font-size: 30px;
@@ -1768,10 +1781,10 @@ td strong {
     gap: 7px;
   }
   .workspace-card strong {
-    font-size: 10px;
+    font-size: 11px;
   }
   .workspace-card small {
-    font-size: 10px;
+    font-size: 11px;
   }
   .workspace-card > svg {
     display: none;
@@ -1781,7 +1794,7 @@ td strong {
     min-width: 28px;
   }
   .nav-item {
-    font-size: 10px;
+    font-size: 11px;
     gap: 9px;
     padding: 9px;
   }
@@ -1789,7 +1802,7 @@ td strong {
     width: 17px;
   }
   .nav-group > p {
-    font-size: 10px;
+    font-size: 11px;
     margin-left: 9px;
     letter-spacing: 0.7px;
   }
@@ -1831,7 +1844,7 @@ td strong {
     border-radius: 9px;
   }
   .mini-stats p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .mini-stats strong {
     font-size: 18px;
@@ -1849,7 +1862,7 @@ td strong {
     padding: 0 18px 16px;
   }
   .app-footer > span:last-child {
-    font-size: 10px;
+    font-size: 11px;
     gap: 6px;
   }
   .app-footer {
@@ -1893,7 +1906,7 @@ td strong {
     font-size: 11px;
   }
   .workspace-card small {
-    font-size: 10px;
+    font-size: 11px;
   }
   .nav-item {
     font-size: 11px;
@@ -1902,7 +1915,7 @@ td strong {
     gap: 12px;
   }
   .nav-group > p {
-    font-size: 10px;
+    font-size: 11px;
     margin-left: 12px;
   }
   .nav-group {
@@ -1927,7 +1940,7 @@ td strong {
   }
   .breadcrumb {
     gap: 6px;
-    font-size: 10px;
+    font-size: 11px;
   }
   .desktop-only {
     display: none;
@@ -1946,7 +1959,7 @@ td strong {
     gap: 16px;
   }
   .eyebrow {
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 1.1px;
   }
   .page-header h1 {
@@ -1954,12 +1967,12 @@ td strong {
     letter-spacing: -0.8px;
   }
   .page-header p {
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.9;
     max-width: 380px;
   }
   .btn {
-    font-size: 10px;
+    font-size: 11px;
     min-height: 37px;
     padding: 9px 12px;
   }
@@ -1968,7 +1981,7 @@ td strong {
     align-items: center;
   }
   .app-footer > span:last-child {
-    font-size: 10px;
+    font-size: 11px;
     max-width: 190px;
     text-align: right;
     display: block;
@@ -1996,7 +2009,7 @@ td strong {
     width: 16px;
   }
   .mini-stats p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .mini-stats strong {
     font-size: 17px;
@@ -2015,7 +2028,7 @@ td strong {
     flex: 1;
   }
   .table-filters .search-input input {
-    font-size: 10px;
+    font-size: 11px;
   }
   .table-toolbar {
     gap: 16px;
@@ -2075,16 +2088,16 @@ td strong {
     gap: 0 12px;
   }
   .field > label {
-    font-size: 10px;
+    font-size: 11px;
   }
   .form-grid .field > input,
   .form-grid .field > select {
-    font-size: 10px;
+    font-size: 11px;
     padding: 11px 9px;
   }
   .modal .notice {
     padding: 11px;
-    font-size: 10px;
+    font-size: 11px;
   }
   .confirm-description {
     padding: 22px;
@@ -2106,14 +2119,14 @@ td strong {
     font-size: 11px;
   }
   .detail-grid > div > span {
-    font-size: 10px;
+    font-size: 11px;
   }
   .toast-stack {
     right: 16px;
     bottom: 16px;
   }
   .notice {
-    font-size: 10px;
+    font-size: 11px;
     padding: 12px 13px;
   }
   .global-search {
@@ -2137,10 +2150,10 @@ td strong {
     font-size: 12px;
   }
   .panel-heading p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .row-actions .text-danger {
-    font-size: 10px;
+    font-size: 11px;
   }
   .not-found > span {
     font-size: 80px;
@@ -2215,10 +2228,10 @@ td strong {
   font-size: 12px;
 }
 .nav-group > p {
-  font-size: 9px;
+  font-size: 11px;
 }
 .workspace-card small {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.6;
 }
 .workspace-card strong {
@@ -2256,11 +2269,11 @@ td strong,
 }
 .person-cell small,
 .contact-cell small {
-  font-size: 10px;
+  font-size: 11px;
 }
 .role-chip,
 .badge {
-  font-size: 10px;
+  font-size: 11px;
 }
 .row-actions .subtle-link,
 .row-actions .text-link,
@@ -2304,7 +2317,7 @@ td strong,
     font-size: 11px;
   }
   .workspace-card small {
-    font-size: 8px;
+    font-size: 11px;
   }
   .page-header p {
     font-size: 11px;
@@ -2313,7 +2326,7 @@ td strong,
     font-size: 11px;
   }
   .nav-group > p {
-    font-size: 8px;
+    font-size: 11px;
   }
 }
 @media (max-width: 760px) {
@@ -2321,10 +2334,10 @@ td strong,
     font-size: 12px;
   }
   .workspace-card small {
-    font-size: 9px;
+    font-size: 11px;
   }
   .mini-stats p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .page-header p {
     font-size: 11px;
@@ -2336,7 +2349,7 @@ td strong,
     font-size: 13px;
   }
   .panel-heading p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .table-scroll th {
     font-size: 11px;

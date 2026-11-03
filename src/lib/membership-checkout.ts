@@ -2,7 +2,7 @@
  * Backend phải tính giá, tạo hóa đơn chờ và kích hoạt gói trong giao dịch xác nhận thu tiền.
  * Không lưu đơn, hóa đơn hay trạng thái PAID giả vào localStorage. */
 import { ApiError, request } from "./api";
-import { transferReference } from "./payment-qr";
+import { transferReference, validateBank } from "./payment-qr";
 import type { BankConfig } from "./payment-qr";
 import type { Invoice, Subscription } from "./types";
 
@@ -10,6 +10,8 @@ export interface MembershipOffer {
   id: number;
   name: string;
   price: number;
+  payableAmount?: number;
+  demoPayment?: boolean;
   durationDays: number;
   status: "ACTIVE" | "INACTIVE";
   description?: string;
@@ -26,6 +28,17 @@ export interface MembershipOrder {
   invoice: Invoice;
   paymentReference: string;
   bankAccount?: BankConfig;
+  /** Trạng thái từ backend; đơn cũ có thể chưa có, không suy đoán đã thu/đã gửi. */
+  memberName?: string;
+  bankTransfer?: {
+    status: "WAITING" | "PROCESSING" | "AMOUNT_MISMATCH" | "FAILED";
+    receivedAmount?: number;
+    transactionId?: string;
+    automationEnabled?: boolean;
+  };
+  delivery?: {
+    notification?: { status: "PENDING" | "SENT" | "FAILED" };
+  };
   createdAt: string;
   confirmedAt?: string;
   subscription?: Subscription;
@@ -55,6 +68,16 @@ function offer(value: MembershipOffer): MembershipOffer {
     throw new ApiError(
       "Chưa nhận được tên, giá và thời hạn gói hợp lệ từ máy chủ.",
     );
+  if (
+    value.payableAmount != null &&
+    (!Number.isSafeInteger(value.payableAmount) || value.payableAmount < 1)
+  )
+    throw new ApiError("Số tiền thực trả từ máy chủ không hợp lệ.");
+  if (
+    value.demoPayment &&
+    ![5000, 6000, 7000].includes(value.payableAmount || 0)
+  )
+    throw new ApiError("Số tiền demo QR không hợp lệ.");
   id(value.id);
   return value;
 }
@@ -77,7 +100,10 @@ export function validateMembershipOrder(
   if (
     !invoice ||
     invoice.memberId !== value.memberId ||
-    invoice.amount !== value.package.price ||
+    invoice.amount !==
+      (value.package.demoPayment
+        ? value.package.payableAmount
+        : value.package.price) ||
     !["CASH", "BANK_TRANSFER"].includes(invoice.paymentMethod) ||
     value.paymentReference !== transferReference(invoice.id, value.memberId)
   )
@@ -100,6 +126,32 @@ export function validateMembershipOrder(
   )
     throw new ApiError(
       "Chưa có kết quả xác nhận thanh toán và kích hoạt gói hợp lệ.",
+    );
+  if (value.bankAccount) validateBank(value.bankAccount);
+  // Trạng thái đối soát/thông báo là dữ liệu tùy chọn cho BE tích hợp sau, nhưng nếu có phải hợp lệ.
+  if (value.memberName !== undefined && typeof value.memberName !== "string")
+    throw new ApiError("Thông tin chủ đơn thanh toán không hợp lệ.");
+  if (
+    value.bankTransfer &&
+    (!["WAITING", "PROCESSING", "AMOUNT_MISMATCH", "FAILED"].includes(
+      value.bankTransfer.status,
+    ) ||
+      (value.bankTransfer.receivedAmount !== undefined &&
+        (!Number.isSafeInteger(value.bankTransfer.receivedAmount) ||
+          value.bankTransfer.receivedAmount < 0)))
+  )
+    throw new ApiError("Trạng thái đối soát từ hệ thống không hợp lệ.");
+  if (
+    value.delivery?.notification &&
+    !["PENDING", "SENT", "FAILED"].includes(value.delivery.notification.status)
+  )
+    throw new ApiError("Trạng thái thông báo không hợp lệ.");
+  if (
+    value.status !== "CONFIRMED" &&
+    value.delivery?.notification?.status === "SENT"
+  )
+    throw new ApiError(
+      "Chưa xác nhận gói nhưng hệ thống trả thông báo gia hạn đã gửi.",
     );
   return value;
 }
@@ -160,14 +212,12 @@ export const membershipCheckout = {
       throw new ApiError("Yêu cầu trả về không khớp thông tin đã chọn.");
     return order;
   },
-  async confirm(order: MembershipOrder, transactionId: string, key: string) {
+  async confirm(order: MembershipOrder, _transactionId: string, key: string) {
     if (order.status !== "PENDING_PAYMENT")
       throw new ApiError("Yêu cầu không còn chờ thanh toán.");
-    if (
-      order.invoice.paymentMethod === "BANK_TRANSFER" &&
-      !transactionId.trim()
-    )
-      throw new ApiError("Nhập mã giao dịch đã đối chiếu trên sao kê.");
+    // FE chỉ cho thu tiền mặt; đơn QR chờ backend đối soát, không gọi xác nhận thủ công.
+    if (order.invoice.paymentMethod !== "CASH")
+      throw new ApiError("Đơn QR phải chờ hệ thống xác nhận chuyển khoản.");
     const updated = validateMembershipOrder(
       await contract<MembershipOrder>(
         "/membership-orders/" + id(order.id) + "/confirm-payment",
@@ -176,9 +226,7 @@ export const membershipCheckout = {
           headers: { "Idempotency-Key": key },
           body: JSON.stringify({
             version: order.version,
-            ...(order.invoice.paymentMethod === "BANK_TRANSFER"
-              ? { bankTransactionId: transactionId.trim() }
-              : {}),
+            // Không gửi mã giao dịch ngân hàng cho phiếu thu tiền mặt.
           }),
         },
       ),

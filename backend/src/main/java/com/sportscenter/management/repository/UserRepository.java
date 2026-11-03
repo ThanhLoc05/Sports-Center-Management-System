@@ -3,6 +3,10 @@ package com.sportscenter.management.repository;
 import com.sportscenter.management.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,6 +17,10 @@ import java.util.Optional;
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, Integer> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :memberId")
+    Optional<User> findByIdForUpdate(@Param("memberId") Integer memberId);
 
     /**
      * Find user by email
@@ -57,4 +65,19 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * @return List of matching users
      */
     List<User> findByRole_IdAndStatus(Integer roleId, String status);
+
+    /**
+     * Tìm kiếm và lọc người dùng theo vai trò, trạng thái và từ khóa (tên, email, số điện thoại)
+     */
+    @Query("SELECT u FROM User u WHERE " +
+            "(:roleId IS NULL OR u.role.id = :roleId) AND " +
+            "(:status IS NULL OR u.status = :status) AND " +
+            "(:keyword IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR u.phone LIKE CONCAT('%', :keyword, '%'))")
+    List<User> searchUsers(
+            @Param("roleId") Integer roleId,
+            @Param("status") String status,
+            @Param("keyword") String keyword
+    );
 }

@@ -8,11 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -53,6 +49,33 @@ public class SportController {
                 .id(saved.getId())
                 .sportName(saved.getSportName())
                 .description(saved.getDescription())
+                .build());
+    }
+
+    @PutMapping("/{sportId}")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<SportResponse> updateSport(
+            @PathVariable Integer sportId,
+            @Valid @RequestBody SportRequest request) {
+        Sport sport = sportRepository.findById(sportId)
+                .orElseThrow(() -> new IllegalArgumentException("Bộ môn không tồn tại"));
+
+        if (request.getSportName() != null && !request.getSportName().isBlank()) {
+            String newName = request.getSportName().trim();
+            if (!newName.equalsIgnoreCase(sport.getSportName()) && sportRepository.existsBySportName(newName)) {
+                throw new IllegalArgumentException("Tên bộ môn đã tồn tại");
+            }
+            sport.setSportName(newName);
+        }
+        if (request.getDescription() != null) {
+            sport.setDescription(request.getDescription());
+        }
+
+        Sport updated = sportRepository.save(sport);
+        return ResponseEntity.ok(SportResponse.builder()
+                .id(updated.getId())
+                .sportName(updated.getSportName())
+                .description(updated.getDescription())
                 .build());
     }
 }

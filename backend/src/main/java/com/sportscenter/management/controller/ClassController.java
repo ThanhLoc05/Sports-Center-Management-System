@@ -19,7 +19,7 @@ import java.util.List;
  * Nghiệp vụ và phân quyền:
  * 1. Khách vãng lai và học viên: Được xem danh sách lớp học, lịch học, số chỗ còn trống.
  * 2. Huấn luyện viên (COACH): Có API riêng để xem các lớp do chính mình phụ trách (GET /my-classes).
- * 3. Quản lý trung tâm (CENTER_MANAGER): Tạo lớp mới, phân công HLV, sửa thông tin lớp, hủy lớp học.
+ * 3. Quản lý trung tâm: Tạo lớp mới, phân công HLV, sửa thông tin lớp, hủy lớp học.
  */
 @RestController
 @RequestMapping("/api/v1/classes")
@@ -31,7 +31,7 @@ public class ClassController {
 
     /**
      * TẠO LỚP HỌC MỚI VÀ PHÂN CÔNG HUẤN LUYỆN VIÊN (CREATE CLASS)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @PostMapping
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -82,17 +82,17 @@ public class ClassController {
 
     /**
      * CẬP NHẬT THÔNG TIN LỚP HỌC / ĐỔI HLV PHỤ TRÁCH (UPDATE CLASS)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @PutMapping("/{classId}")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
-    public ClassResponse updateClass(@PathVariable Integer classId, @RequestBody ClassRequest request) {
+    public ClassResponse updateClass(@PathVariable Integer classId, @Valid @RequestBody ClassRequest request) {
         return classService.updateClass(classId, request);
     }
 
     /**
      * HỦY LỚP HỌC (CANCEL CLASS)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @PostMapping("/{classId}/cancel")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
