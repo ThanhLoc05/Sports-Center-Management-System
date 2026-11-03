@@ -15,15 +15,16 @@
     </parent>
 
     <!-- Project Information -->
-    <groupId>com.culturalhouse</groupId>
-    <artifactId>SportCenter</artifactId>
+    <groupId>com.sportscenter</groupId>
+    <artifactId>SportsCenter</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>SportCenter</name>
-    <description>Sport Center Management System</description>
+    <name>SportsCenter</name>
+    <description>Sports Center Management System</description>
 
     <!-- Java -->
     <properties>
-        <java.version>23</java.version>
+        <java.version>27</java.version>
+        <lombok.version>1.18.48</lombok.version>
     </properties>
 
     <dependencies>

@@ -2,6 +2,7 @@ package com.sportscenter.management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Nationalized;
 
 import java.time.LocalDate;
 
@@ -27,11 +28,14 @@ public class MemberProfile {
     private LocalDate dob;
 
     @Column(name = "gender")
+    @Nationalized
     private String gender;
 
     @Column(name = "address")
+    @Nationalized
     private String address;
 
-    @Column(name = "fitness_goals")
+    @Column(name = "fitness_goals", columnDefinition = "NVARCHAR(MAX)")
+    @Nationalized
     private String fitnessGoals;
 }

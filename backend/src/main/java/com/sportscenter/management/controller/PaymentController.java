@@ -20,10 +20,10 @@ import java.util.List;
  * CONTROLLER QUẢN LÝ THANH TOÁN & HÓA ĐƠN (PAYMENT & INVOICE MANAGEMENT)
  * ============================================================================
  * Nghiệp vụ và phân quyền:
- * 1. Lập hóa đơn (POST /invoices): Lễ tân (RECEPTIONIST) và Quản lý trung tâm (CENTER_MANAGER).
+ * 1. Lập hóa đơn (POST /invoices): Lễ tân (RECEPTIONIST) và Quản lý trung tâm.
  * 2. Xác nhận đã thu tiền (POST /invoices/{id}/pay): Lễ tân và Quản lý.
- * 3. Hoàn tiền hóa đơn (POST /invoices/{id}/refund): CHỈ Quản lý trung tâm (CENTER_MANAGER).
- * 4. Báo cáo doanh thu (GET /revenue): CHỈ Quản lý trung tâm (CENTER_MANAGER).
+ * 3. Hoàn tiền hóa đơn (POST /invoices/{id}/refund): CHỈ Quản lý trung tâm.
+ * 4. Báo cáo doanh thu (GET /revenue): CHỈ Quản lý trung tâm.
  * 5. Tra cứu hóa đơn của học viên: Học viên chỉ xem được hóa đơn của mình, Lễ tân/Quản lý xem được tất cả.
  */
 @RestController
@@ -97,7 +97,7 @@ public class PaymentController {
 
     /**
      * HOÀN TIỀN CHO HỌC VIÊN (REFUND)
-     * - Bảo mật chặt: CHỈ Quản lý trung tâm (CENTER_MANAGER) mới có thẩm quyền duyệt hoàn tiền.
+     * - Bảo mật chặt: CHỈ Quản lý trung tâm mới có thẩm quyền duyệt hoàn tiền.
      */
     @PostMapping("/invoices/{invoiceId}/refund")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -119,7 +119,7 @@ public class PaymentController {
 
     /**
      * BÁO CÁO DOANH THU THEO PHƯƠNG THỨC THANH TOÁN (Tiền mặt / Chuyển khoản / Thẻ)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER).
+     * - Bảo mật: CHỈ Quản lý trung tâm.
      */
     @GetMapping("/revenue/by-method")
     @PreAuthorize("hasRole('CENTER_MANAGER')")

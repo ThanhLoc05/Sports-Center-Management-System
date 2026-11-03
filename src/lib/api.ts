@@ -27,6 +27,17 @@ import type {
   User,
 } from "./types";
 
+export interface RevenueSummary {
+  startDate: string;
+  endDate: string;
+  totalGrossRevenue: number;
+  totalRefunded: number;
+  netRevenue: number;
+  totalPaidInvoices: number;
+  totalRefundedInvoices: number;
+  revenueByMethod: Record<string, number>;
+}
+
 import { parseDate, addDays, dateTimeLocal, localDate } from "./utils";
 import { demoAudit, readDemo, saveDemo } from "./demo";
 import { can } from "./permissions";
@@ -215,6 +226,36 @@ function supportActor(roles = ["MEMBER", "RECEPTIONIST", "CENTER_MANAGER"]) {
 function assertArray<T>(value: T[]): T[] {
   if (!Array.isArray(value))
     throw new ApiError("Dữ liệu API không đúng định dạng danh sách.");
+  return value;
+}
+function apiId(value: number, label: string): number {
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new ApiError(`${label} không hợp lệ.`);
+  return value;
+}
+function reportRange(start: string, end: string): string {
+  if (
+    !Number.isFinite(Date.parse(start)) ||
+    !Number.isFinite(Date.parse(end)) ||
+    start > end
+  )
+    throw new ApiError("Khoảng thời gian báo cáo không hợp lệ.");
+  return new URLSearchParams({ startDate: start, endDate: end }).toString();
+}
+function revenueSummaryResponse(value: RevenueSummary): RevenueSummary {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !Number.isFinite(value.totalGrossRevenue) ||
+    !Number.isFinite(value.totalRefunded) ||
+    !Number.isFinite(value.netRevenue) ||
+    !Number.isSafeInteger(value.totalPaidInvoices) ||
+    !Number.isSafeInteger(value.totalRefundedInvoices) ||
+    !value.revenueByMethod ||
+    typeof value.revenueByMethod !== "object" ||
+    Object.values(value.revenueByMethod).some((amount) => !Number.isFinite(amount))
+  )
+    throw new ApiError("Dữ liệu tổng hợp doanh thu từ máy chủ không hợp lệ.");
   return value;
 }
 /**
@@ -931,6 +972,19 @@ export const api = {
       .reduce((sum, i) => sum + i.amount, 0);
   },
   /**
+   * Luồng báo cáo: màn hình truyền khoảng thời gian → FE kiểm tra/encode query
+   * → GET /reports/summary → BE kiểm tra quyền quản lý và tính số liệu từ DB
+   * → FE kiểm tra cấu trúc summary rồi trả về cho màn hình. Lỗi BE được giữ nguyên.
+   */
+  async revenueSummary(start: string, end: string): Promise<RevenueSummary> {
+    if (mode() !== "api")
+      throw new ApiError("Báo cáo doanh thu yêu cầu kết nối backend.");
+    const query = reportRange(start, end);
+    return revenueSummaryResponse(
+      await request<RevenueSummary>(`/reports/summary?${query}`),
+    );
+  },
+  /**
    * Flow 4: đọc điểm danh theo lớp hoặc lịch sử một thành viên trong khoảng ngày.
    * Sau phản hồi, frontend lọc ngày để màn hình nhất quán với khoảng đang chọn.
    */
@@ -962,6 +1016,35 @@ export const api = {
         a.checkedInAt.slice(0, 10) >= start &&
         a.checkedInAt.slice(0, 10) <= end,
     );
+  },
+  /**
+   * Luồng danh sách vắng: màn hình truyền mã lớp → FE kiểm tra ID
+   * → GET /attendance/classes/{classId}/absentees → BE kiểm tra quyền xem lớp
+   * và trả các bản ghi ABSENT → FE xác nhận response là danh sách.
+   */
+  async absentees(classId: number): Promise<Attendance[]> {
+    if (mode() !== "api")
+      throw new ApiError("Danh sách vắng mặt yêu cầu kết nối backend.");
+    return assertArray(
+      await request<Attendance[]>(
+        `/attendance/classes/${apiId(classId, "Mã lớp")}/absentees`,
+      ),
+    );
+  },
+  /**
+   * Luồng tỷ lệ chuyên cần: màn hình truyền mã thành viên → FE kiểm tra ID
+   * → GET /attendance/members/{memberId}/rate → BE kiểm tra quyền và tính tỷ lệ
+   * → FE xác nhận kết quả nằm trong khoảng 0–100 trước khi hiển thị.
+   */
+  async attendanceRate(memberId: number): Promise<number> {
+    if (mode() !== "api")
+      throw new ApiError("Tỷ lệ chuyên cần yêu cầu kết nối backend.");
+    const rate = await request<number>(
+      `/attendance/members/${apiId(memberId, "Mã thành viên")}/rate`,
+    );
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100)
+      throw new ApiError("Tỷ lệ chuyên cần từ máy chủ không hợp lệ.");
+    return rate;
   },
   /**
    * Gửi classId, memberId, checkedInBy, status để ghi nhận điểm danh.

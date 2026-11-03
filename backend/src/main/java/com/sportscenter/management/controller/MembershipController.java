@@ -20,14 +20,12 @@ import java.util.List;
  * ============================================================================
  * Phân quyền và luồng nghiệp vụ:
  * 1. Xem danh sách gói tập (GET /packages): Công khai cho khách vãng lai và mọi học viên.
- * 2. Tạo gói tập mới (POST /packages): Chỉ dành riêng cho Quản lý trung tâm (CENTER_MANAGER).
- * 3. Đăng ký gói tập (POST /subscribe):
- *    - Học viên: Chỉ được đăng ký cho chính mình.
- *    - Lễ tân / Quản lý: Có quyền làm thủ tục đăng ký gói tập cho học viên tại quầy.
- * 4. Xem gói tập đang hoạt động / lịch sử / ngày hết hạn:
- *    - Chỉ chính chủ học viên hoặc Lễ tân/Quản lý mới được xem (chống xem trộm dữ liệu giữa các học viên).
- * 5. Gia hạn (renew) và Hủy gói tập (cancel):
- *    - Học viên tự gia hạn hoặc Lễ tân/Quản lý thực hiện tại quầy.
+ * 2. Tạo gói tập mới (POST /packages): Chỉ dành riêng cho Quản lý trung tâm.
+ * 3. Cập nhật gói tập (PUT /packages/{packageId}): Chỉ dành riêng cho Quản lý trung tâm.
+ * 4. Đăng ký gói tập (POST /subscribe): Tạo subscription PENDING_PAYMENT và hóa đơn PENDING theo giá gói.
+ * 5. Gia hạn gói tập (POST /{subscriptionId}/renew): Tạo subscription PENDING_PAYMENT nối tiếp và hóa đơn PENDING.
+ * 6. Xem gói tập đang hoạt động / lịch sử / ngày hết hạn: Chính chủ học viên hoặc Lễ tân/Quản lý.
+ * 7. Hủy gói (POST /{subscriptionId}/cancel): Chuyển trạng thái sang CANCELLED.
  */
 @RestController
 @RequestMapping("/api/v1/memberships")
@@ -38,8 +36,7 @@ public class MembershipController {
     private final SecurityUtils securityUtils;
 
     /**
-     * XEM DANH SÁCH TẤT CẢ CÁC GÓI TẬP (PACKAGES)
-     * - Công khai: Khách xem giá và số ngày để lựa chọn đăng ký.
+     * Lấy danh mục tất cả các gói tập.
      */
     @GetMapping("/packages")
     public List<MembershipPackageResponse> getPackages() {
@@ -47,8 +44,7 @@ public class MembershipController {
     }
 
     /**
-     * TẠO GÓI TẬP MỚI (CREATE PACKAGE)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER) mới có quyền tạo gói tập và định giá.
+     * Tạo gói hội viên mới (chỉ Quản lý trung tâm).
      */
     @PostMapping("/packages")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -58,34 +54,33 @@ public class MembershipController {
     }
 
     /**
-     * ĐĂNG KÝ GÓI TẬP (SUBSCRIBE PACKAGE)
-     * - Luồng xử lý:
-     *   1. Xác định ID người đang gọi từ JWT.
-     *   2. Nếu là MEMBER, kiểm tra: memberId gửi lên phải chính là currentUserId (chống đăng ký hộ trái phép).
-     *   3. Nếu là Lễ tân (RECEPTIONIST) hoặc Quản lý: Được phép đăng ký cho bất kỳ memberId nào tại quầy.
-     *   4. Service kiểm tra xem học viên có đang có gói tập ACTIVE nào không (mỗi lúc chỉ có 1 gói hoạt động).
+     * Cập nhật thông tin gói hội viên (chỉ Quản lý trung tâm).
+     */
+    @PutMapping("/packages/{packageId}")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<MembershipPackageResponse> updatePackage(
+            @PathVariable Integer packageId,
+            @Valid @RequestBody MembershipPackageRequest request) {
+        return ResponseEntity.ok(membershipService.updatePackage(packageId, request));
+    }
+
+    /**
+     * Đăng ký gói hội viên mới:
+     * - Tạo subscription trạng thái PENDING_PAYMENT.
+     * - Tự động phát sinh hóa đơn PENDING với số tiền lấy từ giá niêm yết của gói.
+     * - Gói chỉ chuyển ACTIVE sau khi hóa đơn được xác nhận thanh toán.
      */
     @PostMapping("/subscribe")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberSubscriptionResponse> subscribe(@Valid @RequestBody MemberSubscriptionRequest request) {
         Integer currentUserId = securityUtils.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(401).build();
-        }
+        if (currentUserId == null) return ResponseEntity.status(401).build();
 
-        // Nếu là MEMBER, CHỈ được phép đăng ký cho chính mình
+        // Học viên chỉ được đăng ký cho chính mình; Lễ tân và Quản lý được hỗ trợ tại quầy
         if (securityUtils.hasRole("MEMBER") && !currentUserId.equals(request.getMemberId())) {
             return ResponseEntity.status(403).build();
         }
-
-        // Nếu client không gửi memberId, tự động gán ID của tài khoản đang đăng nhập
-        if (request.getMemberId() == null) {
-            request.setMemberId(currentUserId);
-        }
-
-        // Chỉ chính chủ HOẶC Lễ tân/Quản lý mới được thao tác
-        if (!currentUserId.equals(request.getMemberId()) &&
-                !(securityUtils.isReceptionist() || securityUtils.isCenterManager())) {
+        if (!securityUtils.isOwnerOrAuthorized(request.getMemberId())) {
             return ResponseEntity.status(403).build();
         }
 
@@ -93,8 +88,7 @@ public class MembershipController {
     }
 
     /**
-     * XEM GÓI TẬP ĐANG HOẠT ĐỘNG (ACTIVE MEMBERSHIP)
-     * - Bảo mật: Chỉ chính chủ học viên hoặc Lễ tân/Quản lý mới được xem.
+     * Lấy gói đang có hiệu lực theo ngày hiện tại của một thành viên.
      */
     @GetMapping("/members/{memberId}/active")
     @PreAuthorize("isAuthenticated()")
@@ -107,8 +101,7 @@ public class MembershipController {
     }
 
     /**
-     * XEM TOÀN BỘ LỊCH SỬ ĐĂNG KÝ GÓI TẬP CỦA HỌC VIÊN
-     * - Bảo mật: Chặn không cho học viên khác xem trộm lịch sử đăng ký.
+     * Lấy lịch sử subscription của thành viên để hiển thị các kỳ đã mua/gia hạn.
      */
     @GetMapping("/members/{memberId}")
     @PreAuthorize("isAuthenticated()")
@@ -120,7 +113,7 @@ public class MembershipController {
     }
 
     /**
-     * TRA CỨU NGÀY HẾT HẠN GÓI TẬP CỦA HỌC VIÊN
+     * Trả ngày kết thúc của gói đang có hiệu lực.
      */
     @GetMapping("/members/{memberId}/expiration")
     @PreAuthorize("isAuthenticated()")
@@ -133,8 +126,9 @@ public class MembershipController {
     }
 
     /**
-     * GIA HẠN GÓI TẬP (RENEW SUBSCRIPTION)
-     * - Học viên tự gia hạn hoặc Lễ tân gia hạn hộ tại quầy.
+     * Gia hạn gói tập:
+     * - Tạo subscription PENDING_PAYMENT nối tiếp kỳ cũ (hoặc từ hôm nay nếu đã hết hạn).
+     * - Tự động phát sinh hóa đơn PENDING.
      */
     @PostMapping("/{subscriptionId}/renew")
     @PreAuthorize("isAuthenticated()")
@@ -151,7 +145,7 @@ public class MembershipController {
     }
 
     /**
-     * HỦY GÓI TẬP (CANCEL SUBSCRIPTION)
+     * Hủy subscription đang hoạt động hoặc chờ thanh toán.
      */
     @PostMapping("/{subscriptionId}/cancel")
     @PreAuthorize("isAuthenticated()")

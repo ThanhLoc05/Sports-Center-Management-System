@@ -5,6 +5,7 @@ import {
   buildVietQr,
   buildPreviewQr,
   crc16,
+  transferContent,
   getBankConfig,
   saveBankConfig,
 } from "../lib/payment-qr";
@@ -48,6 +49,24 @@ describe("QR chuyển khoản", () => {
       expect(() => buildVietQr(bank, amount, 1)).toThrow();
     },
   );
+  it("includes the exact invoice, member and normalized member name in the transfer content", () => {
+    expect(transferContent(30, 4, "Nguyễn Văn An")).toBe(
+      "HD30 TV4 NGUYEN VAN AN",
+    );
+    expect(transferContent(30, 4, "Đặng An")).toBe("HD30 TV4 DANG AN");
+    const payload = buildVietQr(bank, 800000, 30, 4, "Nguyễn Văn An");
+    expect(payload).toContain("HD30 TV4 NGUYEN VAN AN");
+    expect(payload.slice(-4)).toBe(crc16(payload.slice(0, -4)));
+  });
+  it("abbreviates only long names, never the invoice/member matching reference", () => {
+    expect(transferContent(1234, 56, "Nguyễn Thị Hoàng Phương Anh")).toBe(
+      "HD1234 TV56 N T H P ANH",
+    );
+    expect(() => transferContent(2147483647, 2147483647, "Nguyễn An")).toThrow(
+      "quá dài",
+    );
+    expect(() => transferContent(1, 2, "   ")).toThrow("tên thành viên");
+  });
   it("keeps preview QR clearly non-payable with no bank details", () => {
     const payload = buildPreviewQr(1000, 3);
     expect(payload).toBe("SPORTIVA PREVIEW | HD3 | 1000 VND | NOT FOR PAYMENT");
@@ -60,6 +79,10 @@ describe("QR chuyển khoản", () => {
   it.each([
     ["VietQR", buildVietQr(bank, 800000, 1001)],
     ["preview", buildPreviewQr(1000, 3)],
+    [
+      "VietQR with member name",
+      buildVietQr(bank, 800000, 30, 4, "Nguyễn Văn An"),
+    ],
   ])(
     "renders independently decodable %s with the exact payload",
     (_name, payload) => {

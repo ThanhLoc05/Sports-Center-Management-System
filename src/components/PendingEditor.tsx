@@ -23,7 +23,8 @@ export function PendingEditor({
 }) {
   const [review, setReview] = useState<Record<string, string> | null>(null);
   return (
-    <Modal title={review ? "Xem lại thay đổi" : title} onClose={onClose}>
+    // Class riêng giúp form nhập và màn xem lại cùng căn lề, không đổi cách lưu dữ liệu.
+    <Modal className="pending-editor-dialog" title={review ? "Xem lại thay đổi" : title} onClose={onClose}>
       <Notice>
         Chức năng lưu thay đổi đang chờ kết nối backend. Thông tin gốc trong hệ
         thống chưa thay đổi.

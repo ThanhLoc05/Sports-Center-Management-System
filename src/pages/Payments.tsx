@@ -16,7 +16,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { MembershipOrders } from "../components/MembershipCheckout";
+import {
+  MembershipOrders,
+  MembershipOrderDetail,
+} from "../components/MembershipCheckout";
 import { transferReference } from "../lib/payment-qr";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -161,7 +164,7 @@ export default function Payments() {
       )}
       <div className="mini-stats">
         <div>
-          <span className="mini-stat-icon green">
+          <span className="mini-stat-icon green status-paid">
             <Wallet size={21} />
           </span>
           <div>
@@ -170,7 +173,7 @@ export default function Payments() {
           </div>
         </div>
         <div>
-          <span className="mini-stat-icon orange">
+          <span className="mini-stat-icon orange status-unpaid">
             <Receipt size={21} />
           </span>
           <div>
@@ -480,6 +483,7 @@ export default function Payments() {
       {change &&
         can(change.refund ? "payments.refund" : "payments.collect") && (
           <Confirm
+            className={change.refund ? "" : "payment-collection-dialog status-unpaid"}
             title={
               change.refund
                 ? "Xác nhận hoàn tiền?"
@@ -526,8 +530,14 @@ function InvoiceDetail({
   demo: boolean;
   onClose: () => void;
 }) {
+  // Hóa đơn gắn đơn gia hạn phải dùng đúng luồng của đơn, gồm tài khoản nhận tiền và trạng thái đối soát.
+  // Không mở QR riêng từ cấu hình máy rồi làm sai thông tin của cùng một đơn trên màn hóa đơn.
+  if (!demo && i.membershipOrderId)
+    return (
+      <MembershipOrderDetail orderId={i.membershipOrderId} onClose={onClose} />
+    );
   return (
-    <Modal title="Chi tiết hóa đơn" onClose={onClose} wide>
+    <Modal className="invoice-detail-dialog" title="Chi tiết hóa đơn" onClose={onClose} wide>
       <PaymentQr invoice={i} />
       <div className="invoice-document" id="print-invoice">
         <div className="invoice-document-top">

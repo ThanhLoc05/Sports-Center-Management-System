@@ -62,7 +62,7 @@ export default function ApiNotifications() {
         />
       </Panel>
       {draft && (
-        <Panel title="Nội dung đang soạn">
+        <Panel className="panel-spaced" title="Nội dung đang soạn">
           <p>{draft.title}</p>
           <p>Người nhận: {recipient || "Chưa xác định"}</p>
           <Button variant="secondary" onClick={() => setReview(true)}>
@@ -145,7 +145,7 @@ export default function ApiNotifications() {
         </FormModal>
       )}
       {review && draft && (
-        <Modal title="Xem trước thông báo" onClose={() => setReview(false)}>
+        <Modal className="content-preview-dialog" title="Xem trước thông báo" onClose={() => setReview(false)}>
           <p>
             <strong>Người nhận:</strong> {recipient || "Chưa xác định"}
           </p>

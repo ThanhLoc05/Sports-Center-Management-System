@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
         name = "class_bookings",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "UQ_Member_Class",
+                        name = "UQ_class_bookings_member_class",
                         columnNames = {"class_id", "member_id"}
                 )
         }
@@ -33,9 +33,9 @@ public class ClassBooking {
     @Column(name = "member_id", nullable = false)
     private Integer memberId;
 
-    @Column(name = "booked_at")
+    @Column(name = "booked_at", nullable = false)
     private LocalDateTime bookedAt;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private String status;
 }

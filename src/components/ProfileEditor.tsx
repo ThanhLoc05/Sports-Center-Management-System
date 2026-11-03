@@ -154,6 +154,7 @@ export function UserProfileModal({
 }) {
   return (
     <Modal
+      className="content-preview-dialog profile-preview-dialog"
       title={
         user.roleName === "COACH"
           ? "Thông tin huấn luyện viên"

@@ -1,5 +1,6 @@
 package com.sportscenter.management.controller;
 
+import com.sportscenter.management.dto.Request.ChangePasswordRequest;
 import com.sportscenter.management.dto.Request.LoginRequest;
 import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
@@ -7,6 +8,8 @@ import com.sportscenter.management.dto.Response.LoginResponse;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
+import com.sportscenter.management.service.BookingService;
+import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.JwtService;
 import com.sportscenter.management.service.UserService;
 import com.sportscenter.auth.SecurityUtils;
@@ -25,13 +28,14 @@ import java.util.List;
  * Phân quyền và luồng nghiệp vụ:
  * 1. Register & Login: Public cho tất cả mọi người.
  * 2. Tra cứu danh sách người dùng (getUsers):
- *    - Dành cho Quản lý trung tâm (CENTER_MANAGER) và Lễ tân (RECEPTIONIST) để tra cứu học viên tại quầy.
+ *    - Dành cho Quản lý trung tâm và Lễ tân để tra cứu học viên tại quầy theo họ tên, SĐT, email.
  * 3. Xem và cập nhật thông tin cá nhân (User Details & Member Profile):
  *    - Chính chủ (chủ tài khoản).
  *    - Lễ tân / Quản lý (hỗ trợ cập nhật tại quầy).
  *    - Huấn luyện viên (COACH) được xem Profile học viên để nắm mục tiêu tập luyện (fitness goals).
  * 4. Khóa / Mở tài khoản (updateStatus): Chỉ Quản lý trung tâm mới có quyền.
  * 5. Cập nhật vai trò người dùng (updateRole): Chỉ Quản lý trung tâm mới có quyền.
+ * 6. Đổi mật khẩu / Khôi phục mật khẩu (changePassword): Chính chủ hoặc Quản lý.
  */
 @RestController
 @RequestMapping("/api/v1/users")
@@ -41,10 +45,11 @@ public class UserController {
     private final UserService userService;
     private final JwtService jwtService;
     private final SecurityUtils securityUtils;
+    private final BookingService bookingService;
+    private final ClassService classService;
 
     /**
-     * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER)
-     * - Luồng xử lý: Kiểm tra trùng email, SĐT -> Mã hóa mật khẩu bằng BCrypt -> Gán vai trò mặc định 'MEMBER'.
+     * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER HOẶC LỄ TÂN TẠO TẠI QUẦY)
      */
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -53,7 +58,6 @@ public class UserController {
 
     /**
      * ĐĂNG NHẬP VÀO HỆ THỐNG (LOGIN)
-     * - Luồng xử lý: Đối chiếu mật khẩu băm -> Tạo JWT token mang thông tin email và vai trò (ROLE_...) -> Trả về token.
      */
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -72,17 +76,22 @@ public class UserController {
 
     /**
      * TÌM KIẾM VÀ XEM DANH SÁCH NGƯỜI DÙNG
-     * - Phân quyền: Quản lý trung tâm (CENTER_MANAGER) xem toàn bộ nhân sự, Lễ tân (RECEPTIONIST) tìm kiếm học viên tại quầy.
+     * - Quản lý trung tâm và Lễ tân tìm kiếm học viên tại quầy theo từ khóa (họ tên, email, SĐT) và trạng thái.
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'RECEPTIONIST')")
-    public List<UserResponse> getUsers(@RequestParam(required = false) Integer roleId) {
+    public List<UserResponse> getUsers(
+            @RequestParam(required = false) Integer roleId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword) {
+        if (keyword != null || status != null) {
+            return userService.searchUsers(roleId, status, keyword);
+        }
         return userService.getAllUsers(roleId);
     }
 
     /**
      * XEM CHI TIẾT THÔNG TIN NGƯỜI DÙNG THEO ID
-     * - Bảo mật: Chính chủ tài khoản, Lễ tân, HLV hoặc Quản lý mới được phép xem.
      */
     @GetMapping("/{userId}")
     @PreAuthorize("isAuthenticated()")
@@ -90,11 +99,9 @@ public class UserController {
         Integer currentUser = securityUtils.getCurrentUserId();
         if (currentUser == null) return ResponseEntity.status(401).build();
 
-        // Cho phép: Chính chủ HOẶC Lễ tân HOẶC HLV HOẶC Quản lý
         boolean isAuthorized = currentUser.equals(userId)
                 || securityUtils.isCenterManager()
-                || securityUtils.isReceptionist()
-                || securityUtils.isCoach();
+                || securityUtils.isReceptionist();
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).build();
@@ -105,8 +112,7 @@ public class UserController {
     }
 
     /**
-     * KHÓA / KÍCH HOẠT TÀI KHOẢN (STATUS: ACTIVE / BLOCKED)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER) mới có quyền.
+     * KHÓA / KÍCH HOẠT TÀI KHOẢN (STATUS: ACTIVE / BLOCKED / INACTIVE)
      */
     @PatchMapping("/{userId}/status")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -116,7 +122,6 @@ public class UserController {
 
     /**
      * CẬP NHẬT VAI TRÒ NGƯỜI DÙNG (ROLE: MEMBER, COACH, RECEPTIONIST, CENTER_MANAGER)
-     * - Bảo mật: CHỈ Quản lý trung tâm (CENTER_MANAGER) mới có quyền phân quyền.
      */
     @PatchMapping("/{userId}/role")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
@@ -128,10 +133,30 @@ public class UserController {
     }
 
     /**
-     * XEM HỒ SƠ THÀNH VIÊN (MEMBER PROFILE: Ngày sinh, giới tính, mục tiêu tập luyện, liên hệ khẩn cấp)
-     * - HLV xem được để theo dõi mục tiêu học viên.
-     * - Học viên xem được hồ sơ của mình.
-     * - Lễ tân và Quản lý xem được để hỗ trợ.
+     * ĐỔI MẬT KHẨU / KHÔI PHỤC MẬT KHẨU
+     * - Chính chủ nhập mật khẩu cũ + mới.
+     * - Quản lý trung tâm có quyền đặt lại mật khẩu cho thành viên/nhân viên mà không cần mật khẩu cũ.
+     */
+    @PostMapping("/{userId}/change-password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> changePassword(
+            @PathVariable Integer userId,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        Integer currentUser = securityUtils.getCurrentUserId();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        boolean isAuthorized = currentUser.equals(userId) || securityUtils.isCenterManager();
+        if (!isAuthorized) {
+            return ResponseEntity.status(403).build();
+        }
+
+        boolean isAdminReset = securityUtils.isCenterManager() && !currentUser.equals(userId);
+        userService.changePassword(userId, request.getOldPassword(), request.getNewPassword(), isAdminReset);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * XEM HỒ SƠ THÀNH VIÊN
      */
     @GetMapping("/{userId}/profile")
     @PreAuthorize("isAuthenticated()")
@@ -142,7 +167,7 @@ public class UserController {
         boolean isAuthorized = currentUser.equals(userId)
                 || securityUtils.isCenterManager()
                 || securityUtils.isReceptionist()
-                || securityUtils.isCoach();
+                || (securityUtils.isCoach() && coachTeachesMember(currentUser, userId));
 
         if (!isAuthorized) {
             return ResponseEntity.status(403).build();
@@ -153,8 +178,7 @@ public class UserController {
     }
 
     /**
-     * CẬP NHẬT HỒ SƠ THÀNH VIÊN (Cập nhật mục tiêu thể hình, địa chỉ, số liên hệ khẩn cấp)
-     * - Bảo mật: Chỉ chính học viên hoặc Lễ tân/Quản lý hỗ trợ tại quầy mới được sửa.
+     * CẬP NHẬT HỒ SƠ THÀNH VIÊN
      */
     @PutMapping("/{userId}/profile")
     @PreAuthorize("isAuthenticated()")
@@ -175,5 +199,13 @@ public class UserController {
                 .roleName(user.getRole().getRoleName())
                 .status(user.getStatus())
                 .build();
+    }
+
+    private boolean coachTeachesMember(Integer coachId, Integer memberId) {
+        return bookingService.getMemberBookings(memberId).stream()
+                .filter(booking -> "BOOKED".equals(booking.getStatus()))
+                .anyMatch(booking -> classService.getClassById(booking.getClassId())
+                        .map(clazz -> coachId.equals(clazz.getCoachId()))
+                        .orElse(false));
     }
 }

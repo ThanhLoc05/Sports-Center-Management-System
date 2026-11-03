@@ -2,6 +2,7 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.InvoiceRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
+import com.sportscenter.management.dto.Response.RevenueSummaryResponse;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,4 +26,6 @@ public interface PaymentService {
     List<InvoiceResponse> getPendingInvoices();
 
     String getRevenueByPaymentMethod(LocalDateTime startDate, LocalDateTime endDate);
+
+    RevenueSummaryResponse getRevenueSummary(LocalDateTime startDate, LocalDateTime endDate);
 }

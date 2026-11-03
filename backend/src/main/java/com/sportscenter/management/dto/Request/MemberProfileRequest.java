@@ -11,8 +11,6 @@ import java.time.LocalDate;
 @Builder
 public class MemberProfileRequest {
 
-    private Integer memberId;
-
     private LocalDate dob;
 
     private String gender;
