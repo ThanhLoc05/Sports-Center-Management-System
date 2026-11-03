@@ -416,7 +416,7 @@ Authorization: {{managerToken}}
 ### ============================================================================
 ###
 ### Before running these tests:
-### 1. Start the Spring Boot application: ./mvnw.cmd spring-boot:run
+### 1. From the repository root: cd backend, then run ./mvnw.cmd spring-boot:run with JDK 27
 ### 2. Ensure SQL Server database is running with SportsCenterDB schema
 ### 3. Replace @memberToken with actual token from login endpoint
 ### 4. Replace @managerToken with token from a CENTER_MANAGER user.

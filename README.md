@@ -2,12 +2,18 @@
 
 React, TypeScript, Vite ở frontend; Spring Boot, JWT, SQL Server ở backend. Bản chạy kết nối API thật. Tài khoản và dữ liệu mô phỏng trong `src/test/fixtures` chỉ phục vụ kiểm thử, không thay thế dữ liệu SQL khi API lỗi.
 
+## Cấu trúc dự án
+
+- Frontend React/Vite ở root: `package.json`, `vite.config.ts`, `src/pages/`, `src/components/`, `src/lib/` và FE tests trong `src/test/`.
+- Backend Spring Boot: `backend/pom.xml`, `backend/src/main/`, `backend/src/test/java/` và Maven Wrapper trong `backend/`.
+- Không còn Backend Java hoặc Maven project tại root. Import **`backend/pom.xml`** trong IDE.
+
 ## Chuẩn bị và cài frontend
 
 - Node.js **22.12 trở lên**, npm và Git.
-- **JDK 23** theo `pom.xml`; máy dùng JDK 17 có thể truyền `-Djava.version=17` khi chạy Maven như hướng dẫn dưới.
+- **JDK 27** theo `backend/pom.xml`; không ghi đè `java.version` xuống phiên bản thấp hơn.
 - SQL Server đang chạy, cho phép TCP và nghe đúng cổng; SSMS để quản trị database.
-- Maven Wrapper đã có sẵn, không bắt buộc cài Maven riêng.
+- Maven Wrapper đã có sẵn trong `backend/`, không bắt buộc cài Maven riêng.
 
 ```powershell
 git clone https://github.com/ThanhLoc05/Sports-Center-Management-System.git
@@ -16,35 +22,34 @@ npm ci
 Copy-Item .env.example .env.local
 ```
 
-**Backend mới nằm tại `src/main/java` và dùng `pom.xml` ở thư mục gốc.** Chạy lệnh Maven tại gốc. Thư mục `backend/` là bản cũ được giữ lại; không dùng nó để chạy bản mới.
+**Backend chính thức nằm tại `backend/src/main/java` và dùng `backend/pom.xml`.** Chạy Maven trong `backend/`. Cây Backend trùng lặp ở gốc đã được loại bỏ; Frontend và các FE tests vẫn nằm trong `src/`.
 
-## Tạo database
+## Chuẩn bị database riêng
 
-Với máy chưa có dữ liệu, mở SSMS và tạo database trống:
+Xin nhóm Backend thông tin instance, database riêng và cách xác thực được phép sử dụng. Clone/pull không tạo database hoặc tài khoản. Không mặc định database trên máy khác có cùng tên, schema hoặc dữ liệu.
 
-```sql
-CREATE DATABASE SportsCenterDB;
-GO
-USE SportsCenterDB;
-GO
-```
-
-Sau đó mở `src/main/resources/db/schema.sql`, chọn database `SportsCenterDB` và chạy. Script tạo bảng, ràng buộc và dữ liệu danh mục cơ bản: bốn vai trò, bộ môn, phòng và các gói STANDARD/VIP mẫu.
-
-Nếu muốn xóa toàn bộ rồi tạo lại database, mở và chạy trực tiếp `src/main/resources/db/recreate-sports-center-sql2019.sql` trong SSMS. Script này xóa vĩnh viễn database `SportsCenterDB` trước khi tạo lại schema mới; hãy sao lưu trước nếu cần giữ bất kỳ dữ liệu nào. Để nạp dữ liệu demo gồm tài khoản, gói, đơn/hóa đơn, lớp và dữ liệu tập luyện, chạy `src/main/resources/db/sample-running-data.sql` sau đó. Tài khoản demo dùng chung mật khẩu `Sportiva@2026`; chỉ dùng local/demo và đổi mật khẩu nếu tiếp tục sử dụng. Script riêng `sample-classes.sql` chỉ cần dùng khi muốn thêm các lớp mẫu khác sau khi đã có HLV `ACTIVE`.
-
-Database đã có dữ liệu nhưng muốn giữ lại thì không chạy script recreate; sao lưu và dùng migration phù hợp. `schema.sql` dành cho cài mới, không tự chuyển đổi bảng cũ; Hibernate dùng `ddl-auto: validate`.
-
-Các script trong `src/main/resources/db/migration/` chạy thủ công khi cần: V3 tạo phiếu hỗ trợ, V4 thêm chi tiết kết quả tập luyện, V5 chuyển vai trò `MANAGER` cũ sang `CENTER_MANAGER`, V6 thêm đơn đăng ký/gia hạn gói chờ thanh toán. V4 yêu cầu bảng `workout_logs` đã tồn tại. Với database đã có dữ liệu, sao lưu trước rồi chạy migration V6; không chạy lại toàn bộ schema để thay migration.
+Schema và migration nằm trong `backend/src/main/resources/db/`. Chỉ áp dụng script sau khi đã kiểm tra database đích và được nhóm duyệt. Không chạy toàn bộ schema hoặc script recreate trên database có dữ liệu. Hibernate giữ `ddl-auto: validate`; không đổi thành `update` hoặc `create` để che lỗi thiếu bảng/cột.
 
 Trong Windows Services, dịch vụ thường tên `SQL Server (SQLEXPRESS)` hoặc `SQL Server (MSSQLSERVER)`. Mở SSMS không đồng nghĩa dịch vụ SQL Server đã chạy. Cần cấu hình TCP/IP và cổng đúng với `DB_URL`.
 
 ## Chạy backend
 
-Mở PowerShell tại gốc repository. Dùng tài khoản SQL của máy; sinh JWT secret riêng cho môi trường local:
+Mở PowerShell tại gốc repository. Đặt JDK 27 cho terminal hiện tại (thay đường dẫn bằng thư mục đã giải nén), không thay đổi biến môi trường hệ thống:
 
 ```powershell
-$env:DB_URL = 'jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=true;trustServerCertificate=true;'
+$env:JAVA_HOME = 'C:\Apps\OpenJDK27U-jdk_x64_windows_hotspot_27_35\jdk-27+35'
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+java -version
+javac -version
+Push-Location backend
+.\mvnw.cmd -version
+Pop-Location
+```
+
+Java, javac và Java runtime của Maven phải là 27. Dùng tài khoản SQL của máy; sinh JWT secret riêng cho môi trường local:
+
+```powershell
+$env:DB_URL = Read-Host 'JDBC URL của database riêng đã được xác minh'
 $env:DB_USERNAME = Read-Host 'Tên đăng nhập SQL Server'
 $sqlPassword = Read-Host 'Mật khẩu SQL Server' -AsSecureString
 $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', $sqlPassword).Password
@@ -53,13 +58,13 @@ $jwtRng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 $jwtRng.GetBytes($jwtBytes)
 $jwtRng.Dispose()
 $env:JWT_SECRET = [Convert]::ToBase64String($jwtBytes)
+$env:SPRING_JPA_HIBERNATE_DDL_AUTO = 'validate'
+$env:SPRING_SQL_INIT_MODE = 'never'
+$env:SPRING_FLYWAY_ENABLED = 'false'
+$env:SPRING_LIQUIBASE_ENABLED = 'false'
+Push-Location backend
 .\mvnw.cmd spring-boot:run
-```
-
-Nếu máy chỉ có JDK 17, dùng lệnh sau thay cho lệnh Maven cuối cùng, không cần sửa `pom.xml`:
-
-```powershell
-.\mvnw.cmd '-Djava.version=17' spring-boot:run
+Pop-Location
 ```
 
 Giữ terminal mở, chờ thông báo ứng dụng khởi động thành công. Backend mặc định ở **http://127.0.0.1:8080**, tiền tố API `/api/v1`. Có thể đổi `SERVER_PORT`; `JWT_EXPIRATION_MS` mặc định một giờ. `trustServerCertificate=true` trong ví dụ dành cho local.
@@ -87,20 +92,23 @@ API_PROXY_TARGET=http://127.0.0.1:8080
 `npm run start:local` dùng SQL Server local nghe cổng 1433. Tạo file **`.env.backend.local`** tại gốc và tự điền cấu hình máy:
 
 ```dotenv
-DB_URL=jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=true;trustServerCertificate=true;
-DB_USERNAME=ten_sql_cua_ban
-DB_PASSWORD=mat_khau_sql_cua_ban
-JWT_SECRET=chuoi_base64_ngau_nhien_toi_thieu_32_byte
-LOCAL_JAVA_VERSION=17
+DB_URL=<JDBC URL database riêng đã xác minh>
+DB_USERNAME=<tài khoản SQL được cấp>
+DB_PASSWORD=<chỉ điền trên máy, không commit>
+JWT_SECRET=<secret ngẫu nhiên chỉ lưu trên máy>
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+SPRING_SQL_INIT_MODE=never
+SPRING_FLYWAY_ENABLED=false
+SPRING_LIQUIBASE_ENABLED=false
 ```
 
-Dùng JWT secret đã sinh ở bước trên. Máy có JDK 23 có thể đặt `LOCAL_JAVA_VERSION=23`. File này bị Git bỏ qua; không commit hoặc chia sẻ giá trị thật. Sau đó chạy:
+Dùng JWT secret và JAVA_HOME của JDK 27 đã thiết lập ở bước trên. File này bị Git bỏ qua; không commit hoặc chia sẻ giá trị thật. Sau đó chạy:
 
 ```powershell
 npm run start:local
 ```
 
-Launcher ưu tiên BE ở gốc, ghi log vào `.local/` và khởi động dịch vụ khi cổng chưa được dùng. **Nếu cổng 8080 đang chạy BE cũ, dừng nó trước**: launcher không thay thế tiến trình đang hoạt động. Sau khi launcher trả về dấu nhắc, FE/BE vẫn chạy nền.
+Launcher chỉ chạy Maven wrapper trong `backend/`, kiểm tra JAVA_HOME là JDK 27, ghi log vào `.local/` và khởi động dịch vụ khi cổng chưa được dùng. **Nếu cổng 8080 đang chạy BE cũ, dừng nó trước**: launcher không thay thế tiến trình đang hoạt động. Sau khi launcher trả về dấu nhắc, FE/BE vẫn chạy nền.
 
 Với hai terminal riêng, dùng **Ctrl+C** ở từng terminal để dừng. Với launcher, dừng tiến trình đang nghe cổng 8080 bằng PowerShell:
 
@@ -137,12 +145,12 @@ Quyền theo vai trò là cố định. URL cũ `/permissions` chuyển về `/t
 FE có các trang thành viên/đội ngũ, lớp/lịch, booking, gói tập, hóa đơn/QR, điểm danh, tổng quan/báo cáo, tập luyện, thông báo/hỗ trợ, nhật ký và AI. Có giao diện không đồng nghĩa mọi thao tác đã có API thật.
 
 - FE đang gọi các API xác thực, tài khoản, trạng thái/vai trò, danh mục phòng/bộ môn để chọn lớp, lớp/lịch HLV, booking, gói đã đăng ký, hóa đơn, thu tiền, điểm danh, doanh thu.
-- Luồng **đăng ký/gia hạn → chọn tiền mặt/chuyển khoản → tạo MembershipOrder và Invoice PENDING → lễ tân xác nhận → kích hoạt gói** đã có API trong backend gốc. Gói cũ được giữ nguyên khi đơn còn chờ. Xác nhận đơn gói không dùng API thu hóa đơn cũ.
-- QR được tạo ở frontend theo số tiền backend trả về và nội dung `HD{invoiceId} TV{memberId}`. Cần cấu hình đúng ngân hàng, số tài khoản và chủ tài khoản trên máy frontend; nếu thiếu, giao diện chỉ hiển thị QR minh họa. Quét QR không chứng minh tiền đã tới: hiện lễ tân phải đối chiếu sao kê và nhập mã giao dịch. Webhook tự xác nhận chưa được tích hợp.
+- Luồng **đăng ký/gia hạn → chọn tiền mặt/chuyển khoản → tạo MembershipOrder và Invoice PENDING → xác nhận thanh toán → kích hoạt gói** có API trong `backend/`. Tiền mặt do nhân viên xác nhận; chuyển khoản được đối soát qua webhook SePay khi được cấu hình. Gói cũ được giữ nguyên khi đơn còn chờ. Xác nhận đơn gói không dùng API thu hóa đơn cũ.
+- QR dùng thông tin ngân hàng và khoản thu do Backend trả về. Quét QR không chứng minh tiền đã tới: webhook SePay phải được xác thực và đối soát hợp lệ trước khi tự xác nhận chuyển khoản. `SEPAY_WEBHOOK_ENABLED` và demo payment mặc định tắt; không đưa API key vào Frontend.
 - Một số màn tập luyện, hỗ trợ, thông báo, nhật ký, chỉnh danh mục vẫn theo hợp đồng FE cũ và chưa nối các controller mới. API mode khóa hoặc báo các thao tác chưa hỗ trợ; cần đối chiếu DTO để nối tiếp, không trình bày các phần đó như đã hoạt động với SQL.
 - Backend kiểm tra quyền và sở hữu tài nguyên. Chặn route/ẩn nút ở FE không thay thế kiểm tra tại BE.
 
-`src/main/resources/db/sample-classes.sql` thêm lớp mẫu cho DB cài mới đã có HLV `ACTIVE`; kiểm tra script trước khi chạy. Lớp được xếp vào các ngày tiếp theo tính từ thời điểm chạy script.
+`backend/src/main/resources/db/sample-classes.sql` thêm lớp mẫu cho DB cài mới đã có HLV `ACTIVE`; kiểm tra script trước khi chạy. Lớp được xếp vào các ngày tiếp theo tính từ thời điểm chạy script.
 
 ## Trợ lý AI
 
@@ -155,17 +163,52 @@ Vite local hiện proxy `/api/assistant` tới `https://sportiva-demo.vercel.app
 ```powershell
 npm run typecheck
 npm test
+npm test -- --maxWorkers=2
 npm run test:ai-server
 npm run build
 ```
 
 Test FE/API mock kiểm tra giao diện và hợp đồng HTTP, không chứng minh SQL Server đã ghi dữ liệu. Kiểm tra thật phải chạy BE/DB, đăng nhập từng vai trò, thao tác rồi đọc lại dữ liệu qua API hoặc SQL.
 
-Biên dịch BE mà chưa khởi động database, với JDK 17:
+Kiểm thử và đóng gói Backend bằng JDK 27, từ gốc repository:
 
 ```powershell
-.\mvnw.cmd '-Djava.version=17' -DskipTests compile
+Push-Location backend
+# Unit tests không khởi động Spring context hoặc kết nối database.
+.\mvnw.cmd '-Dtest=*Test,!SportsCenterApplicationTests,!SportCenterApplicationTests' test
+.\mvnw.cmd '-Dtest=*Test,!SportsCenterApplicationTests,!SportCenterApplicationTests' package
+Pop-Location
 ```
+
+Hai test `SportsCenterApplicationTests` và `SportCenterApplicationTests` dùng `@SpringBootTest`, cần database phù hợp. Chỉ chạy toàn bộ `mvnw.cmd test` trong `backend/` sau khi xác minh DB_URL trỏ đúng database test riêng được duyệt. Không chạy schema/migration để làm test PASS; giữ `ddl-auto: validate`.
+
+Sau khi đã cấu hình và xác minh database test riêng, chạy toàn bộ Backend tests và đóng gói:
+
+```powershell
+Push-Location backend
+.\mvnw.cmd -B '-Dmssql-jdbc.version=13.6.0.jre11' clean package
+Pop-Location
+```
+
+Lệnh trên đã được kiểm chứng với Windows Authentication, JDBC 13.6 và thư viện native x64 tương ứng. Nếu dùng Windows Authentication, `DB_URL` phải chứa `integratedSecurity=true`, `DB_USERNAME` và `DB_PASSWORD` đặt chuỗi rỗng; thêm thư mục chứa `mssql-jdbc_auth-13.6.0.x64.dll` vào PATH của terminal. Dùng đúng instance/database do nhóm xác nhận. Không tự chuyển cơ chế xác thực khi kết nối lỗi. Lệnh chạy tương ứng trong `backend/` là `.\mvnw.cmd -B '-Dmssql-jdbc.version=13.6.0.jre11' spring-boot:run`.
+
+## Hướng dẫn cho thành viên sau khi pull code mới
+
+1. Kiểm tra `git status`; bảo toàn thay đổi local trước khi cập nhật. Chỉ dùng `git pull --ff-only origin main` khi đang ở `main` và lịch sử cho phép fast-forward; nếu bị từ chối, dừng để nhóm thống nhất, không reset hoặc ghi đè code.
+2. Cấu hình JAVA_HOME cho terminal như trên; kiểm tra Java, javac và Maven đều dùng JDK 27.
+3. Import `backend/pom.xml` trong IDE; bỏ lựa chọn Maven project gốc đã không còn tồn tại.
+4. Xin và xác minh database riêng, schema và cách xác thực với nhóm Backend; cấu hình biến môi trường, không đưa credential vào Git.
+5. Chạy `npm ci` tại root. Nếu đã có `.env.local`, giữ cấu hình riêng; chỉ sao chép `.env.example` khi chưa có file.
+6. Chạy Backend trong `backend/`, chờ thông báo khởi động thành công và Hibernate validate không lỗi.
+7. Mở terminal thứ hai, chạy Frontend tại root theo hướng dẫn trên. Backend mặc định `localhost:8080`, Frontend `localhost:5173`; các lệnh dùng địa chỉ loopback `127.0.0.1`.
+8. Kiểm tra GET trực tiếp và qua proxy, không tạo dữ liệu:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:8080/api/v1/classes -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:5173/api/v1/classes -UseBasicParsing
+```
+
+Cả hai phải trả HTTP 200 và cùng dữ liệu JSON. API cần JWT vẫn trả 401 nếu chưa đăng nhập; điều này không chứng minh proxy lỗi. Tài khoản phải được nhóm bàn giao riêng, không suy ra từ fixture.
 
 Trước khi lấy code mới, xem `git status`, commit hoặc sao lưu thay đổi cần giữ:
 
@@ -178,10 +221,13 @@ npm ci
 | Lỗi                                    | Kiểm tra                                                                                         |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Máy chủ lỗi, không đăng nhập           | BE đã khởi động chưa; SQL/DB và proxy có đúng không; xem terminal BE hoặc `.local/backend.*.log` |
+| Sai Java version / invalid target release | Kiểm tra `java -version`, `javac -version`, `backend\mvnw.cmd -version`; sửa JAVA_HOME/PATH của terminal về JDK 27, không hạ `java.version` |
+| Không kết nối SQL Server              | Xác nhận instance, database, TCP/cổng và cách xác thực trong DB_URL; Windows Authentication cần đúng DLL x64/JDBC; không tự chuyển database |
+| Frontend không gọi được API           | Kiểm tra GET trực tiếp cổng 8080 rồi qua 5173, API_PROXY_TARGET và VITE_API_BASE_URL; khởi động lại Vite sau khi đổi env |
 | Hibernate thiếu bảng/cột               | DB khác phiên bản model; thống nhất migration, không đổi `ddl-auto` để che lỗi                   |
 | 401                                    | Đăng nhập lại, JWT có thể hết hạn hoặc đổi secret                                                |
 | 403                                    | Vai trò và quyền trên tài nguyên đang thao tác                                                   |
-| 404/405 khi gia hạn chờ thu            | Kiểm tra đã chạy migration V6, đúng backend gốc và đúng phiên bản frontend chưa                 |
+| 404/405 khi gia hạn chờ thu            | Kiểm tra schema phù hợp, đúng Backend trong `backend/` và đúng phiên bản frontend chưa          |
 | Cổng 8080/5173 bị chiếm                | Xác định tiến trình đang chạy trước khi dừng hoặc đổi cổng                                       |
 | Vercel mở được nhưng dữ liệu không tải | BE local không phải URL công khai; deploy cần BE online/proxy phù hợp                            |
 
