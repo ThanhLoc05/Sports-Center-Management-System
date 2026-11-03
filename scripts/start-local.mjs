@@ -2,13 +2,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-// Backend mới nằm ở gốc cùng pom.xml; backend/ là bản cũ được lưu lại.
-const backendRoot = fs.existsSync(path.join(root, "pom.xml"))
-  ? root
-  : path.join(root, "backend");
+// Chỉ chạy Backend chính, không tự quay về source cũ ở gốc.
+const backendRoot = path.join(root, "backend");
 const local = path.join(root, ".local");
 fs.mkdirSync(local, { recursive: true });
 const env = { ...process.env, VITE_DATA_MODE: "api" };
@@ -19,6 +17,17 @@ for (const line of fs.readFileSync(config, "utf8").split(/\r?\n/)) {
   const m = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
   if (m) env[m[1]] = m[2];
 }
+// Kiểm tra JDK trước khi chạy Maven; không hạ phiên bản Java của Backend.
+if (!env.JAVA_HOME) throw Error("Hãy đặt JAVA_HOME tới JDK 27 trong terminal hiện tại.");
+const java = path.join(env.JAVA_HOME, "bin", "java.exe");
+const javac = path.join(env.JAVA_HOME, "bin", "javac.exe");
+for (const binary of [java, javac]) {
+  const check = spawnSync(binary, ["-version"], { encoding: "utf8", windowsHide: true });
+  if (check.error || check.status !== 0 || !/version "27(?:[."]|$)|javac 27(?:[.\s]|$)/m.test(`${check.stdout || ""}\n${check.stderr || ""}`))
+    throw Error("JAVA_HOME phải trỏ tới JDK 27 có cả java.exe và javac.exe.");
+}
+env.PATH = `${path.join(env.JAVA_HOME, "bin")}${path.delimiter}${env.PATH || ""}`;
+
 env.SERVER_TOMCAT_BASEDIR = path.join(local, "tomcat").replaceAll("\\", "/");
 const listening = (port) =>
   new Promise((resolve) => {
@@ -85,7 +94,6 @@ if (!(await listening(8080))) {
       "/d",
       "/c",
       "mvnw.cmd",
-      `-Djava.version=${localJavaVersion()}`,
       "spring-boot:run",
     ],
     backendRoot,
@@ -114,10 +122,3 @@ console.log("Backend: http://127.0.0.1:8080 — dữ liệu SQL Server thật");
 console.log(
   "Đăng nhập bằng tài khoản backend. Không có lối đăng nhập theo vai trò mẫu.",
 );
-function localJavaVersion() {
-  // Ghi đè phiên bản cho lần chạy local, giữ nguyên pom.xml của nhóm backend.
-  const value = env.LOCAL_JAVA_VERSION || "17";
-  if (!/^\d+$/.test(value) || Number(value) < 17)
-    throw Error("LOCAL_JAVA_VERSION phải là phiên bản Java từ 17 trở lên.");
-  return value;
-}

@@ -252,7 +252,7 @@ Lớp không có giá riêng. Gói `STANDARD` đăng ký được lớp `STANDAR
 - The database checks values and relationships, while the service must still enforce rules such as “selected user has the COACH role,” “membership is active and unexpired,” “membership access level meets the class requirement,” and “class has places left.”
 ## 6. Schema file and migration safety
 
-`src/main/resources/db/schema.sql` is the schema-only baseline; `src/main/resources/db/recreate-sports-center-sql2019.sql` creates a new SportsCenterDB, installs this schema, and adds table descriptions. Both target a new/empty database. It includes membership/class access levels and online payment structures for package invoices. It does not add a class price or class-linked invoice.
+`backend/src/main/resources/db/schema.sql` is the schema-only baseline; `backend/src/main/resources/db/recreate-sports-center-sql2019.sql` creates a new SportsCenterDB, installs this schema, and adds table descriptions. Both target a new/empty database. It includes membership/class access levels and online payment structures for package invoices. It does not add a class price or class-linked invoice.
 
 This script does not alter or migrate existing tables. For a database that already has data:
 
