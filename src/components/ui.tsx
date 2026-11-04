@@ -778,9 +778,16 @@ export function TextLink({
     </Link>
   );
 }
-export function ExportButton({ onClick }: { onClick: () => void }) {
+// Khóa xuất khi báo cáo chưa tải xong để tránh tải CSV thiếu hoặc sai số liệu.
+export function ExportButton({
+  onClick,
+  disabled = false,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <Button variant="secondary" onClick={onClick}>
+    <Button variant="secondary" onClick={onClick} disabled={disabled}>
       <ArrowDownToLine size={16} />
       Xuất CSV
     </Button>

@@ -1918,6 +1918,15 @@
   grid-column: 1/-1;
   width: 100%;
 }
+/* Hai chỉ số hiện tại tách khỏi bốn chỉ số tài chính để không nhầm với dữ liệu theo kỳ. */
+.stats-grid.report-current-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .stats-grid.report-current-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .report-range {
   padding: 21px 24px;
   display: flex;
