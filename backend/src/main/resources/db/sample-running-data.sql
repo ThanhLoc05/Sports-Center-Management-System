@@ -4,10 +4,11 @@
     Dung sau khi chay schema.sql tren SportCenterDB.
     Script co the chay lai: khong tao lai tai khoan, goi, don, lop va giao dich da co.
 
-    Tai khoan demo deu dung chung mat khau: Sportiva@2026
-    Mat khau da duoc ma hoa BCrypt, chi dung cho database local/demo.
+    Tai khoan demo hien co dung Sportiva@2026.
+    Ba tai khoan member.demo/coach.demo/reception.demo dung password123.
+    Mat khau duoc ma hoa BCrypt; chi dung cho database local/demo.
 
-    Tao: 10 MEMBER, 3 COACH, 1 RECEPTIONIST, 1 CENTER_MANAGER,
+    Tao: 11 MEMBER, 4 COACH, 2 RECEPTIONIST, 1 CENTER_MANAGER,
     8 subscription da thanh toan, 2 order dang cho, 5 lop, booking,
     attendance, feedback, support ticket, workout plan/log/details.
 
@@ -76,6 +77,7 @@ IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'PAYOS
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'PAYOS', N'PayOS', 0);
 
 DECLARE @DemoPasswordHash NVARCHAR(255) = N'$2a$10$QUa4z.6PjI2kh8cTzUrQZ.zSc/PE0BdWwVxoHRubh8U2akaptBUm6';
+DECLARE @AdditionalDemoPasswordHash NVARCHAR(255) = N'$2a$10$sVIhAnludcT9T.T/GNxq0ep1LDFHaKEd9aFw71dwBANfxs5sRnjQW';
 DECLARE @Today DATE = CONVERT(DATE, SYSDATETIME());
 
 DECLARE @SeedAccounts TABLE (
@@ -99,10 +101,22 @@ INSERT INTO @SeedAccounts (email, full_name, phone, role_name) VALUES
 (N'member07.demo@sportiva.test', N'Bùi Thanh Tâm', N'0901000017', N'MEMBER'),
 (N'member08.demo@sportiva.test', N'Đỗ Mỹ Duyên', N'0901000018', N'MEMBER'),
 (N'member09.demo@sportiva.test', N'Hoàng Quốc Huy', N'0901000019', N'MEMBER'),
-(N'member10.demo@sportiva.test', N'Phan Bảo Trân', N'0901000020', N'MEMBER');
+(N'member10.demo@sportiva.test', N'Phan Bảo Trân', N'0901000020', N'MEMBER'),
+(N'member.demo@sportiva.com', N'Trần Minh Anh', N'0901000031', N'MEMBER'),
+(N'coach.demo@sportiva.com', N'Lê Hoàng Nam', N'0901000032', N'COACH'),
+(N'reception.demo@sportiva.com', N'Phạm Thu Hà', N'0901000033', N'RECEPTIONIST');
 
 INSERT INTO dbo.users (email, password_hash, full_name, phone, role_id, status)
-SELECT seed.email, @DemoPasswordHash, seed.full_name, seed.phone, role.role_id, N'ACTIVE'
+SELECT seed.email,
+       CASE
+           WHEN seed.email IN (
+               N'member.demo@sportiva.com',
+               N'coach.demo@sportiva.com',
+               N'reception.demo@sportiva.com'
+           ) THEN @AdditionalDemoPasswordHash
+           ELSE @DemoPasswordHash
+       END,
+       seed.full_name, seed.phone, role.role_id, N'ACTIVE'
 FROM @SeedAccounts AS seed
 JOIN dbo.roles AS role ON role.role_name = seed.role_name
 WHERE NOT EXISTS (SELECT 1 FROM dbo.users AS existing WHERE existing.email = seed.email);
@@ -113,7 +127,7 @@ SELECT seed.email, u.user_id, seed.role_name
 FROM @SeedAccounts AS seed
 JOIN dbo.users AS u ON u.email = seed.email;
 
-/* Hồ sơ riêng cho 10 hội viên. */
+/* Hồ sơ riêng cho các hội viên demo. */
 INSERT INTO dbo.member_profiles (member_id, dob, gender, address, fitness_goals)
 SELECT a.user_id, profile.dob, profile.gender, profile.address, profile.goal
 FROM (VALUES
@@ -126,7 +140,8 @@ FROM (VALUES
     (N'member07.demo@sportiva.test', CONVERT(DATE,'1999-08-20'), N'Nữ', N'Quận Phú Nhuận, TP. Hồ Chí Minh', N'Tăng sức bền'),
     (N'member08.demo@sportiva.test', CONVERT(DATE,'1996-12-02'), N'Nữ', N'Quận Gò Vấp, TP. Hồ Chí Minh', N'Tập luyện toàn thân'),
     (N'member09.demo@sportiva.test', CONVERT(DATE,'2002-03-30'), N'Nam', N'Quận 10, TP. Hồ Chí Minh', N'Làm quen với bóng rổ'),
-    (N'member10.demo@sportiva.test', CONVERT(DATE,'1993-07-07'), N'Nữ', N'Quận 5, TP. Hồ Chí Minh', N'Tập luyện đều đặn và giảm căng thẳng')
+    (N'member10.demo@sportiva.test', CONVERT(DATE,'1993-07-07'), N'Nữ', N'Quận 5, TP. Hồ Chí Minh', N'Tập luyện đều đặn và giảm căng thẳng'),
+    (N'member.demo@sportiva.com', CONVERT(DATE,'1998-04-12'), N'Nữ', N'Quận 3, TP. Hồ Chí Minh', N'Tăng sức bền và duy trì vận động đều đặn')
 ) AS profile(email, dob, gender, address, goal)
 JOIN @Accounts AS a ON a.email = profile.email
 WHERE NOT EXISTS (SELECT 1 FROM dbo.member_profiles AS mp WHERE mp.member_id = a.user_id);
