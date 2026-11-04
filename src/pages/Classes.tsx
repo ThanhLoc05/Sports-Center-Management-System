@@ -394,6 +394,7 @@ export default function Classes() {
           />
           <Select label="Trạng thái lớp" value={status} onChange={setStatus}>
             <option value="SCHEDULED">Đang mở</option>
+            <option value="COMPLETED">Hoàn thành</option>
             <option value="CANCELLED">Đã hủy</option>
             <option value="all">Tất cả trạng thái</option>
           </Select>
@@ -521,17 +522,17 @@ export default function Classes() {
           onClose={() => setSelected(null)}
           onEdit={
             manager
-              ? () => {
+              ? (current) => {
                   setSelected(null);
-                  setEdit(selected);
+                  setEdit(current);
                 }
               : undefined
           }
           onCancel={
             manager
-              ? () => {
+              ? (current) => {
                   setSelected(null);
-                  setCancel(selected);
+                  setCancel(current);
                 }
               : undefined
           }
@@ -609,6 +610,8 @@ function ClassCard({
             <span />
             {c.status === "CANCELLED"
               ? "Đã hủy"
+              : c.status === "COMPLETED"
+                ? "Đã hoàn thành"
               : capacity.error
                 ? "Chưa tải được chỗ trống"
                 : available === undefined
@@ -670,7 +673,30 @@ function ClassCard({
  * Chỉ nhân viên có quyền mới tải danh sách đăng ký; học viên không gọi endpoint
  * roster của người khác. Nút đăng ký mở form kiểm tra gói còn hiệu lực và chỗ trống.
  */
-export function ClassDetail({
+export function ClassDetail(props: {
+  item: SportClass;
+  onClose: () => void;
+  onEdit?: (item: SportClass) => void;
+  onCancel?: (item: SportClass) => void;
+}) {
+  const { session } = useAuth();
+  const live = session?.mode === "api";
+  const detail = useQuery({
+    queryKey: ["classDetail", props.item.id, session?.user.id],
+    queryFn: () => api.classDetail(props.item.id),
+    enabled: live,
+    refetchOnMount: "always",
+    retry: false,
+  });
+  // Không dùng object từ danh sách hoặc cache cũ như chi tiết đã được xác nhận.
+  if (live && (detail.isPending || detail.isFetching || detail.error))
+    return <Modal title="Chi tiết lớp học" onClose={props.onClose} wide>
+      {detail.isPending || detail.isFetching ? <Loading /> : <ErrorState error={detail.error} retry={detail.refetch} />}
+    </Modal>;
+  const item = live ? detail.data! : props.item;
+  return <ClassDetailContent key={item.id} {...props} item={item} />;
+}
+function ClassDetailContent({
   item: c,
   onClose,
   onEdit,
@@ -678,8 +704,8 @@ export function ClassDetail({
 }: {
   item: SportClass;
   onClose: () => void;
-  onEdit?: () => void;
-  onCancel?: () => void;
+  onEdit?: (item: SportClass) => void;
+  onCancel?: (item: SportClass) => void;
 }) {
   const { sports, rooms } = useCatalog();
   const users = useUsers();
@@ -743,8 +769,8 @@ export function ClassDetail({
               <strong>{c.maxCapacity} thành viên</strong>
             </div>
             <div>
-              <span>Chỗ trống</span>
-              <strong>{capacity.data ?? "…"} chỗ</strong>
+              <span>{c.status === "COMPLETED" ? "Trạng thái" : "Chỗ trống"}</span>
+              <strong>{c.status === "COMPLETED" ? "Đã hoàn thành" : `${capacity.data ?? "…"} chỗ`}</strong>
               {capacity.error && (
                 <ErrorState error={capacity.error} retry={capacity.refetch} />
               )}
@@ -808,13 +834,13 @@ export function ClassDetail({
               </Link>
             )}
             {onEdit && (
-              <Button variant="secondary" onClick={onEdit}>
+              <Button variant="secondary" onClick={() => onEdit(c)}>
                 <Pencil size={16} />
                 Chỉnh sửa
               </Button>
             )}
             {onCancel && c.status !== "CANCELLED" && (
-              <Button variant="danger" onClick={onCancel}>
+              <Button variant="danger" onClick={() => onCancel(c)}>
                 Hủy lớp
               </Button>
             )}

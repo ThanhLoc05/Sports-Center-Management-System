@@ -476,6 +476,16 @@ export const api = {
     demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
     return user;
   },
+  async classDetail(id: number): Promise<SportClass> {
+    if (mode() !== "api") {
+      const item = readDemo().classes.find(c => c.id === id);
+      if (!item) throw new ApiError("Không tìm thấy lớp học.", 404);
+      return item;
+    }
+    const item = await request<SportClass>(`/classes/${id}`);
+    if (!item || item.id !== id) throw new ApiError("Dữ liệu chi tiết lớp không khớp yêu cầu.");
+    return item;
+  },
   /** HLV dùng endpoint tự lấy ID từ JWT; tham số client không được mở rộng lịch của HLV. */
   async classes(coachId?: number): Promise<SportClass[]> {
     const actor = getSession();
