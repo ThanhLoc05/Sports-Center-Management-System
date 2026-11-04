@@ -1,7 +1,7 @@
 /*
-    Du lieu demo cho SportCenterDB / SQL Server 2019.
+    Du lieu demo cho SportsCenterDB / SQL Server 2019.
 
-    Dung sau khi chay schema.sql tren SportCenterDB.
+    Dung sau khi chay schema.sql tren SportsCenterDB.
     Script co the chay lai: khong tao lai tai khoan, goi, don, lop va giao dich da co.
 
     Tai khoan demo hien co dung Sportiva@2026.
@@ -15,7 +15,7 @@
     Không seed payment_transactions thành công vì VNPay/MoMo/ZaloPay/PayOS
     đang tắt và dự án chưa tích hợp giao dịch gateway thật.
 */
-USE [SportCenterDB];
+USE [SportsCenterDB];
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 BEGIN TRY

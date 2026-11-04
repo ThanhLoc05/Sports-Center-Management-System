@@ -252,7 +252,7 @@ Lớp không có giá riêng. Gói `STANDARD` đăng ký được lớp `STANDAR
 - The database checks values and relationships, while the service must still enforce rules such as “selected user has the COACH role,” “membership is active and unexpired,” “membership access level meets the class requirement,” and “class has places left.”
 ## 6. Schema file and migration safety
 
-`backend/src/main/resources/db/create-sport-center-sql2019.sql` creates an empty `SportCenterDB` only when it does not already exist. Run `schema.sql` in that database, then optionally `sample-running-data.sql`. The schema follows the current JPA entities and includes membership/class access levels and payment structures for package invoices. It does not add a class price or class-linked invoice.
+`backend/src/main/resources/db/create-sports-center-sql2019.sql` creates an empty `SportsCenterDB` only when it does not already exist. Run `schema.sql` in that database, then optionally `sample-running-data.sql`. The schema follows the current JPA entities and includes membership/class access levels and payment structures for package invoices. It does not add a class price or class-linked invoice.
 
 This script does not alter or migrate existing tables. For a database that already has data:
 
