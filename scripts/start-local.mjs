@@ -26,7 +26,11 @@ for (const binary of [java, javac]) {
   if (check.error || check.status !== 0 || !/version "27(?:[."]|$)|javac 27(?:[.\s]|$)/m.test(`${check.stdout || ""}\n${check.stderr || ""}`))
     throw Error("JAVA_HOME phải trỏ tới JDK 27 có cả java.exe và javac.exe.");
 }
-env.PATH = `${path.join(env.JAVA_HOME, "bin")}${path.delimiter}${env.PATH || ""}`;
+// Windows có thể dùng tên Path; giữ các lệnh hệ thống khi thêm JDK vào đầu PATH.
+const existingPath = Object.keys(env).find((key) => key.toUpperCase() === "PATH");
+const inheritedPath = existingPath ? env[existingPath] : "";
+if (existingPath && existingPath !== "PATH") delete env[existingPath];
+env.PATH = `${path.join(env.JAVA_HOME, "bin")}${path.delimiter}${inheritedPath}`;
 
 env.SERVER_TOMCAT_BASEDIR = path.join(local, "tomcat").replaceAll("\\", "/");
 const listening = (port) =>
