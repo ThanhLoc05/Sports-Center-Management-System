@@ -22,6 +22,10 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("select u from User u where u.id = :memberId")
     Optional<User> findByIdForUpdate(@Param("memberId") Integer memberId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.role.roleName = 'CENTER_MANAGER' order by u.id")
+    List<User> findCenterManagersForUpdate();
+
     /**
      * Find user by email
      * @param email User email

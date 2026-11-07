@@ -22,9 +22,9 @@ public interface UserService {
 
     List<UserResponse> searchUsers(Integer roleId, String status, String keyword);
 
-    UserResponse updateUserStatus(Integer userId, String status);
+    UserResponse updateUserStatus(Integer userId, String status, Integer actorId);
 
-    UserResponse updateUserRole(Integer userId, Integer roleId, String roleName);
+    UserResponse updateUserRole(Integer userId, Integer roleId, String roleName, Integer actorId);
 
     UserResponse updateStaffDetails(Integer userId, Integer actorId, UpdateStaffDetailsRequest request);
 

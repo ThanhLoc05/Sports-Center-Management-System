@@ -125,7 +125,11 @@ public class UserController {
     @PatchMapping("/{userId}/status")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
     public UserResponse updateStatus(@PathVariable Integer userId, @RequestParam String status) {
-        return userService.updateUserStatus(userId, status);
+        Integer actorId = securityUtils.getCurrentUserId();
+        if (actorId == null) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Yêu cầu đăng nhập.");
+        }
+        return userService.updateUserStatus(userId, status, actorId);
     }
 
     /**
@@ -137,7 +141,11 @@ public class UserController {
             @PathVariable Integer userId,
             @RequestParam(required = false) Integer roleId,
             @RequestParam(required = false) String roleName) {
-        return userService.updateUserRole(userId, roleId, roleName);
+        Integer actorId = securityUtils.getCurrentUserId();
+        if (actorId == null) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Yêu cầu đăng nhập.");
+        }
+        return userService.updateUserRole(userId, roleId, roleName, actorId);
     }
 
     /**

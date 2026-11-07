@@ -22,6 +22,14 @@ public interface ClassRepository extends JpaRepository<Classes, Integer> {
     @Query("SELECT c FROM Classes c WHERE c.id = :classId")
     Optional<Classes> findByIdForUpdate(@Param("classId") Integer classId);
 
+    @Query("SELECT c FROM Classes c WHERE c.status = 'SCHEDULED' " +
+            "AND (c.coachId = :coachId OR c.roomId = :roomId) " +
+            "AND c.scheduleTime < :endTime")
+    List<Classes> findPotentialScheduleConflicts(
+            @Param("coachId") Integer coachId,
+            @Param("roomId") Integer roomId,
+            @Param("endTime") LocalDateTime endTime);
+
     /**
      * Find classes by sport ID
      * @param sportId Sport ID

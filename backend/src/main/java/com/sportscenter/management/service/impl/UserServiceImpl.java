@@ -44,6 +44,10 @@ public class UserServiceImpl implements UserService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email đã được đăng ký");
         }
+        if(request.getPassword().length()  < 8) {
+            throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự");
+
+        }
         if (!request.getEmail().matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.com$")) {
             throw new IllegalArgumentException("Email phải có định dạng đuôi .com");
         }
@@ -108,12 +112,20 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse updateUserStatus(Integer userId, String status) {
-        User user = userRepository.findById(userId)
+    public UserResponse updateUserStatus(Integer userId, String status, Integer actorId) {
+        List<User> managers = userRepository.findCenterManagersForUpdate();
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
 
         if (!isValidStatus(status)) {
             throw new IllegalArgumentException("Trạng thái không hợp lệ");
+        }
+        if (userId.equals(actorId) && !"ACTIVE".equals(status)) {
+            throw new IllegalArgumentException("Không thể tự khóa hoặc vô hiệu hóa tài khoản quản lý đang đăng nhập");
+        }
+        if (isActiveCenterManager(user) && !"ACTIVE".equals(status)
+                && countActiveManagers(managers) <= 1) {
+            throw new IllegalArgumentException("Không thể vô hiệu hóa quản lý trung tâm đang hoạt động cuối cùng");
         }
 
         user.setStatus(status);
@@ -122,8 +134,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse updateUserRole(Integer userId, Integer roleId, String roleName) {
-        User user = userRepository.findById(userId)
+    public UserResponse updateUserRole(Integer userId, Integer roleId, String roleName, Integer actorId) {
+        List<User> managers = userRepository.findCenterManagersForUpdate();
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
 
         Role newRole;
@@ -137,9 +150,25 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Cần cung cấp roleId hoặc roleName để cập nhật vai trò");
         }
 
+        if (userId.equals(actorId) && !"CENTER_MANAGER".equals(newRole.getRoleName())) {
+            throw new IllegalArgumentException("Không thể tự hạ vai trò của tài khoản quản lý đang đăng nhập");
+        }
+        if (isActiveCenterManager(user) && !"CENTER_MANAGER".equals(newRole.getRoleName())
+                && countActiveManagers(managers) <= 1) {
+            throw new IllegalArgumentException("Không thể hạ quyền quản lý trung tâm đang hoạt động cuối cùng");
+        }
+
         user.setRole(newRole);
         User updatedUser = userRepository.save(user);
         return mapToUserResponse(updatedUser);
+    }
+
+    private boolean isActiveCenterManager(User user) {
+        return "CENTER_MANAGER".equals(user.getRole().getRoleName()) && "ACTIVE".equals(user.getStatus());
+    }
+
+    private long countActiveManagers(List<User> managers) {
+        return managers.stream().filter(this::isActiveCenterManager).count();
     }
 
     @Override

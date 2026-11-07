@@ -43,8 +43,8 @@ public class ClassServiceImpl implements ClassService {
 
         validateCoach(request.getCoachId());
 
-        // Kiểm tra phòng tồn tại và lớp không vượt quá sức chứa phòng.
-        var room = roomRepository.findById(request.getRoomId())
+        // Khóa phòng sau HLV để tuần tự hóa các yêu cầu dùng chung tài nguyên.
+        var room = roomRepository.findByIdForUpdate(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
         if (request.getMaxCapacity() == null || request.getMaxCapacity() <= 0) {
             throw new IllegalArgumentException("Sức chứa lớp học phải lớn hơn 0");
@@ -179,7 +179,6 @@ public class ClassServiceImpl implements ClassService {
             clazz.setSportId(request.getSportId());
         }
         if (request.getCoachId() != null) {
-            validateCoach(request.getCoachId());
             clazz.setCoachId(request.getCoachId());
         }
         if (request.getRoomId() != null) {
@@ -197,7 +196,8 @@ public class ClassServiceImpl implements ClassService {
         }
 
         // Kiểm tra xung đột lịch lần nữa sau khi áp dụng các thay đổi.
-        var effectiveRoom = roomRepository.findById(clazz.getRoomId())
+        validateCoach(clazz.getCoachId());
+        var effectiveRoom = roomRepository.findByIdForUpdate(clazz.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
         if (clazz.getMaxCapacity() > effectiveRoom.getCapacity()) {
             throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
@@ -235,12 +235,13 @@ public class ClassServiceImpl implements ClassService {
             Integer excludeClassId, Integer coachId, Integer roomId, LocalDateTime start, int durationMinutes) {
         LocalDateTime end = start.plusMinutes(durationMinutes);
 
-        List<Classes> scheduledClasses = classRepository.findAll().stream()
-                .filter(c -> "SCHEDULED".equals(c.getStatus()))
-                .filter(c -> excludeClassId == null || !c.getId().equals(excludeClassId))
-                .toList();
+        List<Classes> scheduledClasses = classRepository
+                .findPotentialScheduleConflicts(coachId, roomId, end);
 
         for (Classes other : scheduledClasses) {
+            if (excludeClassId != null && excludeClassId.equals(other.getId())) {
+                continue;
+            }
             LocalDateTime otherStart = other.getScheduleTime();
             int otherDuration = other.getDurationMinutes() != null ? other.getDurationMinutes() : 60;
             LocalDateTime otherEnd = otherStart.plusMinutes(otherDuration);
@@ -262,10 +263,13 @@ public class ClassServiceImpl implements ClassService {
     }
 
     private void validateCoach(Integer coachId) {
-        var coach = userRepository.findById(coachId)
+        var coach = userRepository.findByIdForUpdate(coachId)
                 .orElseThrow(() -> new IllegalArgumentException("Huấn luyện viên không tồn tại"));
         if (coach.getRole() == null || !"COACH".equals(coach.getRole().getRoleName())) {
             throw new IllegalArgumentException("Tài khoản được chọn không phải huấn luyện viên");
+        }
+        if (!"ACTIVE".equals(coach.getStatus())) {
+            throw new IllegalArgumentException("Huấn luyện viên phải có tài khoản đang hoạt động");
         }
     }
 
