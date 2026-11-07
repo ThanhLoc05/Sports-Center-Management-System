@@ -2546,6 +2546,86 @@
   line-height: 2;
   padding: 20px 0 26px;
 }
+/* Gom thông tin phiếu thành khung; chỉ nội dung cuộn để nút đóng luôn dễ tìm. */
+.support-detail-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.support-detail-dialog > .modal-heading,
+.support-detail-dialog > .modal-footer {
+  flex-shrink: 0;
+}
+.support-detail.support-ticket-detail {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.support-ticket-section {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.support-ticket-summary {
+  background: var(--accent-subtle);
+}
+.support-ticket-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.support-ticket-heading > h3 {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.support-ticket-heading > .badge {
+  flex-shrink: 0;
+}
+.support-ticket-section h3 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--green-dark);
+}
+.support-ticket-section p {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.support-ticket-content {
+  white-space: pre-wrap;
+}
+.support-ticket-meta,
+.support-ticket-facts {
+  color: #5e6c4f;
+}
+.support-ticket-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.support-ticket-facts > p {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  /* Thu gọn mép khung, xếp thông tin xử lý một cột để không tràn trên điện thoại. */
+  .support-detail.support-ticket-detail {
+    padding: 20px;
+  }
+  .support-ticket-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .settings-layout {
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr);

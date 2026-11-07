@@ -18,6 +18,7 @@ import {
   Button,
   DataTable,
   DemoOnly,
+  Empty,
   ErrorState,
   Field,
   FormModal,
@@ -52,6 +53,14 @@ function ApiSupport() {
   // Tách cache theo tài khoản/vai trò; đổi tài khoản không giữ phiếu hoặc form của người trước.
   const scope = ["support-tickets", actor.id, actor.roleName] as const;
   const tickets = useQuery({ queryKey: scope, queryFn: api.supportTickets, enabled: member || staff, retry: false });
+  // Chỉ tải danh sách khi nhân viên mở form; cache tách theo tài khoản để tránh dùng nhầm phiên.
+  const membersQuery = useQuery({
+    queryKey: ["support-members", actor.id, actor.roleName],
+    queryFn: api.users,
+    enabled: staff && create,
+    retry: false,
+  });
+  const members = (membersQuery.data || []).filter(user => user.roleName === "MEMBER");
   const currentActor = () => {
     const current = getSession();
     return current?.mode === "api" && current.user.id === actor.id && current.user.roleName === actor.roleName;
@@ -68,7 +77,11 @@ function ApiSupport() {
   return <>
     <PageHeader eyebrow="WE'RE HERE TO HELP" title="Yêu cầu hỗ trợ"
       description="Mỗi câu hỏi đều xứng đáng được lắng nghe."
-      actions={member ? <Button onClick={() => setCreate(true)}><Plus size={17} />Tạo yêu cầu hỗ trợ</Button> : undefined} />
+      actions={member || staff ? (
+        <Button onClick={() => setCreate(true)}><Plus size={17} />
+          {staff ? "Tiếp nhận yêu cầu tại quầy" : "Tạo yêu cầu hỗ trợ"}
+        </Button>
+      ) : undefined} />
     {!member && !staff ? <Notice>Vai trò của bạn chưa được hỗ trợ tại màn hình này.</Notice> : <>
       <div className="support-intro"><span><LifeBuoy size={34} strokeWidth={1.4} /></span><div>
         <h2>Cần một người đồng hành?</h2><p>Gửi câu hỏi về gói tập, lịch học hoặc trải nghiệm tại trung tâm. Lễ tân sẽ là người tiếp nhận.</p>
@@ -93,19 +106,40 @@ function ApiSupport() {
           ]} />}
       </Panel>
     </>}
-    {create && member && <FormModal title="Yêu cầu hỗ trợ mới" submitLabel="Gửi yêu cầu" onClose={() => setCreate(false)}
-      onSubmit={async d => {
-        if (creating.current) return;
-        creating.current = true;
-        try {
-          const ticket = await api.createSupportTicket({ subject: String(d.get("subject") || ""), content: String(d.get("content") || "") });
-          await saved(ticket);
-          if (currentActor()) toast("Đã gửi yêu cầu hỗ trợ.");
-        } finally { creating.current = false; }
-      }}>
-      <Field label="Tiêu đề"><input name="subject" required maxLength={255} /></Field>
-      <Field label="Nội dung chi tiết"><textarea name="content" required rows={5} /></Field>
-    </FormModal>}
+    {create && (member || staff) && (
+      <FormModal
+        title={staff ? "Tiếp nhận yêu cầu tại quầy" : "Yêu cầu hỗ trợ mới"}
+        description={staff ? "Chọn đúng thành viên và ghi lại nội dung cần trung tâm hỗ trợ." : undefined}
+        submitLabel={staff ? "Lưu yêu cầu hỗ trợ" : "Gửi yêu cầu"}
+        submitDisabled={staff && (!membersQuery.isSuccess || membersQuery.isFetching || !members.length)}
+        onClose={() => setCreate(false)}
+        onSubmit={async d => {
+          if (creating.current) return;
+          const memberId = staff ? Number(d.get("memberId")) : undefined;
+          // Không dùng ID nhân viên làm chủ phiếu, không cho chọn tài khoản HLV/nhân viên.
+          if (staff && (!membersQuery.isSuccess || membersQuery.isFetching ||
+            !Number.isSafeInteger(memberId) || !members.some(user => user.id === memberId)))
+            throw new ApiError("Chọn thành viên hợp lệ từ danh sách đã tải.");
+          creating.current = true;
+          try {
+            const ticket = await api.createSupportTicket({
+              subject: String(d.get("subject") || ""),
+              content: String(d.get("content") || ""),
+            }, memberId);
+            await saved(ticket);
+            if (currentActor()) toast(staff ? "Đã ghi nhận yêu cầu hỗ trợ cho thành viên." : "Đã gửi yêu cầu hỗ trợ.");
+          } finally { creating.current = false; }
+        }}
+      >
+        {staff && (membersQuery.isPending ? <Loading /> : membersQuery.error ? (
+          <ErrorState error={membersQuery.error} retry={membersQuery.refetch} />
+        ) : !members.length ? (
+          <Empty title="Chưa có thành viên để tiếp nhận hỗ trợ" description="Thành viên cần có tài khoản trước khi ghi nhận yêu cầu tại quầy." />
+        ) : <MemberField users={members} />)}
+        <Field label="Tiêu đề"><input name="subject" required maxLength={255} /></Field>
+        <Field label="Nội dung chi tiết"><textarea name="content" required rows={5} /></Field>
+      </FormModal>
+    )}
     {detailId !== null && <ApiSupportDetail key={detailId} id={detailId} scope={scope} staff={staff}
       onClose={() => setDetailId(null)} onSaved={saved} currentActor={currentActor} />}
   </>;
@@ -120,16 +154,30 @@ function ApiSupportDetail({ id, scope, staff, onClose, onSaved, currentActor }: 
   const toast = useToast();
   const data = ticket.data;
   return <>
-    <Modal title="Chi tiết yêu cầu hỗ trợ" onClose={onClose}>
+    <Modal title="Chi tiết yêu cầu hỗ trợ" onClose={onClose} className="support-detail-dialog">
       {ticket.isPending || ticket.isFetching ? <Loading /> : ticket.error ? <ErrorState error={ticket.error} retry={ticket.refetch} /> : data &&
-        <div className="support-detail">
-          <h3>{data.subject}</h3><Badge status={data.status} /><p>{data.content}</p>
-          <p>Ngày tiếp nhận: {dateLabel(data.createdAt)}</p>
-          {data.response && <><h3>Phản hồi từ trung tâm</h3><p>{data.response}</p></>}
-          {data.resolvedBy !== null && <p>Người xử lý: #{data.resolvedBy}</p>}
-          {data.resolvedAt && <p>Ngày xử lý: {dateLabel(data.resolvedAt)}</p>}
-          {staff && data.status === "OPEN" && <Button onClick={() => setResolve(true)}>Xử lý yêu cầu</Button>}
+        // Chia phiếu thành các khung cùng mép để dễ phân biệt yêu cầu và kết quả xử lý.
+        <div className="support-detail support-ticket-detail">
+          <section className="support-ticket-section support-ticket-summary">
+            <div className="support-ticket-heading"><h3>{data.subject}</h3><Badge status={data.status} /></div>
+            <p className="support-ticket-meta">Ngày tiếp nhận: {dateLabel(data.createdAt)}</p>
+          </section>
+          <section className="support-ticket-section">
+            <h3>Nội dung yêu cầu</h3>
+            <p className="support-ticket-content">{data.content}</p>
+          </section>
+          {(data.response || data.resolvedBy !== null || data.resolvedAt) && <section className="support-ticket-section">
+            {data.response && <><h3>Phản hồi từ trung tâm</h3><p className="support-ticket-content">{data.response}</p></>}
+            <div className="support-ticket-facts">
+              {data.resolvedBy !== null && <p>Người xử lý: #{data.resolvedBy}</p>}
+              {data.resolvedAt && <p>Ngày xử lý: {dateLabel(data.resolvedAt)}</p>}
+            </div>
+          </section>}
         </div>}
+      <div className="modal-footer">
+        {staff && data?.status === "OPEN" && !ticket.isFetching && !ticket.error && <Button onClick={() => setResolve(true)}>Xử lý yêu cầu</Button>}
+        <Button variant="secondary" onClick={onClose}>Đóng</Button>
+      </div>
     </Modal>
     {resolve && staff && <FormModal title="Xử lý yêu cầu hỗ trợ" submitLabel="Đánh dấu đã xử lý" onClose={() => setResolve(false)}
       submitDisabled={ticket.isFetching || !!ticket.error || data?.status !== "OPEN"}

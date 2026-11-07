@@ -351,12 +351,25 @@ export const api = {
       throw new ApiError("Phiếu trả về không thuộc yêu cầu đang xem.");
     return ticket;
   },
-  createSupportTicket(input: SupportTicketInput): Promise<SupportTicket> {
-    // Chỉ MEMBER tạo cho mình; không mở tạo hộ dù Backend có tùy chọn memberId.
-    supportActor(["MEMBER"]);
+  createSupportTicket(input: SupportTicketInput, memberId?: number): Promise<SupportTicket> {
+    const actor = supportActor();
+    const own = actor.roleName === "MEMBER";
+    // Member tự gửi bằng JWT. Chỉ Lễ tân/Quản lý được chọn người cần hỗ trợ tại quầy.
+    if (own && memberId !== undefined)
+      throw new ApiError("Bạn chỉ được tạo yêu cầu hỗ trợ cho chính mình.", 403);
+    if (!own && (!Number.isSafeInteger(memberId) || memberId! < 1))
+      throw new ApiError("Chọn thành viên cần hỗ trợ.");
     const subject = input.subject.trim(), content = input.content.trim();
     if (!subject || !content) throw new ApiError("Tiêu đề và nội dung không được để trống.");
-    return post<SupportTicket>("/support-tickets", { subject, content });
+    if (subject.length > 255) throw new ApiError("Tiêu đề không được vượt quá 255 ký tự.");
+    const target = own ? actor.id : memberId!;
+    // Backend nhận memberId ở query; body chỉ có hai trường của SupportTicketRequest.
+    const endpoint = own ? "/support-tickets" : "/support-tickets?memberId=" + target;
+    return post<SupportTicket>(endpoint, { subject, content }).then(ticket => {
+      if (!ticket || !Number.isSafeInteger(ticket.id) || ticket.id < 1 || ticket.memberId !== target)
+        throw new ApiError("Phiếu trả về không đúng thành viên đã chọn. Vui lòng kiểm tra lại danh sách trước khi gửi tiếp.");
+      return ticket;
+    });
   },
   resolveSupportTicket(id: number, response: string): Promise<SupportTicket> {
     supportActor(["RECEPTIONIST", "CENTER_MANAGER"]);
