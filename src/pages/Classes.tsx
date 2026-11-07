@@ -1,6 +1,6 @@
 import { parseDate } from "../lib/utils";
 import BookingForm from "../components/BookingForm";
-import { UserProfileModal } from "../components/ProfileEditor";
+import { CoachProfileDialog } from "../components/CoachProfile";
 import { useDemoData, usePermissions } from "../lib/hooks";
 import {
   apiMembershipAccess,
@@ -56,7 +56,6 @@ import {
   FormModal,
   Loading,
   Modal,
-  Notice,
   PageHeader,
   Panel,
   SearchInput,
@@ -850,24 +849,12 @@ function ClassDetailContent({
       {booking && (
         <BookingForm classId={c.id} onClose={() => setBooking(false)} />
       )}
-      {showCoach &&
-        (users.data?.find((u) => u.id === c.coachId) ? (
-          <UserProfileModal
-            user={users.data.find((u) => u.id === c.coachId)!}
-            onClose={() => setShowCoach(false)}
-          />
-        ) : (
-          <Modal
-            className="content-preview-dialog"
-            title={`Huấn luyện viên #${c.coachId}`}
-            onClose={() => setShowCoach(false)}
-          >
-            <Notice>
-              Backend chưa cung cấp hồ sơ công khai HLV cho tài khoản này. Mã
-              HLV được lấy từ thông tin lớp thật.
-            </Notice>
-          </Modal>
-        ))}
+      {showCoach && (
+        <CoachProfileDialog
+          coachId={c.coachId}
+          onClose={() => setShowCoach(false)}
+        />
+      )}
     </>
   );
 }

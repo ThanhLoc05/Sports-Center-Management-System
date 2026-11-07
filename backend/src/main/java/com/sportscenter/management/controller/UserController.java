@@ -1,14 +1,18 @@
 package com.sportscenter.management.controller;
 
 import com.sportscenter.management.dto.Request.ChangePasswordRequest;
+import com.sportscenter.management.dto.Request.CoachProfileRequest;
 import com.sportscenter.management.dto.Request.LoginRequest;
 import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
+import com.sportscenter.management.dto.Request.UpdateStaffDetailsRequest;
 import com.sportscenter.management.dto.Response.LoginResponse;
+import com.sportscenter.management.dto.Response.CoachProfileResponse;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
 import com.sportscenter.management.service.BookingService;
+import com.sportscenter.management.service.CoachProfileService;
 import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.JwtService;
 import com.sportscenter.management.service.UserService;
@@ -18,8 +22,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
  * ============================================================================
@@ -47,6 +54,7 @@ public class UserController {
     private final SecurityUtils securityUtils;
     private final BookingService bookingService;
     private final ClassService classService;
+    private final CoachProfileService coachProfileService;
 
     /**
      * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER HOẶC LỄ TÂN TẠO TẠI QUẦY)
@@ -133,6 +141,21 @@ public class UserController {
     }
 
     /**
+     * Cập nhật thông tin liên hệ của HLV/nhân viên; không thay đổi vai trò hoặc trạng thái.
+     */
+    @PutMapping("/{userId}/details")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public UserResponse updateStaffDetails(
+            @PathVariable Integer userId,
+            @Valid @RequestBody UpdateStaffDetailsRequest request) {
+        Integer actorId = securityUtils.getCurrentUserId();
+        if (actorId == null) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Yêu cầu đăng nhập.");
+        }
+        return userService.updateStaffDetails(userId, actorId, request);
+    }
+
+    /**
      * ĐỔI MẬT KHẨU / KHÔI PHỤC MẬT KHẨU
      * - Chính chủ nhập mật khẩu cũ + mới.
      * - Quản lý trung tâm có quyền đặt lại mật khẩu cho thành viên/nhân viên mà không cần mật khẩu cũ.
@@ -175,6 +198,30 @@ public class UserController {
 
         return userService.getProfile(userId).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Hồ sơ nghề nghiệp công khai của HLV; chỉ trả các trường không nhạy cảm.
+     */
+    @GetMapping("/{userId}/coach-profile")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CoachProfileResponse> getCoachProfile(@PathVariable Integer userId) {
+        return ResponseEntity.ok(coachProfileService.getProfile(userId));
+    }
+
+    /**
+     * HLV chỉ tự sửa hồ sơ nghề nghiệp; quản lý trung tâm được hỗ trợ cập nhật.
+     */
+    @PutMapping("/{userId}/coach-profile")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CoachProfileResponse> updateCoachProfile(
+            @PathVariable Integer userId, @Valid @RequestBody CoachProfileRequest request) {
+        Integer currentUser = securityUtils.getCurrentUserId();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+        if (!currentUser.equals(userId) && !securityUtils.isCenterManager()) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(coachProfileService.updateProfile(userId, request));
     }
 
     /**

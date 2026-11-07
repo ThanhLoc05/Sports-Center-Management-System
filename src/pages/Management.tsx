@@ -8,6 +8,7 @@ import ApiNotifications from "../components/ApiNotifications";
  */
 import { useState } from "react";
 import { MembershipNotifications } from "../components/MembershipCheckout";
+import { ApiNotificationInbox } from "../components/ApiNotifications";
 import { Link } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -19,6 +20,7 @@ import {
 } from "../lib/hooks";
 import type { MembershipPackage, Package, User } from "../lib/types";
 import {
+  deletePackage as deleteDemoPackage,
   markNotificationsRead,
   savePackage,
   sendNotification,
@@ -29,6 +31,7 @@ import { dateLabel, downloadCsv, matches, money } from "../lib/utils";
 import {
   Badge,
   Button,
+  Confirm,
   DataTable,
   Empty,
   ErrorState,
@@ -57,6 +60,7 @@ function LegacyPackagesPage() {
     enabled: session?.mode === "api",
   });
   const [edit, setEdit] = useState<Package | true | null>(null);
+  const [remove, setRemove] = useState<Package | null>(null);
   const client = useQueryClient();
   const toast = useToast();
   return (
@@ -166,9 +170,18 @@ function LegacyPackagesPage() {
                 key: "actions",
                 label: "Thao tác",
                 render: (p) => (
-                  <Button variant="ghost" onClick={() => setEdit(p)}>
-                    Chỉnh sửa
-                  </Button>
+                  <div className="row-actions">
+                    <Button variant="ghost" onClick={() => setEdit(p)}>
+                      Chỉnh sửa
+                    </Button>
+                    <Button
+                      variant="danger"
+                      aria-label={`Xóa gói ${p.name}`}
+                      onClick={() => setRemove(p)}
+                    >
+                      Xóa
+                    </Button>
+                  </div>
                 ),
               },
             ]}
@@ -289,6 +302,18 @@ function LegacyPackagesPage() {
           </Notice>
         </FormModal>
       )}
+      {remove && (
+        <Confirm
+          title="Xóa gói demo?"
+          description={`Xóa "${remove.name}" khỏi danh mục demo. Chỉ xóa được khi chưa có kỳ đăng ký liên quan.`}
+          onClose={() => setRemove(null)}
+          onConfirm={async () => {
+            deleteDemoPackage(remove.id);
+            await client.invalidateQueries();
+            toast("Đã xóa gói demo.");
+          }}
+        />
+      )}
     </>
   );
 }
@@ -367,7 +392,10 @@ function LegacyStudentsPage() {
 export function NotificationsPage() {
   const { session } = useAuth();
   return session?.mode === "api" && session.user.roleName === "MEMBER" ? (
-    <MembershipNotifications />
+    <>
+      <MembershipNotifications />
+      <ApiNotificationInbox />
+    </>
   ) : session?.mode === "api" ? (
     <ApiNotifications />
   ) : (

@@ -60,7 +60,7 @@ class MembershipOrderServiceTest {
     void setUp() {
         service = new MembershipOrderService(orders, packages, subscriptions, invoices,
                 users, security, bankAccounts, bankEvents, notifications, payment);
-        memberships = new MembershipServiceImpl(subscriptions, packages, users, invoices);
+        memberships = new MembershipServiceImpl(subscriptions, packages, users, invoices, orders);
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
         ReflectionTestUtils.setField(memberships, "entityManager", entityManager);
         source = MemberSubscription.builder().id(10).memberId(4).packageId(1)

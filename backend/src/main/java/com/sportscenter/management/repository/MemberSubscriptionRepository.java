@@ -32,6 +32,8 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
      */
     List<MemberSubscription> findByMemberId(Integer memberId);
 
+    boolean existsByPackageId(Integer packageId);
+
     @Query("SELECT ms.memberId FROM MemberSubscription ms WHERE ms.id = :subscriptionId")
     Optional<Integer> findMemberIdById(@Param("subscriptionId") Integer subscriptionId);
 

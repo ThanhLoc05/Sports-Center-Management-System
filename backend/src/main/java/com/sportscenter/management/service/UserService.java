@@ -2,6 +2,7 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
+import com.sportscenter.management.dto.Request.UpdateStaffDetailsRequest;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
@@ -24,6 +25,8 @@ public interface UserService {
     UserResponse updateUserStatus(Integer userId, String status);
 
     UserResponse updateUserRole(Integer userId, Integer roleId, String roleName);
+
+    UserResponse updateStaffDetails(Integer userId, Integer actorId, UpdateStaffDetailsRequest request);
 
     Optional<User> authenticate(String email, String password);
 

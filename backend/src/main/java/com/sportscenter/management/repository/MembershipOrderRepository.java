@@ -15,6 +15,8 @@ public interface MembershipOrderRepository extends JpaRepository<MembershipOrder
 
     boolean existsByMemberIdAndStatus(Integer memberId, String status);
 
+    boolean existsByPackageIdOrSourcePackageId(Integer packageId, Integer sourcePackageId);
+
     boolean existsByBankTransactionId(String bankTransactionId);
 
     List<MembershipOrder> findByMemberIdOrderByCreatedAtDesc(Integer memberId);

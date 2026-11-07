@@ -184,6 +184,12 @@ export const operations = {
     validatePackage(input);
     return send(`/memberships/packages/${packageId}`, "PUT", normalizedPackage(input));
   },
+  deletePackage(packageId: number) {
+    role(["CENTER_MANAGER", "MANAGER"]);
+    return request<void>(`/memberships/packages/${id(packageId)}`, {
+      method: "DELETE",
+    });
+  },
   createSport(sportName: string, description: string) {
     role(["CENTER_MANAGER", "MANAGER"]);
     if (!sportName.trim()) throw new ApiError("Nhập tên bộ môn.");

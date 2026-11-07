@@ -3,12 +3,16 @@ package com.sportscenter.management.controller;
 import com.sportscenter.management.dto.Request.SportRequest;
 import com.sportscenter.management.dto.Response.SportResponse;
 import com.sportscenter.management.entity.Sport;
+import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.SportRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -18,6 +22,7 @@ import java.util.List;
 public class SportController {
 
     private final SportRepository sportRepository;
+    private final ClassRepository classRepository;
 
     @GetMapping
     public List<SportResponse> getSports() {
@@ -77,5 +82,18 @@ public class SportController {
                 .sportName(updated.getSportName())
                 .description(updated.getDescription())
                 .build());
+    }
+
+    @DeleteMapping("/{sportId}")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    @Transactional
+    public ResponseEntity<Void> deleteSport(@PathVariable Integer sportId) {
+        Sport sport = sportRepository.findById(sportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bộ môn không tồn tại"));
+        if (classRepository.existsBySportId(sportId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bộ môn đang được lớp học tham chiếu, chưa thể xóa");
+        }
+        sportRepository.delete(sport);
+        return ResponseEntity.noContent().build();
     }
 }

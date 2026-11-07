@@ -1,7 +1,7 @@
 import ApiFacilities from "../components/ApiFacilities";
 /**
  * Phiên API dùng ApiFacilities để tải/tạo bộ môn và phòng tập qua backend.
- * Chỉnh sửa chưa có API chỉ cho xem lại; LegacyFacilities phục vụ kiểm thử demo.
+ * LegacyFacilities giữ luồng dữ liệu local cho phiên demo.
  */
 import { useState } from "react";
 import { Dumbbell, DoorOpen, Pencil, Plus, Trash2 } from "lucide-react";
@@ -54,7 +54,7 @@ function LegacyFacilities() {
       />
       <DemoOnly>
         {demo
-          ? "Danh mục phòng và bộ môn đang lưu demo local, được dùng trong form tạo lớp và kiểm tra sức chứa. Backend có entity/repository nhưng chưa có controller quản lý."
+          ? "Danh mục phòng và bộ môn đang lưu demo local, được dùng trong form tạo lớp và kiểm tra sức chứa."
           : undefined}
       </DemoOnly>
       <div className="facility-tabs">

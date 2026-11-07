@@ -64,6 +64,13 @@ public class MembershipController {
         return ResponseEntity.ok(membershipService.updatePackage(packageId, request));
     }
 
+    @DeleteMapping("/packages/{packageId}")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<Void> deletePackage(@PathVariable Integer packageId) {
+        membershipService.deletePackage(packageId);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * Đăng ký gói hội viên mới:
      * - Tạo subscription trạng thái PENDING_PAYMENT.

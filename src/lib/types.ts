@@ -30,6 +30,14 @@ export interface User {
   bio?: string;
   specialties?: string;
 }
+/** Thông tin nghề nghiệp công khai của HLV; không bao gồm email hoặc điện thoại. */
+export interface CoachProfessionalProfile {
+  coachId: number;
+  fullName: string;
+  professionalLevel: string | null;
+  specialties: string | null;
+  bio: string | null;
+}
 /**
  * Một phiên gồm token, người đăng nhập và nguồn dữ liệu (api/demo).
  * Token API đi kèm yêu cầu tới backend; token demo chỉ là giá trị minh họa.

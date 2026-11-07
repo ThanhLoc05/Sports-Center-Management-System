@@ -70,6 +70,11 @@ export const facilitiesApi = {
     });
   },
 
+  async deleteRoom(roomId: number) {
+    manager();
+    return request<void>(`/rooms/${id(roomId)}`, { method: "DELETE" });
+  },
+
   async updateSport(sportId: number, input: SportInput) {
     manager();
     return request<SportDto>(`/sports/${id(sportId)}`, {
@@ -81,4 +86,8 @@ export const facilitiesApi = {
     });
   },
 
+  async deleteSport(sportId: number) {
+    manager();
+    return request<void>(`/sports/${id(sportId)}`, { method: "DELETE" });
+  },
 };

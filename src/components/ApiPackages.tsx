@@ -9,6 +9,7 @@ import {
   Button,
   Badge,
   DataTable,
+  Confirm,
   Empty,
   ErrorState,
   Field,
@@ -31,6 +32,7 @@ export default function ApiPackages() {
   });
   const [create, setCreate] = useState(false);
   const [edit, setEdit] = useState<MembershipPackage | null>(null);
+  const [remove, setRemove] = useState<MembershipPackage | null>(null);
   const client = useQueryClient();
   const toast = useToast();
   return (
@@ -80,9 +82,18 @@ export default function ApiPackages() {
                 key: "action",
                 label: "Thao tác",
                 render: (p) => (
-                  <Button variant="ghost" onClick={() => setEdit(p)}>
-                    Chỉnh sửa gói
-                  </Button>
+                  <div className="row-actions">
+                    <Button variant="ghost" onClick={() => setEdit(p)}>
+                      Chỉnh sửa gói
+                    </Button>
+                    <Button
+                      variant="danger"
+                      aria-label={`Xóa gói ${p.packageName}`}
+                      onClick={() => setRemove(p)}
+                    >
+                      Xóa
+                    </Button>
+                  </div>
                 ),
               },
             ]}
@@ -90,9 +101,27 @@ export default function ApiPackages() {
         )}
       </Panel>
       <Notice>
-        Gói đã mua giữ nguyên thông tin kỳ đăng ký; chỉnh sửa danh mục chỉ áp
-        dụng cho các yêu cầu đăng ký mới.
+        Chỉ xóa được gói chưa có đơn hàng hoặc kỳ đăng ký liên quan. Gói đã có
+        lịch sử cần được ngừng bán thay vì xóa.
       </Notice>
+      {remove && (
+        <Confirm
+          title="Xóa gói tập?"
+          description={`Xóa "${remove.packageName}" khỏi danh mục. Chỉ thực hiện được khi gói chưa có đơn hàng hoặc kỳ đăng ký liên quan; thao tác này không thể hoàn tác.`}
+          onClose={() => setRemove(null)}
+          onConfirm={async () => {
+            await operations.deletePackage(remove.id);
+            await client.invalidateQueries({
+              queryKey: ["membershipPackages"],
+            });
+            await client.invalidateQueries({
+              queryKey: ["membership-packages"],
+            });
+            setRemove(null);
+            toast("Đã xóa gói tập.");
+          }}
+        />
+      )}
       {edit && (
         <FormModal
           title="Chỉnh sửa gói tập"

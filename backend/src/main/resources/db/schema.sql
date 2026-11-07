@@ -141,6 +141,34 @@ BEGIN
     );
 END;
 
+IF OBJECT_ID(N'dbo.coach_profiles', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.coach_profiles (
+        coach_id INT NOT NULL CONSTRAINT PK_coach_profiles PRIMARY KEY,
+        professional_level NVARCHAR(100) NULL,
+        specialties NVARCHAR(500) NULL,
+        bio NVARCHAR(MAX) NULL,
+        CONSTRAINT FK_coach_profiles_users FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id)
+    );
+END;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.audit_logs (
+        audit_log_id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_audit_logs PRIMARY KEY,
+        actor_id INT NOT NULL,
+        action NVARCHAR(50) NOT NULL,
+        entity_type NVARCHAR(100) NOT NULL,
+        entity_id INT NULL,
+        details NVARCHAR(1000) NULL,
+        old_value NVARCHAR(MAX) NULL,
+        new_value NVARCHAR(MAX) NULL,
+        ip_address VARCHAR(45) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created_at DEFAULT SYSDATETIME(),
+        CONSTRAINT FK_audit_logs_users FOREIGN KEY (actor_id) REFERENCES dbo.users(user_id)
+    );
+END;
+
 IF OBJECT_ID(N'dbo.sports', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.sports (
@@ -613,6 +641,10 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.atten
     CREATE INDEX IX_attendances_member_time ON dbo.attendances (member_id, checked_in_at);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.support_tickets') AND name = N'IX_support_tickets_status_created')
     CREATE INDEX IX_support_tickets_status_created ON dbo.support_tickets (status, created_at);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.audit_logs') AND name = N'IX_audit_logs_created_at')
+    CREATE INDEX IX_audit_logs_created_at ON dbo.audit_logs (created_at DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.audit_logs') AND name = N'IX_audit_logs_actor_created')
+    CREATE INDEX IX_audit_logs_actor_created ON dbo.audit_logs (actor_id, created_at DESC);
 
 
 /* Entity MembershipOrder dùng String: VARCHAR(64), không phải CHAR(64).

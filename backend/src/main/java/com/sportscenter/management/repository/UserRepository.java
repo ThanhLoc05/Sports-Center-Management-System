@@ -37,12 +37,16 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      */
     boolean existsByEmail(String email);
 
+    boolean existsByEmailIgnoreCaseAndIdNot(String email, Integer id);
+
     /**
      * Check if phone exists
      * @param phone User phone
      * @return true if exists
      */
     boolean existsByPhone(String phone);
+
+    boolean existsByPhoneAndIdNot(String phone, Integer id);
 
     /**
      * Find users by role ID

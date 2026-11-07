@@ -28,6 +28,8 @@ public interface MembershipService {
      */
     MembershipPackageResponse updatePackage(Integer packageId, MembershipPackageRequest request);
 
+    void deletePackage(Integer packageId);
+
     /**
      * Create a new membership subscription for a member
      * @param request Subscription request

@@ -151,6 +151,16 @@ export function savePackage(input: Omit<Package, "id">, id?: number) {
     return pkg;
   });
 }
+export function deletePackage(id: number) {
+  requireDemoPermission("packages.manage");
+  return updateDemo("Xóa gói tập", `#${id}`, (db) => {
+    if (!db.packages.some((pkg) => pkg.id === id))
+      throw new ApiError("Không tìm thấy gói cần xóa.");
+    if (db.subscriptions.some((subscription) => subscription.packageId === id))
+      throw new ApiError("Gói đã có kỳ đăng ký liên quan, hãy ngừng bán thay vì xóa.");
+    db.packages = db.packages.filter((pkg) => pkg.id !== id);
+  });
+}
 export function savePlan(
   input: Omit<TrainingPlan, "id" | "createdAt">,
   id?: number,

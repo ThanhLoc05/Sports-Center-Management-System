@@ -28,7 +28,19 @@ Copy-Item .env.example .env.local
 
 Xin nhóm Backend thông tin instance, database riêng và cách xác thực được phép sử dụng. Clone/pull không tạo database hoặc tài khoản. Không mặc định database trên máy khác có cùng tên, schema hoặc dữ liệu.
 
-Database local mặc định là **`SportsCenterDB`**. Schema và dữ liệu demo nằm trong `backend/src/main/resources/db/`; các bảng khớp với entity/backend hiện tại (`users`, `roles`, `membership_packages`, `classes`...), không dùng bộ tên bảng của bản phác thảo `SportsCenterDesign`. Trên database mới, chạy `create-sports-center-sql2019.sql` để tạo database rỗng (script sẽ dừng nếu database đã tồn tại), sau đó chọn `SportsCenterDB` trong SSMS và chạy lần lượt `schema.sql`, `sample-running-data.sql`. Không chạy `schema.sql` hoặc script tạo database trên database có dữ liệu nếu chưa kiểm tra/backup. Hibernate giữ `ddl-auto: validate`; không đổi thành `update` hoặc `create` để che lỗi thiếu bảng/cột.
+Database local mặc định là **`SportsCenterDB`**. Tệp SQL nằm trong `backend/src/main/resources/db/` và dùng schema khớp với entity backend hiện tại, không dùng bộ tên bảng của bản phác thảo `SportsCenterDesign`.
+
+- Tạo database mới: chạy `create-sports-center-sql2019.sql`, sau đó chọn `SportsCenterDB` và chạy `schema.sql`, `sample-running-data.sql`, rồi `seed-coach-profiles.sql` nếu cần hồ sơ HLV demo.
+- Nâng cấp database cũ: giữ nguyên các migration theo thứ tự phiên bản; database đã đến V6 cần chạy V7 rồi V8. Migration được chạy thủ công, không tự động khi khởi động.
+- Tạo thêm lịch lớp demo: chạy `sample-classes.sql` sau khi đã có ít nhất một HLV đang hoạt động.
+
+`sample-running-data.sql` chỉ seed tài khoản, danh mục và dữ liệu nghiệp vụ demo; hồ sơ nghề nghiệp HLV tập trung trong `seed-coach-profiles.sql` để tránh lặp dữ liệu. Hồ sơ, kinh nghiệm và chứng nhận trong seed là dữ liệu giả lập, không phải thông tin đã xác minh. Script này chỉ cập nhật bốn tài khoản HLV demo đã biết và tạo hồ sơ cơ bản cho HLV khác chưa có hồ sơ.
+
+Không chạy `schema.sql` hoặc script tạo database trên database có dữ liệu nếu chưa kiểm tra/backup. Hibernate giữ `ddl-auto: validate`; không đổi thành `update` hoặc `create` để che lỗi thiếu bảng/cột.
+
+Hồ sơ nghề nghiệp HLV được cập nhật tại **Hồ sơ cá nhân → Cập nhật hồ sơ nghề nghiệp**. Hội viên xem tên, trình độ, chuyên môn, phần giới thiệu và các lớp đang mở của HLV qua nút **Xem thông tin HLV** trong chi tiết lớp; email và số điện thoại không được đưa vào hồ sơ công khai.
+
+Audit log chỉ ghi các thao tác thay đổi dữ liệu API thành công (người dùng, hành động, loại/ID dữ liệu, thời gian, IP và đường dẫn API); không lưu mật khẩu hoặc payload request. Quản lý trung tâm có thể lọc theo từ khóa, ngày, nhóm dữ liệu và xuất CSV tại **Nhật ký hoạt động**.
 
 Trong Windows Services, dịch vụ thường tên `SQL Server (SQLEXPRESS)` hoặc `SQL Server (MSSQLSERVER)`. Mở SSMS không đồng nghĩa dịch vụ SQL Server đã chạy. Cần cấu hình TCP/IP và cổng đúng với `DB_URL`.
 
@@ -147,7 +159,8 @@ FE có các trang thành viên/đội ngũ, lớp/lịch, booking, gói tập, h
 - FE đang gọi các API xác thực, tài khoản, trạng thái/vai trò, danh mục phòng/bộ môn để chọn lớp, lớp/lịch HLV, booking, gói đã đăng ký, hóa đơn, thu tiền, điểm danh, doanh thu.
 - Luồng **đăng ký/gia hạn → chọn tiền mặt/chuyển khoản → tạo MembershipOrder và Invoice PENDING → xác nhận thanh toán → kích hoạt gói** có API trong `backend/`. Tiền mặt do nhân viên xác nhận; chuyển khoản được đối soát qua webhook SePay khi được cấu hình. Gói cũ được giữ nguyên khi đơn còn chờ. Xác nhận đơn gói không dùng API thu hóa đơn cũ.
 - QR dùng thông tin ngân hàng và khoản thu do Backend trả về. Quét QR không chứng minh tiền đã tới: webhook SePay phải được xác thực và đối soát hợp lệ trước khi tự xác nhận chuyển khoản. `SEPAY_WEBHOOK_ENABLED` và demo payment mặc định tắt; không đưa API key vào Frontend.
-- API mode đã nối các API hiện có cho hồ sơ, lớp/booking, gói và checkout, hóa đơn, báo cáo, điểm danh, hỗ trợ, đánh giá, tập luyện và cập nhật danh mục gói/phòng/bộ môn. Nhật ký audit phía server và hệ thống thông báo tổng quát chưa có API; không coi dữ liệu demo hoặc bản nháp giao diện là dữ liệu đã lưu trên SQL.
+- API mode đã nối các API hiện có cho hồ sơ, lớp/booking, gói và checkout, hóa đơn, báo cáo, điểm danh, hỗ trợ, đánh giá, tập luyện, cập nhật danh mục và nhật ký audit. Audit log ghi metadata của các thao tác thay đổi dữ liệu API thành công; không ghi mật khẩu hoặc nội dung request. Database đã chạy đến V7 cần chạy `migration/V8__audit_logs.sql`, sau đó khởi động lại backend. Hệ thống thông báo tổng quát chưa lưu lịch sử trên SQL.
+- Quản lý trung tâm cập nhật họ tên, email và số điện thoại của tài khoản HLV/nhân viên qua `PUT /api/v1/users/{id}/details`; vai trò/trạng thái không đổi. Endpoint kiểm tra định dạng và email/số điện thoại trùng, đồng thời thao tác cập nhật được ghi vào audit log. Không cần migration database riêng cho endpoint này.
 - Backend kiểm tra quyền và sở hữu tài nguyên. Chặn route/ẩn nút ở FE không thay thế kiểm tra tại BE.
 
 `backend/src/main/resources/db/sample-classes.sql` thêm lớp mẫu cho DB cài mới đã có HLV `ACTIVE`; kiểm tra script trước khi chạy. Lớp được xếp vào các ngày tiếp theo tính từ thời điểm chạy script.

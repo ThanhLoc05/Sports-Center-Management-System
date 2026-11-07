@@ -10,6 +10,7 @@ import com.sportscenter.management.entity.MembershipPackage;
 import com.sportscenter.management.repository.InvoiceRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.MembershipPackageRepository;
+import com.sportscenter.management.repository.MembershipOrderRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.MembershipService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,8 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,6 +37,7 @@ public class MembershipServiceImpl implements MembershipService {
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
     private final InvoiceRepository invoiceRepository;
+    private final MembershipOrderRepository orderRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -117,6 +121,18 @@ public class MembershipServiceImpl implements MembershipService {
                 .description(updated.getDescription())
                 .status(updated.getStatus())
                 .build();
+    }
+
+    @Override
+    public void deletePackage(Integer packageId) {
+        MembershipPackage pkg = packageRepository.findById(packageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không tồn tại"));
+        if (subscriptionRepository.existsByPackageId(packageId)
+                || orderRepository.existsByPackageIdOrSourcePackageId(packageId, packageId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Gói đã có đơn hàng hoặc kỳ đăng ký liên quan, hãy ngừng bán thay vì xóa");
+        }
+        packageRepository.delete(pkg);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.sportscenter.management.service.impl;
 
 import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.dto.Request.RegisterRequest;
+import com.sportscenter.management.dto.Request.UpdateStaffDetailsRequest;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.MemberProfile;
@@ -139,6 +140,45 @@ public class UserServiceImpl implements UserService {
         user.setRole(newRole);
         User updatedUser = userRepository.save(user);
         return mapToUserResponse(updatedUser);
+    }
+
+    @Override
+    public UserResponse updateStaffDetails(Integer userId, Integer actorId, UpdateStaffDetailsRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin nhân viên không được để trống");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+        String roleName = user.getRole().getRoleName();
+        if (!List.of("COACH", "RECEPTIONIST", "CENTER_MANAGER").contains(roleName)) {
+            throw new IllegalArgumentException("Chỉ có thể cập nhật thông tin tài khoản nhân viên");
+        }
+
+        String email = request.getEmail().trim().toLowerCase();
+        String fullName = request.getFullName().trim();
+        String phone = request.getPhone().trim();
+        if (fullName.length() < 2 || fullName.length() > 100) {
+            throw new IllegalArgumentException("Họ tên phải có từ 2 đến 100 ký tự");
+        }
+        if (!phone.matches("[+0-9 ()-]{9,20}")) {
+            throw new IllegalArgumentException("Số điện thoại không hợp lệ");
+        }
+        if (!email.equalsIgnoreCase(user.getEmail())
+                && userRepository.existsByEmailIgnoreCaseAndIdNot(email, userId)) {
+            throw new IllegalArgumentException("Email đã được sử dụng");
+        }
+        if (!phone.equals(user.getPhone()) && userRepository.existsByPhoneAndIdNot(phone, userId)) {
+            throw new IllegalArgumentException("Số điện thoại đã được sử dụng");
+        }
+        if (userId.equals(actorId) && !email.equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalArgumentException("Không thể đổi email của tài khoản đang đăng nhập; hãy dùng tài khoản quản lý khác");
+        }
+
+        user.setEmail(email);
+        user.setFullName(fullName);
+        user.setPhone(phone);
+        return mapToUserResponse(userRepository.save(user));
     }
 
     @Override

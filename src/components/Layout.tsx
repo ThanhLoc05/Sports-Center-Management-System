@@ -3,7 +3,7 @@
  * Menu lọc theo vai trò, Outlet hiển thị màn tương ứng URL. Tìm kiếm ở đây dựa trên
  * dữ liệu users/classes đã tải; không phải API tìm kiếm toàn database.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   DoorOpen,
@@ -40,7 +40,13 @@ import { useClasses, useUsers, useDemoData } from "../lib/hooks";
 import { routeAllowed } from "../lib/permissions";
 import { markNotificationsRead } from "../lib/center";
 import { dateLabel, localDate, matches } from "../lib/utils";
-import { Avatar, Empty, Modal, Notice, SearchInput } from "./ui";
+import { Avatar, Empty, Modal, Notice, SearchInput, useToast } from "./ui";
+import {
+  clearReceivedNotifications,
+  notificationsApi,
+  recordReceivedNotification,
+  setNotificationStreamStatus,
+} from "../lib/notifications-api";
 interface NavItem {
   to: string;
   label: string;
@@ -55,6 +61,21 @@ const all: Role[] = [
   "RECEPTIONIST",
 ];
 const staff: Role[] = ["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"];
+function waitForNotificationRetry(signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, 2000);
+    signal.addEventListener("abort", finish, { once: true });
+  });
+}
 /**
  * Khai báo nhãn, đường dẫn và vai trò nhìn thấy từng mục menu. App.tsx có
  * route guard độc lập để vẫn kiểm tra quyền nếu người dùng tự nhập đường dẫn.
@@ -168,6 +189,9 @@ const navigation: { label: string; items: NavItem[] }[] = [
 ];
 export default function Layout() {
   const { session, signOut } = useAuth();
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const db = useDemoData();
   const ownNotifications = (db?.notifications || []).filter(
     (n) => n.recipientId === session!.user.id && !n.readAt,
@@ -182,6 +206,62 @@ export default function Layout() {
   const users = useUsers();
   const classes = useClasses();
   const role = session!.user.roleName;
+  useEffect(() => {
+    if (session?.mode !== "api") {
+      setNotificationStreamStatus("disconnected");
+      clearReceivedNotifications();
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    clearReceivedNotifications();
+
+    void (async () => {
+      let reconnecting = false;
+      while (active && !controller.signal.aborted) {
+        setNotificationStreamStatus(
+          reconnecting ? "reconnecting" : "connecting",
+        );
+        try {
+          await notificationsApi.connect(
+            (event) => {
+              if (!active || event.recipientId !== session.user.id) return;
+              recordReceivedNotification(event);
+              toastRef.current(event.title);
+            },
+            controller.signal,
+            () => setNotificationStreamStatus("connected"),
+          );
+          if (!active || controller.signal.aborted) return;
+          throw new Error("Kết nối thông báo đã bị đóng.");
+        } catch (error) {
+          if (!active || controller.signal.aborted) return;
+          const status =
+            error && typeof error === "object" && "status" in error
+              ? Number(error.status)
+              : 0;
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Không thể kết nối luồng thông báo.";
+          if (status === 401 || status === 403) {
+            setNotificationStreamStatus("error", message);
+            return;
+          }
+          reconnecting = true;
+          setNotificationStreamStatus("reconnecting", message);
+          await waitForNotificationRetry(controller.signal);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+      setNotificationStreamStatus("disconnected");
+    };
+  }, [session?.mode, session?.token, session?.user.id]);
   /**
    * Mỗi lần chuyển trang, đóng menu tạm và cuộn lên đầu để giao diện mobile
    * không che nội dung trang mới. Cleanup phím tắt được xử lý ở effect tiếp theo.

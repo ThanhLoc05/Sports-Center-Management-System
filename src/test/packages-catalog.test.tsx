@@ -218,8 +218,8 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
       screen.queryByRole("button", { name: "Chỉnh sửa" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Xóa/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }),
+    ).toBeVisible();
     expect(
       vi
         .mocked(fetch)
@@ -271,5 +271,46 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
       ),
     ).toBe(true);
     client.clear();
+  });
+
+  it("deletes an unused package only after confirmation and refreshes the catalog", async () => {
+    let remaining = [...catalog];
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      if (String(url) === "/api/v1/memberships/packages/87" && init?.method === "DELETE") {
+        remaining = remaining.filter((pkg) => pkg.id !== 87);
+        return new Response(null, { status: 204 });
+      }
+      return json(remaining);
+    });
+    const client = page();
+    expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
+    const row = within(screen.getByText(catalog[0].packageName).closest("tr")!);
+    await userEvent.click(row.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }));
+    const dialog = within(screen.getByRole("dialog", { name: "Xóa gói tập?" }));
+    expect(dialog.getByText(/chưa có đơn hàng hoặc kỳ đăng ký liên quan/)).toBeVisible();
+    await userEvent.click(dialog.getByRole("button", { name: "Xác nhận" }));
+    expect(await screen.findByText("Đã xóa gói tập.")).toBeVisible();
+    expect(screen.queryByText(catalog[0].packageName)).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/memberships/packages/87",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    client.clear();
+  });
+
+  it("shows a backend conflict and preserves a package with purchase history", async () => {
+    vi.mocked(fetch).mockImplementation(async (_url, init) =>
+      init?.method === "DELETE"
+        ? json({ message: "Gói đã có kỳ đăng ký liên quan" }, 409)
+        : json(catalog),
+    );
+    page();
+    expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
+    const row = within(screen.getByText(catalog[0].packageName).closest("tr")!);
+    await userEvent.click(row.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xác nhận" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Gói đã có kỳ đăng ký liên quan");
+    expect(screen.getByText(catalog[0].packageName)).toBeVisible();
+    expect(screen.queryByText("Đã xóa gói tập.")).not.toBeInTheDocument();
   });
 });

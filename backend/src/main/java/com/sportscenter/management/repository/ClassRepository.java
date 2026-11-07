@@ -51,6 +51,10 @@ public interface ClassRepository extends JpaRepository<Classes, Integer> {
      */
     List<Classes> findByRoomId(Integer roomId);
 
+    boolean existsByRoomId(Integer roomId);
+
+    boolean existsBySportId(Integer sportId);
+
     /**
      * Find classes by status
      * @param status Class status (SCHEDULED, COMPLETED, CANCELLED)

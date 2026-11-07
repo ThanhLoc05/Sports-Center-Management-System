@@ -1,7 +1,6 @@
 import ApiAudit from "../components/ApiAudit";
 /**
- * Phiên API dùng ApiAudit: giao diện tra cứu đang chờ nguồn nhật ký từ backend.
- * LegacyAudit giữ dữ liệu mẫu cho kiểm thử, không dùng làm nhật ký chính thức.
+ * Phiên API đọc nhật ký backend; LegacyAudit chỉ dùng lịch sử demo trên trình duyệt.
  */
 import { useState } from "react";
 import { ShieldCheck } from "lucide-react";

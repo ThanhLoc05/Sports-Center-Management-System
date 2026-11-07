@@ -5,6 +5,7 @@ import { facilitiesApi } from "../lib/facilities-api";
 import { operations } from "../lib/operations-api";
 import {
   Button,
+  Confirm,
   DataTable,
   ErrorState,
   Field,
@@ -17,7 +18,7 @@ import {
 } from "./ui";
 /**
  * Hai tab dùng chung bố cục nhưng tải riêng danh sách phòng tập và bộ môn.
- * Form tạo và chỉnh sửa gọi các endpoint POST/PUT hiện có của backend.
+ * Tạo, chỉnh sửa và xóa gọi API thật; backend chặn xóa danh mục đang được dùng.
  * Chỉ thông báo thành công và tải lại danh sách sau khi backend chấp nhận.
  */
 export default function ApiFacilities() {
@@ -28,6 +29,11 @@ export default function ApiFacilities() {
     name: string;
     capacity?: number;
     description?: string;
+  } | null>(null);
+  const [remove, setRemove] = useState<{
+    id: number;
+    name: string;
+    kind: "room" | "sport";
   } | null>(null);
   const client = useQueryClient();
   const toast = useToast();
@@ -67,9 +73,20 @@ export default function ApiFacilities() {
                 key: "action",
                 label: "Thao tác",
                 render: (r) => (
-                  <Button variant="ghost" onClick={() => setEdit(r)}>
-                    Chỉnh sửa phòng
-                  </Button>
+                  <div className="row-actions">
+                    <Button variant="ghost" onClick={() => setEdit(r)}>
+                      Chỉnh sửa phòng
+                    </Button>
+                    <Button
+                      variant="danger"
+                      aria-label={`Xóa phòng ${r.name}`}
+                      onClick={() =>
+                        setRemove({ id: r.id, name: r.name, kind: "room" })
+                      }
+                    >
+                      Xóa
+                    </Button>
+                  </div>
                 ),
               },
             ]}
@@ -88,9 +105,20 @@ export default function ApiFacilities() {
                 key: "action",
                 label: "Thao tác",
                 render: (s) => (
-                  <Button variant="ghost" onClick={() => setEdit(s)}>
-                    Chỉnh sửa bộ môn
-                  </Button>
+                  <div className="row-actions">
+                    <Button variant="ghost" onClick={() => setEdit(s)}>
+                      Chỉnh sửa bộ môn
+                    </Button>
+                    <Button
+                      variant="danger"
+                      aria-label={`Xóa bộ môn ${s.name}`}
+                      onClick={() =>
+                        setRemove({ id: s.id, name: s.name, kind: "sport" })
+                      }
+                    >
+                      Xóa
+                    </Button>
+                  </div>
                 ),
               },
             ]}
@@ -98,9 +126,25 @@ export default function ApiFacilities() {
         )}
       </Panel>
       <Notice>
-        Có thể thêm và chỉnh sửa danh mục. Backend chưa cung cấp thao tác xóa;
-        thay đổi sức chứa phòng sẽ bị backend từ chối nếu xung đột với lớp hiện có.
+        Chỉ xóa được phòng/bộ môn chưa được lớp học tham chiếu. Thay đổi sức chứa
+        phòng sẽ bị backend từ chối nếu xung đột với lớp hiện có.
       </Notice>
+      {remove && (
+        <Confirm
+          title={`Xóa ${remove.kind === "room" ? "phòng tập" : "bộ môn"}?`}
+          description={`Xóa "${remove.name}" khỏi danh mục. Chỉ thực hiện được khi không có lớp học tham chiếu; thao tác này không thể hoàn tác.`}
+          onClose={() => setRemove(null)}
+          onConfirm={async () => {
+            if (remove.kind === "room")
+              await facilitiesApi.deleteRoom(remove.id);
+            else await facilitiesApi.deleteSport(remove.id);
+            await client.invalidateQueries({
+              queryKey: [remove.kind === "room" ? "rooms" : "sports"],
+            });
+            toast("Đã xóa danh mục.");
+          }}
+        />
+      )}
       {edit && (
         <FormModal
           title={tab === "rooms" ? "Chỉnh sửa phòng tập" : "Chỉnh sửa bộ môn"}

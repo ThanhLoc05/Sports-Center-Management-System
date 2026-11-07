@@ -4,9 +4,11 @@ export interface AuditLogDto {
   id: number;
   actorId: number;
   actorEmail?: string;
+  actorName?: string;
   action: string;
   entityType: string;
   entityId?: number;
+  details?: string;
   oldValue?: string;
   newValue?: string;
   ipAddress?: string;
@@ -20,8 +22,17 @@ export interface AuditLogQuery {
   entityId?: number;
   from?: string;
   to?: string;
+  keyword?: string;
   page?: number;
   size?: number;
+}
+
+export interface AuditLogPage {
+  content: AuditLogDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 function manager() {
@@ -29,7 +40,7 @@ function manager() {
   if (
     !session ||
     session.mode !== "api" ||
-    !["CENTER_MANAGER", "MANAGER"].includes(session.user.roleName)
+    session.user.roleName !== "CENTER_MANAGER"
   )
     throw new ApiError("Bạn không có quyền xem nhật ký hệ thống.", 403);
 }
@@ -46,7 +57,7 @@ function queryString(query: AuditLogQuery) {
 export const auditApi = {
   async list(query: AuditLogQuery = {}) {
     manager();
-    return request<AuditLogDto[]>(`/audit-logs${queryString(query)}`);
+    return request<AuditLogPage>(`/audit-logs${queryString(query)}`);
   },
 
   async get(auditId: number) {

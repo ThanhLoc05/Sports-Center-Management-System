@@ -32,12 +32,20 @@ function server() {
       return json(method === "POST" ? sports.at(-1) : sports, method === "POST" ? 201 : 200);
     }
     const roomMatch = path.match(/^\/api\/v1\/rooms\/(\d+)$/);
+    if (roomMatch && method === "DELETE") {
+      rooms.splice(rooms.findIndex(item => item.id === Number(roomMatch[1])), 1);
+      return new Response(null, { status: 204 });
+    }
     if (roomMatch && method === "PUT") {
       const current = rooms.find(item => item.id === Number(roomMatch[1]))!;
       Object.assign(current, JSON.parse(String(init?.body)));
       return json(current);
     }
     const sportMatch = path.match(/^\/api\/v1\/sports\/(\d+)$/);
+    if (sportMatch && method === "DELETE") {
+      sports.splice(sports.findIndex(item => item.id === Number(sportMatch[1])), 1);
+      return new Response(null, { status: 204 });
+    }
     if (sportMatch && method === "PUT") {
       const current = sports.find(item => item.id === Number(sportMatch[1]))!;
       Object.assign(current, JSON.parse(String(init?.body)));
@@ -181,6 +189,39 @@ describe("Rooms/Sports — API catalog", () => {
       ? { roomName: "Tên đã sửa", capacity: 31 }
       : { sportName: "Tên đã sửa", description: "Mô tả mới" });
     client.clear();
+  });
+  it.each(["rooms", "sports"])("deletes unused %s only after confirmation", async tab => {
+    session(); vi.stubGlobal("fetch", server()); const client = page();
+    await screen.findByText(room.roomName);
+    if (tab === "sports") {
+      await userEvent.click(screen.getByRole("button", { name: "Bộ môn" }));
+      await screen.findByText(sport.sportName);
+    }
+    const name = tab === "rooms" ? room.roomName : sport.sportName;
+    await userEvent.click(screen.getByRole("button", { name: `Xóa ${tab === "rooms" ? "phòng" : "bộ môn"} ${name}` }));
+    expect(screen.getByRole("dialog", { name: tab === "rooms" ? "Xóa phòng tập?" : "Xóa bộ môn?" })).toBeVisible();
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xác nhận" }));
+    expect(await screen.findByText("Đã xóa danh mục.")).toBeVisible();
+    expect(screen.queryByText(name)).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith(
+      `/api/v1/${tab}/${tab === "rooms" ? room.id : sport.id}`,
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    client.clear();
+  });
+  it("keeps the confirmation open and displays a conflict when the server rejects deletion", async () => {
+    session();
+    vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+      if (init?.method === "DELETE") return json({ message: "Phòng đang được lớp học tham chiếu" }, 409);
+      return json(String(url).endsWith("/rooms") ? [room] : [sport]);
+    }));
+    page();
+    await screen.findByText(room.roomName);
+    await userEvent.click(screen.getByRole("button", { name: `Xóa phòng ${room.roomName}` }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xác nhận" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Phòng đang được lớp học tham chiếu");
+    expect(screen.getByText(room.roomName)).toBeVisible();
+    expect(screen.queryByText("Đã xóa danh mục.")).not.toBeInTheDocument();
   });
   it("keeps demo mode local without API requests", async () => {
     session("CENTER_MANAGER", true); vi.stubGlobal("fetch", vi.fn()); page();

@@ -24,6 +24,7 @@ import type {
   Feedback,
   FeedbackInput,
   CoachFeedbackResponse,
+  CoachProfessionalProfile,
   User,
 } from "./types";
 
@@ -182,6 +183,46 @@ export async function request<T>(
     clearTimeout(timer);
   }
 }
+
+export async function openEventStream(
+  path: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  const session = getSession();
+  if (!session || session.mode !== "api")
+    throw new ApiError("Chức năng này yêu cầu phiên đăng nhập API.", 401);
+
+  const response = await fetch(`${baseUrl}/api/v1${path}`, {
+    headers: {
+      Accept: "text/event-stream",
+      Authorization: `Bearer ${session.token}`,
+    },
+    signal,
+  });
+  if (!response.ok) {
+    if (response.status === 401)
+      window.dispatchEvent(new Event("sportiva:unauthorized"));
+    let message = `Không thể mở kết nối thông báo (${response.status}).`;
+    try {
+      const body: unknown = await response.json();
+      if (
+        body &&
+        typeof body === "object" &&
+        "message" in body &&
+        typeof body.message === "string"
+      )
+        message = body.message;
+    } catch {
+      // Keep the HTTP-specific message when the server does not return JSON.
+    }
+    throw new ApiError(message, response.status);
+  }
+  if (!response.headers.get("content-type")?.includes("text/event-stream"))
+    throw new ApiError("Máy chủ không trả về luồng thông báo SSE.");
+  if (!response.body)
+    throw new ApiError("Máy chủ không mở được luồng thông báo.");
+  return response;
+}
 /**
  * Helper cho POST: chuyển object thành JSON rồi dùng request để giữ chung
  * cách gắn token, timeout và xử lý lỗi.
@@ -211,6 +252,22 @@ function feedbackResponse(value: Feedback): Feedback {
       !["MEMBER_TO_COACH", "CLASS_FEEDBACK", "COACH_TO_MEMBER"].includes(value.type) ||
       (value.createdAt !== null && typeof value.createdAt !== "string"))
     throw new ApiError("Dữ liệu đánh giá từ máy chủ không hợp lệ.");
+  return value;
+}
+function coachProfessionalProfileResponse(
+  value: CoachProfessionalProfile,
+  coachId: number,
+): CoachProfessionalProfile {
+  if (
+    !value ||
+    value.coachId !== coachId ||
+    typeof value.fullName !== "string" ||
+    !value.fullName.trim() ||
+    [value.professionalLevel, value.specialties, value.bio].some(
+      (field) => field !== null && typeof field !== "string",
+    )
+  )
+    throw new ApiError("Dữ liệu hồ sơ HLV không hợp lệ.");
   return value;
 }
 function supportActor(roles = ["MEMBER", "RECEPTIONIST", "CENTER_MANAGER"]) {
@@ -445,6 +502,94 @@ export const api = {
     const user = readDemo().users.find((x) => x.id === id);
     if (!user) throw new ApiError("Không tìm thấy thành viên.", 404);
     return user;
+  },
+  async updateStaffDetails(
+    id: number,
+    input: Pick<User, "fullName" | "email" | "phone">,
+  ): Promise<User> {
+    const session = getSession();
+    if (
+      session?.mode !== "api" ||
+      !["CENTER_MANAGER", "MANAGER"].includes(session.user.roleName)
+    )
+      throw new ApiError("Chỉ quản lý được sửa thông tin nhân viên.", 403);
+    if (!Number.isSafeInteger(id) || id < 1)
+      throw new ApiError("Mã nhân viên không hợp lệ.");
+    const fullName = input.fullName.trim();
+    const email = input.email.trim();
+    const phone = input.phone.trim();
+    if (
+      fullName.length < 2 ||
+      fullName.length > 100 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      email.length > 255 ||
+      !/^[+0-9 ()-]{9,20}$/.test(phone)
+    )
+      throw new ApiError("Kiểm tra họ tên, email và số điện thoại.");
+    return request<User>(`/users/${id}/details`, {
+      method: "PUT",
+      body: JSON.stringify({ fullName, email, phone }),
+    });
+  },
+  async coachProfile(id: number): Promise<CoachProfessionalProfile> {
+    if (!Number.isSafeInteger(id) || id < 1)
+      throw new ApiError("Mã HLV không hợp lệ.");
+    if (mode() === "api") {
+      return coachProfessionalProfileResponse(
+        await request<CoachProfessionalProfile>(`/users/${id}/coach-profile`),
+        id,
+      );
+    }
+    const coach = readDemo().users.find(
+      (user) => user.id === id && user.roleName === "COACH",
+    );
+    if (!coach) throw new ApiError("Không tìm thấy HLV.", 404);
+    return {
+      coachId: coach.id,
+      fullName: coach.fullName,
+      professionalLevel: coach.level || null,
+      specialties: coach.specialties || null,
+      bio: coach.bio || null,
+    };
+  },
+  async saveCoachProfile(
+    id: number,
+    input: Pick<
+      CoachProfessionalProfile,
+      "professionalLevel" | "specialties" | "bio"
+    >,
+  ): Promise<CoachProfessionalProfile> {
+    if (!Number.isSafeInteger(id) || id < 1)
+      throw new ApiError("Mã HLV không hợp lệ.");
+    if (mode() === "api") {
+      return coachProfessionalProfileResponse(
+        await request<CoachProfessionalProfile>(`/users/${id}/coach-profile`, {
+          method: "PUT",
+          body: JSON.stringify(input),
+        }),
+        id,
+      );
+    }
+    const actor = getSession()?.user;
+    if (actor?.roleName !== "COACH" || actor.id !== id)
+      requirePermission("members.update");
+    const db = readDemo();
+    const coach = db.users.find(
+      (user) => user.id === id && user.roleName === "COACH",
+    );
+    if (!coach) throw new ApiError("Không tìm thấy HLV.", 404);
+    coach.level = input.professionalLevel || undefined;
+    coach.specialties = input.specialties || undefined;
+    coach.bio = input.bio || undefined;
+    saveDemo(db);
+    demoAudit(db, "Cập nhật hồ sơ HLV", coach.fullName);
+    return {
+      coachId: coach.id,
+      fullName: coach.fullName,
+      professionalLevel: coach.level || null,
+      specialties: coach.specialties || null,
+      bio: coach.bio || null,
+    };
   },
   /**
    * Flow 1: đổi trạng thái ACTIVE/INACTIVE/BLOCKED của tài khoản, không đổi vai trò.

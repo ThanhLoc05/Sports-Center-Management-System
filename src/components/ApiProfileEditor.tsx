@@ -1,4 +1,4 @@
-import { PendingEditor } from "./PendingEditor";
+import { CoachProfileCard } from "./CoachProfile";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
@@ -23,7 +23,7 @@ import {
  * Tạo nhân viên qua hai bước: đăng ký tài khoản → gán vai trò cố định.
  * Nếu bước gán vai trò lỗi, giữ ID đã tạo trong state để thử lại, tránh tạo trùng.
  * Sửa hồ sơ học viên dùng API profile, tách khỏi thông tin đăng nhập/tài khoản.
- * Trường thông tin nhân viên chưa có API sửa chỉ được xem lại, chưa ghi dữ liệu.
+ * Thông tin nhân viên được cập nhật riêng qua endpoint chi tiết tài khoản.
  */
 export function ApiProfileEditor({
   user,
@@ -34,7 +34,7 @@ export function ApiProfileEditor({
   team?: boolean;
   onClose: () => void;
 }) {
-  const { session } = useAuth();
+  const { session, signIn } = useAuth();
   const client = useQueryClient();
   const toast = useToast();
   const [created, setCreated] = useState<User | null>(null);
@@ -125,15 +125,56 @@ export function ApiProfileEditor({
   if (!user) return <Notice>Chọn một tài khoản để cập nhật hồ sơ.</Notice>;
   if (user.roleName !== "MEMBER")
     return (
-      <PendingEditor
-        title="Chỉnh sửa thông tin nhân viên"
+      <FormModal
+        title="Chỉnh sửa thông tin HLV/nhân viên"
         onClose={onClose}
-        fields={[
-          { name: "fullName", label: "Họ và tên", value: user.fullName },
-          { name: "email", label: "Email", type: "email", value: user.email },
-          { name: "phone", label: "Điện thoại", value: user.phone },
-        ]}
-      />
+        onSubmit={async (d) => {
+          const saved = await api.updateStaffDetails(user.id, {
+            fullName: String(d.get("fullName")),
+            email: String(d.get("email")),
+            phone: String(d.get("phone")),
+          });
+          if (session!.user.id === saved.id)
+            signIn({ ...session!, user: saved });
+          await client.invalidateQueries({ queryKey: ["users"] });
+          toast("Đã cập nhật thông tin nhân viên.");
+        }}
+      >
+        <Field label="Họ và tên">
+          <input
+            name="fullName"
+            required
+            minLength={2}
+            maxLength={100}
+            defaultValue={user.fullName}
+          />
+        </Field>
+        <Field label="Email">
+          <input
+            name="email"
+            type="email"
+            required
+            maxLength={255}
+            defaultValue={user.email}
+          />
+        </Field>
+        <Field label="Điện thoại">
+          <input
+            name="phone"
+            required
+            minLength={9}
+            maxLength={20}
+            pattern="[+0-9 ()-]{9,20}"
+            defaultValue={user.phone}
+          />
+        </Field>
+        {session!.user.id === user.id && (
+          <Notice>
+            Bạn có thể cập nhật họ tên và số điện thoại của tài khoản đang đăng
+            nhập, nhưng không thể đổi email của chính tài khoản đó.
+          </Notice>
+        )}
+      </FormModal>
     );
   return (
     <FormModal
@@ -244,6 +285,7 @@ export function ApiProfile() {
             </>
           ))}
       </Panel>
+      {user.roleName === "COACH" && <CoachProfileCard coachId={user.id} />}
       {edit && <ApiProfileEditor user={user} onClose={() => setEdit(false)} />}
     </>
   );

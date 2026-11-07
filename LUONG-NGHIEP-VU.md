@@ -237,7 +237,7 @@ Khi bảo vệ nên gọi là “mô phỏng luồng gợi ý bài tập”, kh�
 | Nghiệp vụ         | Luồng mục tiêu và hiện trạng                                                                                                                               |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Hỗ trợ thành viên | Thành viên gửi phiếu → lễ tân tiếp nhận → xử lý → đánh dấu giải quyết. Backend có API tạo, tra cứu và xử lý phiếu; thành viên chỉ xem được phiếu của mình, nhân viên được phân quyền xem và xử lý. |
-| Thông báo         | Cần gửi khi đổi/hủy lịch, gần hết gói và các sự kiện liên quan. Hiện có dữ liệu/thông báo minh họa trong demo; chưa có dịch vụ thông báo đầy đủ ở backend. |
+| Thông báo         | Quản lý/HLV có thể gửi thủ công tới hội viên hoặc roster lớp; backend phát SSE cho người đang online. Loại bài tập được lưu bằng WorkoutPlan. Nội dung thông báo chỉ giữ tạm trong phiên nhận, không có lịch sử và chưa tự phát sinh khi đổi/hủy lịch hoặc gần hết gói. |
 | Nhật ký thao tác  | Quản lý cần biết ai làm gì và khi nào. Demo có log trình duyệt; chưa phải audit log server có kiểm soát truy cập và chống sửa.                             |
 | Phòng/bộ môn/gói  | Quản lý cần duy trì danh mục trước khi vận hành. Backend có API đọc/thêm/sửa phòng, bộ môn và gói; API xóa danh mục chưa có. |
 | Phân quyền        | Theo topic, quản lý cấp quyền cho từng vai trò. Hiện có route guard và quyền cố định; chưa có luồng quản lý quyền tùy ý đầy đủ.                            |
@@ -315,4 +315,3 @@ Nên bắt đầu với các quyền dễ giải thích và dễ kiểm soát:
 | Thanh toán online đã chạy chưa? | Database đã có danh mục bốn cổng nhưng mặc định tắt; phải hoàn thiện tích hợp và xác minh callback trước khi thu tiền thật. |
 | Có booking nghĩa là đã tập chưa? | Chưa. Cần điểm danh để ghi nhận có mặt/vắng. |
 | AI đã chạy thật chưa? | Chưa; phần gợi ý hiện là mô phỏng theo quy tắc. |
-

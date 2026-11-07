@@ -258,10 +258,65 @@ describe("Manager và Coach — UX và ghi dữ liệu", () => {
       expect.anything(),
     );
   });
-  it("previews a class notification but never claims it was sent without a BE endpoint", async () => {
-    const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
-      json([{ id: 8, className: "Lớp TEST", coachId: 3, status: "SCHEDULED" }]),
+  it("updates coach/staff name, email and phone through the manager endpoint", async () => {
+    const staff = {
+      id: 4,
+      fullName: "HLV Ban đầu",
+      email: "coach@example.test",
+      phone: "0900000004",
+      roleName: "COACH" as const,
+      status: "ACTIVE",
+    };
+    const updated = { ...staff, fullName: "HLV Đã sửa", email: "updated@example.test", phone: "0911111111" };
+    const fetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PUT" ? json(updated) : json([]),
     );
+    vi.stubGlobal("fetch", fetch);
+    wrap(<ApiProfileEditor user={staff} onClose={() => {}} />, "CENTER_MANAGER");
+    const user = userEvent.setup();
+    await user.clear(screen.getByLabelText("Họ và tên"));
+    await user.type(screen.getByLabelText("Họ và tên"), updated.fullName);
+    await user.clear(screen.getByLabelText("Email"));
+    await user.type(screen.getByLabelText("Email"), updated.email);
+    await user.clear(screen.getByLabelText("Điện thoại"));
+    await user.type(screen.getByLabelText("Điện thoại"), updated.phone);
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(await screen.findByText("Đã cập nhật thông tin nhân viên.")).toBeVisible();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/users/4/details",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          fullName: updated.fullName,
+          email: updated.email,
+          phone: updated.phone,
+        }),
+      }),
+    );
+  });
+  it("sends a class notification to its booked members through the backend", async () => {
+    const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path.endsWith("/classes/my-classes"))
+        return json([
+          { id: 8, className: "Lớp TEST", coachId: 3, status: "SCHEDULED" },
+        ]);
+      if (path.endsWith("/classes/8/students"))
+        return json([
+          {
+            memberId: 10,
+            fullName: "Học viên TEST",
+            bookingStatus: "BOOKED",
+          },
+        ]);
+      if (path.endsWith("/notifications") && init?.method === "POST")
+        return json({
+          acceptedRecipients: 1,
+          onlineRecipientsAtSend: 1,
+          workoutPlanIds: [],
+        });
+      return json([]);
+    });
     vi.stubGlobal("fetch", fetch);
     wrap(<ApiNotifications />);
     const user = userEvent.setup();
@@ -275,15 +330,36 @@ describe("Manager và Coach — UX và ghi dữ liệu", () => {
       screen.getByLabelText("Nội dung / bài tập về nhà"),
       "Khởi động trước khi tập",
     );
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([url]) =>
+          String(url).endsWith("/classes/8/students"),
+        ),
+      ).toBe(true),
+    );
     await user.click(
       screen.getByRole("button", { name: "Xem trước nội dung" }),
     );
-    expect(
-      await screen.findByRole("button", { name: "Gửi thông báo" }),
-    ).toBeDisabled();
-    expect(
-      fetch.mock.calls.every(([, i]) => !i || !i.method || i.method === "GET"),
-    ).toBe(true);
+    await user.click(await screen.findByRole("button", { name: "Gửi thông báo" }));
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith("/notifications") && init?.method === "POST",
+        ),
+      ).toBe(true),
+    );
+    const sent = fetch.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith("/notifications") && init?.method === "POST",
+    );
+    expect(JSON.parse(String(sent?.[1]?.body))).toMatchObject({
+      recipientIds: [10],
+      title: "Bài tập TEST",
+      content: "Khởi động trước khi tập",
+      kind: "GENERAL",
+    });
+    expect(await screen.findByText(/1\/1 học viên đang online/)).toBeVisible();
   });
   it("keeps unsupported fee changes in review without mutating the server", async () => {
     const fetch = vi.fn();
