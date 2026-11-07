@@ -7,6 +7,8 @@ import com.sportscenter.management.dto.Response.NotificationEventResponse;
 import com.sportscenter.management.dto.Response.NotificationSendResponse;
 import com.sportscenter.management.entity.ClassBooking;
 import com.sportscenter.management.entity.User;
+import com.sportscenter.management.entity.GeneralNotification;
+import com.sportscenter.management.repository.GeneralNotificationRepository;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.UserRepository;
@@ -42,18 +44,31 @@ public class NotificationDeliveryService {
     private final ClassRepository classRepository;
     private final ClassBookingRepository bookingRepository;
     private final WorkoutPlanService workoutPlanService;
+    private final GeneralNotificationRepository generalNotifications;
 
     private final ConcurrentMap<Integer, Set<SseEmitter>> subscribers = new ConcurrentHashMap<>();
     private final AtomicLong eventIds = new AtomicLong();
 
     public SseEmitter subscribe(Integer userId) {
         SseEmitter emitter = new SseEmitter(0L);
-        subscribers.computeIfAbsent(userId, ignored -> ConcurrentHashMap.newKeySet()).add(emitter);
+        subscribers.compute(userId,(id,set)->{
+            if(set==null) set=ConcurrentHashMap.newKeySet();
+            set.add(emitter);
+            return set;
+        });
+        log.debug("SSE registered; subscribers={}", subscriberCount());
 
         Runnable remove = () -> removeSubscriber(userId, emitter);
         emitter.onCompletion(remove);
         emitter.onTimeout(remove);
         emitter.onError(error -> remove.run());
+        // Flush the response only after this user has been registered.
+        try {
+            emitter.send(SseEmitter.event().comment("connected"));
+        } catch (IOException | IllegalStateException error) {
+            remove.run();
+            emitter.completeWithError(error);
+        }
         return emitter;
     }
 
@@ -103,7 +118,10 @@ public class NotificationDeliveryService {
         LocalDateTime createdAt = LocalDateTime.now();
         List<NotificationEventResponse> events = recipients.stream()
                 .map(recipient -> NotificationEventResponse.builder()
-                        .id(eventIds.incrementAndGet())
+                        .id(HOMEWORK_KIND.equals(kind) ? eventIds.incrementAndGet() :
+                                generalNotifications.save(GeneralNotification.builder()
+                                        .senderId(senderId).recipientId(recipient.getId()).title(title).content(content)
+                                        .link(link).createdAt(createdAt).build()).getId())
                         .recipientId(recipient.getId())
                         .senderId(senderId)
                         .title(title)
@@ -231,10 +249,23 @@ public class NotificationDeliveryService {
         return emitters != null && !emitters.isEmpty();
     }
 
+    /** Comments detect disconnected clients without creating a notification or touching SQL. */
+    public void heartbeat() {
+        subscribers.forEach((userId,emitters)->emitters.forEach(emitter->{
+            try { emitter.send(SseEmitter.event().comment("keepalive")); }
+            catch(IOException | IllegalStateException error) { removeSubscriber(userId,emitter); }
+        }));
+    }
+
+    private int subscriberCount() {
+        return subscribers.values().stream().mapToInt(Set::size).sum();
+    }
+
     private void removeSubscriber(Integer userId, SseEmitter emitter) {
         subscribers.computeIfPresent(userId, (ignored, emitters) -> {
             emitters.remove(emitter);
             return emitters.isEmpty() ? null : emitters;
         });
+        log.debug("SSE cleanup; subscribers={}",subscriberCount());
     }
 }

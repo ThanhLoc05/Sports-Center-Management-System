@@ -227,11 +227,13 @@ export default function Layout() {
           await notificationsApi.connect(
             (event) => {
               if (!active || event.recipientId !== session.user.id) return;
-              recordReceivedNotification(event);
-              toastRef.current(event.title);
+              if (recordReceivedNotification(event))
+                toastRef.current(event.title);
             },
             controller.signal,
-            () => setNotificationStreamStatus("connected"),
+            () => {
+              if (active) setNotificationStreamStatus("connected");
+            },
           );
           if (!active || controller.signal.aborted) return;
           throw new Error("Kết nối thông báo đã bị đóng.");
@@ -259,9 +261,10 @@ export default function Layout() {
     return () => {
       active = false;
       controller.abort();
+      clearReceivedNotifications();
       setNotificationStreamStatus("disconnected");
     };
-  }, [session?.mode, session?.token, session?.user.id]);
+  }, [session?.mode, session?.token, session?.user.id, session?.user.roleName]);
   /**
    * Mỗi lần chuyển trang, đóng menu tạm và cuộn lên đầu để giao diện mobile
    * không che nội dung trang mới. Cleanup phím tắt được xử lý ở effect tiếp theo.

@@ -4,6 +4,9 @@ import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.dto.Request.NotificationSendRequest;
 import com.sportscenter.management.dto.Response.NotificationSendResponse;
 import com.sportscenter.management.service.NotificationDeliveryService;
+import com.sportscenter.management.service.GeneralNotificationHistory;
+import com.sportscenter.management.dto.Response.NotificationHistoryPage;
+import com.sportscenter.management.dto.Response.NotificationHistoryItem;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -19,6 +22,17 @@ public class NotificationController {
 
     private final NotificationDeliveryService notificationService;
     private final SecurityUtils securityUtils;
+    private final GeneralNotificationHistory history;
+
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public NotificationHistoryPage history(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
+        return history.list(page,size);
+    }
+
+    @PatchMapping("/{id}/read")
+    @PreAuthorize("isAuthenticated()")
+    public NotificationHistoryItem read(@PathVariable long id) { return history.read(id); }
 
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @PreAuthorize("isAuthenticated()")

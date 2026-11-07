@@ -1,6 +1,12 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { getSession } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
 import { useAssignedStudents } from "../lib/use-coach-data";
@@ -9,6 +15,7 @@ import {
   getNotificationStreamStatus,
   getReceivedNotifications,
   notificationsApi,
+  mergeNotificationItems,
   subscribeNotificationStreamStatus,
   subscribeReceivedNotifications,
 } from "../lib/notifications-api";
@@ -52,6 +59,54 @@ function notificationTime(value: string) {
 }
 
 export function ApiNotificationInbox() {
+  const { session } = useAuth();
+  return <NotificationInbox key={`${session?.mode}:${session?.user.id}`} />;
+}
+
+function NotificationInbox() {
+  const { session } = useAuth();
+  const client = useQueryClient();
+  const toast = useToast();
+  const key = ["notification-history", session?.user.id];
+  const history = useInfiniteQuery({
+    queryKey: key,
+    queryFn: ({ pageParam }) => notificationsApi.history(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (page) => (page.hasNext ? page.page + 1 : undefined),
+    enabled: session?.mode === "api",
+    retry: false,
+  });
+  const read = useMutation({
+    mutationFn: notificationsApi.markRead,
+    onSuccess: async (item) => {
+      if (
+        getSession()?.token !== session?.token ||
+        getSession()?.user.id !== session?.user.id
+      )
+        return;
+      client.setQueryData(
+        key,
+        (old: typeof history.data) =>
+          old && {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              content: page.content.map((row) =>
+                row.id === item.id ? item : row,
+              ),
+            })),
+          },
+      );
+      setReadItems((previous) => ({ ...previous, [item.id]: item }));
+    },
+    onError: (error) => {
+      if (getSession()?.token === session?.token)
+        toast(errorText(error), "error");
+    },
+  });
+  const [readItems, setReadItems] = useState<Record<number, NotificationEvent>>(
+    {},
+  );
   const received = useSyncExternalStore(
     subscribeReceivedNotifications,
     getReceivedNotifications,
@@ -61,6 +116,12 @@ export function ApiNotificationInbox() {
     subscribeNotificationStreamStatus,
     getNotificationStreamStatus,
     getNotificationStreamStatus,
+  );
+  const items = mergeNotificationItems(
+    history.data?.pages.flatMap((page) => page.content) || [],
+    received,
+  ).map((item) =>
+    item.kind === "GENERAL" ? readItems[item.id] || item : item,
   );
   const streamMessage: Record<typeof stream.status, string> = {
     disconnected: "Luồng nhận thông báo chưa kết nối.",
@@ -77,26 +138,32 @@ export function ApiNotificationInbox() {
           ? `${streamMessage[stream.status]} ${stream.error}`
           : stream.status === "error" && stream.error
             ? `${streamMessage[stream.status]} ${stream.error}`
-            : streamMessage[stream.status]}
-        {" "}
-        Thông báo chỉ được giữ tạm trong phiên hiện tại; người nhận offline
-        không nhận lại sau khi kết nối.
+            : streamMessage[stream.status]}{" "}
+        Thông báo GENERAL được lưu trong lịch sử của bạn. Bài tập HOMEWORK vẫn
+        được xem trong kế hoạch tập luyện.
       </Notice>
-      <Panel title="Thông báo nhận được trong phiên này">
-        {received.length === 0 ? (
+      <Panel title="Thông báo của bạn">
+        {history.isPending && <Loading />}
+        {history.error && (
+          <ErrorState
+            error={history.error}
+            retry={() => void history.refetch()}
+          />
+        )}
+        {!history.isPending && !history.error && items.length === 0 ? (
           <Empty
             title="Chưa nhận thông báo nào"
-            description="Thông báo sẽ xuất hiện khi có người gửi trong lúc bạn đang kết nối."
+            description="Thông báo sẽ xuất hiện khi huấn luyện viên gửi cho bạn."
           />
         ) : (
           <div>
-            {received.map((event: NotificationEvent) => {
+            {items.map((event: NotificationEvent) => {
               const link =
                 event.link ||
                 (event.kind === "HOMEWORK" ? "/training" : undefined);
               return (
                 <article
-                  key={event.id}
+                  key={`${event.kind}:${event.id}:${event.createdAt}`}
                   style={{
                     borderBottom: "1px solid var(--border-card)",
                     padding: "1rem 0",
@@ -107,8 +174,24 @@ export function ApiNotificationInbox() {
                     <p style={{ whiteSpace: "pre-wrap" }}>{event.content}</p>
                     <small>
                       {event.kind === "HOMEWORK" ? "Bài tập" : "Thông báo"} ·{" "}
-                      {notificationTime(event.createdAt)}
+                      {notificationTime(event.createdAt)} · Người gửi #
+                      {event.senderId}
                     </small>
+                    {event.kind === "GENERAL" && (
+                      <p>
+                        {event.readAt ? (
+                          "Đã đọc"
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            disabled={read.isPending}
+                            onClick={() => read.mutate(event.id)}
+                          >
+                            Đánh dấu đã đọc
+                          </Button>
+                        )}
+                      </p>
+                    )}
                     {link && (
                       <p>
                         <Link to={link}>Mở nội dung liên quan</Link>
@@ -120,6 +203,15 @@ export function ApiNotificationInbox() {
             })}
           </div>
         )}
+        {history.hasNextPage && (
+          <Button
+            variant="secondary"
+            loading={history.isFetchingNextPage}
+            onClick={() => void history.fetchNextPage()}
+          >
+            Tải thêm thông báo
+          </Button>
+        )}
       </Panel>
     </>
   );
@@ -127,6 +219,32 @@ export function ApiNotificationInbox() {
 
 export default function ApiNotifications() {
   const { session } = useAuth();
+  return (
+    <NotificationComposer
+      key={`${session?.mode}:${session?.user.id}:${session?.user.roleName}`}
+    />
+  );
+}
+
+function NotificationComposer() {
+  const { session } = useAuth();
+  const client = useQueryClient();
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const current = () => {
+    const now = getSession();
+    return (
+      active.current &&
+      now?.mode === "api" &&
+      now.user.id === session?.user.id &&
+      now.token === session?.token
+    );
+  };
   const classes = useClasses();
   const users = useUsers();
   const students = useAssignedStudents();
@@ -139,24 +257,32 @@ export default function ApiNotifications() {
   const [coachId, setCoachId] = useState("");
   const [review, setReview] = useState(false);
   const [sending, setSending] = useState(false);
+  const sendInFlight = useRef(false);
   const [lastSend, setLastSend] = useState<NotificationSendResult | null>(null);
 
   const classTarget =
     audience === "class" && target ? Number(target) : undefined;
   const classRoster = useQuery({
-    queryKey: ["notification-class-roster", classTarget],
+    queryKey: [
+      "notification-class-roster",
+      session?.user.id,
+      session?.user.roleName,
+      classTarget,
+    ],
     queryFn: () => operations.students(classTarget!),
     enabled: session?.mode === "api" && classTarget !== undefined,
     retry: false,
   });
   const role = session?.user.roleName;
+  const availableClasses = (classes.data || []).filter(
+    (item) => role !== "COACH" || item.coachId === session?.user.id,
+  );
   const memberOptions =
     role === "COACH"
       ? students.data
       : (users.data || [])
           .filter(
-            (user) =>
-              user.roleName === "MEMBER" && user.status === "ACTIVE",
+            (user) => user.roleName === "MEMBER" && user.status === "ACTIVE",
           )
           .map((user) => ({
             memberId: user.id,
@@ -171,22 +297,25 @@ export default function ApiNotifications() {
       ? (classRoster.data || []).filter(
           (student) => student.bookingStatus === "BOOKED",
         )
-      : memberOptions.filter(
-          (student) => student.memberId === Number(target),
-        );
-  const activeClass = classes.data?.find((item) => item.id === classTarget);
+      : memberOptions.filter((student) => student.memberId === Number(target));
+  const activeClass = availableClasses.find((item) => item.id === classTarget);
   const canSend = role === "CENTER_MANAGER" || role === "COACH";
   const coaches = (users.data || []).filter(
     (user) => user.roleName === "COACH" && user.status === "ACTIVE",
   );
   const formLoading =
     audience === "class"
-      ? classTarget !== undefined && classRoster.isPending
-      : role === "COACH" ? students.isPending : users.isPending;
+      ? classes.isPending ||
+        (classTarget !== undefined && classRoster.isPending)
+      : role === "COACH"
+        ? students.isPending
+        : users.isPending;
   const formError =
     audience === "class"
       ? classTarget !== undefined && classRoster.error
-      : role === "COACH" ? students.error : users.error;
+      : role === "COACH"
+        ? students.error
+        : users.error;
   const noRecipients =
     !formLoading &&
     !formError &&
@@ -209,9 +338,24 @@ export default function ApiNotifications() {
   };
 
   async function sendDraft() {
-    if (!draft) return;
+    if (!draft || sendInFlight.current) return;
+    sendInFlight.current = true;
     setSending(true);
     try {
+      if (draft.audience === "class") {
+        const fresh = await operations.students(draft.targetId);
+        if (!current()) return;
+        const booked = new Set(
+          fresh
+            .filter((student) => student.bookingStatus === "BOOKED")
+            .map((student) => student.memberId),
+        );
+        if (!draft.recipientIds.every((id) => booked.has(id)))
+          throw new Error(
+            "Danh sách học viên đã thay đổi. Hãy chọn lại người nhận.",
+          );
+      }
+      if (!current()) return;
       const result = await notificationsApi.send({
         recipientIds: draft.recipientIds,
         title: draft.title,
@@ -219,35 +363,43 @@ export default function ApiNotifications() {
         kind: draft.kind,
         ...(draft.coachId ? { coachId: draft.coachId } : {}),
       });
+      if (!current()) return;
+      if (result.workoutPlanIds.length)
+        await client.invalidateQueries({ queryKey: ["workout-plans"] });
+      if (!current()) return;
       setLastSend(result);
       setDraft(null);
       setReview(false);
       toast(
-        `${result.onlineRecipientsAtSend}/${result.acceptedRecipients} học viên online đã nhận thông báo.`,
+        `Backend đã chấp nhận gửi tới ${result.acceptedRecipients} học viên; ${result.onlineRecipientsAtSend} học viên có kết nối trực tuyến.`,
       );
     } catch (error) {
-      toast(errorText(error), "error");
+      if (current()) toast(errorText(error), "error");
     } finally {
+      sendInFlight.current = false;
       setSending(false);
     }
   }
 
   const createDraft = (data: FormData) => {
+    const title = String(data.get("title") || "").trim();
+    const content = String(data.get("content") || "").trim();
+    if (!title || title.length > 150 || !content || content.length > 4000)
+      throw new Error("Tiêu đề và nội dung bắt buộc, tối đa 150/4.000 ký tự.");
     const selectedTarget = Number(data.get("target"));
     const selectedClass =
       audience === "class"
-        ? classes.data?.find((item) => item.id === selectedTarget)
+        ? availableClasses.find((item) => item.id === selectedTarget)
         : undefined;
     const recipients =
       audience === "class"
         ? (classRoster.data || []).filter(
             (student) =>
-              student.bookingStatus === "BOOKED" &&
-              student.memberId > 0,
+              student.bookingStatus === "BOOKED" && student.memberId > 0,
           )
         : memberOptions.filter(
-              (student) => student.memberId === selectedTarget,
-            );
+            (student) => student.memberId === selectedTarget,
+          );
     const selectedCoachId =
       kind !== "HOMEWORK"
         ? undefined
@@ -272,7 +424,7 @@ export default function ApiNotifications() {
         audience === "class"
           ? `${targetLabel} · ${recipients.length} học viên`
           : targetLabel,
-      recipientIds: recipients.map((student) => student.memberId),
+      recipientIds: [...new Set(recipients.map((student) => student.memberId))],
       recipientNames: recipients.map((student) => student.fullName),
       title: String(data.get("title")).trim(),
       content: String(data.get("content")).trim(),
@@ -346,7 +498,9 @@ export default function ApiNotifications() {
           </Field>
           {classes.error && audience === "class" ? (
             <ErrorState error={classes.error} retry={classes.refetch} />
-          ) : audience === "class" && classTarget !== undefined && classRoster.error ? (
+          ) : audience === "class" &&
+            classTarget !== undefined &&
+            classRoster.error ? (
             <ErrorState
               error={classRoster.error}
               retry={() => void classRoster.refetch()}
@@ -373,9 +527,11 @@ export default function ApiNotifications() {
                 value={target}
                 onChange={(event) => setTarget(event.target.value)}
               >
-                <option value="">Chọn {audience === "class" ? "lớp" : "học viên"}</option>
+                <option value="">
+                  Chọn {audience === "class" ? "lớp" : "học viên"}
+                </option>
                 {audience === "class"
-                  ? classes.data
+                  ? availableClasses
                       ?.filter((item) => item.status !== "CANCELLED")
                       .map((item) => (
                         <option key={item.id} value={item.id}>
@@ -415,7 +571,9 @@ export default function ApiNotifications() {
             </Field>
           )}
           {kind === "HOMEWORK" && role === "COACH" && (
-            <Notice>Bài tập sẽ được lưu vào giáo án dưới tài khoản của bạn.</Notice>
+            <Notice>
+              Bài tập sẽ được lưu vào giáo án dưới tài khoản của bạn.
+            </Notice>
           )}
           <Field label="Tiêu đề">
             <input
@@ -438,7 +596,8 @@ export default function ApiNotifications() {
           </Field>
           {formError && (
             <p className="muted">
-              Chưa tải được danh sách người nhận; hãy tải lại trước khi xem trước.
+              Chưa tải được danh sách người nhận; hãy tải lại trước khi xem
+              trước.
             </p>
           )}
         </FormModal>
@@ -463,7 +622,8 @@ export default function ApiNotifications() {
           <h3>{draft.title}</h3>
           <p style={{ whiteSpace: "pre-wrap" }}>{draft.content}</p>
           <Notice>
-            Khi gửi, người đang online sẽ nhận ngay qua SSE. Thông báo không lưu lịch sử; bài tập được lưu thành kế hoạch tập luyện.
+            GENERAL được lưu để học viên xem lại; người đang online nhận thêm
+            qua SSE. HOMEWORK vẫn được lưu thành kế hoạch tập luyện.
           </Notice>
           <div className="modal-footer">
             <Button
@@ -471,9 +631,7 @@ export default function ApiNotifications() {
               disabled={sending}
               onClick={() => {
                 setReview(false);
-                setTarget(
-                  String(draft.targetId),
-                );
+                setTarget(String(draft.targetId));
                 setAudience(draft.audience);
                 setKind(draft.kind);
                 setCoachId(draft.coachId ? String(draft.coachId) : "");

@@ -88,7 +88,7 @@ describe("C007 notification API contract", () => {
   it("authenticates the SSE stream and parses notification events", async () => {
     const expected: NotificationEvent = {
       id: 21,
-      recipientId: 10,
+      recipientId: 3,
       senderId: 3,
       title: "Nhắc lịch",
       content: "Lớp bắt đầu lúc 18:00",
@@ -106,16 +106,20 @@ describe("C007 notification API contract", () => {
         controller.close();
       },
     });
-    const fetch = vi.fn(async () =>
-      new Response(stream, {
-        headers: { "Content-Type": "text/event-stream" },
-      }),
+    const fetch = vi.fn(
+      async () =>
+        new Response(stream, {
+          headers: { "Content-Type": "text/event-stream" },
+        }),
     );
     vi.stubGlobal("fetch", fetch);
     const received: NotificationEvent[] = [];
 
     await expect(
-      notificationsApi.connect((event) => received.push(event), new AbortController().signal),
+      notificationsApi.connect(
+        (event) => received.push(event),
+        new AbortController().signal,
+      ),
     ).rejects.toBeInstanceOf(ApiError);
 
     expect(fetch).toHaveBeenCalledWith(

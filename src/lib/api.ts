@@ -121,7 +121,8 @@ export async function request<T>(
      * Chỉ token của phiên API mới được gắn vào Authorization; token demo không gửi
      * sang backend. Với login/register chưa có phiên thì không có Bearer token.
      */
-    const token = getSession()?.mode === "api" ? getSession()?.token : null;
+    const actor = getSession();
+    const token = actor?.mode === "api" ? actor.token : null;
     const response = await fetch(`${baseUrl}/api/v1${path}`, {
       ...init,
       signal: controller.signal,
@@ -143,7 +144,8 @@ export async function request<T>(
      * Ưu tiên message từ backend. Lỗi 401 có token làm hết phiên; 403 chỉ báo thiếu quyền.
      */
     if (!response.ok) {
-      if (response.status === 401 && token)
+      if (response.status === 401 && token && (!path.startsWith("/notifications") ||
+          (getSession()?.token === token && getSession()?.user.id === actor?.user.id)))
         window.dispatchEvent(new Event("sportiva:unauthorized"));
       const fallback: Record<number, string> = {
         400: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.",
@@ -199,6 +201,12 @@ export async function openEventStream(
     },
     signal,
   });
+  const current = getSession();
+  if (signal.aborted || current?.mode !== "api" || current.token !== session.token ||
+      current.user.id !== session.user.id || current.user.roleName !== session.user.roleName) {
+    await response.body?.cancel();
+    throw new DOMException("Obsolete notification connection", "AbortError");
+  }
   if (!response.ok) {
     if (response.status === 401)
       window.dispatchEvent(new Event("sportiva:unauthorized"));

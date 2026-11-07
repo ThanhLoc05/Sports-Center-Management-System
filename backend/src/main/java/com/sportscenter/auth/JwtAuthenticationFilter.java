@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 import java.io.IOException;
 
@@ -19,10 +20,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final SecurityContextRepository securityContextRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService,
+                                   SecurityContextRepository securityContextRepository) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.securityContextRepository = securityContextRepository;
     }
 
     @Override
@@ -46,7 +50,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 var tokenAuthentication = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
-                SecurityContextHolder.getContext().setAuthentication(tokenAuthentication);
+                var context = SecurityContextHolder.createEmptyContext();
+                context.setAuthentication(tokenAuthentication);
+                SecurityContextHolder.setContext(context);
+                // Retain validated authentication only for redispatches of this request.
+                securityContextRepository.saveContext(context, request, response);
             }
         } catch (JwtException | IllegalArgumentException | AuthenticationException exception) {
             SecurityContextHolder.clearContext();
