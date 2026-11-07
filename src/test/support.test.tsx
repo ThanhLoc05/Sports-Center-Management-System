@@ -191,7 +191,7 @@ describe("Support — API thật được mock, không ghi database", () => {
     await screen.findByRole("button", { name: "Phiếu tài khoản mới" }); await act(async () => finish(json([ticket])));
     expect(screen.queryByRole("button", { name: ticket.subject })).not.toBeInTheDocument();
   });
-  it("does not grant coach access or create-for-other to staff", async () => {
+  it("does not grant coach access", async () => {
     const fetch = server(); vi.stubGlobal("fetch", fetch); page("COACH");
     expect(screen.getByText("Vai trò của bạn chưa được hỗ trợ tại màn hình này.")).toBeVisible();
     expect(fetch.mock.calls.some(([url]) => String(url).includes("support-tickets"))).toBe(false);
@@ -203,7 +203,7 @@ describe("Support — API thật được mock, không ghi database", () => {
     expect(() => api.createSupportTicket({ subject: "   ", content: "y" })).toThrow("trống");
     expect(() => api.resolveSupportTicket(91, "phản hồi")).toThrow("quyền");
     sessionStorage.setItem("sportiva-session", JSON.stringify(session("RECEPTIONIST")));
-    expect(() => api.createSupportTicket({ subject: "x", content: "y" })).toThrow("quyền");
+    expect(() => api.createSupportTicket({ subject: "x", content: "y" })).toThrow("Chọn thành viên");
     expect(() => api.resolveSupportTicket(91, "  ")).toThrow("trống"); expect(fetch).not.toHaveBeenCalled();
   });
   it("preserves demo create, local resolve/reopen and sends no support HTTP", async () => {
