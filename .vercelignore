@@ -1,0 +1,16 @@
+# Chỉ gửi mã frontend và hàm AI; giữ cấu hình, log và dữ liệu riêng trên máy.
+*
+!src
+!src/**
+!public
+!public/**
+!api
+!api/**
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tsconfig.json
+!tsconfig.app.json
+!tsconfig.node.json
+!vercel.json

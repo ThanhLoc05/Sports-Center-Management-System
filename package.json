@@ -13,7 +13,10 @@
     "format": "prettier --write src vite.config.ts index.html",
     "format:check": "prettier --check src vite.config.ts index.html",
     "test:ai-server": "node --test scripts/test-ai-server.mjs",
-    "start:local": "node scripts/start-local.mjs"
+    "start:local": "node scripts/start-local.mjs",
+    "setup:sepay": "node scripts/setup-sepay-ngrok.mjs",
+    "start:sepay": "node scripts/start-sepay-ngrok.mjs",
+    "test:sepay": "node --test scripts/test-sepay-webhook-proxy.mjs scripts/test-sepay-ngrok.mjs"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "^5.3.0",
