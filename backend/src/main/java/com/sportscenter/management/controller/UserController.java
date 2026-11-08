@@ -9,6 +9,7 @@ import com.sportscenter.management.dto.Request.UpdateStaffDetailsRequest;
 import com.sportscenter.management.dto.Response.LoginResponse;
 import com.sportscenter.management.dto.Response.CoachProfileResponse;
 import com.sportscenter.management.dto.Response.MemberProfileResponse;
+import com.sportscenter.management.dto.Response.MemberProfileUpdateResponse;
 import com.sportscenter.management.dto.Response.UserResponse;
 import com.sportscenter.management.entity.User;
 import com.sportscenter.management.service.BookingService;
@@ -211,6 +212,12 @@ public class UserController {
     /**
      * Hồ sơ nghề nghiệp công khai của HLV; chỉ trả các trường không nhạy cảm.
      */
+    @GetMapping("/coaches")
+    @PreAuthorize("hasAnyRole('MEMBER', 'COACH', 'RECEPTIONIST', 'CENTER_MANAGER')")
+    public ResponseEntity<List<CoachProfileResponse>> getCoaches() {
+        return ResponseEntity.ok(coachProfileService.getActiveProfiles());
+    }
+
     @GetMapping("/{userId}/coach-profile")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CoachProfileResponse> getCoachProfile(@PathVariable Integer userId) {
@@ -237,12 +244,29 @@ public class UserController {
      */
     @PutMapping("/{userId}/profile")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberProfileResponse> updateProfile(
-            @PathVariable Integer userId, @RequestBody MemberProfileRequest request) {
+    public ResponseEntity<MemberProfileUpdateResponse> updateProfile(
+            @PathVariable Integer userId, @Valid @RequestBody MemberProfileRequest request) {
+        Integer actorId = securityUtils.getCurrentUserId();
         if (!securityUtils.isOwnerOrAuthorized(userId)) {
             return ResponseEntity.status(403).build();
         }
-        return ResponseEntity.ok(userService.updateProfile(userId, request));
+        MemberProfileResponse profile = userService.updateProfile(userId, request);
+        UserResponse updatedUser = userService.getUserById(userId)
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy tài khoản sau khi cập nhật hồ sơ"));
+        String refreshedToken = null;
+        if (userId.equals(actorId)) {
+            refreshedToken = jwtService.generateToken(
+                    org.springframework.security.core.userdetails.User
+                            .withUsername(updatedUser.getEmail())
+                            .password("")
+                            .authorities("ROLE_" + updatedUser.getRoleName())
+                            .build());
+        }
+        return ResponseEntity.ok(MemberProfileUpdateResponse.builder()
+                .profile(profile)
+                .user(updatedUser)
+                .token(refreshedToken)
+                .build());
     }
 
     private UserResponse toResponse(User user) {

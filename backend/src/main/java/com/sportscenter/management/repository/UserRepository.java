@@ -74,6 +74,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      */
     List<User> findByRole_IdAndStatus(Integer roleId, String status);
 
+    List<User> findByRole_RoleNameAndStatus(String roleName, String status);
+
     /**
      * Tìm kiếm và lọc người dùng theo vai trò, trạng thái và từ khóa (tên, email, số điện thoại)
      */

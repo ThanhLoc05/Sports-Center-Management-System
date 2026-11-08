@@ -268,6 +268,8 @@ function coachProfessionalProfileResponse(
 ): CoachProfessionalProfile {
   if (
     !value ||
+    !Number.isSafeInteger(value.coachId) ||
+    value.coachId < 1 ||
     value.coachId !== coachId ||
     typeof value.fullName !== "string" ||
     !value.fullName.trim() ||
@@ -572,6 +574,25 @@ export const api = {
       specialties: coach.specialties || null,
       bio: coach.bio || null,
     };
+  },
+  async coaches(): Promise<CoachProfessionalProfile[]> {
+    if (mode() === "api") {
+      const profiles = await request<CoachProfessionalProfile[]>("/users/coaches");
+      if (!Array.isArray(profiles))
+        throw new ApiError("Danh sách huấn luyện viên từ máy chủ không hợp lệ.");
+      return profiles.map((profile) =>
+        coachProfessionalProfileResponse(profile, profile?.coachId),
+      );
+    }
+    return readDemo().users
+      .filter((user) => user.roleName === "COACH" && user.status === "ACTIVE")
+      .map((coach) => ({
+        coachId: coach.id,
+        fullName: coach.fullName,
+        professionalLevel: coach.level || null,
+        specialties: coach.specialties || null,
+        bio: coach.bio || null,
+      }));
   },
   async saveCoachProfile(
     id: number,

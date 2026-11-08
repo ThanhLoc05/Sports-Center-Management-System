@@ -2,6 +2,7 @@ package com.sportscenter.management.service.impl;
 
 import com.sportscenter.management.dto.Request.MemberProfileRequest;
 import com.sportscenter.management.entity.MemberProfile;
+import com.sportscenter.management.entity.Role;
 import com.sportscenter.management.entity.User;
 import com.sportscenter.management.repository.MemberProfileRepository;
 import com.sportscenter.management.repository.RoleRepository;
@@ -68,6 +69,59 @@ class UserProfileServiceTest {
     void missingAccountDoesNotCreateProfile() {
         when(users.findById(10)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> service.updateProfile(10, request));
+        verify(profiles, never()).save(any());
+    }
+
+    @Test
+    void updatesMemberAccountDetailsAndProfileTogether() {
+        User account = User.builder().id(10).email("old@example.com").fullName("Member")
+                .phone("0900000010").role(Role.builder().roleName("MEMBER").build()).build();
+        when(users.findById(10)).thenReturn(Optional.of(account));
+        when(profiles.findById(10)).thenReturn(Optional.empty());
+        when(profiles.save(any())).thenAnswer(call -> {
+            MemberProfile profile = call.getArgument(0);
+            profile.setMemberId(10);
+            return profile;
+        });
+        var update = MemberProfileRequest.builder().fullName("New Member")
+                .email("NEW@example.com").phone("+84900000010")
+                .fitnessGoals("Build endurance").build();
+
+        var result = service.updateProfile(10, update);
+
+        assertEquals("New Member", account.getFullName());
+        assertEquals("new@example.com", account.getEmail());
+        assertEquals("+84900000010", account.getPhone());
+        assertEquals("new@example.com", result.getEmail());
+        verify(users).save(account);
+        verify(profiles).save(any());
+    }
+
+    @Test
+    void rejectsEmailAlreadyUsedByAnotherAccountWithoutSavingProfile() {
+        User account = User.builder().id(10).email("old@example.com").fullName("Member")
+                .phone("0900000010").build();
+        when(users.findById(10)).thenReturn(Optional.of(account));
+        when(users.existsByEmailIgnoreCaseAndIdNot("taken@example.com", 10)).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateProfile(10,
+                MemberProfileRequest.builder().email("taken@example.com").build()));
+
+        verify(users, never()).save(any());
+        verify(profiles, never()).save(any());
+    }
+
+    @Test
+    void rejectsPhoneAlreadyUsedByAnotherAccountWithoutSavingProfile() {
+        User account = User.builder().id(10).email("member@example.com").fullName("Member")
+                .phone("0900000010").build();
+        when(users.findById(10)).thenReturn(Optional.of(account));
+        when(users.existsByPhoneAndIdNot("0900000011", 10)).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateProfile(10,
+                MemberProfileRequest.builder().phone("0900000011").build()));
+
+        verify(users, never()).save(any());
         verify(profiles, never()).save(any());
     }
 }

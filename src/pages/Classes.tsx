@@ -269,8 +269,15 @@ export default function Classes() {
     params.get("new") === "1" && manager ? true : null,
   );
   const [selected, setSelected] = useState<SportClass | null>(null);
+  const [selectedCoachId, setSelectedCoachId] = useState<number | null>(null);
   const [cancel, setCancel] = useState<SportClass | null>(null);
   const classes = useClasses();
+  const coaches = useQuery({
+    queryKey: ["coach-directory"],
+    queryFn: api.coaches,
+    enabled: member,
+    retry: false,
+  });
   const users = useUsers();
   const client = useQueryClient();
   const toast = useToast();
@@ -310,6 +317,37 @@ export default function Classes() {
           </>
         }
       />
+      {member && (
+        <Panel className="panel-spaced" title="Huấn luyện viên">
+          {coaches.isPending ? (
+            <Loading />
+          ) : coaches.error ? (
+            <ErrorState error={coaches.error} retry={coaches.refetch} />
+          ) : coaches.data.length ? (
+            <div className="roster-list">
+              {coaches.data.map((coachProfile) => (
+                <div key={coachProfile.coachId}>
+                  <strong>{coachProfile.fullName}</strong>
+                  <span>
+                    {coachProfile.professionalLevel || "Chưa cập nhật trình độ"}
+                    {coachProfile.specialties
+                      ? ` · ${coachProfile.specialties}`
+                      : ""}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setSelectedCoachId(coachProfile.coachId)}
+                  >
+                    Xem thông tin
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">Chưa có huấn luyện viên đang hoạt động.</p>
+          )}
+        </Panel>
+      )}
       <div className="class-filter-bar">
         {member && (
           <Panel className="class-membership-panel" title="Lớp học theo gói của tôi">
@@ -535,6 +573,12 @@ export default function Classes() {
                 }
               : undefined
           }
+        />
+      )}
+      {selectedCoachId !== null && (
+        <CoachProfileDialog
+          coachId={selectedCoachId}
+          onClose={() => setSelectedCoachId(null)}
         />
       )}
       {cancel && (

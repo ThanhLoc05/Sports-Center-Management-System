@@ -186,19 +186,24 @@ export function ApiProfileEditor({
       onSubmit={async (d) => {
         if (!permitted || !q.isSuccess || q.isFetching)
           throw new ApiError("Chưa tải được hồ sơ hợp lệ để cập nhật.");
-        // Giữ null ở trường không đổi; PUT luôn gửi đủ bốn trường để không mất dữ liệu khác.
+        // Giữ null ở trường hồ sơ không đổi; PUT gửi đủ thông tin tài khoản và hồ sơ.
         const fieldValue = (name: "gender" | "address" | "fitnessGoals") => {
           const value = String(d.get(name) || "");
           return value === "" && q.data?.[name] === null ? null : value;
         };
         const saved = await operations.saveProfile(user.id, {
+          fullName: String(d.get("fullName")).trim(),
+          email: String(d.get("email")).trim(),
+          phone: String(d.get("phone")).trim(),
           dob: String(d.get("dob") || "") || null,
           gender: fieldValue("gender"),
           address: fieldValue("address"),
           fitnessGoals: fieldValue("fitnessGoals"),
         });
         // Các màn của Manager/Coach đọc cùng key nên nhận ngay phản hồi thật sau khi lưu.
-        client.setQueryData(["member-profile", user.id], saved);
+        if (saved.token && session!.user.id === user.id)
+          signIn({ ...session!, token: saved.token, user: saved.user });
+        client.setQueryData(["member-profile", user.id], saved.profile);
         void client.invalidateQueries({ queryKey: ["assigned-students"] });
         toast("Đã lưu hồ sơ học viên vào hệ thống.");
       }}
@@ -213,6 +218,17 @@ export function ApiProfileEditor({
       ) : (
         <div key={q.data?.memberId || "new"}>
           {q.data === null && <Notice>Chưa có hồ sơ. Bạn có thể bổ sung thông tin.</Notice>}
+          <div className="form-grid">
+            <Field label="Họ và tên">
+              <input name="fullName" required minLength={2} maxLength={100} defaultValue={user.fullName} />
+            </Field>
+            <Field label="Email">
+              <input name="email" type="email" required maxLength={255} defaultValue={user.email} />
+            </Field>
+            <Field label="Điện thoại">
+              <input name="phone" required minLength={9} maxLength={20} pattern="[+0-9 ()-]{9,20}" defaultValue={user.phone} />
+            </Field>
+          </div>
           <Field label="Ngày sinh">
             <input type="date" name="dob" max={localDate()} defaultValue={q.data?.dob || ""} />
           </Field>
@@ -239,10 +255,7 @@ export function ApiProfileEditor({
           </Field>
         </div>
       )}
-      <Notice>
-        Tên, email và điện thoại là thông tin tài khoản; API hồ sơ chỉ cập nhật
-        các trường trên.
-      </Notice>
+      <Notice>Cập nhật họ tên, email đăng nhập, điện thoại và hồ sơ cá nhân.</Notice>
     </FormModal>
   );
 }

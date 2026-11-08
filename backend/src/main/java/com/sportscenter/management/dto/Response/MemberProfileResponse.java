@@ -13,6 +13,12 @@ public class MemberProfileResponse {
 
     private Integer memberId;
 
+    private String fullName;
+
+    private String email;
+
+    private String phone;
+
     private LocalDate dob;
 
     private String gender;

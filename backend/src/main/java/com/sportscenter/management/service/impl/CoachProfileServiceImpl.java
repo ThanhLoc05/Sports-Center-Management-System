@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -18,6 +20,16 @@ public class CoachProfileServiceImpl implements CoachProfileService {
 
     private final UserRepository userRepository;
     private final CoachProfileRepository profileRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CoachProfileResponse> getActiveProfiles() {
+        return userRepository.findByRole_RoleNameAndStatus("COACH", "ACTIVE").stream()
+                .map(coach -> profileRepository.findById(coach.getId())
+                        .map(profile -> toResponse(coach, profile))
+                        .orElseGet(() -> toResponse(coach, null)))
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)

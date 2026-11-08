@@ -7,13 +7,28 @@
  */
 import { ApiError, getSession, request } from "./api";
 export interface MemberProfileInput {
+  fullName?: string;
+  email?: string;
+  phone?: string;
   dob: string | null;
   gender: string | null;
   address: string | null;
   fitnessGoals: string | null;
 }
-export interface MemberProfile extends MemberProfileInput {
+export interface MemberProfile {
   memberId: number;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  dob: string | null;
+  gender: string | null;
+  address: string | null;
+  fitnessGoals: string | null;
+}
+export interface MemberProfileUpdateResult {
+  profile: MemberProfile;
+  user: import("./types").User;
+  token: string | null;
 }
 export interface ClassStudent {
   memberId: number;
@@ -83,7 +98,9 @@ const send = <T>(path: string, method: string, body: unknown) =>
 function profileResponse(value: MemberProfile, memberId: number): MemberProfile {
   if (!value || value.memberId !== memberId ||
       [value.dob, value.gender, value.address, value.fitnessGoals]
-        .some((field) => field !== null && typeof field !== "string"))
+        .some((field) => field !== null && typeof field !== "string") ||
+      [value.fullName, value.email, value.phone]
+        .some((field) => field != null && typeof field !== "string"))
     throw new ApiError("Dữ liệu hồ sơ không hợp lệ hoặc không thuộc thành viên đang xem.");
   return value;
 }
@@ -103,15 +120,28 @@ export const operations = {
       throw error;
     }
   },
-  async saveProfile(userId: number, input: MemberProfileInput): Promise<MemberProfile> {
+  async saveProfile(userId: number, input: MemberProfileInput): Promise<MemberProfileUpdateResult> {
     const actor = role(["CENTER_MANAGER", "MANAGER", "RECEPTIONIST", "MEMBER"]);
     const memberId = id(userId);
     if (actor.user.roleName === "MEMBER" && actor.user.id !== memberId)
       throw new ApiError("Bạn chỉ được cập nhật hồ sơ của chính mình.", 403);
-    const { dob, gender, address, fitnessGoals } = input;
-    return profileResponse(await send<MemberProfile>(`/users/${memberId}/profile`, "PUT", {
-      dob, gender, address, fitnessGoals,
-    }), memberId);
+    const result = await send<MemberProfileUpdateResult>(`/users/${memberId}/profile`, "PUT", {
+      fullName: input.fullName,
+      email: input.email,
+      phone: input.phone,
+      dob: input.dob,
+      gender: input.gender,
+      address: input.address,
+      fitnessGoals: input.fitnessGoals,
+    });
+    if (!result || !result.user || result.user.id !== memberId || !result.profile ||
+        (actor.user.id === memberId && typeof result.token !== "string") ||
+        (result.token !== null && typeof result.token !== "string"))
+      throw new ApiError("Dữ liệu cập nhật hồ sơ từ máy chủ không hợp lệ.");
+    return {
+      ...result,
+      profile: profileResponse(result.profile, memberId),
+    };
   },
   async plans(kind: "coach" | "member" | "class", target: number) {
     return list(

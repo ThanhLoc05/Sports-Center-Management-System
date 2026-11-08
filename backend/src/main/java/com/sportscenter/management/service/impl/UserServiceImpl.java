@@ -268,6 +268,43 @@ public class UserServiceImpl implements UserService {
         }
         User user = userRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+        boolean hasAccountChanges = request.getFullName() != null
+                || request.getEmail() != null
+                || request.getPhone() != null;
+        if (hasAccountChanges && (user.getRole() == null
+                || !"MEMBER".equals(user.getRole().getRoleName()))) {
+            throw new IllegalArgumentException("Chỉ thành viên mới có thể cập nhật thông tin tài khoản tại đây");
+        }
+        if (request.getFullName() != null) {
+            String fullName = request.getFullName().trim();
+            if (fullName.length() < 2 || fullName.length() > 100) {
+                throw new IllegalArgumentException("Họ tên phải có từ 2 đến 100 ký tự");
+            }
+            user.setFullName(fullName);
+        }
+        if (request.getEmail() != null) {
+            String email = request.getEmail().trim().toLowerCase();
+            if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || email.length() > 255) {
+                throw new IllegalArgumentException("Email không hợp lệ");
+            }
+            if (!email.equalsIgnoreCase(user.getEmail())
+                    && userRepository.existsByEmailIgnoreCaseAndIdNot(email, memberId)) {
+                throw new IllegalArgumentException("Email đã được sử dụng");
+            }
+            user.setEmail(email);
+        }
+        if (request.getPhone() != null) {
+            String phone = request.getPhone().trim();
+            if (!phone.matches("[+0-9 ()-]{9,20}")) {
+                throw new IllegalArgumentException("Số điện thoại không hợp lệ");
+            }
+            if (!phone.equals(user.getPhone()) && userRepository.existsByPhoneAndIdNot(phone, memberId)) {
+                throw new IllegalArgumentException("Số điện thoại đã được sử dụng");
+            }
+            user.setPhone(phone);
+        }
+        userRepository.save(user);
+
         MemberProfile profile = profileRepository.findById(memberId)
                 // Để ID null cho persist; @MapsId lấy khóa từ user, tránh merge nhầm hồ sơ mới.
                 .orElseGet(() -> MemberProfile.builder().build());
@@ -281,6 +318,9 @@ public class UserServiceImpl implements UserService {
         MemberProfile saved = profileRepository.save(profile);
         return MemberProfileResponse.builder()
                 .memberId(saved.getMemberId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
                 .dob(saved.getDob())
                 .gender(saved.getGender())
                 .address(saved.getAddress())
@@ -290,12 +330,18 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Optional<MemberProfileResponse> getProfile(Integer memberId) {
-        return profileRepository.findById(memberId).map(p -> MemberProfileResponse.builder()
-                .memberId(p.getMemberId())
-                .dob(p.getDob())
-                .gender(p.getGender())
-                .address(p.getAddress())
-                .fitnessGoals(p.getFitnessGoals())
-                .build());
+        return profileRepository.findById(memberId).map(p -> {
+            User user = p.getUser();
+            return MemberProfileResponse.builder()
+                    .memberId(p.getMemberId())
+                    .fullName(user.getFullName())
+                    .email(user.getEmail())
+                    .phone(user.getPhone())
+                    .dob(p.getDob())
+                    .gender(p.getGender())
+                    .address(p.getAddress())
+                    .fitnessGoals(p.getFitnessGoals())
+                    .build();
+        });
     }
 }

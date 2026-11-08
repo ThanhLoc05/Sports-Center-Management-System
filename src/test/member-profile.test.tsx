@@ -15,7 +15,7 @@ import type { Role, User } from "../lib/types";
 import type { MemberProfile } from "../lib/operations-api";
 
 const member: User = { id: 10, fullName: "Thành viên TEST", email: "member@profile.invalid", phone: "0900000010", roleName: "MEMBER", status: "ACTIVE" };
-const profile: MemberProfile = { memberId: 10, dob: "2000-05-12", gender: "Nữ", address: "Địa chỉ thử nghiệm", fitnessGoals: "Cải thiện sức bền" };
+const profile: MemberProfile = { memberId: 10, fullName: member.fullName, email: member.email, phone: member.phone, dob: "2000-05-12", gender: "Nữ", address: "Địa chỉ thử nghiệm", fitnessGoals: "Cải thiện sức bền" };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
 const clients: QueryClient[] = [];
 function login(role: Role = "MEMBER") {
@@ -32,7 +32,15 @@ function server(initial: MemberProfile | null = profile) {
   const calls = vi.fn(async (url: string, init?: RequestInit) => {
     if (/\/users\/\d+\/profile$/.test(url)) {
       const id = Number(url.split("/").at(-2));
-      if (init?.method === "PUT") stored = { ...JSON.parse(String(init.body)), memberId: id };
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body));
+        stored = { ...body, memberId: id };
+        return json({
+          profile: stored,
+          user: { ...member, id, fullName: body.fullName || member.fullName, email: body.email || member.email, phone: body.phone || member.phone },
+          token: "refreshed-token",
+        });
+      }
       return stored ? json({ ...stored, memberId: id }) : json({}, 404);
     }
     if (url.endsWith("/users")) return json([member, { ...member, id: 11, fullName: "Thành viên khác" }]);
@@ -71,9 +79,9 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     await expect(operations.profile(10)).rejects.toThrow("Dữ liệu hồ sơ");
   });
   it("PUT sends exactly four fields with Unicode and nullable DOB", async () => {
-    const input = { ...profile, dob: null, fitnessGoals: "Tăng sức mạnh và độ dẻo dai", fullName: "Không gửi", level: "Không gửi", bio: "Không gửi", specialties: "Không gửi" };
-    expect(await operations.saveProfile(10, input)).toMatchObject({ dob: null, fitnessGoals: input.fitnessGoals });
-    expect(fetch).toHaveBeenCalledWith("/api/v1/users/10/profile", expect.objectContaining({ method: "PUT", body: JSON.stringify({ dob: null, gender: profile.gender, address: profile.address, fitnessGoals: input.fitnessGoals }) }));
+    const input = { ...profile, dob: null, fitnessGoals: "Tăng sức mạnh và độ dẻo dai", fullName: "Tên mới", level: "Không gửi", bio: "Không gửi", specialties: "Không gửi" };
+    expect((await operations.saveProfile(10, input)).profile).toMatchObject({ dob: null, fitnessGoals: input.fitnessGoals });
+    expect(fetch).toHaveBeenCalledWith("/api/v1/users/10/profile", expect.objectContaining({ method: "PUT", body: JSON.stringify({ fullName: input.fullName, email: profile.email, phone: profile.phone, dob: null, gender: profile.gender, address: profile.address, fitnessGoals: input.fitnessGoals }) }));
   });
   it("does not convert PUT 404 into success", async () => {
     vi.mocked(fetch).mockResolvedValue(json({}, 404));
@@ -109,9 +117,9 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     await userEvent.setup().click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(close).toHaveBeenCalledOnce());
     const put = calls.mock.calls.find(([, init]) => init?.method === "PUT")!;
-    expect(JSON.parse(String(put[1]!.body))).toEqual({ dob: null, gender: "", address: "", fitnessGoals: "Mục tiêu mới" });
+    expect(JSON.parse(String(put[1]!.body))).toMatchObject({ fullName: member.fullName, email: member.email, phone: member.phone, dob: null, gender: "", address: "", fitnessGoals: "Mục tiêu mới" });
   });
-  it("saves all existing fields, updates only the target cache and displayed goals without demo writes", async () => {
+  it("saves profile fields and refreshes the current account without demo writes", async () => {
     const saveDemo = vi.spyOn(center, "saveUser");
     const client = page(<Profile />);
     client.setQueryData(["member-profile", 11], { ...profile, memberId: 11, fitnessGoals: "Giữ nguyên" });
@@ -121,16 +129,41 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     const goal = await screen.findByLabelText("Mục tiêu tập luyện");
     expect(goal).toHaveAttribute("maxlength", "255");
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).queryByLabelText("Họ và tên")).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Họ và tên")).toHaveValue(member.fullName);
     expect(within(dialog).queryByLabelText("Trình độ")).not.toBeInTheDocument();
     await user.clear(goal); await user.type(goal, "Bền bỉ hơn mỗi ngày");
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByText("Bền bỉ hơn mỗi ngày", { exact: false })).toBeVisible();
-    expect(client.getQueryData(["member-profile", 10])).toEqual({ ...profile, fitnessGoals: "Bền bỉ hơn mỗi ngày" });
-    expect(client.getQueryData(["member-profile", 11])).toMatchObject({ fitnessGoals: "Giữ nguyên" });
+    expect(client.getQueryData(["member-profile", 10])).toMatchObject({ ...profile, fitnessGoals: "Bền bỉ hơn mỗi ngày" });
+    expect(client.getQueryData(["member-profile", 11])).toBeUndefined();
     expect(saveDemo).not.toHaveBeenCalled();
     expect(getSession()?.user.fullName).toBe(member.fullName);
+  });
+  it("updates member contact details and refreshes the session token after saving", async () => {
+    const calls = server();
+    page(<ProfileEditor user={member} onClose={() => {}} />);
+    const user = userEvent.setup();
+    await screen.findByLabelText("Mục tiêu tập luyện");
+    await user.clear(screen.getByLabelText("Họ và tên"));
+    await user.type(screen.getByLabelText("Họ và tên"), "Tên mới");
+    await user.clear(screen.getByLabelText("Email"));
+    await user.type(screen.getByLabelText("Email"), "new@example.com");
+    await user.clear(screen.getByLabelText("Điện thoại"));
+    await user.type(screen.getByLabelText("Điện thoại"), "0900000020");
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await waitFor(() => expect(getSession()?.token).toBe("refreshed-token"));
+    expect(getSession()?.user).toMatchObject({
+      fullName: "Tên mới",
+      email: "new@example.com",
+      phone: "0900000020",
+    });
+    const put = calls.mock.calls.find(([, init]) => init?.method === "PUT")!;
+    expect(JSON.parse(String(put[1]!.body))).toMatchObject({
+      fullName: "Tên mới",
+      email: "new@example.com",
+      phone: "0900000020",
+    });
   });
   it("keeps cached profile and form contents on PUT failure without success toast", async () => {
     const calls = server();
@@ -156,7 +189,7 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
     await waitFor(() => expect(calls.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true));
     const put = calls.mock.calls.find(([, init]) => init?.method === "PUT")!;
-    expect(JSON.parse(String(put[1]!.body))).toEqual({ dob: null, gender: null, address: null, fitnessGoals: "Chỉ đổi mục tiêu" });
+    expect(JSON.parse(String(put[1]!.body))).toMatchObject({ fullName: member.fullName, email: member.email, phone: member.phone, dob: null, gender: null, address: null, fitnessGoals: "Chỉ đổi mục tiêu" });
   });
   it("does not send a second PUT while the first save is pending", async () => {
     let finish!: (response: Response) => void;
@@ -173,7 +206,7 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     expect(screen.getByLabelText("Mục tiêu tập luyện")).toBeDisabled();
     await user.click(save);
     expect(calls.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(1);
-    await act(async () => { finish(json(profile)); });
+    await act(async () => { finish(json({ profile, user: member, token: "refreshed-token" })); });
     await waitFor(() => expect(close).toHaveBeenCalledOnce());
   });
   it("saves successive edits using the latest persisted fields", async () => {
@@ -191,7 +224,7 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     }
     expect(calls.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(2);
     const last = calls.mock.calls.filter(([, init]) => init?.method === "PUT").at(-1)!;
-    expect(JSON.parse(String(last[1]!.body))).toEqual({ dob: profile.dob, gender: profile.gender, address: profile.address, fitnessGoals: "Mục tiêu lần hai" });
+    expect(JSON.parse(String(last[1]!.body))).toMatchObject({ fullName: member.fullName, email: member.email, phone: member.phone, dob: profile.dob, gender: profile.gender, address: profile.address, fitnessGoals: "Mục tiêu lần hai" });
   });
   it("blocks a future birth date before sending PUT", async () => {
     const calls = server();

@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "../lib/auth";
 import { ToastProvider } from "../components/ui";
+import { api } from "../lib/api";
 import {
   CoachProfileCard,
   CoachProfileDialog,
@@ -63,6 +64,32 @@ afterEach(() => {
 });
 
 describe("coach professional profile", () => {
+  it("loads the authenticated coach directory without exposing contact data", async () => {
+    sessionStorage.setItem(
+      "sportiva-session",
+      JSON.stringify({
+        mode: "api",
+        token: "test-token",
+        user: {
+          id: 20,
+          email: "member@example.test",
+          fullName: "Hội viên thử",
+          phone: "0900000020",
+          roleName: "MEMBER",
+          status: "ACTIVE",
+        },
+      }),
+    );
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => json([profile]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await api.coaches()).toEqual([profile]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/users/coaches");
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      Authorization: expect.any(String),
+    });
+  });
+
   it("shows a public professional profile and assigned classes without contact details", async () => {
     sessionStorage.setItem(
       "sportiva-session",

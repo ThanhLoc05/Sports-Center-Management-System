@@ -81,4 +81,18 @@ class CoachProfileServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.getProfile(4));
         verify(profiles, never()).findById(any());
     }
+
+    @Test
+    void listsOnlyActiveCoachesWithSafeProfileFields() {
+        when(users.findByRole_RoleNameAndStatus("COACH", "ACTIVE")).thenReturn(java.util.List.of(coach));
+        when(profiles.findById(4)).thenReturn(Optional.empty());
+
+        var result = service.getActiveProfiles();
+
+        assertEquals(1, result.size());
+        assertEquals(4, result.getFirst().getCoachId());
+        assertEquals("HLV kiểm thử", result.getFirst().getFullName());
+        assertNull(result.getFirst().getProfessionalLevel());
+        verify(users).findByRole_RoleNameAndStatus("COACH", "ACTIVE");
+    }
 }
