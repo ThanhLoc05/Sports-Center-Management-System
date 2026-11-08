@@ -129,6 +129,7 @@ export interface Invoice {
   paymentStatus: string;
   createdAt: string;
   paidAt?: string;
+  refundedAt?: string;
   transferReportedAt?: string;
 }
 export type InvoiceInput = Omit<Invoice, "id" | "createdAt">;

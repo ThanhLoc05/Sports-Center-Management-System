@@ -1137,7 +1137,8 @@ export const api = {
     if (refund ? inv.paymentStatus !== "PAID" : inv.paymentStatus !== "PENDING")
       throw new ApiError("Trạng thái hóa đơn không phù hợp.");
     inv.paymentStatus = refund ? "REFUNDED" : "PAID";
-    if (!refund) inv.paidAt = dateTimeLocal();
+    if (refund) inv.refundedAt = dateTimeLocal();
+    else inv.paidAt = dateTimeLocal();
     notify(
       db,
       [inv.memberId],
@@ -1151,22 +1152,32 @@ export const api = {
     return inv;
   },
   /**
-   * Đọc tổng doanh thu theo khoảng LocalDateTime. Tham số được encode và không
-   * thêm Z vì backend dùng giờ địa phương trung tâm. Demo chỉ cộng hóa đơn PAID.
+   * Net dòng tiền: tiền thu theo paidAt trừ tiền hoàn theo refundedAt.
+   * Tham số dùng LocalDateTime địa phương, không thêm Z.
    */
   async revenue(start: string, end: string): Promise<number> {
     if (mode() === "api")
       return request(
         `/payments/revenue?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`,
       );
-    return readDemo()
-      .invoices.filter(
-        (i) =>
-          i.paymentStatus === "PAID" &&
-          i.createdAt >= start &&
-          i.createdAt <= end,
+    const invoices = readDemo().invoices;
+    const collected = invoices
+      .filter(
+        (invoice) =>
+          ["PAID", "REFUNDED"].includes(invoice.paymentStatus) &&
+          (invoice.paidAt || invoice.createdAt) >= start &&
+          (invoice.paidAt || invoice.createdAt) <= end,
       )
-      .reduce((sum, i) => sum + i.amount, 0);
+      .reduce((sum, invoice) => sum + invoice.amount, 0);
+    const refunded = invoices
+      .filter(
+        (invoice) =>
+          invoice.paymentStatus === "REFUNDED" &&
+          (invoice.refundedAt || invoice.createdAt) >= start &&
+          (invoice.refundedAt || invoice.createdAt) <= end,
+      )
+      .reduce((sum, invoice) => sum + invoice.amount, 0);
+    return collected - refunded;
   },
   /**
    * Luồng báo cáo: màn hình truyền khoảng thời gian → FE kiểm tra/encode query

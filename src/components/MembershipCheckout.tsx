@@ -21,6 +21,7 @@ import { PaymentQr } from "./PaymentQr";
 import {
   Badge,
   Button,
+  Confirm,
   DataTable,
   Empty,
   ErrorState,
@@ -46,6 +47,7 @@ const orderStatus = {
   PENDING_PAYMENT: "Chờ thanh toán / xác nhận",
   CONFIRMED: "Hoàn thành",
   CANCELLED: "Đã hủy yêu cầu",
+  REFUNDED: "Đã hoàn tiền",
 };
 const methodName = (method: string) =>
   method === "CASH" ? "Tiền mặt tại quầy" : "Chuyển khoản QR";
@@ -71,13 +73,14 @@ const pendingInterval = (query: { state: { error: unknown } }) =>
 
 function useConfirmedMemberships(orders?: MembershipOrder[]) {
   const client = useQueryClient();
-  const confirmed = useRef(new Set<number>());
+  const refreshed = useRef(new Set<string>());
   useEffect(() => {
     for (const order of orders || []) {
-      if (order.status !== "CONFIRMED" || confirmed.current.has(order.id))
-        continue;
-      confirmed.current.add(order.id);
-      // Xác nhận ở máy khác cũng phải tải lại quyền thật, không tự cấp quyền từ đơn.
+      if (!["CONFIRMED", "REFUNDED"].includes(order.status)) continue;
+      const key = `${order.id}:${order.status}`;
+      if (refreshed.current.has(key)) continue;
+      refreshed.current.add(key);
+      // Trạng thái đơn thay đổi phải tải lại quyền thành viên từ backend.
       void client.invalidateQueries({
         queryKey: ["activeSubscription", order.memberId],
       });
@@ -549,6 +552,7 @@ export function MembershipOrders({
                 <option value="PENDING_PAYMENT">Chờ thanh toán</option>
                 <option value="CONFIRMED">Hoàn thành</option>
                 <option value="CANCELLED">Đã hủy</option>
+                <option value="REFUNDED">Đã hoàn tiền</option>
               </select>
             </Field>
           </div>
@@ -605,7 +609,7 @@ export function MembershipOrders({
                 key: "status",
                 label: "Trạng thái",
                 render: (o) => (
-                  <span className={`payment-status ${o.status === "PENDING_PAYMENT" ? "status-unpaid" : o.status === "CONFIRMED" ? "status-paid" : ""}`}>
+                  <span className={`payment-status ${o.status === "PENDING_PAYMENT" ? "status-unpaid" : o.status === "CONFIRMED" ? "status-paid" : o.status === "REFUNDED" ? "badge-refunded" : ""}`}>
                     {orderStatus[o.status]}
                   </span>
                 ),
@@ -678,6 +682,7 @@ export function MembershipOrderDetail({
   const [checked, setChecked] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [refundOpen, setRefundOpen] = useState(false);
   const confirmKey = useRef({ fingerprint: "", key: "" });
   const lastStatus = useRef<string | undefined>(undefined);
   // Đổi đơn phải bỏ xác nhận của phiếu trước; không để checkbox thu tiền bị dùng lại.
@@ -709,7 +714,13 @@ export function MembershipOrderDetail({
     order.status === "PENDING_PAYMENT" &&
     order.invoice.paymentMethod === "CASH" &&
     can("payments.collect");
+  const canRefund =
+    !!order &&
+    order.status === "CONFIRMED" &&
+    order.invoice.paymentStatus === "PAID" &&
+    can("payments.refund");
   return (
+    <>
     <Modal
       title="Chi tiết hóa đơn gia hạn / đăng ký gói"
       onClose={onClose}
@@ -760,7 +771,7 @@ export function MembershipOrderDetail({
                     <dt>Trạng thái</dt>
                     <dd>
                       <span
-                        className={`membership-order-state ${order.status === "CONFIRMED" ? "is-complete status-paid" : order.status === "PENDING_PAYMENT" ? "status-unpaid" : ""}`}
+                        className={`membership-order-state ${order.status === "CONFIRMED" ? "is-complete status-paid" : order.status === "PENDING_PAYMENT" ? "status-unpaid" : order.status === "REFUNDED" ? "badge-refunded" : ""}`}
                       >
                         {orderStatus[order.status]}
                       </span>
@@ -794,7 +805,9 @@ export function MembershipOrderDetail({
                     Số tiền{" "}
                     {order.status === "CONFIRMED"
                       ? "đã thanh toán"
-                      : "cần thanh toán"}
+                      : order.status === "REFUNDED"
+                        ? "đã hoàn tiền"
+                        : "cần thanh toán"}
                   </span>
                   <strong>{money(order.invoice.amount)}</strong>
                 </div>
@@ -924,6 +937,15 @@ export function MembershipOrderDetail({
                       : "Thành viên theo dõi kết quả tại mục Gói thành viên sau khi lễ tân xác nhận thu tiền."}
                   </p>
                 </section>
+              ) : order.status === "REFUNDED" ? (
+                <section className="membership-order-card membership-order-full">
+                  <h3>Kết quả hoàn tiền</h3>
+                  <Notice>
+                    Hóa đơn đã được hoàn tiền và gói liên quan đã bị hủy. Thao
+                    tác này chỉ ghi nhận hoàn tiền trong hệ thống, không tự
+                    chuyển tiền về tài khoản ngân hàng.
+                  </Notice>
+                </section>
               ) : (
                 <section className="membership-order-card membership-order-full">
                   <h3>Trạng thái đơn</h3>
@@ -954,6 +976,15 @@ export function MembershipOrderDetail({
                 </Button>
               </div>
               <div className="membership-order-primary">
+                {canRefund && (
+                  <Button
+                    variant="danger"
+                    onClick={() => setRefundOpen(true)}
+                    disabled={busy}
+                  >
+                    Ghi nhận hoàn tiền
+                  </Button>
+                )}
                 {canCollectCash && (
                   <Button
                     type="submit"
@@ -977,6 +1008,33 @@ export function MembershipOrderDetail({
         )
       )}
     </Modal>
+    {refundOpen && order && (
+      <Confirm
+        title="Xác nhận hoàn tiền?"
+        description={`HD${order.invoice.id} · ${money(order.invoice.amount)}. Thao tác sẽ đồng bộ hóa đơn, đơn hàng và hủy gói liên quan; không tự chuyển tiền ngân hàng.`}
+        onClose={() => setRefundOpen(false)}
+        onConfirm={async () => {
+          await api.pay(order.invoice.id, true);
+          await Promise.all([
+            client.invalidateQueries({ queryKey: ["membership-orders"] }),
+            client.invalidateQueries({
+              queryKey: ["activeSubscription", order.memberId],
+            }),
+            client.invalidateQueries({
+              queryKey: ["subscriptions", order.memberId],
+            }),
+            client.invalidateQueries({
+              predicate: ({ queryKey }) =>
+                queryKey[0] === "invoices" &&
+                (!queryKey[1] || Number(queryKey[1]) === order.memberId),
+            }),
+          ]);
+          await query.refetch();
+          toast("Đã ghi nhận hoàn tiền và đồng bộ trạng thái đơn.");
+        }}
+      />
+    )}
+    </>
   );
 }
 

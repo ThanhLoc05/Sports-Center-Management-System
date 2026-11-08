@@ -23,7 +23,7 @@ export interface MembershipOrder {
   kind: "NEW" | "RENEWAL";
   sourceSubscriptionId?: number;
   sourcePackageId?: number;
-  status: "PENDING_PAYMENT" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING_PAYMENT" | "CONFIRMED" | "CANCELLED" | "REFUNDED";
   package: MembershipOffer;
   invoice: Invoice;
   paymentReference: string;
@@ -88,7 +88,7 @@ export function validateMembershipOrder(
   if (
     !value ||
     !["NEW", "RENEWAL"].includes(value.kind) ||
-    !["PENDING_PAYMENT", "CONFIRMED", "CANCELLED"].includes(value.status) ||
+    !["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "REFUNDED"].includes(value.status) ||
     !Number.isSafeInteger(value.version) ||
     value.version < 0
   )
@@ -127,6 +127,12 @@ export function validateMembershipOrder(
     throw new ApiError(
       "Chưa có kết quả xác nhận thanh toán và kích hoạt gói hợp lệ.",
     );
+  if (
+    value.status === "REFUNDED" &&
+    (invoice.paymentStatus !== "REFUNDED" ||
+      (value.subscription && value.subscription.status !== "CANCELLED"))
+  )
+    throw new ApiError("Trạng thái hoàn tiền và đơn đăng ký chưa đồng bộ.");
   if (value.bankAccount) validateBank(value.bankAccount);
   // Trạng thái đối soát/thông báo là dữ liệu tùy chọn cho BE tích hợp sau, nhưng nếu có phải hợp lệ.
   if (value.memberName !== undefined && typeof value.memberName !== "string")
@@ -147,11 +153,11 @@ export function validateMembershipOrder(
   )
     throw new ApiError("Trạng thái thông báo không hợp lệ.");
   if (
-    value.status !== "CONFIRMED" &&
+    !["CONFIRMED", "REFUNDED"].includes(value.status) &&
     value.delivery?.notification?.status === "SENT"
   )
     throw new ApiError(
-      "Chưa xác nhận gói nhưng hệ thống trả thông báo gia hạn đã gửi.",
+      "Trạng thái đơn không khớp với thông báo gia hạn đã gửi.",
     );
   return value;
 }

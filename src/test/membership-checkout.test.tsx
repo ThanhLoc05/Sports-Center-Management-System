@@ -310,6 +310,46 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     expect(JSON.parse(String(post[1]!.body))).toEqual({ version: 0 });
     await waitFor(() => expectMemberRefresh(client));
   });
+  it("manager refund updates the displayed order and refreshes membership data", async () => {
+    let refunded = false;
+    const refundedOrder: MembershipOrder = {
+      ...confirmed(),
+      status: "REFUNDED",
+      invoice: { ...confirmed().invoice, paymentStatus: "REFUNDED" },
+      subscription: { ...subscription, status: "CANCELLED" },
+      delivery: { notification: { status: "SENT" } },
+    };
+    const calls = vi.fn(async (url: string) => {
+      if (url.includes("/users/"))
+        return json({
+          id: 4,
+          fullName: "Nguyễn Văn An",
+          email: "an@example.test",
+          roleName: "MEMBER",
+        });
+      if (url.endsWith("/refund")) {
+        refunded = true;
+        return json(refundedOrder.invoice);
+      }
+      return json(refunded ? refundedOrder : confirmed());
+    });
+    vi.stubGlobal("fetch", calls);
+    const user = userEvent.setup();
+    wrap(
+      <MembershipOrderDetail orderId={20} onClose={() => {}} />,
+      "CENTER_MANAGER",
+    );
+    const client = accessCache();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Ghi nhận hoàn tiền" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Xác nhận" }));
+
+    expect(await screen.findByText(/Hóa đơn đã được hoàn tiền/)).toBeVisible();
+    expect(calls.mock.calls.some(([url]) => url.endsWith("/refund"))).toBe(true);
+    await waitFor(() => expectMemberRefresh(client));
+  });
   it.each(["detail", "list"])(
     "refreshes only the member caches when %s polling detects confirmation",
     async (view) => {
@@ -535,6 +575,23 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
       expect(() => validateMembershipOrder(order)).toThrow();
     },
   );
+  it("accepts a refunded order only when the invoice and subscription are also refunded", () => {
+    const refunded: MembershipOrder = {
+      ...confirmed(),
+      status: "REFUNDED",
+      invoice: { ...confirmed().invoice, paymentStatus: "REFUNDED" },
+      subscription: { ...subscription, status: "CANCELLED" },
+      delivery: { notification: { status: "SENT" } },
+    };
+
+    expect(validateMembershipOrder(refunded).status).toBe("REFUNDED");
+    expect(() =>
+      validateMembershipOrder({
+        ...refunded,
+        invoice: { ...refunded.invoice, paymentStatus: "PAID" },
+      }),
+    ).toThrow("chưa đồng bộ");
+  });
   it("rejects a server list containing another member's order", async () => {
     vi.stubGlobal(
       "fetch",

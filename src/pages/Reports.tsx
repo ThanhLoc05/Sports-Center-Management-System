@@ -78,20 +78,19 @@ export default function Reports() {
     retry: false,
   });
   const db = demo ? readDemo() : null;
-  const invoices = (db?.invoices || []).filter(
-    (i) =>
-      i.paymentStatus === "PAID" &&
-      (i.paidAt || i.createdAt).slice(0, 10) >= range.start &&
-      (i.paidAt || i.createdAt).slice(0, 10) <= range.end,
+  const collectedInvoices = (db?.invoices || []).filter(
+    (invoice) =>
+      ["PAID", "REFUNDED"].includes(invoice.paymentStatus) &&
+      (invoice.paidAt || invoice.createdAt).slice(0, 10) >= range.start &&
+      (invoice.paidAt || invoice.createdAt).slice(0, 10) <= range.end,
   );
-  // Fixture không có thời điểm hoàn tiền riêng; chỉ dùng ngày tạo trong chế độ test.
   const refunded = (db?.invoices || []).filter(
-    (i) =>
-      i.paymentStatus === "REFUNDED" &&
-      i.createdAt.slice(0, 10) >= range.start &&
-      i.createdAt.slice(0, 10) <= range.end,
+    (invoice) =>
+      invoice.paymentStatus === "REFUNDED" &&
+      (invoice.refundedAt || invoice.createdAt).slice(0, 10) >= range.start &&
+      (invoice.refundedAt || invoice.createdAt).slice(0, 10) <= range.end,
   );
-  const demoPaid = invoices.reduce(
+  const demoGross = collectedInvoices.reduce(
     (total, invoice) => total + invoice.amount,
     0,
   );
@@ -100,15 +99,15 @@ export default function Reports() {
     0,
   );
   const demoSummary = {
-    totalGrossRevenue: demoPaid + demoRefunded,
+    totalGrossRevenue: demoGross,
     totalRefunded: demoRefunded,
-    netRevenue: demoPaid,
-    totalPaidInvoices: invoices.length,
+    netRevenue: demoGross - demoRefunded,
+    totalPaidInvoices: collectedInvoices.length,
     totalRefundedInvoices: refunded.length,
     revenueByMethod: Object.fromEntries(
       Object.keys(methodLabels).map((method) => [
         method,
-        invoices
+        collectedInvoices
           .filter((invoice) => invoice.paymentMethod === method)
           .reduce((total, invoice) => total + invoice.amount, 0),
       ]),
@@ -134,7 +133,7 @@ export default function Reports() {
     const d = localDate(addDays(i, parseDate(range.start)));
     return {
       date: dateLabel(d, { day: "2-digit", month: "2-digit" }),
-      revenue: invoices
+      revenue: collectedInvoices
         .filter((inv) => (inv.paidAt || inv.createdAt).startsWith(d))
         .reduce((s, inv) => s + inv.amount, 0),
     };

@@ -222,6 +222,9 @@ public class MembershipOrderService {
         if (gateway && !"BANK_TRANSFER".equals(order.getPaymentMethod())) {
             throw conflict("Giao dịch ngân hàng tự động chỉ áp dụng cho đơn thanh toán chuyển khoản.");
         }
+        if (!gateway && !"CASH".equals(order.getPaymentMethod())) {
+            throw conflict("Đơn chuyển khoản chỉ được xác nhận sau khi webhook ngân hàng đối soát thành công.");
+        }
         String bankTransactionId = request.getBankTransactionId() == null
                 ? null : request.getBankTransactionId().trim();
         if ("BANK_TRANSFER".equals(order.getPaymentMethod()) && (bankTransactionId == null || bankTransactionId.isBlank())) {

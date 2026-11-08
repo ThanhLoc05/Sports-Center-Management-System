@@ -288,6 +288,23 @@ class MembershipOrderServiceTest {
     }
 
     @Test
+    void staffCannotManuallyConfirmBankTransferOrder() {
+        pendingOrder(20);
+        savedOrders.get(20).setPaymentMethod("BANK_TRANSFER");
+        savedInvoices.get(20).setPaymentMethod("BANK_TRANSFER");
+        ConfirmMembershipOrderRequest request = new ConfirmMembershipOrderRequest();
+        request.setVersion(0);
+        request.setBankTransactionId("MANUAL-REFERENCE");
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.confirm(20, request, "manual-bank-confirm"));
+
+        assertEquals("PENDING_PAYMENT", savedOrders.get(20).getStatus());
+        assertEquals("PENDING", savedInvoices.get(20).getPaymentStatus());
+        verify(subscriptions, never()).saveAndFlush(any());
+    }
+
+    @Test
     void retryWithAnotherKeyReturnsSameConfirmedPeriod() {
         pendingOrder(20);
         confirm(20);

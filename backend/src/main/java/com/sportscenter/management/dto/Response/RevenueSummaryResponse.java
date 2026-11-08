@@ -19,7 +19,7 @@ public class RevenueSummaryResponse {
     private BigDecimal totalGrossRevenue; // Tổng thu (PAID)
     private BigDecimal totalRefunded;     // Tổng hoàn (REFUNDED)
     private BigDecimal netRevenue;        // Doanh thu ròng (Gross - Refunded)
-    private long totalPaidInvoices;
+    private long totalPaidInvoices;       // Hóa đơn đã từng thu tiền trong kỳ, kể cả hoàn ở kỳ sau
     private long totalRefundedInvoices;
     private Map<String, BigDecimal> revenueByMethod;
 }

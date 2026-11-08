@@ -288,7 +288,7 @@ BEGIN
         CONSTRAINT FK_membership_orders_confirmed_by FOREIGN KEY (confirmed_by) REFERENCES dbo.users(user_id),
         CONSTRAINT CK_membership_orders_kind CHECK (order_kind IN (N'NEW', N'RENEWAL')),
         CONSTRAINT CK_membership_orders_method CHECK (payment_method IN (N'CASH', N'BANK_TRANSFER')),
-        CONSTRAINT CK_membership_orders_status CHECK (status IN (N'PENDING_PAYMENT', N'CONFIRMED', N'CANCELLED')),
+        CONSTRAINT CK_membership_orders_status CHECK (status IN (N'PENDING_PAYMENT', N'CONFIRMED', N'CANCELLED', N'REFUNDED')),
         CONSTRAINT CK_membership_orders_snapshot CHECK (package_price_snapshot > 0 AND package_duration_days_snapshot > 0 AND version >= 0),
         CONSTRAINT CK_membership_orders_source CHECK ((order_kind = N'NEW' AND source_subscription_id IS NULL AND source_package_id IS NULL) OR (order_kind = N'RENEWAL' AND source_subscription_id IS NOT NULL AND source_package_id IS NOT NULL)),
         CONSTRAINT UQ_membership_orders_creator_key UNIQUE (created_by, idempotency_key)

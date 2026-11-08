@@ -163,6 +163,8 @@ describe("Demo workflows and ownership boundaries", () => {
         paymentMethod: "CASH",
         paymentStatus: "REFUNDED",
         createdAt: "2026-10-10T10:00:00",
+        paidAt: "2026-09-10T10:00:00",
+        refundedAt: "2026-10-10T10:00:00",
       },
       {
         id: 4,
@@ -176,7 +178,10 @@ describe("Demo workflows and ownership boundaries", () => {
     saveDemo(db);
     expect(
       await api.revenue("2026-10-01T00:00:00", "2026-10-31T23:59:59"),
-    ).toBe(100);
+    ).toBe(-800);
+    expect(
+      await api.revenue("2026-09-01T00:00:00", "2026-09-30T23:59:59"),
+    ).toBe(1100);
   });
   it("does not save a partial demo transaction when validation fails", () => {
     login("CENTER_MANAGER");

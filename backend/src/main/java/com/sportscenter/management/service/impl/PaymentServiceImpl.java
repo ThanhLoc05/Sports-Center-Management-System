@@ -5,20 +5,25 @@ import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.dto.Response.RevenueSummaryResponse;
 import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
+import com.sportscenter.management.entity.MembershipOrder;
 import com.sportscenter.management.repository.InvoiceRepository;
 import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
+import com.sportscenter.management.repository.MembershipOrderRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -29,6 +34,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final InvoiceRepository invoiceRepository;
     private final MemberSubscriptionRepository subscriptionRepository;
+    private final MembershipOrderRepository orderRepository;
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
     private final SecurityUtils securityUtils;
@@ -125,6 +131,14 @@ public class PaymentServiceImpl implements PaymentService {
     public InvoiceResponse markAsPaid(Integer invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+        if (invoice.getMembershipOrderId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Hóa đơn thuộc yêu cầu đăng ký/gia hạn; hãy xác nhận thanh toán trong luồng đơn hàng.");
+        }
+        userRepository.findByIdForUpdate(invoice.getMemberId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Thành viên của hóa đơn không còn tồn tại."));
+        invoice = invoiceRepository.findByIdForUpdate(invoiceId)
+                .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
 
         if (!"PENDING".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ hóa đơn đang chờ thanh toán mới có thể được thanh toán");
@@ -140,7 +154,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Chỉ kích hoạt subscription sau khi nhân viên xác nhận hóa đơn đã thu.
         if (updatedInvoice.getSubscriptionId() != null) {
-            subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+            subscriptionRepository.findByIdForUpdate(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
                 sub.setStatus("ACTIVE");
                 subscriptionRepository.save(sub);
             });
@@ -153,6 +167,23 @@ public class PaymentServiceImpl implements PaymentService {
     public InvoiceResponse refundInvoice(Integer invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+        MembershipOrder order = null;
+        if (invoice.getMembershipOrderId() != null) {
+            order = orderRepository.findByIdForUpdate(invoice.getMembershipOrderId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Không tìm thấy đơn hàng liên kết với hóa đơn."));
+            if (!Objects.equals(order.getMemberId(), invoice.getMemberId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Hóa đơn không khớp thành viên của đơn hàng.");
+            }
+        }
+        userRepository.findByIdForUpdate(invoice.getMemberId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Thành viên của hóa đơn không còn tồn tại."));
+        invoice = invoiceRepository.findByIdForUpdate(invoiceId)
+                .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+        if (!Objects.equals(invoice.getMembershipOrderId(),
+                order == null ? null : order.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Liên kết hóa đơn đã thay đổi; hãy tải lại dữ liệu.");
+        }
 
         if (!"PAID".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hoàn tiền cho hóa đơn đã thanh toán");
@@ -162,9 +193,17 @@ public class PaymentServiceImpl implements PaymentService {
         invoice.setRefundedAt(LocalDateTime.now());
         Invoice updatedInvoice = invoiceRepository.save(invoice);
 
-        // Hoàn toàn bộ hóa đơn gói thì hủy subscription liên quan theo chính sách hiện tại.
+        // Hoàn toàn bộ hóa đơn gói đồng bộ trạng thái đơn và quyền sử dụng trong cùng transaction.
+        if (order != null) {
+            order.setStatus("REFUNDED");
+            orderRepository.save(order);
+        }
         if (updatedInvoice.getSubscriptionId() != null) {
-            subscriptionRepository.findById(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+            subscriptionRepository.findByIdForUpdate(updatedInvoice.getSubscriptionId()).ifPresent(sub -> {
+                if (!Objects.equals(sub.getMemberId(), updatedInvoice.getMemberId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Gói đăng ký không khớp thành viên của hóa đơn.");
+                }
                 sub.setStatus("CANCELLED");
                 subscriptionRepository.save(sub);
             });
@@ -208,7 +247,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
         }
 
-        List<Invoice> invoices = invoiceRepository.findPaidInvoicesBetween(startDate, endDate);
+        List<Invoice> invoices = invoiceRepository.findCollectedInvoicesBetween(startDate, endDate);
 
         StringBuilder report = new StringBuilder();
         invoices.stream()
@@ -233,11 +272,11 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal gross = invoiceRepository.calculateTotalRevenue(startDate, endDate);
         BigDecimal refunded = invoiceRepository.calculateTotalRefunded(startDate, endDate);
         BigDecimal net = gross.subtract(refunded);
-        long paidCount = invoiceRepository.countPaidInvoices(startDate, endDate);
+        long paidCount = invoiceRepository.countCollectedInvoices(startDate, endDate);
         long refundedCount = invoiceRepository.countRefundedInvoices(startDate, endDate);
 
-        List<Invoice> paidInvoices = invoiceRepository.findPaidInvoicesBetween(startDate, endDate);
-        Map<String, BigDecimal> byMethod = paidInvoices.stream()
+        List<Invoice> collectedInvoices = invoiceRepository.findCollectedInvoicesBetween(startDate, endDate);
+        Map<String, BigDecimal> byMethod = collectedInvoices.stream()
                 .collect(Collectors.groupingBy(Invoice::getPaymentMethod,
                         Collectors.reducing(BigDecimal.ZERO, Invoice::getAmount, BigDecimal::add)));
 

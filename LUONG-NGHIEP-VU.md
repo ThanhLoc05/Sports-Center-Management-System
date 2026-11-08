@@ -178,25 +178,25 @@ Hóa đơn đăng ký/gia hạn mới liên kết với `membership_orders` qua 
 3. Chỉ endpoint xác nhận MembershipOrder của lễ tân/quản lý mới chuyển invoice sang `PAID` và kích hoạt subscription. API `/payments/invoices/{id}/pay` bị chặn với hóa đơn thuộc đơn gói.
 4. Hủy booking không hủy gói và không hoàn tiền gói. Hủy subscription/hoàn tiền cần theo chính sách riêng.
 
-**Hiện trạng:** endpoint đơn mới, kiểm tra quyền/chủ đơn, idempotency, chống đơn chờ trùng, snapshot gói, kiểm tra version, transaction thanh toán-kích hoạt và ghi mã giao dịch ngân hàng đã có ở backend gốc. Database đang chạy phải áp dụng migration V6.
+**Hiện trạng:** endpoint đơn mới, kiểm tra quyền/chủ đơn, idempotency, chống đơn chờ trùng, snapshot gói, kiểm tra version, transaction thanh toán-kích hoạt và ghi mã giao dịch ngân hàng đã có ở backend gốc. Database đang chạy cần áp dụng migration V10 sau khi đã có các cấu trúc từ V6-V9.
 
 ### 6.2. Thanh toán tại quầy và online
 
 **Tiền mặt:** lễ tân nhận đủ tiền rồi xác nhận order. Backend ghi nhân viên xác nhận, thời điểm, invoice `PAID` và subscription `ACTIVE` trong cùng transaction.
 
-**Chuyển khoản QR:** frontend tạo QR với đúng số tiền và nội dung `HD{invoiceId} TV{memberId}`. QR là thông tin chuyển khoản đã điền sẵn, không phải bằng chứng tiền đã vào. Hiện lễ tân xác minh sao kê và nhập mã giao dịch; backend không cho dùng lại mã giao dịch cho đơn khác.
+**Chuyển khoản QR:** frontend tạo QR với đúng số tiền và nội dung `HD{invoiceId} TV{memberId}`. QR là thông tin chuyển khoản đã điền sẵn, không phải bằng chứng tiền đã vào. Với cấu hình SePay, chỉ webhook đã xác thực giao dịch mới xác nhận đơn; endpoint xác nhận thủ công chỉ nhận tiền mặt. Backend chống dùng lại mã giao dịch và đối chiếu đúng hóa đơn, thành viên, tài khoản nhận, thời điểm và tổng tiền.
 
 **Tự xác nhận online:** chưa tích hợp. Cần chọn ngân hàng/provider và có webhook HTTPS; backend phải xác minh chữ ký, chống phát lại, đúng tài khoản nhận/số tiền/nội dung và gọi chung nghiệp vụ xác nhận hiện tại. Các provider VNPay/MoMo/ZaloPay/PayOS đang tắt; không được hiểu là đã tích hợp chỉ vì có trong danh mục.
 
-**Hiện trạng:** đã có xác nhận thu tiền mặt và đối soát chuyển khoản thủ công. Mã giao dịch chuyển khoản được lưu duy nhất trên MembershipOrder; luồng này chưa ghi bản ghi `payment_transactions` vì chưa có gateway. Chưa có cổng checkout, webhook tự động, endpoint hủy/timeout đơn chờ, tài khoản ngân hàng tập trung, thông báo email/SMS hoặc quy trình refund riêng cho MembershipOrder. Không có thanh toán/hoàn tiền booking lớp.
+**Hiện trạng:** đã có xác nhận thu tiền mặt và đối soát chuyển khoản qua webhook SePay. Mã giao dịch chuyển khoản được lưu duy nhất trên MembershipOrder; giao dịch đã nhận được lưu riêng trong `bank_payment_events`. Chưa có cổng checkout, endpoint hủy/timeout đơn chờ, thông báo email/SMS hoặc hoàn tiền tự động qua ngân hàng. Không có thanh toán/hoàn tiền booking lớp.
 
 ### 6.3. Hủy gói và hoàn tiền
 
-Hủy subscription và hoàn hóa đơn là hai thao tác khác nhau. Quản lý duyệt hoàn theo chính sách; nếu đã thanh toán online, cần gọi cổng và chỉ ghi hóa đơn `REFUNDED` sau khi xác nhận kết quả. Việc hủy booking lớp không làm thay đổi hóa đơn gói.
+Hủy subscription và hoàn hóa đơn là hai thao tác khác nhau. Quản lý ghi nhận hoàn toàn bộ hóa đơn; backend đồng bộ hóa đơn `REFUNDED`, đơn gói `REFUNDED` và subscription `CANCELLED` trong cùng transaction. Đây chỉ là ghi nhận nghiệp vụ, không tự chuyển tiền qua ngân hàng. Migration V10 bổ sung trạng thái đơn `REFUNDED` và chuyển các đơn cũ có hóa đơn đã hoàn sang trạng thái này. Việc hủy booking lớp không làm thay đổi hóa đơn gói.
 
 ### 6.4. Báo cáo doanh thu
 
-Doanh thu phát sinh từ hóa đơn gói `PAID` (và các khoản thu thủ công nếu có), không phát sinh từ đăng ký lớp. Hóa đơn `REFUNDED` cần trừ khỏi doanh thu ròng hoặc hiển thị riêng. Schema có `paid_at`/`refunded_at`; báo cáo nên theo thời điểm thực thu/hoàn. API hiện đang tính theo `created_at`, cần điều chỉnh trước khi dùng làm báo cáo tài chính chính thức.
+Báo cáo quản lý theo dòng tiền: tổng thu tính hóa đơn đã từng thu tiền (`PAID` hoặc `REFUNDED`) theo `paid_at`; tiền hoàn tính hóa đơn `REFUNDED` theo `refunded_at`; doanh thu ròng = tổng thu - tiền hoàn. Vì vậy khoản thu vẫn nằm trong kỳ đã thu kể cả khi hóa đơn được hoàn ở kỳ sau, còn kỳ hoàn ghi nhận dòng tiền âm. Hóa đơn lịch sử thiếu `paid_at`/`refunded_at` dùng `created_at` làm mốc dự phòng. Số hóa đơn đã thanh toán và phân bổ theo phương thức phản ánh khoản thu gộp, không trừ hoàn. Hiện refund là hoàn toàn bộ hóa đơn; đây là báo cáo quản lý, chưa thay thế sổ kế toán hoặc đối soát ngân hàng.
 ## 7. Flow 4 — Tập luyện và điểm danh (tùy chọn)
 
 ### 7.1. Điểm danh theo lớp — đã có API
