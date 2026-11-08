@@ -16,6 +16,7 @@ import {
   recordReceivedNotification,
   mergeNotificationItems,
   notificationsApi,
+  setNotificationStreamStatus,
   type NotificationEvent,
 } from "../lib/notifications-api";
 
@@ -152,6 +153,32 @@ describe("GENERAL persisted history", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tải thêm thông báo" }));
     expect(await screen.findByText("Older")).toBeVisible();
     expect(screen.getAllByText(row.title)).toHaveLength(1);
+  });
+  it("refreshes persisted history after the shared stream reconnects", async () => {
+    setNotificationStreamStatus("reconnecting");
+    const fetch = vi.fn(async (_url: RequestInfo | URL) =>
+      Response.json(page([row])),
+    );
+    vi.stubGlobal("fetch", fetch);
+    mount();
+    await screen.findByText(row.title);
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.filter(([url]) =>
+          String(url).includes("/notifications?page=0"),
+        ),
+      ).toHaveLength(1),
+    );
+
+    act(() => setNotificationStreamStatus("connected"));
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.filter(([url]) =>
+          String(url).includes("/notifications?page=0"),
+        ),
+      ).toHaveLength(2),
+    );
   });
   it("shows history errors with retry instead of claiming an empty history", async () => {
     let fail = true;

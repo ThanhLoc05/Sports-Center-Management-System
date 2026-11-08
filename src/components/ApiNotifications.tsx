@@ -67,6 +67,7 @@ function NotificationInbox() {
   const { session } = useAuth();
   const client = useQueryClient();
   const toast = useToast();
+  const streamWasReconnecting = useRef(false);
   const key = ["notification-history", session?.user.id];
   const history = useInfiniteQuery({
     queryKey: key,
@@ -117,6 +118,24 @@ function NotificationInbox() {
     getNotificationStreamStatus,
     getNotificationStreamStatus,
   );
+  useEffect(() => {
+    if (stream.status === "reconnecting") {
+      streamWasReconnecting.current = true;
+      return;
+    }
+    if (
+      stream.status === "connected" &&
+      streamWasReconnecting.current &&
+      session?.mode === "api"
+    ) {
+      streamWasReconnecting.current = false;
+      void client.invalidateQueries({ queryKey: key });
+      return;
+    }
+    if (stream.status === "disconnected" || stream.status === "error") {
+      streamWasReconnecting.current = false;
+    }
+  }, [client, session?.mode, stream.status, session?.user.id]);
   const items = mergeNotificationItems(
     history.data?.pages.flatMap((page) => page.content) || [],
     received,

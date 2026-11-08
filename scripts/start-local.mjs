@@ -63,7 +63,7 @@ async function wait(port, label, child) {
   }
   throw Error(`${label} chưa chạy. Xem log trong .local.`);
 }
-function start(binary, args, cwd, name) {
+function start(binary, args, cwd, name, windowsVerbatimArguments = false) {
   const out = fs.openSync(path.join(local, name + ".stdout.log"), "a"),
     err = fs.openSync(path.join(local, name + ".stderr.log"), "a");
   const child = spawn(binary, args, {
@@ -74,6 +74,7 @@ function start(binary, args, cwd, name) {
     detached: false,
     windowsHide: true,
     stdio: ["ignore", out, err],
+    windowsVerbatimArguments,
   });
   child.unref();
   child.on("error", (error) => {
@@ -97,11 +98,11 @@ if (!(await listening(8080))) {
     [
       "/d",
       "/c",
-      "mvnw.cmd",
-      "spring-boot:run",
+      `"${path.join(backendRoot, "mvnw.cmd")}" spring-boot:run`,
     ],
     backendRoot,
     "backend",
+    true,
   );
   await wait(8080, "backend", child);
 }
