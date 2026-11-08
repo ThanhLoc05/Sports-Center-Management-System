@@ -6,7 +6,7 @@ import {
   normalizeAccessLevel,
 } from "../lib/entitlements";
 import type { MembershipPackage, Subscription } from "../lib/types";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -316,6 +316,7 @@ describe("Classes lọc cấp gói từ API", () => {
       { id: 1, name: "Phòng 1", description: "", capacity: 20 },
     ]);
     vi.spyOn(api, "users").mockResolvedValue([]);
+    vi.spyOn(api, "coaches").mockResolvedValue([]);
     vi.spyOn(api, "capacity").mockResolvedValue(10);
     vi.spyOn(api, "activeSubscription").mockResolvedValue(currentSubscription);
     vi.spyOn(api, "membershipPackages").mockResolvedValue([pkg]);
@@ -485,9 +486,11 @@ describe("Classes lọc cấp gói từ API", () => {
       expect(
         screen.queryByRole("heading", { name: "STANDARD API" }),
       ).not.toBeInTheDocument();
+      const error = screen.getByRole("alert");
+      expect(error).toHaveTextContent("Không tải được quyền gói");
       await userEvent
         .setup()
-        .click(screen.getByRole("button", { name: /Thử lại/i }));
+        .click(within(error).getByRole("button", { name: /Thử lại/i }));
       expect(
         await screen.findByRole("heading", { name: "STANDARD API" }),
       ).toBeVisible();

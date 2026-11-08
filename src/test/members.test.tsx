@@ -210,7 +210,15 @@ function lookupServer() {
     const path = String(url);
     if (path === "/api/v1/users") return json([lookupMember, { ...lookupMember, id: 82, fullName: "Nhân viên ẩn", roleName: "COACH" }]);
     if (path === "/api/v1/users/81") return json(lookupMember);
-    if (path === "/api/v1/users/81/profile") return json(init?.method === "PUT" ? { memberId: 81, ...JSON.parse(String(init.body)) } : lookupProfile);
+    if (path === "/api/v1/users/81/profile") {
+      if (init?.method !== "PUT") return json(lookupProfile);
+      const input = JSON.parse(String(init.body));
+      return json({
+        profile: { memberId: 81, ...input },
+        user: { ...lookupMember, fullName: input.fullName, email: input.email, phone: input.phone },
+        token: null, // Receptionist updates another member, so no session token is refreshed.
+      });
+    }
     return json([]);
   });
 }
@@ -264,13 +272,19 @@ describe("Tra cứu thành viên — API mock", () => {
   });
   it("loads and edits the selected member using the shared profile cache", async () => {
     const fetch = lookupServer(); vi.stubGlobal("fetch", fetch); const client = apiMembers(); const user = userEvent.setup();
-    await user.type(screen.getByLabelText("ID thành viên"), "81");
+    await user.type(await screen.findByLabelText("ID thành viên"), "81");
     await user.click(screen.getByRole("button", { name: "Xem hồ sơ" }));
     await screen.findByText("Mục tiêu thử");
     await user.click(screen.getByRole("button", { name: "Sửa hồ sơ thành viên" }));
     const goal = await screen.findByLabelText("Mục tiêu tập luyện"); await user.clear(goal); await user.type(goal, "Mục tiêu mới");
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
-    await waitFor(() => expect(client.getQueryData(["member-profile", 81])).toEqual({ ...lookupProfile, fitnessGoals: "Mục tiêu mới" }));
+    await waitFor(() => expect(client.getQueryData(["member-profile", 81])).toEqual({
+      ...lookupProfile,
+      fullName: lookupMember.fullName,
+      email: lookupMember.email,
+      phone: lookupMember.phone,
+      fitnessGoals: "Mục tiêu mới",
+    }));
     expect(fetch.mock.calls.some(([url, init]) => String(url) === "/api/v1/users/81/profile" && init?.method === "PUT")).toBe(true);
   });
   it("blocks invalid IDs, duplicate submits and stale responses", async () => {
