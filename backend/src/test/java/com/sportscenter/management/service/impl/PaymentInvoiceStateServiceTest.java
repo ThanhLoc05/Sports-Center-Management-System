@@ -11,6 +11,10 @@ import com.sportscenter.management.repository.MembershipOrderRepository;
 import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -24,6 +28,7 @@ class PaymentInvoiceStateServiceTest {
     private final MemberSubscriptionRepository subscriptions = mock(MemberSubscriptionRepository.class);
     private final MembershipOrderRepository orders = mock(MembershipOrderRepository.class);
     private final UserRepository users = mock(UserRepository.class);
+    private final EntityManager entityManager = mock(EntityManager.class);
     private final PaymentServiceImpl service = new PaymentServiceImpl(
             invoices,
             subscriptions,
@@ -31,6 +36,11 @@ class PaymentInvoiceStateServiceTest {
             mock(MembershipPackageRepository.class),
             users,
             mock(SecurityUtils.class));
+
+    @BeforeEach
+    void persistenceContext() {
+        ReflectionTestUtils.setField(service, "entityManager", entityManager);
+    }
 
     @Test
     void genericPayEndpointRejectsInvoiceOwnedByMembershipOrder() {
@@ -84,10 +94,11 @@ class PaymentInvoiceStateServiceTest {
         assertNotNull(result.getRefundedAt());
         assertEquals("REFUNDED", order.getStatus());
         assertEquals("CANCELLED", subscription.getStatus());
-        var locks = inOrder(orders, users, invoices, subscriptions);
+        var locks = inOrder(orders, users, invoices, entityManager, subscriptions);
         locks.verify(orders).findByIdForUpdate(20);
         locks.verify(users).findByIdForUpdate(4);
         locks.verify(invoices).findByIdForUpdate(30);
+        locks.verify(entityManager).refresh(invoice, LockModeType.PESSIMISTIC_WRITE);
         locks.verify(subscriptions).findByIdForUpdate(40);
     }
 
@@ -114,5 +125,29 @@ class PaymentInvoiceStateServiceTest {
         verify(invoices, never()).save(any());
         verify(orders, never()).save(any());
         verify(subscriptions, never()).findByIdForUpdate(anyInt());
+    }
+
+    @Test
+    void refundRejectsInvoiceAlreadyRefundedWhileWaitingForLock() {
+        Invoice invoice = Invoice.builder().id(30).memberId(4).paymentStatus("PAID").build();
+        when(invoices.findById(30)).thenReturn(Optional.of(invoice));
+        when(users.findByIdForUpdate(4)).thenReturn(Optional.of(User.builder().id(4).build()));
+        when(invoices.findByIdForUpdate(30)).thenReturn(Optional.of(invoice));
+        doAnswer(call -> { invoice.setPaymentStatus("REFUNDED"); return null; })
+                .when(entityManager).refresh(invoice, LockModeType.PESSIMISTIC_WRITE);
+        assertThrows(IllegalArgumentException.class, () -> service.refundInvoice(30));
+        verify(invoices, never()).save(any());
+    }
+
+    @Test
+    void payRejectsInvoiceAlreadyPaidWhileWaitingForLock() {
+        Invoice invoice = Invoice.builder().id(30).memberId(4).paymentStatus("PENDING").build();
+        when(invoices.findById(30)).thenReturn(Optional.of(invoice));
+        when(users.findByIdForUpdate(4)).thenReturn(Optional.of(User.builder().id(4).build()));
+        when(invoices.findByIdForUpdate(30)).thenReturn(Optional.of(invoice));
+        doAnswer(call -> { invoice.setPaymentStatus("PAID"); return null; })
+                .when(entityManager).refresh(invoice, LockModeType.PESSIMISTIC_WRITE);
+        assertThrows(IllegalArgumentException.class, () -> service.markAsPaid(30));
+        verify(invoices, never()).save(any());
     }
 }

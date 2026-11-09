@@ -14,6 +14,9 @@ import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final MembershipPackageRepository packageRepository;
     private final UserRepository userRepository;
     private final SecurityUtils securityUtils;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public InvoiceResponse createInvoice(InvoiceRequest request) {
@@ -139,6 +145,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Thành viên của hóa đơn không còn tồn tại."));
         invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+        // The earlier read may still be cached even though the lock query waited for another transaction.
+        entityManager.refresh(invoice, LockModeType.PESSIMISTIC_WRITE);
 
         if (!"PENDING".equals(invoice.getPaymentStatus())) {
             throw new IllegalArgumentException("Chỉ hóa đơn đang chờ thanh toán mới có thể được thanh toán");
@@ -180,6 +188,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Thành viên của hóa đơn không còn tồn tại."));
         invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+        entityManager.refresh(invoice, LockModeType.PESSIMISTIC_WRITE);
         if (!Objects.equals(invoice.getMembershipOrderId(),
                 order == null ? null : order.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Liên kết hóa đơn đã thay đổi; hãy tải lại dữ liệu.");
