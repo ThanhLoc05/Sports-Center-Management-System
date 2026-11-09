@@ -264,13 +264,29 @@ describe("Phần FE còn thiếu của luồng thanh toán", () => {
         ...pending,
         delivery: { notification: { status: "SENT" } },
       }),
-    ).toThrow("Chưa xác nhận");
+    ).toThrow("Trạng thái đơn không khớp với thông báo gia hạn đã gửi.");
     expect(() =>
       validateMembershipOrder({
         ...pending,
         bankTransfer: { status: "WAITING", receivedAmount: -1 },
       }),
     ).toThrow("đối soát");
+  });
+  it("accepts the persisted confirmation after refund when order, invoice and subscription agree", () => {
+    const refunded: MembershipOrder = {
+      ...paid,
+      status: "REFUNDED",
+      invoice: { ...paid.invoice, paymentStatus: "REFUNDED" },
+      subscription: { ...paid.subscription!, status: "CANCELLED" },
+      delivery: { notification: { status: "SENT" } },
+    };
+    expect(validateMembershipOrder(refunded)).toBe(refunded);
+    expect(() =>
+      validateMembershipOrder({
+        ...refunded,
+        invoice: { ...refunded.invoice, paymentStatus: "PAID" },
+      }),
+    ).toThrow("Trạng thái hoàn tiền và đơn đăng ký chưa đồng bộ.");
   });
   it("saves shared bank settings only after review and a successful server response", async () => {
     const calls = vi.fn(async (_url: string, init?: RequestInit) =>
