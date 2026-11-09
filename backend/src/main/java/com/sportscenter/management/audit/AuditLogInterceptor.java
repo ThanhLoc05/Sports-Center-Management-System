@@ -64,8 +64,6 @@ public class AuditLogInterceptor implements HandlerInterceptor {
         } else if ("memberships".equals(resource)) {
             if (Arrays.asList(parts).contains("packages")) {
                 entityType = "MEMBERSHIP_PACKAGE";
-            } else if (Arrays.asList(parts).contains("subscribe")) {
-                entityType = "MEMBERSHIP_ORDER";
             } else {
                 entityType = "MEMBERSHIP";
             }
@@ -80,11 +78,20 @@ public class AuditLogInterceptor implements HandlerInterceptor {
         }
 
         String action = actionFor(request.getMethod(), parts);
-        Integer entityId = Arrays.stream(parts)
-                .filter(segment -> segment.matches("\\d+"))
-                .map(Integer::valueOf)
-                .reduce((first, second) -> second)
-                .orElse(null);
+        // Nested create URLs can contain a parent ID (e.g. classes/{id}/book).
+        // A known response DTO identifies the mutated entity, not its parent.
+        Object identity = request.getAttribute(AuditResponseAdvice.IDENTITY);
+        Integer entityId = identity instanceof AuditResponseAdvice.Identity value
+                && entityType.equals(value.type()) ? value.id() : null;
+        if (entityId == null && !("POST".equals(request.getMethod()) && "CREATE".equals(action))) {
+            entityId = Arrays.stream(parts)
+                    .filter(segment -> segment.matches("\\d{1,10}"))
+                    .mapToLong(Long::parseLong)
+                    .filter(id -> id <= Integer.MAX_VALUE)
+                    .mapToObj(id -> (int) id)
+                    .reduce((first, second) -> second)
+                    .orElse(null);
+        }
         String requestPath = request.getMethod() + " " + path;
         String ipAddress = request.getRemoteAddr();
         if (ipAddress != null && ipAddress.length() > 45) ipAddress = ipAddress.substring(0, 45);
@@ -93,7 +100,9 @@ public class AuditLogInterceptor implements HandlerInterceptor {
             auditLogService.record(authentication.getName(), action, entityType,
                     entityId, ipAddress, requestPath);
         } catch (RuntimeException auditFailure) {
-            log.error("Could not persist audit record for {} {}", request.getMethod(), path, auditFailure);
+            // Database exception messages may include values; do not log their payloads.
+            log.error("Could not persist audit record for {} {} ({})", request.getMethod(), path,
+                    auditFailure.getClass().getSimpleName());
         }
     }
 
