@@ -11,6 +11,9 @@ import com.sportscenter.management.repository.RoomRepository;
 import com.sportscenter.management.repository.SportRepository;
 import com.sportscenter.management.repository.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import jakarta.persistence.EntityManager;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,6 +30,11 @@ class ClassServiceValidationTest {
     private final UserRepository users = mock(UserRepository.class);
     private final ClassServiceImpl service =
             new ClassServiceImpl(classes, bookings, sports, rooms, users);
+
+    @BeforeEach
+    void injectPersistenceContext() {
+        ReflectionTestUtils.setField(service, "entityManager", mock(EntityManager.class));
+    }
 
     @Test
     void updateRejectsCapacityAboveExistingRoomWhenRoomIsUnchanged() {

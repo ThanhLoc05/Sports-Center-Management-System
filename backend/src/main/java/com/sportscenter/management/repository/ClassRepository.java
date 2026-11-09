@@ -61,6 +61,9 @@ public interface ClassRepository extends JpaRepository<Classes, Integer> {
 
     boolean existsByRoomId(Integer roomId);
 
+    boolean existsByRoomIdAndStatusAndScheduleTimeAfterAndMaxCapacityGreaterThan(
+            Integer roomId, String status, LocalDateTime scheduleTime, Integer maxCapacity);
+
     boolean existsBySportId(Integer sportId);
 
     /**

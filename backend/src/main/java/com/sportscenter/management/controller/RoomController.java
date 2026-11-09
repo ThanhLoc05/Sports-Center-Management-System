@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/rooms")
@@ -62,11 +63,23 @@ public class RoomController {
 
     @PutMapping("/{roomId}")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
+    @Transactional
     public ResponseEntity<RoomResponse> updateRoom(
             @PathVariable Integer roomId,
             @Valid @RequestBody RoomRequest request) {
-        Room room = roomRepository.findById(roomId)
+        Room room = roomRepository.findByIdForUpdate(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Phòng không tồn tại"));
+
+        // Serialize with class creation/updates, which lock the same room row.
+        // Validate before mutating the managed entity so a rejected edit changes nothing.
+        if (request.getCapacity() == null || request.getCapacity() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sức chứa phòng phải lớn hơn 0");
+        }
+        if (classRepository.existsByRoomIdAndStatusAndScheduleTimeAfterAndMaxCapacityGreaterThan(
+                roomId, "SCHEDULED", LocalDateTime.now(), request.getCapacity())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Sức chứa phòng không thể nhỏ hơn sức chứa của lớp đã lên lịch trong tương lai");
+        }
 
         if (request.getRoomName() != null && !request.getRoomName().isBlank()) {
             String newName = request.getRoomName().trim();

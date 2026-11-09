@@ -9,6 +9,9 @@ import com.sportscenter.management.repository.SportRepository;
 import com.sportscenter.management.repository.RoomRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.ClassService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,9 @@ public class ClassServiceImpl implements ClassService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Override
     public ClassResponse createClass(ClassRequest request) {
         if (request == null || request.getScheduleTime() == null || request.getSportId() == null
@@ -46,6 +52,8 @@ public class ClassServiceImpl implements ClassService {
         // Khóa phòng sau HLV để tuần tự hóa các yêu cầu dùng chung tài nguyên.
         var room = roomRepository.findByIdForUpdate(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
+        // A lock query can return an entity already cached in this persistence context.
+        entityManager.refresh(room, LockModeType.PESSIMISTIC_WRITE);
         if (request.getMaxCapacity() == null || request.getMaxCapacity() <= 0) {
             throw new IllegalArgumentException("Sức chứa lớp học phải lớn hơn 0");
         }
@@ -182,13 +190,6 @@ public class ClassServiceImpl implements ClassService {
             clazz.setCoachId(request.getCoachId());
         }
         if (request.getRoomId() != null) {
-            var room = roomRepository.findById(request.getRoomId())
-                    .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
-            int requestedCapacity = request.getMaxCapacity() != null
-                    ? request.getMaxCapacity() : clazz.getMaxCapacity();
-            if (requestedCapacity > room.getCapacity()) {
-                throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
-            }
             clazz.setRoomId(request.getRoomId());
         }
         if (request.getRequiredAccessLevel() != null) {
@@ -199,6 +200,7 @@ public class ClassServiceImpl implements ClassService {
         validateCoach(clazz.getCoachId());
         var effectiveRoom = roomRepository.findByIdForUpdate(clazz.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
+        entityManager.refresh(effectiveRoom, LockModeType.PESSIMISTIC_WRITE);
         if (clazz.getMaxCapacity() > effectiveRoom.getCapacity()) {
             throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
         }
