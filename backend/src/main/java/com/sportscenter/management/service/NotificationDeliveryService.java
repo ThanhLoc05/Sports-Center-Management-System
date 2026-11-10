@@ -244,6 +244,13 @@ public class NotificationDeliveryService {
         }
     }
 
+    /** ME09 only publishes rows already committed to the shared GENERAL history. */
+    public void publishPersisted(GeneralNotification row) {
+        dispatch(NotificationEventResponse.builder().id(row.getId()).senderId(row.getSenderId())
+                .recipientId(row.getRecipientId()).title(row.getTitle()).content(row.getContent())
+                .link(row.getLink()).createdAt(row.getCreatedAt()).kind("GENERAL").build());
+    }
+
     private boolean hasSubscribers(Integer userId) {
         Set<SseEmitter> emitters = subscribers.get(userId);
         return emitters != null && !emitters.isEmpty();
