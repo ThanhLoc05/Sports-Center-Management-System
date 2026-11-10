@@ -23,11 +23,13 @@ public class MemberNotificationPublisher {
     private final Clock clock;
     private final TransactionTemplate tx;
     private final TaskExecutor executor;
+    private final MemberReminderEligibility eligibility;
     public MemberNotificationPublisher(JdbcTemplate jdbc,GeneralNotificationRepository history,
             NotificationDeliveryService delivery,Clock memberNotificationClock,PlatformTransactionManager manager,
-            @Qualifier("memberNotificationExecutor") TaskExecutor executor) {
+            @Qualifier("memberNotificationExecutor") TaskExecutor executor,MemberReminderEligibility eligibility) {
         this.jdbc=jdbc;this.history=history;this.delivery=delivery;this.clock=memberNotificationClock;
         this.executor=executor;
+        this.eligibility=eligibility;
         tx=new TransactionTemplate(manager);tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
     public void requestPublication(long id) {
@@ -52,7 +54,8 @@ public class MemberNotificationPublisher {
             long notification=((Number)claimed.getFirst().get("notification_id")).longValue();
             try {
                 var row=history.findById(notification).orElseThrow();
-                delivery.publishPersisted(row);
+                var event=jdbc.queryForMap("SELECT event_key,recipient_id FROM member_notification_outbox WHERE id=?",id);
+                if(eligibility.eligible((String)event.get("event_key"),((Number)event.get("recipient_id")).intValue()))delivery.publishPersisted(row);
                 tx.executeWithoutResult(status->jdbc.update("UPDATE member_notification_outbox SET state='SENT',published_at=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",LocalDateTime.now(clock),id,token));
             } catch(RuntimeException error) {
                 int attempt=((Number)claimed.getFirst().get("attempts")).intValue();

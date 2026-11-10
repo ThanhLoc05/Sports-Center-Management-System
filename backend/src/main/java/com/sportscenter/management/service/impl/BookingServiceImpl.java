@@ -32,6 +32,7 @@ public class BookingServiceImpl implements BookingService {
     private final MemberProfileRepository profileRepository;
     private final MemberSubscriptionRepository subscriptionRepository;
     private final MembershipPackageRepository packageRepository;
+    private final com.sportscenter.management.service.MemberReminderService reminders;
 
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
@@ -109,7 +110,9 @@ public class BookingServiceImpl implements BookingService {
         booking.setMemberId(memberId);
         booking.setBookedAt(LocalDateTime.now());
         booking.setStatus("BOOKED");
-        return toResponse(bookingRepository.save(booking));
+        var saved=bookingRepository.saveAndFlush(booking);
+        reminders.remindClass(classId);
+        return toResponse(saved);
     }
 
     @Override

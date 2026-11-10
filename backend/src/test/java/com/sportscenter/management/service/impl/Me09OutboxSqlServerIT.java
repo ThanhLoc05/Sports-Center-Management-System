@@ -78,7 +78,7 @@ class Me09OutboxSqlServerIT {
     int attempts(long notification){return jdbc.queryForObject("SELECT attempts FROM member_notification_outbox WHERE notification_id=?",Integer.class,notification);}
     long eventId(long notification){return jdbc.queryForObject("SELECT id FROM member_notification_outbox WHERE notification_id=?",Long.class,notification);}
     boolean firstFailureAcknowledged(long notification){return jdbc.queryForObject("SELECT COUNT(*) FROM member_notification_outbox WHERE notification_id=? AND state='PENDING' AND attempts=1 AND lease_token IS NULL",Integer.class,notification)==1;}
-    MemberNotificationPublisher freshWorker(){return new MemberNotificationPublisher(jdbc,history,delivery,clock,manager,new SyncTaskExecutor());}
+    MemberNotificationPublisher freshWorker(){return new MemberNotificationPublisher(jdbc,history,delivery,clock,manager,new SyncTaskExecutor(),new com.sportscenter.management.service.MemberReminderEligibility(jdbc,clock));}
     @Test void concurrentEnqueueAndFreshInstancesKeepOneLogicalNotification() throws Exception {
         String key="TEST:"+UUID.randomUUID();var start=new CountDownLatch(1);var ids=new ArrayList<Future<Long>>();
         try(var workers=Executors.newFixedThreadPool(8)){
