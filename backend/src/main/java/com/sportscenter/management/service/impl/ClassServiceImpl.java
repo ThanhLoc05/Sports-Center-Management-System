@@ -9,6 +9,7 @@ import com.sportscenter.management.repository.SportRepository;
 import com.sportscenter.management.repository.RoomRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.ClassService;
+import com.sportscenter.management.service.MemberClassNotifications;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
@@ -31,6 +32,7 @@ public class ClassServiceImpl implements ClassService {
     private final SportRepository sportRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final MemberClassNotifications memberNotifications;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -153,6 +155,21 @@ public class ClassServiceImpl implements ClassService {
         Classes clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
+        // Lock room before class mutation, matching RoomController's room -> class validation.
+        Integer targetCoach=request.getCoachId()!=null?request.getCoachId():clazz.getCoachId();
+        Integer targetRoom=request.getRoomId()!=null?request.getRoomId():clazz.getRoomId();
+        validateCoach(targetCoach);
+        var effectiveRoom=roomRepository.findByIdForUpdate(targetRoom)
+                .orElseThrow(()->new IllegalArgumentException("Phòng tập không tồn tại"));
+        entityManager.refresh(effectiveRoom,LockModeType.PESSIMISTIC_WRITE);
+        clazz=classRepository.findByIdForUpdate(classId)
+                .orElseThrow(()->new IllegalArgumentException("Lớp học không tồn tại"));
+        entityManager.refresh(clazz,LockModeType.PESSIMISTIC_WRITE);
+        if((request.getRoomId()==null && !targetRoom.equals(clazz.getRoomId()))
+                || (request.getCoachId()==null && !targetCoach.equals(clazz.getCoachId())))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Lớp đã thay đổi tài nguyên; hãy tải lại dữ liệu.");
+        var before=MemberClassNotifications.Before.of(clazz);
+
         if (request.getClassName() != null && !request.getClassName().isBlank()) {
             clazz.setClassName(request.getClassName());
         }
@@ -197,10 +214,6 @@ public class ClassServiceImpl implements ClassService {
         }
 
         // Kiểm tra xung đột lịch lần nữa sau khi áp dụng các thay đổi.
-        validateCoach(clazz.getCoachId());
-        var effectiveRoom = roomRepository.findByIdForUpdate(clazz.getRoomId())
-                .orElseThrow(() -> new IllegalArgumentException("Phòng tập không tồn tại"));
-        entityManager.refresh(effectiveRoom, LockModeType.PESSIMISTIC_WRITE);
         if (clazz.getMaxCapacity() > effectiveRoom.getCapacity()) {
             throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
         }
@@ -210,14 +223,17 @@ public class ClassServiceImpl implements ClassService {
         validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), effectiveStart, effectiveDuration);
 
         Classes updatedClass = classRepository.save(clazz);
+        memberNotifications.changed(before,updatedClass);
         return mapToResponse(updatedClass);
     }
 
     @Override
     public ClassResponse cancelClass(Integer classId) {
-        Classes clazz = classRepository.findById(classId)
+        Classes clazz = classRepository.findByIdForUpdate(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
-
+        entityManager.refresh(clazz,LockModeType.PESSIMISTIC_WRITE);
+        if("CANCELLED".equals(clazz.getStatus()))return mapToResponse(clazz);
+        memberNotifications.cancelled(clazz);
         clazz.setStatus("CANCELLED");
         Classes updatedClass = classRepository.save(clazz);
 

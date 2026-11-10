@@ -29,11 +29,13 @@ class ClassServiceValidationTest {
     private final RoomRepository rooms = mock(RoomRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final ClassServiceImpl service =
-            new ClassServiceImpl(classes, bookings, sports, rooms, users);
+            new ClassServiceImpl(classes, bookings, sports, rooms, users,
+                    mock(com.sportscenter.management.service.MemberClassNotifications.class));
 
     @BeforeEach
     void injectPersistenceContext() {
         ReflectionTestUtils.setField(service, "entityManager", mock(EntityManager.class));
+        when(classes.findByIdForUpdate(anyInt())).thenAnswer(call -> classes.findById(call.getArgument(0)));
     }
 
     @Test
