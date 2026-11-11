@@ -53,16 +53,28 @@ export default function Bookings() {
    * enabled ngăn gọi khi chưa chọn phạm vi; member tự có ID của mình từ phiên.
    */
   const query = useQuery({
-    queryKey: ["bookings", memberId, classId],
+    queryKey: [
+      "bookings", session!.user.id, session!.user.roleName,
+      member ? session!.user.id : memberId,
+      member ? undefined : classId,
+    ],
     queryFn: () =>
-      api.bookings(Number(memberId) || undefined, Number(classId) || undefined),
-    enabled: demo || !!memberId || !!classId,
+      member
+        ? api.bookings(session!.user.id)
+        : coach
+          ? api.bookings(undefined, Number(classId))
+          : api.bookings(Number(memberId) || undefined, Number(classId) || undefined),
+    enabled: coach
+      ? !!classId && !!classes.data?.some((c) => c.id === Number(classId))
+      : demo || member || !!memberId || !!classId,
   });
   const rows = (query.data || []).filter((b) => {
     const c = classes.data?.find((c) => c.id === b.classId),
       u = users.data?.find((u) => u.id === b.memberId);
     return (
       (!coach || classes.data?.some((c) => c.id === b.classId)) &&
+      (!member || (b.memberId === session!.user.id &&
+        (!classId || b.classId === Number(classId)))) &&
       matches(
         search,
         c?.className,
@@ -103,7 +115,7 @@ export default function Bookings() {
             <p>Theo dõi các đăng ký và hỗ trợ thay đổi lịch tập.</p>
           </div>
           <div className="table-filters">
-            {!member && (
+            {!member && !coach && (
               <label className="inline-id-field">
                 <span>ID thành viên</span>
                 <input
@@ -145,7 +157,11 @@ export default function Bookings() {
             <option value="CANCELLED">Đã hủy</option>
           </Select>
         </div>
-        {!demo && !memberId && !classId ? (
+        {coach && classes.error ? (
+          <ErrorState error={classes.error} retry={classes.refetch} />
+        ) : coach && !classId ? (
+          <Notice>Chọn lớp phụ trách để xem đăng ký.</Notice>
+        ) : !demo && !memberId && !classId ? (
           <Notice>
             Chọn một lớp học hoặc nhập ID thành viên để tải đăng ký từ backend.
           </Notice>

@@ -169,7 +169,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
         to: "/support",
         label: "Yêu cầu hỗ trợ",
         icon: MessageCircle,
-        roles: all,
+        roles: staff.concat("MEMBER"),
       },
       {
         to: "/audit",

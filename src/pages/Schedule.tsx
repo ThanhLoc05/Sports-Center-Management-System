@@ -9,11 +9,11 @@ import { ChevronLeft, ChevronRight, Clock3, Plus, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { useClasses, useUsers, usePermissions } from "../lib/hooks";
+import { useClasses, usePermissions } from "../lib/hooks";
 import { api } from "../lib/api";
 import type { SportClass } from "../lib/types";
 import { addDays, dateLabel, localDate, timeLabel } from "../lib/utils";
-import { ClassDetail, ClassForm } from "./Classes";
+import { ClassDetail, ClassForm, ClassCoachName } from "./Classes";
 import {
   Button,
   Empty,
@@ -30,7 +30,6 @@ export default function Schedule() {
   const member = session!.user.roleName === "MEMBER";
 
   const classes = useClasses();
-  const users = useUsers();
   const [offset, setOffset] = useState(0);
   const [sport, setSport] = useState("all");
   const [scope, setScope] = useState(member ? "mine" : "all");
@@ -267,9 +266,8 @@ export default function Schedule() {
                       })}
                     </h3>
                     {items.map((c) => (
-                      <button
+                      <div
                         key={c.id}
-                        onClick={() => setSelected(c)}
                         className="schedule-list-item"
                       >
                         <span
@@ -277,10 +275,13 @@ export default function Schedule() {
                         />
                         <strong>{timeLabel(c.scheduleTime)}</strong>
                         <div>
-                          <h4>{c.className}</h4>
+                          <h4>
+                            <button className="text-link" onClick={() => setSelected(c)}>
+                              {c.className}
+                            </button>
+                          </h4>
                           <p>
-                            {users.data?.find((u) => u.id === c.coachId)
-                              ?.fullName || `HLV #${c.coachId}`}{" "}
+                            <ClassCoachName coachId={c.coachId} />{" "}
                             · {rooms[c.roomId] || `Phòng #${c.roomId}`}
                           </p>
                         </div>
@@ -292,7 +293,7 @@ export default function Schedule() {
                           <Users size={14} />
                           Tối đa {c.maxCapacity}
                         </span>
-                      </button>
+                      </div>
                     ))}
                   </section>
                 );
