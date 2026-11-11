@@ -70,10 +70,15 @@ describe("Quản lý thành viên", () => {
   });
   it.each<Role>(["CENTER_MANAGER", "RECEPTIONIST"])("hides status control for own account or receptionist: %s", async (role) => {
     const user = userEvent.setup();
-    const client = page(role === "CENTER_MANAGER" ? "/team" : "/members", role);
-    const account = role === "CENTER_MANAGER"
-      ? getSession()!.user
-      : readDemo().users.find((u) => u.roleName === "MEMBER")!;
+    const client = page(role === "CENTER_MANAGER" ? "/profile" : "/members", role);
+    if (role === "CENTER_MANAGER") {
+      // Đội ngũ chỉ chia HLV/lễ tân; quản lý xem tài khoản của mình qua Hồ sơ cá nhân.
+      await screen.findByRole("heading", { name: "Hồ sơ cá nhân" });
+      expect(screen.queryByRole("button", { name: /Thay đổi trạng thái/ })).not.toBeInTheDocument();
+      client.clear();
+      return;
+    }
+    const account = readDemo().users.find((u) => u.roleName === "MEMBER")!;
     await user.click(await screen.findByRole("button", { name: new RegExp("^" + account.fullName) }));
     const profile = screen.getByRole("dialog", { name: "Thông tin tài khoản" });
     expect(within(profile).queryByRole("button", { name: /Thay đổi trạng thái/ })).not.toBeInTheDocument();
