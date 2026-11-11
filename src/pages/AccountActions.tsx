@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Field, Notice } from "../components/ui";
 import { api, configuredMode } from "../lib/api";
@@ -10,7 +10,13 @@ export default function AccountActions({ action }: { action: Action }) {
   const [params, setParams] = useSearchParams();
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const token = params.get("token") || "";
+  const [token, setToken] = useState(() => params.get("token") || "");
+  useEffect(() => {
+    if (!params.has("token")) return;
+    const clean = new URLSearchParams(params);
+    clean.delete("token");
+    setParams(clean, { replace: true });
+  }, [params, setParams]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -30,14 +36,14 @@ export default function AccountActions({ action }: { action: Action }) {
       if (action === "verify") {
         if (!token) throw new Error("Liên kết xác minh thiếu token.");
         await api.verifyEmail(token);
-        setParams({}, { replace: true });
+        setToken("");
         setMessage("Email đã được xác minh. Bạn có thể đăng nhập.");
       } else if (action === "reset") {
         if (!token) throw new Error("Liên kết đặt lại mật khẩu thiếu token.");
         if (password !== confirm)
           throw new Error("Mật khẩu xác nhận chưa khớp.");
         await api.resetPassword(token, password);
-        setParams({}, { replace: true });
+        setToken("");
         setMessage("Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.");
       } else {
         if (action === "forgot") await api.forgotPassword(email);
@@ -66,6 +72,9 @@ export default function AccountActions({ action }: { action: Action }) {
         <div className="auth-form-content">
           <span className="eyebrow">SPORTIVA</span>
           <h1>{title[action]}</h1>
+          {(action === "verify" || action === "reset") && !token && !message && (
+            <Notice>Liên kết không còn token trong phiên này. Hãy mở lại liên kết trong email để tiếp tục.</Notice>
+          )}
           {message && <Notice>{message}</Notice>}
           {error && (
             <p role="alert" className="form-error">

@@ -27,8 +27,8 @@ class AccountActionControllerTest {
         @Bean AccountActionController actionsController(AccountActionService actions) { return new AccountActionController(actions); }
         @Bean UserService service() { return mock(UserService.class); }
         @Bean SecurityUtils security() { var utils=mock(SecurityUtils.class); when(utils.getCurrentUserId()).thenReturn(1); return utils; }
-        @Bean UserController usersController(UserService service, JwtService jwt, SecurityUtils utils) {
-            return new UserController(service,jwt,utils,mock(BookingService.class),mock(ClassService.class),mock(CoachProfileService.class));
+        @Bean UserController usersController(UserService service, JwtService jwt, SecurityUtils utils, UserRepository users) {
+            return new UserController(service,jwt,utils,mock(BookingService.class),mock(ClassService.class),mock(CoachProfileService.class),users);
         }
     }
     AnnotationConfigWebApplicationContext context; MockMvc mvc;

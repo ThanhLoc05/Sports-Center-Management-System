@@ -18,6 +18,19 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Integer> {
 
+    /** Scalar projection bypasses an OSIV-managed User that may predate password rotation. */
+    interface TokenCredentialSnapshot {
+        String getEmail();
+        String getPasswordHash();
+        String getRoleName();
+        String getStatus();
+        boolean getEmailVerified();
+    }
+
+    @Query("select u.email as email, u.passwordHash as passwordHash, r.roleName as roleName, " +
+            "u.status as status, u.emailVerified as emailVerified from User u join u.role r where u.id = :userId")
+    Optional<TokenCredentialSnapshot> findTokenCredentialSnapshot(@Param("userId") Integer userId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :memberId")
     Optional<User> findByIdForUpdate(@Param("memberId") Integer memberId);

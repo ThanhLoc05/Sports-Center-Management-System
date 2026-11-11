@@ -17,6 +17,7 @@ import com.sportscenter.management.service.CoachProfileService;
 import com.sportscenter.management.service.ClassService;
 import com.sportscenter.auth.JwtService;
 import com.sportscenter.management.service.UserService;
+import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.auth.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,7 @@ public class UserController {
     private final BookingService bookingService;
     private final ClassService classService;
     private final CoachProfileService coachProfileService;
+    private final UserRepository userRepository;
 
     /**
      * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER HOẶC LỄ TÂN TẠO TẠI QUẦY)
@@ -257,7 +259,8 @@ public class UserController {
     @PutMapping("/{userId}/profile")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MemberProfileUpdateResponse> updateProfile(
-            @PathVariable Integer userId, @Valid @RequestBody MemberProfileRequest request) {
+            @PathVariable Integer userId, @Valid @RequestBody MemberProfileRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         Integer actorId = securityUtils.getCurrentUserId();
         if (!securityUtils.isOwnerOrAuthorized(userId)) {
             return ResponseEntity.status(403).build();
@@ -267,12 +270,18 @@ public class UserController {
                 .orElseThrow(() -> new IllegalStateException("Không tìm thấy tài khoản sau khi cập nhật hồ sơ"));
         String refreshedToken = null;
         if (userId.equals(actorId)) {
-            refreshedToken = jwtService.generateToken(
+            var credentialUser = userRepository.findTokenCredentialSnapshot(userId)
+                    .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."));
+            String originalToken = authorization != null && authorization.startsWith("Bearer ")
+                    ? authorization.substring("Bearer ".length()) : null;
+            refreshedToken = jwtService.refreshToken(originalToken,
                     org.springframework.security.core.userdetails.User
-                            .withUsername(updatedUser.getEmail())
-                            .password("")
-                            .authorities("ROLE_" + updatedUser.getRoleName())
-                            .build());
+                            .withUsername(credentialUser.getEmail())
+                            .password(credentialUser.getPasswordHash())
+                            .authorities("ROLE_" + credentialUser.getRoleName())
+                            .disabled(!"ACTIVE".equals(credentialUser.getStatus()) || !credentialUser.getEmailVerified())
+                            .build())
+                    .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."));
         }
         return ResponseEntity.ok(MemberProfileUpdateResponse.builder()
                 .profile(profile)

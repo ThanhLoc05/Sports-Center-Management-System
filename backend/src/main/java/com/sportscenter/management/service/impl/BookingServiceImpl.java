@@ -40,6 +40,12 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
 
+        // Serialize bookings across different classes for the same member, not only seats in one class.
+        // Acquire the member lock before the class lock, consistently for self and assisted booking.
+        userRepository.findByIdForUpdate(memberId)
+                .filter(user -> "ACTIVE".equals(user.getStatus()))
+                .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại hoặc không hoạt động"));
+
         Classes clazz = classRepository.findByIdForUpdate(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
         if (!"SCHEDULED".equals(clazz.getStatus())
