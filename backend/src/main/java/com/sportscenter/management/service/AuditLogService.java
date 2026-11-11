@@ -24,10 +24,15 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
+    public Integer resolveActorId(String authenticatedEmail) {
+        return userRepository.findByEmail(authenticatedEmail).map(user -> user.getId()).orElse(null);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(String actorEmail, String action, String entityType,
+    public void record(Integer actorId, String action, String entityType,
                        Integer entityId, String ipAddress, String requestPath) {
-        var actor = userRepository.findByEmail(actorEmail)
+        var actor = userRepository.findById(actorId)
                 .orElseThrow(() -> new IllegalStateException("Audit actor no longer exists."));
         auditLogRepository.save(AuditLog.builder()
                 .actor(actor)

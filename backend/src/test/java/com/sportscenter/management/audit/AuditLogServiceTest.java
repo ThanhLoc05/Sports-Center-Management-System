@@ -16,12 +16,32 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AuditLogServiceTest {
+    @Test void capturedIdentityStillSavesAfterActorChangesEmail() {
+        var logs = mock(AuditLogRepository.class);
+        var users = mock(UserRepository.class);
+        var actor = User.builder().id(6).email("before@example.test").build();
+        when(users.findByEmail("before@example.test")).thenReturn(Optional.of(actor));
+        when(users.findById(6)).thenReturn(Optional.of(actor));
+        var service = new AuditLogService(logs, users);
+        Integer id = service.resolveActorId("before@example.test");
+        actor.setEmail("after@example.test");
+        when(users.findByEmail("before@example.test")).thenReturn(Optional.empty());
+        service.record(id, "UPDATE", "USER", 6, "127.0.0.1", "PUT /api/v1/users/6/profile");
+        var capture = ArgumentCaptor.forClass(AuditLog.class);
+        verify(logs).save(capture.capture());
+        assertEquals(6, capture.getValue().getActor().getId());
+        assertEquals("PUT /api/v1/users/6/profile", capture.getValue().getDetails());
+        assertNull(capture.getValue().getOldValue());
+        assertNull(capture.getValue().getNewValue());
+        verify(users, times(1)).findByEmail("before@example.test");
+        verify(users).findById(6);
+    }
     @Test void savesOnlyIdentityAndMetadata() {
         var logs = mock(AuditLogRepository.class);
         var users = mock(UserRepository.class);
         var actor = User.builder().id(3).email("manager@example.test").build();
-        when(users.findByEmail(actor.getEmail())).thenReturn(Optional.of(actor));
-        new AuditLogService(logs, users).record(actor.getEmail(), "CREATE", "ROOM", 81,
+        when(users.findById(actor.getId())).thenReturn(Optional.of(actor));
+        new AuditLogService(logs, users).record(actor.getId(), "CREATE", "ROOM", 81,
                 "127.0.0.1", "POST /api/v1/rooms");
         var capture = ArgumentCaptor.forClass(AuditLog.class);
         verify(logs).save(capture.capture());

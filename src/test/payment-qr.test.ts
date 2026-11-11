@@ -62,10 +62,22 @@ describe("QR chuyển khoản", () => {
     expect(transferContent(1234, 56, "Nguyễn Thị Hoàng Phương Anh")).toBe(
       "HD1234 TV56 N T H P ANH",
     );
-    expect(() => transferContent(2147483647, 2147483647, "Nguyễn An")).toThrow(
-      "quá dài",
+    expect(transferContent(2147483647, 2147483647, "Nguyễn An")).toBe(
+      "HD2147483647 TV2147483647",
     );
     expect(() => transferContent(1, 2, "   ")).toThrow("tên thành viên");
+  });
+  it.each([
+    "Nguyễn Thị Hoàng Phương Anh Trần Văn Minh Đức",
+    "Nguyễn Supercalifragilisticexpialidocious",
+    "Đặng Thị Ánh Hồng Mai Lan Phương Ngọc Bích",
+  ])("keeps a payable reference when optional name cannot fit: %s", (name) => {
+    const content = transferContent(1234, 56, name);
+    expect(content).toBe("HD1234 TV56");
+    expect(content.length).toBeLessThanOrEqual(25);
+    const payload = buildVietQr(bank, 100000, 1234, 56, name);
+    expect(payload).toContain(content);
+    expect(payload.slice(-4)).toBe(crc16(payload.slice(0, -4)));
   });
   it("keeps preview QR clearly non-payable with no bank details", () => {
     const payload = buildPreviewQr(1000, 3);
@@ -78,6 +90,10 @@ describe("QR chuyển khoản", () => {
   });
   it.each([
     ["VietQR", buildVietQr(bank, 800000, 1001)],
+    [
+      "VietQR without optional long name",
+      buildVietQr(bank, 800000, 2147483647, 2147483647, "Nguyễn An"),
+    ],
     ["preview", buildPreviewQr(1000, 3)],
     [
       "VietQR with member name",

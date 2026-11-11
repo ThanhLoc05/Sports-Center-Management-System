@@ -67,6 +67,11 @@ class SepayWebhookServiceTest {
         sequence.verify(events).receivedTotal(30);
         sequence.verify(memberships).confirmBankTransfer(20, "SEPAY-100");
     }
+    @Test void referenceWithoutOptionalNameStillMatchesTheInvoiceAndMember() {
+        service.accept(event(100, "HD30 TV4", "0000000000", "in", 800000));
+        verify(events).saveAndFlush(any());
+        verify(memberships).confirmBankTransfer(20, "SEPAY-100");
+    }
     @Test void outboundWrongAccountAndWrongMemberNeverActivate() {
         service.accept(event(100, "HD30 TV4", "0000000000", "out", 800000));
         service.accept(event(101, "HD30 TV4", "9999999999", "in", 800000));

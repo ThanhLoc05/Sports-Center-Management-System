@@ -43,6 +43,30 @@ public class AuditLogInterceptor implements HandlerInterceptor {
 
     private final AuditLogService auditLogService;
 
+    private static final String ACTOR_ID = AuditLogInterceptor.class.getName() + ".actorId";
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        String path = request.getRequestURI();
+        String[] parts = path.split("/");
+        if (path.startsWith("/api/v1/") && parts.length >= 4 && ENTITY_TYPES.containsKey(parts[3])
+                && !IGNORED_PATHS.contains(path)
+                && Set.of("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                try {
+                    // Email is mutable: resolve the authenticated actor before the controller runs.
+                    // Never derive this identity from the target URL, request body or response token.
+                    Integer id = auditLogService.resolveActorId(auth.getName());
+                    if (id != null) request.setAttribute(ACTOR_ID, id);
+                } catch (RuntimeException failure) {
+                    log.error("Could not resolve audit actor ({})", failure.getClass().getSimpleName());
+                }
+            }
+        }
+        return true;
+    }
+
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception exception) {
@@ -71,11 +95,8 @@ public class AuditLogInterceptor implements HandlerInterceptor {
             return;
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getPrincipal())) {
-            return;
-        }
+        Object capturedActor = request.getAttribute(ACTOR_ID);
+        if (!(capturedActor instanceof Integer actorId)) return;
 
         String action = actionFor(request.getMethod(), parts);
         // Nested create URLs can contain a parent ID (e.g. classes/{id}/book).
@@ -97,7 +118,7 @@ public class AuditLogInterceptor implements HandlerInterceptor {
         if (ipAddress != null && ipAddress.length() > 45) ipAddress = ipAddress.substring(0, 45);
 
         try {
-            auditLogService.record(authentication.getName(), action, entityType,
+            auditLogService.record(actorId, action, entityType,
                     entityId, ipAddress, requestPath);
         } catch (RuntimeException auditFailure) {
             // Database exception messages may include values; do not log their payloads.

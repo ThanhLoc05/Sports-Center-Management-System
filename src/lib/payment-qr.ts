@@ -86,7 +86,7 @@ export function transferReference(invoiceId: number, memberId?: number) {
     throw new Error("Mã thanh toán vượt độ dài cho phép, không thể tự cắt mã.");
   return reference;
 }
-/** Nội dung không dấu: giữ nguyên mã hóa đơn/thành viên, chỉ rút gọn tên khi cần.
+/** Nội dung không dấu: giữ nguyên mã hóa đơn/thành viên, rút gọn hoặc bỏ tên tùy chọn khi cần.
  * Trường nội dung 62.08 tối đa 25 ký tự; không cắt mã đối soát để nhét tên.
  * Tên đầy đủ vẫn được hiển thị ở chi tiết hóa đơn, tên trong QR được báo rõ nếu rút gọn.
  */
@@ -111,10 +111,7 @@ export function transferContent(
   let name = words.join(" ");
   if (name.length > available)
     name = words.map((w, i) => (i === words.length - 1 ? w : w[0])).join(" ");
-  if (name.length > available || available < 1)
-    throw new Error(
-      "Mã và tên thành viên quá dài để tạo QR. Vui lòng liên hệ lễ tân; không tự cắt mã thanh toán.",
-    );
+  if (name.length > available || available < 1) return reference;
   return reference + " " + name;
 }
 export function buildVietQr(
