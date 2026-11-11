@@ -17,6 +17,8 @@ public class MemberProfileResponse {
 
     private String email;
 
+    private String pendingEmail;
+
     private String phone;
 
     private LocalDate dob;

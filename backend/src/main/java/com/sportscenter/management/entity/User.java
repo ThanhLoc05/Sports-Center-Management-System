@@ -22,6 +22,13 @@ public class User {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
+    @Builder.Default
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = true;
+
+    @Column(name = "pending_email", length = 255)
+    private String pendingEmail;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 

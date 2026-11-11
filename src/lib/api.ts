@@ -113,6 +113,7 @@ const baseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 export async function request<T>(
   path: string,
   init: RequestInit = {},
+  authenticated = true,
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -122,7 +123,7 @@ export async function request<T>(
      * sang backend. Với login/register chưa có phiên thì không có Bearer token.
      */
     const actor = getSession();
-    const token = actor?.mode === "api" ? actor.token : null;
+    const token = authenticated && actor?.mode === "api" ? actor.token : null;
     const response = await fetch(`${baseUrl}/api/v1${path}`, {
       ...init,
       signal: controller.signal,
@@ -367,6 +368,27 @@ function requirePermission(permission: Permission) {
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 export const api = {
+  verifyEmail(token: string) {
+    return request<{ message: string }>("/users/verify-email", { method: "POST", body: JSON.stringify({ token }) }, false);
+  },
+  resetPassword(token: string, newPassword: string) {
+    return request<{ message: string }>("/users/reset-password", { method: "POST", body: JSON.stringify({ token, newPassword }) }, false);
+  },
+  forgotPassword(email: string) {
+    return request<{ message: string }>("/users/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);
+  },
+  resendVerification(email: string) {
+    return request<{ message: string }>("/users/resend-verification", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);
+  },
+  createMember(input: RegisterInput): Promise<User> {
+    if (mode() === "demo") return api.register(input);
+    return post("/users/members", input);
+  },
+  async createStaff(input: RegisterInput & { roleName: string }): Promise<User> {
+    const result = await post<User>("/users/staff", input);
+    if (!result?.id || result.roleName !== input.roleName) throw new ApiError("Phản hồi tạo nhân viên không hợp lệ.");
+    return result;
+  },
   async coachFeedback(coachId: number): Promise<CoachFeedbackResponse> {
     feedbackActor();
     const result = await request<CoachFeedbackResponse>(`/feedbacks/coach/${feedbackId(coachId)}`);

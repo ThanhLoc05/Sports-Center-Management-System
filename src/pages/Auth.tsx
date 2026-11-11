@@ -31,7 +31,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
   const success = location.state?.registrationComplete
     ? configuredMode === "demo"
       ? "Đã tạo tài khoản demo. Đăng nhập bằng email vừa đăng ký và mật khẩu chung Sportiva@123."
-      : "Tạo tài khoản thành công. Bạn có thể đăng nhập ngay."
+      : "Tạo tài khoản thành công. Hãy xác minh email trước khi đăng nhập."
     : "";
   if (session) return <Navigate to="/" replace />;
   /**
@@ -216,6 +216,9 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
               <ArrowRight size={18} />
             </Button>
           </form>
+          {!register && configuredMode === "api" && (
+            <p><Link to="/forgot-password">Quên mật khẩu</Link>{" · "}<Link to="/resend-verification">Gửi lại email xác minh</Link></p>
+          )}
           <p className="auth-switch">
             {register ? "Đã có tài khoản?" : "Bạn chưa có tài khoản?"}{" "}
             <Link

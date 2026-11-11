@@ -45,6 +45,7 @@ const actionLabels: Record<string, string> = {
   RENEW: "Gia hạn",
   STATUS_CHANGE: "Đổi trạng thái",
   ROLE_CHANGE: "Đổi vai trò",
+  EMAIL_VERIFIED: "Xác minh email",
 };
 
 function downloadCsvFile(content: string) {

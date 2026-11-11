@@ -24,10 +24,24 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
 
+    // The consumed token proves the subject's identity; no raw token/email is logged.
+    // Join the verification transaction so rollback cannot leave a success audit.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordEmailVerification(com.sportscenter.management.entity.User subject) {
+        auditLogRepository.save(AuditLog.builder().actor(subject).entityType("USER")
+                .entityId(subject.getId()).action("EMAIL_VERIFIED")
+                .details("Email verification completed").createdAt(LocalDateTime.now()).build());
+    }
+
+    @Transactional(readOnly = true)
+    public Integer resolveActorId(String authenticatedEmail) {
+        return userRepository.findByEmail(authenticatedEmail).map(user -> user.getId()).orElse(null);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(String actorEmail, String action, String entityType,
+    public void record(Integer actorId, String action, String entityType,
                        Integer entityId, String ipAddress, String requestPath) {
-        var actor = userRepository.findByEmail(actorEmail)
+        var actor = userRepository.findById(actorId)
                 .orElseThrow(() -> new IllegalStateException("Audit actor no longer exists."));
         auditLogRepository.save(AuditLog.builder()
                 .actor(actor)

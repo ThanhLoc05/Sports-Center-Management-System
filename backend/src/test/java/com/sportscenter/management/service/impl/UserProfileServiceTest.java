@@ -20,8 +20,9 @@ import static org.mockito.Mockito.*;
 class UserProfileServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final MemberProfileRepository profiles = mock(MemberProfileRepository.class);
+    private final com.sportscenter.management.service.AccountActionService actions = mock(com.sportscenter.management.service.AccountActionService.class);
     private final UserServiceImpl service = new UserServiceImpl(users, mock(RoleRepository.class),
-            mock(PasswordEncoder.class), profiles);
+            mock(PasswordEncoder.class), profiles, actions);
     private final User user = User.builder().id(10).build();
     private final MemberProfileRequest request = MemberProfileRequest.builder()
             .dob(LocalDate.of(2000, 5, 12)).gender("Nữ")
@@ -29,7 +30,7 @@ class UserProfileServiceTest {
 
     @Test
     void newProfileKeepsIdUnsetUntilMapsIdPersistence() {
-        when(users.findById(10)).thenReturn(Optional.of(user));
+        when(users.findByIdForUpdate(10)).thenReturn(Optional.of(user));
         when(profiles.findById(10)).thenReturn(Optional.empty());
         when(profiles.save(any())).thenAnswer(call -> {
             MemberProfile profile = call.getArgument(0);
@@ -52,7 +53,7 @@ class UserProfileServiceTest {
     void existingProfileKeepsIdentityAndUpdatesSameEntity() {
         MemberProfile existing = MemberProfile.builder().memberId(10).user(user)
                 .fitnessGoals("Mục tiêu cũ").build();
-        when(users.findById(10)).thenReturn(Optional.of(user));
+        when(users.findByIdForUpdate(10)).thenReturn(Optional.of(user));
         when(profiles.findById(10)).thenReturn(Optional.of(existing));
         when(profiles.save(existing)).thenReturn(existing);
         var result = service.updateProfile(10, request);
@@ -67,7 +68,7 @@ class UserProfileServiceTest {
 
     @Test
     void missingAccountDoesNotCreateProfile() {
-        when(users.findById(10)).thenReturn(Optional.empty());
+        when(users.findByIdForUpdate(10)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> service.updateProfile(10, request));
         verify(profiles, never()).save(any());
     }
@@ -76,7 +77,7 @@ class UserProfileServiceTest {
     void updatesMemberAccountDetailsAndProfileTogether() {
         User account = User.builder().id(10).email("old@example.com").fullName("Member")
                 .phone("0900000010").role(Role.builder().roleName("MEMBER").build()).build();
-        when(users.findById(10)).thenReturn(Optional.of(account));
+        when(users.findByIdForUpdate(10)).thenReturn(Optional.of(account));
         when(profiles.findById(10)).thenReturn(Optional.empty());
         when(profiles.save(any())).thenAnswer(call -> {
             MemberProfile profile = call.getArgument(0);
@@ -90,10 +91,13 @@ class UserProfileServiceTest {
         var result = service.updateProfile(10, update);
 
         assertEquals("New Member", account.getFullName());
-        assertEquals("new@example.com", account.getEmail());
+        assertEquals("old@example.com", account.getEmail());
+        assertEquals("new@example.com", account.getPendingEmail());
         assertEquals("+84900000010", account.getPhone());
-        assertEquals("new@example.com", result.getEmail());
+        assertEquals("old@example.com", result.getEmail());
+        assertEquals("new@example.com", result.getPendingEmail());
         verify(users).save(account);
+        verify(actions).sendPendingEmailVerification(account, "new@example.com");
         verify(profiles).save(any());
     }
 
@@ -101,7 +105,7 @@ class UserProfileServiceTest {
     void rejectsEmailAlreadyUsedByAnotherAccountWithoutSavingProfile() {
         User account = User.builder().id(10).email("old@example.com").fullName("Member")
                 .phone("0900000010").build();
-        when(users.findById(10)).thenReturn(Optional.of(account));
+        when(users.findByIdForUpdate(10)).thenReturn(Optional.of(account));
         when(users.existsByEmailIgnoreCaseAndIdNot("taken@example.com", 10)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class, () -> service.updateProfile(10,
@@ -115,7 +119,7 @@ class UserProfileServiceTest {
     void rejectsPhoneAlreadyUsedByAnotherAccountWithoutSavingProfile() {
         User account = User.builder().id(10).email("member@example.com").fullName("Member")
                 .phone("0900000010").build();
-        when(users.findById(10)).thenReturn(Optional.of(account));
+        when(users.findByIdForUpdate(10)).thenReturn(Optional.of(account));
         when(users.existsByPhoneAndIdNot("0900000011", 10)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class, () -> service.updateProfile(10,

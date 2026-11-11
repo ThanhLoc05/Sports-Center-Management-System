@@ -41,7 +41,8 @@ function LocalBankSettings() {
     return () => window.removeEventListener("storage", refresh);
   }, []);
   return (
-    <Panel className="panel-spaced"
+    <Panel
+      className="panel-spaced"
       title="Tài khoản nhận tiền & QR"
       description="Nhập tài khoản ngân hàng trung tâm đang sử dụng. Mỗi hóa đơn tự điền số tiền và nội dung chuyển khoản."
     >
@@ -347,6 +348,14 @@ export function PaymentQr({
           </Button>
         </Notice>
       )}
+      {member.name &&
+        content === transferReference(invoice.id, invoice.memberId) &&
+        !contentError && (
+          <Notice>
+            Tên thành viên quá dài nên không đưa vào QR; mã đối soát hóa đơn và
+            thành viên được giữ nguyên.
+          </Notice>
+        )}
       {member.name && (
         <p>
           Nội dung QR: <strong>{content}</strong>. Tên được chuyển không dấu và

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
 import { operations } from "../lib/operations-api";
-import { assignTeamRole } from "../lib/team-role";
 import { useAuth } from "../lib/auth";
 import { localDate } from "../lib/utils";
 import type { Role, User } from "../lib/types";
@@ -20,8 +19,8 @@ import {
 } from "./ui";
 
 /**
- * Tạo nhân viên qua hai bước: đăng ký tài khoản → gán vai trò cố định.
- * Nếu bước gán vai trò lỗi, giữ ID đã tạo trong state để thử lại, tránh tạo trùng.
+ * Manager tạo nhân viên qua endpoint nội bộ nguyên tử; không dùng đăng ký công khai chờ xác minh.
+ * Sau phản hồi thành công, khóa submit để tránh gửi lại tài khoản đã tạo.
  * Sửa hồ sơ học viên dùng API profile, tách khỏi thông tin đăng nhập/tài khoản.
  * Thông tin nhân viên được cập nhật riêng qua endpoint chi tiết tài khoản.
  */
@@ -52,11 +51,8 @@ export function ApiProfileEditor({
       <FormModal
         title="Thêm nhân viên"
         onClose={onClose}
-        submitLabel={
-          created
-            ? "Gán vai trò cho tài khoản đã tạo"
-            : "Tạo tài khoản nhân viên"
-        }
+        submitLabel="Tạo tài khoản nhân viên"
+        submitDisabled={!!created}
         onSubmit={async (d) => {
           if (!["CENTER_MANAGER", "MANAGER"].includes(session!.user.roleName))
             throw new ApiError("Chỉ quản lý được tạo nhân viên.", 403);
@@ -65,7 +61,8 @@ export function ApiProfileEditor({
             throw new Error("Chọn vai trò nhân viên hợp lệ.");
           const next =
             created ||
-            (await api.register({
+            (await api.createStaff({
+              roleName: role,
               fullName: String(d.get("fullName")).trim(),
               email: String(d.get("email")).trim(),
               phone: String(d.get("phone")).trim(),
@@ -73,15 +70,13 @@ export function ApiProfileEditor({
             }));
           setCreated(next);
           await client.invalidateQueries({ queryKey: ["users"] });
-          await assignTeamRole(next.id, role);
           await client.invalidateQueries({ queryKey: ["users"] });
           toast("Đã tạo nhân viên và gán vai trò.");
         }}
       >
         {created && (
           <Notice>
-            Tài khoản {created.email} đã được tạo ở vai trò Thành viên. Hoàn tất
-            gán vai trò bằng nút bên dưới; không nhập lại mật khẩu.
+            Tài khoản {created.email} đã được tạo thành công. Không gửi lại yêu cầu tạo.
           </Notice>
         )}
         <Field label="Họ và tên">
@@ -205,12 +200,13 @@ export function ApiProfileEditor({
           signIn({ ...session!, token: saved.token, user: saved.user });
         client.setQueryData(["member-profile", user.id], saved.profile);
         void client.invalidateQueries({ queryKey: ["assigned-students"] });
-        toast("Đã lưu hồ sơ học viên vào hệ thống.");
+        toast(saved.profile.pendingEmail ? "Đã lưu hồ sơ. Hãy xác minh email mới; email cũ vẫn dùng để đăng nhập." : "Đã lưu hồ sơ học viên vào hệ thống.");
       }}
     >
       <p>
         {user.fullName} · {user.email}
       </p>
+      {q.data?.pendingEmail && <Notice>Email đang chờ xác minh: {q.data.pendingEmail}. Email đăng nhập hiện tại vẫn được giữ nguyên.</Notice>}
       {!permitted ? <Notice>Bạn không có quyền cập nhật hồ sơ này.</Notice> : q.isPending || q.isFetching ? (
         <Loading />
       ) : q.error ? (
@@ -223,7 +219,7 @@ export function ApiProfileEditor({
               <input name="fullName" required minLength={2} maxLength={100} defaultValue={user.fullName} />
             </Field>
             <Field label="Email">
-              <input name="email" type="email" required maxLength={255} defaultValue={user.email} />
+              <input name="email" type="email" required maxLength={255} defaultValue={q.data?.pendingEmail || user.email} />
             </Field>
             <Field label="Điện thoại">
               <input name="phone" required minLength={9} maxLength={20} pattern="[+0-9 ()-]{9,20}" defaultValue={user.phone} />
@@ -255,7 +251,7 @@ export function ApiProfileEditor({
           </Field>
         </div>
       )}
-      <Notice>Cập nhật họ tên, email đăng nhập, điện thoại và hồ sơ cá nhân.</Notice>
+      <Notice>Email mới chỉ có hiệu lực sau khi xác minh. Email cũ vẫn dùng để đăng nhập trong thời gian chờ.</Notice>
     </FormModal>
   );
 }
@@ -283,6 +279,7 @@ export function ApiProfile() {
         <p>
           {user.email} · {user.phone}
         </p>
+        {q.data?.pendingEmail && <Notice>Email đang chờ xác minh: {q.data.pendingEmail}</Notice>}
         {user.roleName === "MEMBER" &&
           (q.isPending ? (
             <Loading />

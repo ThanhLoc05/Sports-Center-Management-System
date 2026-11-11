@@ -38,8 +38,9 @@ public class AccountActionService {
     private final UserRepository users;
     private final JavaMailSender mailSender;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
-    @Value("${app.frontend-base-url}")
+    @Value("${app.frontend-base-url:}")
     private String frontendBaseUrl;
 
     @Value("${spring.mail.username:}")
@@ -83,6 +84,7 @@ public class AccountActionService {
         AccountActionToken token = findUsable(rawToken, Purpose.VERIFY_EMAIL, now);
         User user = users.findByIdForUpdate(token.getUserId())
                 .orElseThrow(AccountActionService::invalidToken);
+        if (!"ACTIVE".equals(user.getStatus())) throw invalidToken();
 
         if (user.getPendingEmail() != null
                 && token.getTargetEmail().equalsIgnoreCase(user.getPendingEmail())) {
@@ -103,6 +105,7 @@ public class AccountActionService {
         users.save(user);
         consume(token, now);
         invalidate(user.getId(), Purpose.VERIFY_EMAIL);
+        auditLogService.recordEmailVerification(user);
     }
 
     public void resetPassword(String rawToken, String newPassword) {
@@ -113,7 +116,8 @@ public class AccountActionService {
         AccountActionToken token = findUsable(rawToken, Purpose.RESET_PASSWORD, now);
         User user = users.findByIdForUpdate(token.getUserId())
                 .orElseThrow(AccountActionService::invalidToken);
-        if (!token.getTargetEmail().equalsIgnoreCase(user.getEmail())) {
+        if (!"ACTIVE".equals(user.getStatus()) || !user.isEmailVerified()
+                || !token.getTargetEmail().equalsIgnoreCase(user.getEmail())) {
             throw invalidToken();
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -134,6 +138,9 @@ public class AccountActionService {
     }
 
     private void issue(User user, Purpose purpose, String targetEmail, Duration lifetime) {
+        if (frontendBaseUrl == null || !frontendBaseUrl.matches("https?://[^\\s?#]+")) {
+            throw new org.springframework.mail.MailSendException("Frontend URL is not configured");
+        }
         if (rateLimited(user.getId(), purpose)) {
             throw new IllegalArgumentException("Đã gửi quá nhiều email. Vui lòng thử lại sau.");
         }
@@ -172,7 +179,7 @@ public class AccountActionService {
         if (rawToken == null || rawToken.isBlank()) throw invalidToken();
         AccountActionToken token = tokens.findUsableForUpdate(hash(rawToken), purpose)
                 .orElseThrow(AccountActionService::invalidToken);
-        if (!token.getExpiresAt().isAfter(now)) throw invalidToken();
+        if (token.getUsedAt() != null || !token.getExpiresAt().isAfter(now)) throw invalidToken();
         return token;
     }
 

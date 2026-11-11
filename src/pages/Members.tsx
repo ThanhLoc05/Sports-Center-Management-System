@@ -52,7 +52,7 @@ export default function Members({ team = false }: { team?: boolean }) {
   const users = useUsers(!team);
   const [search, setSearch] = useState(params.get("q") || "");
   const [status, setStatus] = useState("all");
-  const [role, setRole] = useState("all");
+  const [role, setRole] = useState<"COACH" | "RECEPTIONIST">("COACH");
   const [create, setCreate] = useState(params.get("new") === "1");
   const [detail, setDetail] = useState<User | null>(null);
   const [change, setChange] = useState<{ user: User; status: string } | null>(
@@ -77,17 +77,19 @@ export default function Members({ team = false }: { team?: boolean }) {
     setDetail(user);
   };
   /**
-   * Cùng danh sách User nhưng team=true lấy nhân sự khác MEMBER; trang thành viên
-   * chỉ lấy MEMBER. Các điều kiện search/status/role tiếp theo chỉ lọc mảng này.
+   * Thành viên giữ danh sách riêng; Đội ngũ chia HLV/lễ tân từ roleName API đã trả.
+   * Hai nhóm chỉ đổi cách hiển thị, không thay đổi vai trò hoặc quyền tài khoản.
    */
   const source = (users.data || []).filter((u) =>
-    team ? u.roleName !== "MEMBER" : u.roleName === "MEMBER",
+    team
+      ? u.roleName === "COACH" || u.roleName === "RECEPTIONIST"
+      : u.roleName === "MEMBER",
   );
-  const rows = source.filter(
+  const group = team ? source.filter((u) => u.roleName === role) : source;
+  const rows = group.filter(
     (u) =>
       matches(search, u.fullName, u.email, u.phone, idLabel(u.id)) &&
-      (status === "all" || u.status === status) &&
-      (role === "all" || u.roleName === role),
+      (status === "all" || u.status === status),
   );
   /**
    * Đổi trạng thái qua mutation dùng chung: API thành công mới báo và làm mới cache.
@@ -265,8 +267,12 @@ export default function Members({ team = false }: { team?: boolean }) {
           <div className="table-toolbar">
             <div>
               <h2>
-                {team ? "Danh sách đội ngũ" : "Danh sách thành viên"}
-                <span className="count-chip">{source.length}</span>
+                {team
+                  ? role === "COACH"
+                    ? "Danh sách huấn luyện viên"
+                    : "Danh sách lễ tân"
+                  : "Danh sách thành viên"}
+                <span className="count-chip">{group.length}</span>
               </h2>
               <p>
                 {team
@@ -275,22 +281,30 @@ export default function Members({ team = false }: { team?: boolean }) {
               </p>
             </div>
             <div className="table-filters">
+              {team && (
+                // Dùng nút phân nhóm có sẵn để không trộn nhân sự với thành viên.
+                <div className="segmented" role="group" aria-label="Nhóm đội ngũ">
+                  {(["COACH", "RECEPTIONIST"] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={role === value ? "active" : ""}
+                      aria-pressed={role === value}
+                      onClick={() => setRole(value)}
+                    >
+                      {roleLabels[value]}
+                    </button>
+                  ))}
+                </div>
+              )}
               <SearchInput
                 value={search}
                 onChange={setSearch}
                 placeholder={
                   team ? "Tìm nhân viên..." : "Tìm tên, email, số điện thoại..."
                 }
-                label="Tìm thành viên"
+                label={team ? "Tìm nhân viên" : "Tìm thành viên"}
               />
-              {team && (
-                <Select label="Vai trò" value={role} onChange={setRole}>
-                  <option value="all">Tất cả vai trò</option>
-                  <option value="COACH">Huấn luyện viên</option>
-                  <option value="RECEPTIONIST">Lễ tân</option>
-                  <option value="CENTER_MANAGER">Quản lý</option>
-                </Select>
-              )}
               <Select
                 label="Trạng thái thành viên"
                 value={status}
@@ -401,7 +415,7 @@ export default function Members({ team = false }: { team?: boolean }) {
              * Tạo thành viên tại quầy bằng cùng endpoint đăng ký công khai. Payload
              * không chứa role; backend tạo MEMBER, frontend không tự tạo quản lý/HLV.
              */
-            await api.register({
+            await api.createMember({
               fullName: String(data.get("fullName")).trim(),
               email: String(data.get("email")).trim(),
               phone: String(data.get("phone")).trim(),

@@ -29,11 +29,13 @@ class AuditLogInterceptorTest {
                         "manager@example.test", "n/a", List.of()));
         HttpServletRequest request = request("PATCH", "/api/v1/users/4/status");
         HttpServletResponse response = response(200);
+        when(auditLogService.resolveActorId("manager@example.test")).thenReturn(3);
+        interceptor.preHandle(request, response, null);
 
         interceptor.afterCompletion(request, response, null, null);
 
         verify(auditLogService).record(
-                "manager@example.test", "STATUS_CHANGE", "USER", 4,
+                3, "STATUS_CHANGE", "USER", 4,
                 "127.0.0.1", "PATCH /api/v1/users/4/status");
     }
 
@@ -53,6 +55,10 @@ class AuditLogInterceptorTest {
         when(request.getMethod()).thenReturn(method);
         when(request.getRequestURI()).thenReturn(path);
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        var attributes = new java.util.HashMap<String, Object>();
+        doAnswer(call -> { attributes.put(call.getArgument(0), call.getArgument(1)); return null; })
+                .when(request).setAttribute(anyString(), any());
+        when(request.getAttribute(anyString())).thenAnswer(call -> attributes.get(call.getArgument(0)));
         return request;
     }
 

@@ -19,6 +19,7 @@ export interface MemberProfile {
   memberId: number;
   fullName?: string;
   email?: string;
+  pendingEmail?: string | null;
   phone?: string;
   dob: string | null;
   gender: string | null;

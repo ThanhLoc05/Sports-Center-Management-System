@@ -34,10 +34,11 @@ function server(initial: MemberProfile | null = profile) {
       const id = Number(url.split("/").at(-2));
       if (init?.method === "PUT") {
         const body = JSON.parse(String(init.body));
-        stored = { ...body, memberId: id };
+        const pendingEmail = body.email && body.email !== member.email ? body.email : null;
+        stored = { ...body, email: member.email, pendingEmail, memberId: id };
         return json({
           profile: stored,
-          user: { ...member, id, fullName: body.fullName || member.fullName, email: body.email || member.email, phone: body.phone || member.phone },
+          user: { ...member, id, fullName: body.fullName || member.fullName, email: member.email, phone: body.phone || member.phone },
           token: "refreshed-token",
         });
       }
@@ -140,7 +141,7 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     expect(saveDemo).not.toHaveBeenCalled();
     expect(getSession()?.user.fullName).toBe(member.fullName);
   });
-  it("updates member contact details and refreshes the session token after saving", async () => {
+  it("keeps login email while the new address awaits verification and refreshes the session", async () => {
     const calls = server();
     page(<ProfileEditor user={member} onClose={() => {}} />);
     const user = userEvent.setup();
@@ -155,9 +156,10 @@ describe("Hồ sơ thành viên — mock API, không ghi database thật", () =>
     await waitFor(() => expect(getSession()?.token).toBe("refreshed-token"));
     expect(getSession()?.user).toMatchObject({
       fullName: "Tên mới",
-      email: "new@example.com",
+      email: member.email,
       phone: "0900000020",
     });
+    expect(screen.getByText(/Hãy xác minh email mới/)).toBeVisible();
     const put = calls.mock.calls.find(([, init]) => init?.method === "PUT")!;
     expect(JSON.parse(String(put[1]!.body))).toMatchObject({
       fullName: "Tên mới",

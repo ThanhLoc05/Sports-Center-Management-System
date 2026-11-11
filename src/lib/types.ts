@@ -17,6 +17,7 @@ export type Mode = "demo" | "api";
 export interface User {
   id: number;
   email: string;
+  pendingEmail?: string | null;
   fullName: string;
   phone: string;
   roleName: Role;

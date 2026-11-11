@@ -20,7 +20,7 @@ class StaffDetailsServiceTest {
     private final RoleRepository roles = mock(RoleRepository.class);
     private final PasswordEncoder passwords = mock(PasswordEncoder.class);
     private final MemberProfileRepository profiles = mock(MemberProfileRepository.class);
-    private final UserServiceImpl service = new UserServiceImpl(users, roles, passwords, profiles);
+    private final UserServiceImpl service = new UserServiceImpl(users, roles, passwords, profiles, mock(com.sportscenter.management.service.AccountActionService.class));
 
     private final User coach = User.builder()
             .id(4)

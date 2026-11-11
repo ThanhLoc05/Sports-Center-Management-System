@@ -34,6 +34,14 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @EntityGraph(attributePaths = "role")
     Optional<User> findByEmail(String email);
 
+    @EntityGraph(attributePaths = "role")
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    @EntityGraph(attributePaths = "role")
+    Optional<User> findByPendingEmailIgnoreCase(String email);
+
+    boolean existsByPendingEmailIgnoreCaseAndIdNot(String email, Integer id);
+
     /**
      * Check if email exists
      * @param email User email

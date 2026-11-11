@@ -278,7 +278,6 @@ export default function Classes() {
     enabled: member,
     retry: false,
   });
-  const users = useUsers();
   const client = useQueryClient();
   const toast = useToast();
   /**
@@ -292,7 +291,10 @@ export default function Classes() {
         (db
           ? classEligibility(db, c.id, session!.user.id).allowed
           : !!apiAccess?.allowed &&
-            classAccessAllowed(apiAccess.accessLevel, c.requiredAccessLevel))) &&
+            classAccessAllowed(
+              apiAccess.accessLevel,
+              c.requiredAccessLevel,
+            ))) &&
       (sport === "all" || c.sportId === Number(sport)) &&
       (status === "all" || c.status === status),
   );
@@ -350,7 +352,10 @@ export default function Classes() {
       )}
       <div className="class-filter-bar">
         {member && (
-          <Panel className="class-membership-panel" title="Lớp học theo gói của tôi">
+          <Panel
+            className="class-membership-panel"
+            title="Lớp học theo gói của tôi"
+          >
             {/* Tách thông tin, bộ lọc và liên kết thành các khối dễ đọc. */}
             <div className="class-membership-content">
               <div className="class-membership-overview">
@@ -385,7 +390,10 @@ export default function Classes() {
                   <span>Chỉ xem lớp phù hợp gói</span>
                 </label>
               </div>
-              <nav className="class-membership-actions" aria-label="Thao tác gói tập">
+              <nav
+                className="class-membership-actions"
+                aria-label="Thao tác gói tập"
+              >
                 <Link to="/memberships" className="btn btn-secondary">
                   Xem / đổi gói tập
                 </Link>
@@ -472,10 +480,7 @@ export default function Classes() {
             <ClassCard
               key={c.id}
               item={c}
-              coachName={
-                users.data?.find((u) => u.id === c.coachId)?.fullName ||
-                `Huấn luyện viên #${c.coachId}`
-              }
+              coachName={<ClassCoachName coachId={c.coachId} />}
               demo={demo}
               onView={() => setSelected(c)}
               onEdit={manager ? () => setEdit(c) : undefined}
@@ -511,9 +516,7 @@ export default function Classes() {
               {
                 key: "coach",
                 label: "Huấn luyện viên",
-                render: (c) =>
-                  users.data?.find((u) => u.id === c.coachId)?.fullName ||
-                  `HLV #${c.coachId}`,
+                render: (c) => <ClassCoachName coachId={c.coachId} />,
               },
               {
                 key: "accessLevel",
@@ -612,7 +615,7 @@ function ClassCard({
   onEdit,
 }: {
   item: SportClass;
-  coachName: string;
+  coachName: React.ReactNode;
   demo: boolean;
   onView: () => void;
   onEdit?: () => void;
@@ -655,17 +658,21 @@ function ClassCard({
               ? "Đã hủy"
               : c.status === "COMPLETED"
                 ? "Đã hoàn thành"
-              : capacity.error
-                ? "Chưa tải được chỗ trống"
-                : available === undefined
-                  ? "Đang kiểm tra"
-                  : full
-                    ? "Đã đủ chỗ"
-                    : `Còn ${available} chỗ`}
+                : capacity.error
+                  ? "Chưa tải được chỗ trống"
+                  : available === undefined
+                    ? "Đang kiểm tra"
+                    : full
+                      ? "Đã đủ chỗ"
+                      : `Còn ${available} chỗ`}
           </span>
         </div>
         <div className="class-card-coach">
-          <Avatar name={coachName} size="small" index={c.coachId} />
+          <Avatar
+            name={`HLV ${c.coachId || ""}`}
+            size="small"
+            index={c.coachId}
+          />
           <span>{coachName}</span>
         </div>
         <div className="class-card-meta">
@@ -716,6 +723,34 @@ function ClassCard({
  * Chỉ nhân viên có quyền mới tải danh sách đăng ký; học viên không gọi endpoint
  * roster của người khác. Nút đăng ký mở form kiểm tra gói còn hiệu lực và chỗ trống.
  */
+export function ClassCoachName({ coachId }: { coachId: number }) {
+  const { session } = useAuth();
+  const users = useUsers();
+  const directory = useQuery({
+    queryKey: ["coach-directory"],
+    queryFn: api.coaches,
+    enabled: session?.mode === "api",
+    retry: false,
+  });
+  if (!Number.isInteger(coachId) || coachId < 1) return <>Chưa phân công HLV</>;
+  const name =
+    directory.data?.find((c) => c.coachId === coachId)?.fullName?.trim() ||
+    users.data?.find((u) => u.id === coachId)?.fullName?.trim();
+  if (name) return <>{name}</>;
+  if (directory.isError)
+    return (
+      <>
+        Không tải được tên HLV #{coachId}{" "}
+        <button className="text-link" onClick={() => void directory.refetch()}>
+          Thử lại
+        </button>
+      </>
+    );
+  if (session?.mode === "api" && directory.isPending)
+    return <>Đang tải tên HLV...</>;
+  return <>Chưa cập nhật tên HLV #{coachId}</>;
+}
+
 export function ClassDetail(props: {
   item: SportClass;
   onClose: () => void;
@@ -733,9 +768,15 @@ export function ClassDetail(props: {
   });
   // Không dùng object từ danh sách hoặc cache cũ như chi tiết đã được xác nhận.
   if (live && (detail.isPending || detail.isFetching || detail.error))
-    return <Modal title="Chi tiết lớp học" onClose={props.onClose} wide>
-      {detail.isPending || detail.isFetching ? <Loading /> : <ErrorState error={detail.error} retry={detail.refetch} />}
-    </Modal>;
+    return (
+      <Modal title="Chi tiết lớp học" onClose={props.onClose} wide>
+        {detail.isPending || detail.isFetching ? (
+          <Loading />
+        ) : (
+          <ErrorState error={detail.error} retry={detail.refetch} />
+        )}
+      </Modal>
+    );
   const item = live ? detail.data! : props.item;
   return <ClassDetailContent key={item.id} {...props} item={item} />;
 }
@@ -796,10 +837,13 @@ function ClassDetailContent({
             <div>
               <span>Huấn luyện viên</span>
               <strong>
-                {users.data?.find((u) => u.id === c.coachId)?.fullName ||
-                  `HLV #${c.coachId}`}
+                <ClassCoachName coachId={c.coachId} />
               </strong>
-              <button className="text-link" onClick={() => setShowCoach(true)}>
+              <button
+                className="text-link"
+                disabled={!c.coachId || c.coachId < 1}
+                onClick={() => setShowCoach(true)}
+              >
                 Xem thông tin HLV
               </button>
             </div>
@@ -812,8 +856,14 @@ function ClassDetailContent({
               <strong>{c.maxCapacity} thành viên</strong>
             </div>
             <div>
-              <span>{c.status === "COMPLETED" ? "Trạng thái" : "Chỗ trống"}</span>
-              <strong>{c.status === "COMPLETED" ? "Đã hoàn thành" : `${capacity.data ?? "…"} chỗ`}</strong>
+              <span>
+                {c.status === "COMPLETED" ? "Trạng thái" : "Chỗ trống"}
+              </span>
+              <strong>
+                {c.status === "COMPLETED"
+                  ? "Đã hoàn thành"
+                  : `${capacity.data ?? "…"} chỗ`}
+              </strong>
               {capacity.error && (
                 <ErrorState error={capacity.error} retry={capacity.refetch} />
               )}

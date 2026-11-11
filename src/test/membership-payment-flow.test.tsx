@@ -116,6 +116,27 @@ const member = {
 };
 
 describe("Phần FE còn thiếu của luồng thanh toán", () => {
+  it("renders a QR and explains omitted optional name without altering the reference", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          ...member,
+          fullName: "Nguyễn Supercalifragilisticexpialidocious",
+        }),
+      ),
+    );
+    wrap(<PaymentQr invoice={pending.invoice} bankAccount={bank} />);
+    expect(
+      await screen.findByRole("img", { name: "QR chuyển khoản hóa đơn 30" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Tên thành viên quá dài nên không đưa vào QR/),
+    ).toBeVisible();
+    const payload = vi.mocked(QRCode.toDataURL).mock.calls.at(-1)![0];
+    expect(payload).toContain("HD30 TV4");
+    expect(payload).not.toContain("SUPERCALIFRAGILISTICEXPIALIDOCIOUS");
+  });
   it("takes the buyer name from their real account, not the receptionist, and prefers the order bank", async () => {
     localStorage.setItem(
       "sportiva-bank-config-v1",

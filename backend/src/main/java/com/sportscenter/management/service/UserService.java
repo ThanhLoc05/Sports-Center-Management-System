@@ -14,6 +14,10 @@ public interface UserService {
 
     UserResponse registerUser(RegisterRequest request);
 
+    UserResponse createMemberByStaff(RegisterRequest request, Integer actorId);
+
+    UserResponse createStaff(com.sportscenter.management.dto.Request.CreateStaffRequest request, Integer actorId);
+
     Optional<UserResponse> getUserById(Integer userId);
 
     Optional<User> getUserByEmail(String email);

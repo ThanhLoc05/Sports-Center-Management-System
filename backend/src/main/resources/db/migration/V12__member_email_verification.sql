@@ -30,9 +30,10 @@ BEGIN TRY
     )
     BEGIN
         -- Mỗi email đang chờ chỉ được gắn với một tài khoản.
-        CREATE UNIQUE INDEX UX_users_pending_email
+        -- Compile after ALTER TABLE has added the column in this transaction.
+        EXEC(N'CREATE UNIQUE INDEX UX_users_pending_email
             ON dbo.users(pending_email)
-            WHERE pending_email IS NOT NULL;
+            WHERE pending_email IS NOT NULL;');
     END;
 
     IF OBJECT_ID(N'dbo.account_action_tokens', N'U') IS NULL

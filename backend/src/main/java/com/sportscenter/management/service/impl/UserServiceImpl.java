@@ -31,45 +31,54 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final MemberProfileRepository profileRepository;
+    private final com.sportscenter.management.service.AccountActionService accountActions;
 
     @Override
     public UserResponse registerUser(RegisterRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Thông tin đăng ký không được để trống");
-        }
-        if (request.getEmail() == null || request.getPassword() == null || request.getFullName() == null
-                || request.getPhone() == null) {
-            throw new IllegalArgumentException("Email, mật khẩu, họ tên và số điện thoại là bắt buộc");
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email đã được đăng ký");
-        }
-        if(request.getPassword().length()  < 8) {
-            throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự");
+        User user = createAccount(request, "MEMBER", false);
+        accountActions.sendSignupVerification(user);
+        return mapToUserResponse(user);
+    }
 
-        }
-        if (!request.getEmail().matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.com$")) {
-            throw new IllegalArgumentException("Email phải có định dạng đuôi .com");
-        }
-        if (userRepository.existsByPhone(request.getPhone())) {
-            throw new IllegalArgumentException("Số điện thoại đã được đăng ký");
-        }
+    @Override
+    public UserResponse createMemberByStaff(RegisterRequest request, Integer actorId) {
+        var actor = userRepository.findById(actorId).orElseThrow(() -> new IllegalArgumentException("Actor not found"));
+        if (actor.getRole() == null || !List.of("CENTER_MANAGER", "RECEPTIONIST").contains(actor.getRole().getRoleName()))
+            throw new IllegalArgumentException("Staff access required");
+        return mapToUserResponse(createAccount(request, "MEMBER", true));
+    }
 
-        Role memberRole = roleRepository.findByRoleName("MEMBER")
-                .orElseThrow(() -> new IllegalStateException("Chưa cấu hình vai trò MEMBER"));
+    @Override
+    public UserResponse createStaff(com.sportscenter.management.dto.Request.CreateStaffRequest input, Integer actorId) {
+        var actor = userRepository.findById(actorId).orElseThrow(() -> new IllegalArgumentException("Actor not found"));
+        if (actor.getRole() == null || !"CENTER_MANAGER".equals(actor.getRole().getRoleName()))
+            throw new IllegalArgumentException("Manager access required");
+        if (input == null || !List.of("COACH", "RECEPTIONIST", "CENTER_MANAGER").contains(input.getRoleName()))
+            throw new IllegalArgumentException("Invalid staff role");
+        return mapToUserResponse(createAccount(RegisterRequest.builder().email(input.getEmail())
+                .password(input.getPassword()).fullName(input.getFullName()).phone(input.getPhone()).build(), input.getRoleName(), true));
+    }
 
-        User user = User.builder()
-                .email(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
-                .phone(request.getPhone())
-                .role(memberRole)
-                .status("ACTIVE")
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        User savedUser = userRepository.save(user);
-        return mapToUserResponse(savedUser);
+    private User createAccount(RegisterRequest request, String roleName, boolean verified) {
+        if (request == null || request.getEmail() == null || request.getPassword() == null
+                || request.getFullName() == null || request.getPhone() == null)
+            throw new IllegalArgumentException("Account fields are required");
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || email.length() > 255)
+            throw new IllegalArgumentException("Invalid email");
+        if (request.getPassword().length() < 8 || request.getPassword().length() > 128)
+            throw new IllegalArgumentException("Password must have 8 to 128 characters");
+        if (request.getFullName().trim().length() < 2 || request.getFullName().trim().length() > 100
+                || !request.getPhone().matches("[+0-9 ()-]{9,20}"))
+            throw new IllegalArgumentException("Invalid name or phone");
+        if (userRepository.existsByEmail(email) || userRepository.existsByEmailIgnoreCaseAndIdNot(email, -1)
+                || userRepository.existsByPendingEmailIgnoreCaseAndIdNot(email, -1))
+            throw new IllegalArgumentException("Email already used");
+        if (userRepository.existsByPhone(request.getPhone())) throw new IllegalArgumentException("Phone already used");
+        Role role = roleRepository.findByRoleName(roleName).orElseThrow(() -> new IllegalStateException("Role not configured"));
+        return userRepository.save(User.builder().email(email).passwordHash(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName().trim()).phone(request.getPhone()).role(role).status("ACTIVE")
+                .emailVerified(verified).createdAt(LocalDateTime.now()).build());
     }
 
     @Override
@@ -232,8 +241,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Optional<User> authenticate(String email, String password) {
-        Optional<User> user = getUserByEmail(email);
-        if (user.isPresent() && "ACTIVE".equals(user.get().getStatus())
+        Optional<User> user = getUserByEmail(email == null ? "" : email.trim().toLowerCase(java.util.Locale.ROOT));
+        if (user.isPresent() && user.get().isEmailVerified() && "ACTIVE".equals(user.get().getStatus())
                 && passwordEncoder.matches(password, user.get().getPasswordHash())) {
             return user;
         }
@@ -250,6 +259,7 @@ public class UserServiceImpl implements UserService {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .pendingEmail(user.getPendingEmail())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
                 .roleName(user.getRole().getRoleName())
@@ -266,7 +276,7 @@ public class UserServiceImpl implements UserService {
         if (request == null) {
             throw new IllegalArgumentException("Thông tin hồ sơ không được để trống");
         }
-        User user = userRepository.findById(memberId)
+        User user = userRepository.findByIdForUpdate(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
         boolean hasAccountChanges = request.getFullName() != null
                 || request.getEmail() != null
@@ -288,10 +298,14 @@ public class UserServiceImpl implements UserService {
                 throw new IllegalArgumentException("Email không hợp lệ");
             }
             if (!email.equalsIgnoreCase(user.getEmail())
-                    && userRepository.existsByEmailIgnoreCaseAndIdNot(email, memberId)) {
+                    && (userRepository.existsByEmailIgnoreCaseAndIdNot(email, memberId)
+                        || userRepository.existsByPendingEmailIgnoreCaseAndIdNot(email, memberId))) {
                 throw new IllegalArgumentException("Email đã được sử dụng");
             }
-            user.setEmail(email);
+            if (!email.equalsIgnoreCase(user.getEmail()) && !email.equalsIgnoreCase(user.getPendingEmail())) {
+                user.setPendingEmail(email);
+                accountActions.sendPendingEmailVerification(user, email);
+            }
         }
         if (request.getPhone() != null) {
             String phone = request.getPhone().trim();
@@ -320,6 +334,7 @@ public class UserServiceImpl implements UserService {
                 .memberId(saved.getMemberId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
+                .pendingEmail(user.getPendingEmail())
                 .phone(user.getPhone())
                 .dob(saved.getDob())
                 .gender(saved.getGender())
@@ -336,6 +351,7 @@ public class UserServiceImpl implements UserService {
                     .memberId(p.getMemberId())
                     .fullName(user.getFullName())
                     .email(user.getEmail())
+                .pendingEmail(user.getPendingEmail())
                     .phone(user.getPhone())
                     .dob(p.getDob())
                     .gender(p.getGender())
