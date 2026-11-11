@@ -22,6 +22,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Integer>
      */
     Optional<Attendance> findByClassIdAndMemberId(Integer classId, Integer memberId);
 
+    // Feedback eligibility depends on attended classes, not merely a booking.
+    boolean existsByMemberIdAndClassIdAndStatus(Integer memberId, Integer classId, String status);
+
     /**
      * Find all attendance records for a class
      * @param classId Class ID
