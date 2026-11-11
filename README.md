@@ -249,3 +249,13 @@ npm ci
 | Vercel mở được nhưng dữ liệu không tải | BE local không phải URL công khai; deploy cần BE online/proxy phù hợp                            |
 
 Git chỉ chứa source, kiểm thử, cấu hình mẫu và README. Không đưa mật khẩu, API key/JWT secret, `.env` thật, `.local/`, log, báo cáo cá nhân, ảnh chụp kiểm thử, `node_modules/` hoặc `dist/` lên Git.
+
+### Xác minh email và khôi phục mật khẩu
+
+- Bản này cần V12 sau V11. Trước khi áp lên database dùng chung: backup, VERIFYONLY, kiểm tra đúng target và được chủ môi trường phê duyệt. Giữ `ddl-auto=validate`; không tự bật Hibernate update hoặc chạy SQL init.
+- Cấu hình qua environment: `APP_FRONTEND_BASE_URL` (origin FE tin cậy, production dùng HTTPS), `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`. Không nhập secret vào source/log. Có thể cấu hình auth/TLS qua `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` và `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` theo SMTP được duyệt.
+- Không có SMTP/URL hợp lệ thì không gửi email hoặc giả báo đăng ký thành công; đăng ký lỗi mail rollback và trả503 đã che chi tiết. Forgot/resend giữ thông báo chung để không tiết lộ tài khoản có tồn tại.
+- Member tự đăng ký phải xác minh trước login. Đổi email Member chỉ lưu pending; email cũ vẫn đăng nhập được tới khi token xác minh địa chỉ mới được dùng thành công. Giao diện hiển thị pending riêng. Token xác minh24giờ, reset30phút; lưu hash, chỉ dùng một lần. Giới hạn gửi1lần/phút và5lần/giờ theo user/purpose.
+- Nhân viên tạo Member qua `POST /api/v1/users/members`; Manager tạo nhân viên qua `POST /api/v1/users/staff`. Đây là provisioning nội bộ đã phân quyền, không dùng đăng ký công khai rồi nâng role cho tài khoản chưa xác minh.
+- Các endpoint công khai POST `/api/v1/users/verify-email`, `/resend-verification`, `/forgot-password`, `/reset-password` nhận token trong body, không trả token ra response. Không bật logging body/header hoặc query chứa token. Audit yêu cầu sửa hồ sơ giữ actor đã xác thực; audit `EMAIL_VERIFIED` dùng subject được token chứng minh, cùng transaction xác minh, không lưu token/email/password trong payload audit.
+- Unit/MVC tests dùng mock mail. SQL integration email là opt-in `AccountEmailSqlServerIT`, khóa vào database riêng `SportivaEmailIntegration_20261111`, không dùng database local chính hoặc SMTP thật. Không chạy test này trên môi trường dùng chung.

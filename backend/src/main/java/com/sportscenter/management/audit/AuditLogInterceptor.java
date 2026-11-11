@@ -23,6 +23,10 @@ public class AuditLogInterceptor implements HandlerInterceptor {
     private static final Set<String> IGNORED_PATHS = Set.of(
             "/api/v1/users/login",
             "/api/v1/users/register",
+            "/api/v1/users/verify-email",
+            "/api/v1/users/resend-verification",
+            "/api/v1/users/forgot-password",
+            "/api/v1/users/reset-password",
             "/api/v1/payments/webhooks/sepay"
     );
     private static final Map<String, String> ENTITY_TYPES = Map.ofEntries(

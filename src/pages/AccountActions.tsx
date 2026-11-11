@@ -2,11 +2,13 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Field, Notice } from "../components/ui";
 import { api, configuredMode } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 type Action = "verify" | "forgot" | "reset" | "resend";
 
 export default function AccountActions({ action }: { action: Action }) {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const token = params.get("token") || "";
   const [email, setEmail] = useState("");
@@ -28,11 +30,14 @@ export default function AccountActions({ action }: { action: Action }) {
       if (action === "verify") {
         if (!token) throw new Error("Liên kết xác minh thiếu token.");
         await api.verifyEmail(token);
+        setParams({}, { replace: true });
         setMessage("Email đã được xác minh. Bạn có thể đăng nhập.");
       } else if (action === "reset") {
         if (!token) throw new Error("Liên kết đặt lại mật khẩu thiếu token.");
-        if (password !== confirm) throw new Error("Mật khẩu xác nhận chưa khớp.");
+        if (password !== confirm)
+          throw new Error("Mật khẩu xác nhận chưa khớp.");
         await api.resetPassword(token, password);
+        setParams({}, { replace: true });
         setMessage("Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.");
       } else {
         if (action === "forgot") await api.forgotPassword(email);
@@ -40,8 +45,9 @@ export default function AccountActions({ action }: { action: Action }) {
         setMessage("Nếu email phù hợp với tài khoản, hướng dẫn sẽ được gửi.");
       }
     } catch (cause) {
-      setError(cause instanceof Error
-        ? cause.message : "Không thể hoàn tất yêu cầu.");
+      setError(
+        cause instanceof Error ? cause.message : "Không thể hoàn tất yêu cầu.",
+      );
     } finally {
       setBusy(false);
     }
@@ -61,7 +67,11 @@ export default function AccountActions({ action }: { action: Action }) {
           <span className="eyebrow">SPORTIVA</span>
           <h1>{title[action]}</h1>
           {message && <Notice>{message}</Notice>}
-          {error && <p role="alert" className="form-error">{error}</p>}
+          {error && (
+            <p role="alert" className="form-error">
+              {error}
+            </p>
+          )}
           <form onSubmit={submit}>
             {(action === "forgot" || action === "resend") && (
               <Field label="Địa chỉ email">
@@ -113,9 +123,18 @@ export default function AccountActions({ action }: { action: Action }) {
             </Button>
           </form>
           {message && (
-            <Button onClick={() => navigate("/login")}>Đến đăng nhập</Button>
+            <Button
+              onClick={() => {
+                signOut();
+                navigate("/login");
+              }}
+            >
+              Đến đăng nhập
+            </Button>
           )}
-          <p><Link to="/login">Quay lại đăng nhập</Link></p>
+          <p>
+            <Link to="/login">Quay lại đăng nhập</Link>
+          </p>
         </div>
       </section>
     </main>

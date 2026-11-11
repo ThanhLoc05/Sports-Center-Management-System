@@ -13,6 +13,8 @@ public class UserResponse {
 
     private String email;
 
+    private String pendingEmail;
+
     private String fullName;
 
     private String phone;

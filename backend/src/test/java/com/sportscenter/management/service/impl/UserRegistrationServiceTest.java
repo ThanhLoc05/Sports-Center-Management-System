@@ -81,4 +81,21 @@ class UserRegistrationServiceTest {
                         .password("strong-password").fullName("Coach Example")
                         .phone("0912345679").roleName("COACH").build(), 20));
     }
+
+    @Test void unverifiedMemberCannotLoginButExistingVerifiedMemberCan() {
+        var user=User.builder().id(10).email("member@example.test").status("ACTIVE")
+                .passwordHash("test-hash").emailVerified(false).role(member).build();
+        when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(passwords.matches("test-password","test-hash")).thenReturn(true);
+        assertTrue(service.authenticate(user.getEmail(),"test-password").isEmpty());
+        user.setEmailVerified(true);
+        assertTrue(service.authenticate(" MEMBER@EXAMPLE.TEST ","test-password").isPresent());
+    }
+
+    @Test void reservedPendingEmailCannotBeUsedForAnotherSignup() {
+        when(users.existsByPendingEmailIgnoreCaseAndIdNot("reserved@example.test",-1)).thenReturn(true);
+        assertThrows(IllegalArgumentException.class,()->service.registerUser(RegisterRequest.builder()
+                .email("reserved@example.test").password("test-password").fullName("Member Test").phone("0900000010").build()));
+        verify(users,never()).save(any());verifyNoInteractions(actions);
+    }
 }

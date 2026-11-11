@@ -11,6 +11,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(org.springframework.mail.MailException.class)
+    public ResponseEntity<Map<String,String>> handleMailFailure(org.springframework.mail.MailException failure) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("message", "Chưa gửi được email. Vui lòng thử lại sau hoặc liên hệ trung tâm."));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleInvalidRequest(IllegalArgumentException exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

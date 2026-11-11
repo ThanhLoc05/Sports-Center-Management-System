@@ -205,20 +205,17 @@ describe("Manager và Coach — UX và ghi dữ liệu", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
   });
-  it("retries role assignment without registering an employee twice", async () => {
+  it("creates staff atomically through the manager endpoint without public signup or role patch", async () => {
     const created = {
       id: 30,
       fullName: "HLV mới",
       email: "new@example.test",
       phone: "0911111111",
-      roleName: "MEMBER" as const,
+      roleName: "COACH" as const,
       status: "ACTIVE",
     };
-    const register = vi.spyOn(api, "register").mockResolvedValue(created);
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(json({ message: "Chưa gán được vai trò" }, 500))
-      .mockResolvedValueOnce(json({ ...created, roleName: "COACH" }));
+    const register = vi.spyOn(api, "register");
+    const fetch = vi.fn().mockResolvedValue(json(created, 201));
     vi.stubGlobal("fetch", fetch);
     wrap(<ApiProfileEditor team onClose={() => {}} />, "CENTER_MANAGER");
     const user = userEvent.setup();
@@ -229,12 +226,9 @@ describe("Manager và Coach — UX và ghi dữ liệu", () => {
     await user.click(
       screen.getByRole("button", { name: "Tạo tài khoản nhân viên" }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent("Chưa gán được");
-    await user.click(
-      screen.getByRole("button", { name: "Gán vai trò cho tài khoản đã tạo" }),
-    );
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-    expect(register).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(fetch).toHaveBeenCalledWith("/api/v1/users/staff", expect.objectContaining({ method: "POST", body: JSON.stringify({ roleName: "COACH", fullName: "HLV mới", email: "new@example.test", phone: "0911111111", password: "test-password" }) }));
+    expect(register).not.toHaveBeenCalled();
   });
   it("shows actual goals and loads the profile for the selected student", async () => {
     const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>

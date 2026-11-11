@@ -17,6 +17,7 @@ import { routeAllowed } from "./lib/permissions";
  * Suspense bên dưới hiển thị Loading trong lúc tải các module này.
  */
 const Auth = lazy(() => import("./pages/Auth"));
+const AccountActions = lazy(() => import("./pages/AccountActions"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Members = lazy(() => import("./pages/Members"));
 const Classes = lazy(() => import("./pages/Classes"));
@@ -77,6 +78,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Auth key="login" />} />
           <Route path="/register" element={<Auth key="register" register />} />
+          <Route path="/verify-email" element={<AccountActions key="verify" action="verify" />} />
+          <Route path="/forgot-password" element={<AccountActions key="forgot" action="forgot" />} />
+          <Route path="/reset-password" element={<AccountActions key="reset" action="reset" />} />
+          <Route path="/resend-verification" element={<AccountActions key="resend" action="resend" />} />
           <Route element={<Protected />}>
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />

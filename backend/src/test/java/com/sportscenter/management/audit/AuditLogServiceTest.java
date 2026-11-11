@@ -16,6 +16,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AuditLogServiceTest {
+    @Test void verificationAuditRecordsOnlyProvenSubjectAndMetadata() {
+        var logs=mock(AuditLogRepository.class);
+        var actor=User.builder().id(8).email("verified@example.test").build();
+        new AuditLogService(logs,mock(UserRepository.class)).recordEmailVerification(actor);
+        var capture=ArgumentCaptor.forClass(AuditLog.class);verify(logs).save(capture.capture());
+        var saved=capture.getValue();assertEquals(8,saved.getActor().getId());assertEquals(8,saved.getEntityId());
+        assertEquals("EMAIL_VERIFIED",saved.getAction());assertEquals("Email verification completed",saved.getDetails());
+        assertNull(saved.getOldValue());assertNull(saved.getNewValue());
+    }
     @Test void capturedIdentityStillSavesAfterActorChangesEmail() {
         var logs = mock(AuditLogRepository.class);
         var users = mock(UserRepository.class);

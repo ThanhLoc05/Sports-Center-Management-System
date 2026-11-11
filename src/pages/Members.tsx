@@ -415,7 +415,7 @@ export default function Members({ team = false }: { team?: boolean }) {
              * Tạo thành viên tại quầy bằng cùng endpoint đăng ký công khai. Payload
              * không chứa role; backend tạo MEMBER, frontend không tự tạo quản lý/HLV.
              */
-            await api.register({
+            await api.createMember({
               fullName: String(data.get("fullName")).trim(),
               email: String(data.get("email")).trim(),
               phone: String(data.get("phone")).trim(),

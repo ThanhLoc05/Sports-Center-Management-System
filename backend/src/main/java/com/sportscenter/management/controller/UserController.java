@@ -65,6 +65,18 @@ public class UserController {
         return ResponseEntity.status(201).body(userService.registerUser(request));
     }
 
+    @PostMapping("/members")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER','RECEPTIONIST')")
+    public ResponseEntity<UserResponse> createMember(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.status(201).body(userService.createMemberByStaff(request, securityUtils.getCurrentUserId()));
+    }
+
+    @PostMapping("/staff")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ResponseEntity<UserResponse> createStaff(@Valid @RequestBody com.sportscenter.management.dto.Request.CreateStaffRequest request) {
+        return ResponseEntity.status(201).body(userService.createStaff(request, securityUtils.getCurrentUserId()));
+    }
+
     /**
      * ĐĂNG NHẬP VÀO HỆ THỐNG (LOGIN)
      */
@@ -273,6 +285,7 @@ public class UserController {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .pendingEmail(user.getPendingEmail())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
                 .roleName(user.getRole().getRoleName())
