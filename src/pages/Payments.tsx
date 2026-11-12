@@ -72,7 +72,8 @@ export default function Payments() {
   const member = session!.user.roleName === "MEMBER",
     manager = can("payments.refund"),
     demo = session!.mode === "demo";
-  const users = useUsers();
+  // Tải tên thành viên cho lễ tân để tìm hóa đơn và in đúng họ tên trên phiếu thu.
+  const users = useUsers(true);
   const [memberId, setMemberId] = useState(
     member ? String(session!.user.id) : params.get("memberId") || "",
   );

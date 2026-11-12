@@ -51,7 +51,8 @@ export default function Attendance() {
   const [params] = useSearchParams();
   const member = session!.user.roleName === "MEMBER";
   const classes = useClasses();
-  const users = useUsers();
+  // Tải tên thành viên cho lễ tân để hiển thị và tìm kiếm trong danh sách điểm danh.
+  const users = useUsers(true);
   const [classId, setClassId] = useState(params.get("classId") || "");
   const effectiveClassId = classId || String(classes.data?.[0]?.id || "");
   const [search, setSearch] = useState("");
