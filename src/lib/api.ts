@@ -39,7 +39,13 @@ export interface RevenueSummary {
   revenueByMethod: Record<string, number>;
 }
 
-import { parseDate, addDays, dateTimeLocal, localDate } from "./utils";
+import {
+  parseDate,
+  addDays,
+  dateTimeLocal,
+  isAttendanceWindowOpen,
+  localDate,
+} from "./utils";
 import { demoAudit, readDemo, saveDemo } from "./demo";
 import { can } from "./permissions";
 import type { Permission } from "./permissions";
@@ -1287,12 +1293,6 @@ export const api = {
     if (!s || s.user.roleName === "MEMBER")
       throw new ApiError("Bạn không có quyền điểm danh.", 403);
     const db = readDemo();
-    if (
-      db.attendance.some(
-        (a) => a.classId === input.classId && a.memberId === input.memberId,
-      )
-    )
-      throw new ApiError("Thành viên đã được điểm danh trong lớp này.");
     const clazz = db.classes.find((c) => c.id === input.classId);
     if (
       !clazz ||
@@ -1307,6 +1307,15 @@ export const api = {
       throw new ApiError("Chỉ điểm danh học viên đang đăng ký lớp hợp lệ.");
     if (s.user.roleName === "COACH" && clazz.coachId !== s.user.id)
       throw new ApiError("Bạn không phụ trách lớp này.", 403);
+    const existing = db.attendance.find(
+      (a) => a.classId === input.classId && a.memberId === input.memberId,
+    );
+    if (existing)
+      throw new ApiError("Thành viên đã được điểm danh trong lớp này.");
+    if (!isAttendanceWindowOpen(clazz))
+      throw new ApiError(
+        "Chỉ được điểm danh từ 15 phút trước giờ học đến 60 phút sau khi kết thúc.",
+      );
     const a = {
       ...input,
       checkedInBy: s.user.id,
@@ -1315,7 +1324,45 @@ export const api = {
     };
     db.attendance.push(a);
     demoAudit(db, "Điểm danh", `TV${input.memberId} · Lớp #${input.classId}`);
+    saveDemo(db);
     return a;
+  },
+  async makeUpAttendance(attendanceId: number): Promise<Attendance> {
+    if (mode() === "api")
+      return request<Attendance>(
+        `/attendance/${apiId(attendanceId, "Mã điểm danh")}/make-up`,
+        { method: "PATCH" },
+      );
+    requirePermission("attendance.record");
+    const s = getSession();
+    if (!s || s.user.roleName !== "COACH")
+      throw new ApiError("Chỉ Coach phụ trách mới được điểm danh bù.", 403);
+    const db = readDemo();
+    const attendance = db.attendance.find((a) => a.id === attendanceId);
+    if (!attendance || attendance.status !== "ABSENT")
+      throw new ApiError("Chỉ có thể điểm danh bù cho học viên đang được ghi nhận Vắng.");
+    const clazz = db.classes.find((c) => c.id === attendance.classId);
+    if (!clazz || clazz.status === "CANCELLED" || clazz.coachId !== s.user.id)
+      throw new ApiError("Bạn không phụ trách lớp này.", 403);
+    if (
+      !db.bookings.some(
+        (b) =>
+          b.classId === attendance.classId &&
+          b.memberId === attendance.memberId &&
+          b.status === "BOOKED",
+      )
+    )
+      throw new ApiError("Học viên không còn đăng ký hợp lệ cho lớp này.");
+    if (!isAttendanceWindowOpen(clazz))
+      throw new ApiError(
+        "Chỉ được điểm danh bù đến 60 phút sau khi lớp kết thúc.",
+      );
+    attendance.status = "PRESENT";
+    attendance.checkedInBy = s.user.id;
+    attendance.checkedInAt = dateTimeLocal();
+    demoAudit(db, "Điểm danh bù", `TV${attendance.memberId} · Lớp #${attendance.classId}`);
+    saveDemo(db);
+    return attendance;
   },
 
   /** API danh mục mới của backend: đổi tên trường DTO sang kiểu frontend, không lấy tên demo thay thế. */

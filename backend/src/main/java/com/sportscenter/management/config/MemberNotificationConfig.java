@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.ZoneId;
 
 @Configuration
+@EnableScheduling
 public class MemberNotificationConfig {
     @Bean @ConditionalOnMissingBean(Clock.class)
     public Clock memberNotificationClock(){return Clock.system(ZoneId.of("Asia/Ho_Chi_Minh"));}
@@ -19,7 +20,7 @@ public class MemberNotificationConfig {
         executor.setQueueCapacity(100);executor.setThreadNamePrefix("member-publication-");
         executor.setWaitForTasksToCompleteOnShutdown(true);executor.setAwaitTerminationSeconds(5);return executor;
     }
-    @Configuration @EnableScheduling
+    @Configuration
     @ConditionalOnProperty(name="app.me09.scheduling-enabled",havingValue="true",matchIfMissing=true)
     static class Scheduling {
         @Bean Worker memberNotificationWorker(MemberNotificationPublisher publisher){return new Worker(publisher);}

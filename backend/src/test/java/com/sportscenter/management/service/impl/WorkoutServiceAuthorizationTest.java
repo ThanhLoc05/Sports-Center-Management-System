@@ -16,6 +16,8 @@ import com.sportscenter.management.service.impl.AttendanceServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -93,7 +95,8 @@ class WorkoutServiceAuthorizationTest {
                 Classes.builder().id(20).coachId(5).status("CANCELLED").build()));
         when(attendanceUsers.findById(4)).thenReturn(Optional.of(user(4, "MEMBER")));
         AttendanceServiceImpl service = new AttendanceServiceImpl(
-                attendance, attendanceClasses, attendanceBookings, attendanceUsers, attendanceSecurity);
+                attendance, attendanceClasses, attendanceBookings, attendanceUsers, attendanceSecurity,
+                Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
         var request = com.sportscenter.management.dto.Request.AttendanceRequest.builder()
                 .classId(20).memberId(4).status("PRESENT").build();
 
@@ -112,7 +115,8 @@ class WorkoutServiceAuthorizationTest {
                 Classes.builder().id(20).coachId(5).status("SCHEDULED").build()));
         when(attendanceUsers.findById(4)).thenReturn(Optional.of(user(4, "COACH")));
         AttendanceServiceImpl service = new AttendanceServiceImpl(
-                attendance, attendanceClasses, attendanceBookings, attendanceUsers, attendanceSecurity);
+                attendance, attendanceClasses, attendanceBookings, attendanceUsers, attendanceSecurity,
+                Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
         var request = com.sportscenter.management.dto.Request.AttendanceRequest.builder()
                 .classId(20).memberId(4).status("PRESENT").build();
 

@@ -16,6 +16,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,6 +33,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final ClassBookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final SecurityUtils securityUtils;
+    private final Clock clock;
 
     @Override
     public AttendanceResponse checkInMember(AttendanceRequest request) {
@@ -81,24 +83,67 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Trạng thái điểm danh không hợp lệ");
         }
 
-        // Một hội viên chỉ có một bản ghi điểm danh cho mỗi lớp.
         Optional<Attendance> existing = attendanceRepository
                 .findByClassIdAndMemberId(request.getClassId(), request.getMemberId());
-
         if (existing.isPresent()) {
             throw new IllegalArgumentException("Thành viên đã được điểm danh cho lớp này");
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!isAttendanceWindowOpen(clazz, now)) {
+            throw new IllegalArgumentException(
+                    "Chỉ được điểm danh từ 15 phút trước giờ học đến 60 phút sau khi kết thúc");
         }
 
         Attendance attendance = Attendance.builder()
                 .classId(request.getClassId())
                 .memberId(request.getMemberId())
                 .checkedInBy(checkedInBy)
-                .checkedInAt(LocalDateTime.now())
+                .checkedInAt(now)
                 .status(request.getStatus() != null ? request.getStatus() : "PRESENT")
                 .build();
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
         return mapToResponse(savedAttendance);
+    }
+
+    @Override
+    public AttendanceResponse makeUpAttendance(Integer attendanceId) {
+        Attendance attendance = attendanceRepository.findByIdForUpdate(attendanceId)
+                .orElseThrow(() -> new IllegalArgumentException("Bản ghi điểm danh không tồn tại"));
+        if (!"ABSENT".equals(attendance.getStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể điểm danh bù cho học viên đang được ghi nhận VẮNG");
+        }
+
+        Classes clazz = classRepository.findById(attendance.getClassId())
+                .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
+        if ("CANCELLED".equals(clazz.getStatus())) {
+            throw new IllegalArgumentException("Không thể điểm danh cho lớp đã bị hủy");
+        }
+        Integer checkedInBy = securityUtils.getCurrentUserId();
+        if (checkedInBy == null || !userRepository.existsById(checkedInBy)) {
+            throw new IllegalArgumentException("Người điểm danh không tồn tại");
+        }
+        if (!securityUtils.isCoach() || !checkedInBy.equals(clazz.getCoachId())) {
+            throw new AccessDeniedException("Chỉ huấn luyện viên phụ trách mới được điểm danh bù");
+        }
+
+        Optional<ClassBooking> booking = bookingRepository.findByClassIdAndMemberId(
+                attendance.getClassId(), attendance.getMemberId());
+        if (booking.isEmpty() || !"BOOKED".equals(booking.get().getStatus())) {
+            throw new IllegalArgumentException("Học viên không còn đăng ký hợp lệ cho lớp này");
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!isAttendanceWindowOpen(clazz, now)) {
+            throw new IllegalArgumentException(
+                    "Chỉ được điểm danh từ 15 phút trước giờ học đến 60 phút sau khi kết thúc");
+        }
+
+        attendance.setStatus("PRESENT");
+        attendance.setCheckedInBy(checkedInBy);
+        attendance.setCheckedInAt(now);
+        return mapToResponse(attendanceRepository.save(attendance));
     }
 
     @Override
@@ -213,5 +258,17 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private boolean isValidAttendanceStatus(String status) {
         return status == null || status.equals("PRESENT") || status.equals("ABSENT");
+    }
+
+    private boolean isAttendanceWindowOpen(Classes clazz, LocalDateTime now) {
+        if (clazz.getScheduleTime() == null || clazz.getDurationMinutes() == null
+                || clazz.getDurationMinutes() <= 0) {
+            return false;
+        }
+        LocalDateTime opensAt = clazz.getScheduleTime().minusMinutes(15);
+        LocalDateTime closesAt = clazz.getScheduleTime()
+                .plusMinutes(clazz.getDurationMinutes())
+                .plusMinutes(60);
+        return !now.isBefore(opensAt) && !now.isAfter(closesAt);
     }
 }

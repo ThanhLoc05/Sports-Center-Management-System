@@ -1,7 +1,11 @@
 package com.sportscenter.management.repository;
 
 import com.sportscenter.management.entity.Attendance;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -13,6 +17,10 @@ import java.util.Optional;
  */
 @Repository
 public interface AttendanceRepository extends JpaRepository<Attendance, Integer> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Attendance a WHERE a.id = :attendanceId")
+    Optional<Attendance> findByIdForUpdate(@Param("attendanceId") Integer attendanceId);
 
     /**
      * Find attendance by class and member

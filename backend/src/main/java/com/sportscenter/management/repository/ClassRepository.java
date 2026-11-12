@@ -73,6 +73,8 @@ public interface ClassRepository extends JpaRepository<Classes, Integer> {
      */
     List<Classes> findByStatus(String status);
 
+    List<Classes> findByStatusAndScheduleTimeLessThanEqual(String status, LocalDateTime scheduleTime);
+
     /**
      * Find classes scheduled between dates
      * @param startTime Start time

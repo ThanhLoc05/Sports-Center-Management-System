@@ -23,6 +23,7 @@ import {
   dateLabel,
   downloadCsv,
   idLabel,
+  isAttendanceWindowOpen,
   localDate,
   matches,
   timeLabel,
@@ -100,35 +101,58 @@ export default function Attendance() {
     (a) => a.status === "PRESENT",
   ).length;
   const absent = (query.data || []).filter((a) => a.status === "ABSENT").length;
+  const currentClass = classes.data?.find(
+    (c) => c.id === Number(effectiveClassId),
+  );
+  const attendanceOpen = currentClass
+    ? currentClass.status !== "CANCELLED" &&
+      isAttendanceWindowOpen(currentClass)
+    : false;
   /**
    * Danh sách cần điểm danh = booking BOOKED trừ người đã có attendance trong
    * tập dữ liệu đang tải; đây là phép ghép phía frontend, không phải bảng SQL mới.
    */
   const roster =
-    bookings.data?.filter(
-      (b) =>
-        b.status === "BOOKED" &&
-        !query.data?.some((a) => a.memberId === b.memberId),
-    ) || [];
-  const currentClass = classes.data?.find(
-    (c) => c.id === Number(effectiveClassId),
-  );
+    bookings.data?.filter((b) => {
+      if (b.status !== "BOOKED") return false;
+      const attendance = query.data?.find((a) => a.memberId === b.memberId);
+      return (
+        !attendance ||
+        (attendance.status === "ABSENT" &&
+          session!.user.roleName === "COACH" &&
+          currentClass?.coachId === session!.user.id)
+      );
+    }) || [];
   /**
    * Gửi memberId người học, classId và checkedInBy là người đang thao tác.
    * pending khóa thao tác tương ứng trong lúc chờ; chỉ báo thành công sau API
    * và luôn bỏ trạng thái chờ ở finally để không bị kẹt khi lỗi.
    */
   async function quickCheck(memberId: number, status: string) {
+    const makeup = status === "PRESENT" && query.data?.find(
+      (attendance) =>
+        attendance.classId === Number(effectiveClassId) &&
+        attendance.memberId === memberId &&
+        attendance.status === "ABSENT",
+    );
     setPending(memberId);
     try {
-      await api.checkIn({
-        memberId,
-        classId: Number(effectiveClassId),
-        checkedInBy: session!.user.id,
-        status,
-      });
+      if (makeup) {
+        await api.makeUpAttendance(makeup.id);
+      } else {
+        await api.checkIn({
+          memberId,
+          classId: Number(effectiveClassId),
+          checkedInBy: session!.user.id,
+          status,
+        });
+      }
       await client.invalidateQueries();
-      toast("Đã ghi nhận điểm danh.");
+      toast(
+        makeup
+          ? "Đã cập nhật điểm danh bù."
+          : "Đã ghi nhận điểm danh.",
+      );
     } catch (e) {
       toast(e instanceof Error ? e.message : "Không thể điểm danh.", "error");
     } finally {
@@ -158,7 +182,7 @@ export default function Attendance() {
               }
             />
             {can("attendance.record") && (
-              <Button onClick={() => setCreate(true)}>
+              <Button disabled={!attendanceOpen} onClick={() => setCreate(true)}>
                 <ScanLine size={17} />
                 Điểm danh thành viên
               </Button>
@@ -206,7 +230,8 @@ export default function Attendance() {
           <div className="attendance-class-note">
             <Clock3 size={17} />
             {currentClass.durationMinutes} phút · Tối đa{" "}
-            {currentClass.maxCapacity} thành viên
+            {currentClass.maxCapacity} thành viên · Mở trước 15 phút, gia hạn
+            điểm danh bù 60 phút sau giờ kết thúc
           </div>
         )}
       </div>
@@ -252,6 +277,12 @@ export default function Attendance() {
           </div>
         </div>
       </div>
+      {!member && currentClass && !attendanceOpen && can("attendance.record") && (
+        <Notice tone="warning">
+          Đã ngoài khung điểm danh. Khung mở từ 15 phút trước giờ học đến 1 giờ
+          sau khi kết thúc.
+        </Notice>
+      )}
       {!member && can("attendance.record") && (
         <Panel
           title="Danh sách cần điểm danh"
@@ -265,6 +296,11 @@ export default function Attendance() {
             ) : roster.length ? (
               roster.map((b) => {
                 const u = users.data?.find((u) => u.id === b.memberId);
+                const makeup = query.data?.find(
+                  (attendance) =>
+                    attendance.memberId === b.memberId &&
+                    attendance.status === "ABSENT",
+                );
                 return (
                   <div className="check-in-person" key={b.id}>
                     <Avatar
@@ -280,18 +316,27 @@ export default function Attendance() {
                     <Button
                       variant="secondary"
                       disabled={
-                        pending !== null || query.isPending || !!query.error
+                        !attendanceOpen ||
+                        pending !== null ||
+                        query.isPending ||
+                        !!query.error
                       }
                       loading={pending === b.memberId}
                       onClick={() => quickCheck(b.memberId, "PRESENT")}
                     >
                       <Check size={15} />
-                      Có mặt
+                      {makeup
+                        ? "Điểm danh bù"
+                        : "Có mặt"}
                     </Button>
                     <button
                       className="text-danger"
                       disabled={
-                        pending !== null || query.isPending || !!query.error
+                        !attendanceOpen ||
+                        !!makeup ||
+                        pending !== null ||
+                        query.isPending ||
+                        !!query.error
                       }
                       onClick={() => quickCheck(b.memberId, "ABSENT")}
                     >
@@ -409,7 +454,10 @@ export default function Attendance() {
           <Field label="Lớp học">
             <select name="classId" required defaultValue={effectiveClassId}>
               {classes.data
-                ?.filter((c) => c.status !== "CANCELLED")
+                ?.filter(
+                  (c) =>
+                    c.status !== "CANCELLED" && isAttendanceWindowOpen(c),
+                )
                 .map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.className} · {dateLabel(c.scheduleTime)}{" "}
@@ -425,7 +473,7 @@ export default function Attendance() {
             </select>
           </Field>
           <Notice>
-            Điểm danh đã lưu chưa thể sửa do backend chưa có endpoint cập nhật.
+            Chỉ Coach phụ trách được đổi Vắng thành Có mặt trong khung điểm danh.
           </Notice>
         </FormModal>
       )}
