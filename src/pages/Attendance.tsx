@@ -18,6 +18,7 @@ import { useAuth } from "../lib/auth";
 
 import { useClasses, useUsers, usePermissions } from "../lib/hooks";
 import { api } from "../lib/api";
+import { operations } from "../lib/operations-api";
 import {
   addDays,
   dateLabel,
@@ -56,6 +57,18 @@ export default function Attendance() {
   const users = useUsers(true);
   const [classId, setClassId] = useState(params.get("classId") || "");
   const effectiveClassId = classId || String(classes.data?.[0]?.id || "");
+  const coachNames = session!.mode === "api" && session!.user.roleName === "COACH";
+  const classStudents = useQuery({
+    queryKey: ["attendance-students", session!.user.id, session!.user.roleName, effectiveClassId],
+    queryFn: () => operations.students(Number(effectiveClassId)),
+    enabled: coachNames && !!classes.data?.some(
+      (c) => c.id === Number(effectiveClassId) && c.coachId === session!.user.id,
+    ),
+  });
+  // Coach dùng roster được cấp quyền của lớp đang chọn, không tải danh mục /users.
+  const memberName = (memberId: number) => coachNames
+    ? classStudents.data?.find((s) => s.memberId === memberId)?.fullName?.trim()
+    : users.data?.find((u) => u.id === memberId)?.fullName;
   const [search, setSearch] = useState("");
   const [create, setCreate] = useState(false);
   const [start, setStart] = useState(localDate(addDays(-30)));
@@ -92,7 +105,7 @@ export default function Attendance() {
   const rows = (query.data || []).filter((a) =>
     matches(
       search,
-      users.data?.find((u) => u.id === a.memberId)?.fullName,
+      memberName(a.memberId),
       a.memberId,
       idLabel(a.memberId),
     ),
@@ -240,6 +253,9 @@ export default function Attendance() {
           Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.
         </Notice>
       )}
+      {coachNames && classStudents.error && (
+        <ErrorState error={classStudents.error} retry={classStudents.refetch} />
+      )}
       <div className="mini-stats">
         <div>
           <span className="mini-stat-icon green">
@@ -295,7 +311,7 @@ export default function Attendance() {
               <ErrorState error={bookings.error} retry={bookings.refetch} />
             ) : roster.length ? (
               roster.map((b) => {
-                const u = users.data?.find((u) => u.id === b.memberId);
+                const name = memberName(b.memberId);
                 const makeup = query.data?.find(
                   (attendance) =>
                     attendance.memberId === b.memberId &&
@@ -304,12 +320,12 @@ export default function Attendance() {
                 return (
                   <div className="check-in-person" key={b.id}>
                     <Avatar
-                      name={u?.fullName || `TV ${b.memberId}`}
+                      name={name || `TV ${b.memberId}`}
                       index={b.memberId}
                     />
                     <div>
                       <strong>
-                        {u?.fullName || `Thành viên #${b.memberId}`}
+                        {name || `Thành viên #${b.memberId}`}
                       </strong>
                       <small>{idLabel(b.memberId)}</small>
                     </div>
@@ -376,17 +392,17 @@ export default function Attendance() {
                 key: "member",
                 label: "Thành viên",
                 render: (a) => {
-                  const u = users.data?.find((u) => u.id === a.memberId);
+                  const name = memberName(a.memberId);
                   return (
                     <div className="person-cell">
                       <Avatar
-                        name={u?.fullName || `TV ${a.memberId}`}
+                        name={name || `TV ${a.memberId}`}
                         index={a.memberId}
                         size="small"
                       />
                       <span>
                         <strong>
-                          {u?.fullName || `Thành viên #${a.memberId}`}
+                          {name || `Thành viên #${a.memberId}`}
                         </strong>
                         <small>{idLabel(a.memberId)}</small>
                       </span>
