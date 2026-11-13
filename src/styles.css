@@ -2186,11 +2186,34 @@ td strong {
   .sidebar,
   .topbar,
   .app-footer,
-  .main-content,
+  .main-content:not(:has(#print-invoice)),
+  .main-content:has(#print-invoice) > :not(:has(#print-invoice)):not(#print-invoice),
+  .main-content:has(#print-invoice) :has(#print-invoice) > :not(:has(#print-invoice)):not(#print-invoice),
+  .skip-link,
   .toast-stack,
   .modal-heading,
   .modal-footer {
     display: none !important;
+  }
+  /* Giữ vùng chứa hóa đơn khi in; chỉ ẩn nội dung trang phía sau modal. */
+  .app-body,
+  .main-content:has(#print-invoice) {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+  }
+  /* Modal đang mở khóa cuộn body; bản in cần cho phép toàn bộ hóa đơn trải trang. */
+  body {
+    overflow: visible !important;
+  }
+  /* Modal có thể nằm trong panel danh sách đơn; bỏ khung panel khỏi phiếu in. */
+  .main-content .panel:has(#print-invoice) {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
   .modal-overlay {
     display: block !important;
