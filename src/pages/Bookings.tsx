@@ -89,8 +89,18 @@ export default function Bookings() {
     <>
       <PageHeader
         eyebrow="A PLACE FOR EVERYONE"
-        title={member ? "Đăng ký lớp của tôi" : "Đăng ký lớp học"}
-        description="Mỗi chỗ được giữ là một cam kết cho hành trình khỏe mạnh hơn."
+        title={
+          member
+            ? "Đăng ký lớp của tôi"
+            : coach
+              ? "Học viên đăng ký"
+              : "Đăng ký lớp học"
+        }
+        description={
+          coach
+            ? "Theo dõi danh sách học viên trong các lớp bạn phụ trách."
+            : "Mỗi chỗ được giữ là một cam kết cho hành trình khỏe mạnh hơn."
+        }
         actions={
           <>
             <Link className="btn btn-secondary" to="/classes">

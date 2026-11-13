@@ -628,7 +628,26 @@ function ClassCard({
   const available = capacity.data;
   const full = available === 0;
   return (
-    <article className="class-card">
+    <article
+      className="class-card"
+      tabIndex={0}
+      aria-label={`Xem thông tin lớp ${c.className}`}
+      onClick={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest("button, a, input, select, textarea")
+        )
+          return;
+        onView();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onView();
+        }
+      }}
+    >
       <div className={`class-card-art sport-${c.sportId}`}>
         <div className="class-art-circle" />
         <span className="class-sport-label">

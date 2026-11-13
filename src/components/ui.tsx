@@ -188,13 +188,17 @@ export function SearchInput({
       <Search size={17} />
       <input
         aria-label={label}
-        type="search"
+        type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
       {value && (
-        <button aria-label="Xóa tìm kiếm" onClick={() => onChange("")}>
+        <button
+          type="button"
+          aria-label="Xóa tìm kiếm"
+          onClick={() => onChange("")}
+        >
           <X size={14} />
         </button>
       )}

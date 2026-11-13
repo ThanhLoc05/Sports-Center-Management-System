@@ -1,13 +1,31 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DataTable, FormModal, Modal } from "../components/ui";
+import { DataTable, FormModal, Modal, SearchInput } from "../components/ui";
 import { matches, normalize } from "../lib/utils";
 describe("Operational UI", () => {
   it("supports Vietnamese search with and without diacritics", () => {
     expect(normalize("Điểm danh")).toBe("diem danh");
     expect(matches("nguyen minh", "Nguyễn Minh Anh")).toBe(true);
     expect(matches("yoga", "Pilates")).toBe(false);
+  });
+  it("shows a single clear button for search input", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <SearchInput value="Yoga" onChange={onChange} placeholder="Tìm lớp..." />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Tìm kiếm" })).toHaveAttribute(
+      "type",
+      "text",
+    );
+    const clear = screen.getByRole("button", { name: "Xóa tìm kiếm" });
+    expect(screen.getAllByRole("button", { name: "Xóa tìm kiếm" })).toHaveLength(
+      1,
+    );
+    await user.click(clear);
+    expect(onChange).toHaveBeenCalledWith("");
   });
   it("clamps pagination after filtering and exposes disabled previous/next buttons", async () => {
     const user = userEvent.setup();
