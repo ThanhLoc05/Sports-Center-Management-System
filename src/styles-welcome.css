@@ -1,0 +1,418 @@
+/* Giới hạn kiểu trong trang giới thiệu; nút, logo và phông chữ dùng chung với ứng dụng. */
+.welcome {
+  --welcome-green: #205b44;
+  --welcome-ink: #173f31;
+  --welcome-text: #495e50;
+  color: var(--welcome-ink);
+  background: #fafbf7;
+}
+.welcome-wrap {
+  width: min(calc(100% - 40px), 1184px);
+  margin-inline: auto;
+}
+.welcome :is(.btn, .welcome-menu, .welcome-nav a) {
+  min-height: 44px;
+  font-size: 14px;
+}
+.welcome .btn {
+  gap: 10px;
+  padding-inline: 18px;
+  border-radius: 9px;
+}
+.welcome-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.welcome-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 68px;
+}
+.welcome .brand {
+  margin-right: auto;
+  padding: 0;
+  font-size: 26px;
+}
+.welcome .brand-symbol {
+  width: 34px;
+  height: 35px;
+  margin-right: 7px;
+}
+.welcome-menu {
+  width: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--green-dark);
+}
+.welcome-menu:hover {
+  background: var(--accent-subtle);
+}
+.welcome-nav {
+  display: none;
+  order: 1;
+  width: 100%;
+  padding-block: 4px 12px;
+}
+.welcome-nav.is-open {
+  display: grid;
+}
+.welcome-nav a {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 12px;
+  border-radius: 6px;
+}
+.welcome-nav a:hover {
+  background: var(--accent-subtle);
+  color: var(--green-dark);
+}
+.welcome-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--green-dark);
+  color: white;
+}
+.welcome-hero-media {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    url("/media/landing/hero-poster.webp") center / cover,
+    linear-gradient(125deg, #205b44, #132c23);
+}
+.welcome-hero-media video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+/* Lớp phủ đậm dưới chữ và nhạt dần về phía người chạy để ảnh vẫn rõ. */
+.welcome-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    0deg,
+    #102f25 0%,
+    rgb(13 44 33 / 93%) 37%,
+    rgb(13 44 33 / 28%) 100%
+  );
+}
+.welcome-hero-inner {
+  min-height: 470px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-block: 80px 68px;
+}
+.welcome-hero h1 {
+  color: white;
+  font-size: clamp(48px, 7vw, 92px);
+  font-weight: 600;
+  line-height: 1.13;
+  letter-spacing: -0.056em;
+}
+.welcome-hero h1 em {
+  font-style: normal;
+  color: var(--lime);
+}
+.welcome-hero p {
+  max-width: 32ch;
+  margin-top: 18px;
+  color: #f0f5ed;
+  font-size: clamp(15px, 1.5vw, 19px);
+  line-height: 1.65;
+}
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+.welcome-button-light {
+  background: var(--lime);
+  color: var(--green-dark);
+}
+.welcome-button-light:hover {
+  background: #ebf7cd;
+}
+.welcome .welcome-button-outline,
+.welcome .welcome-playback {
+  color: white;
+  background: #183e32e6;
+  border: 1px solid #a1baaa;
+}
+.welcome .welcome-button-outline:hover,
+.welcome .welcome-playback:hover {
+  background: var(--green-dark);
+}
+.welcome .welcome-playback {
+  position: absolute;
+  bottom: 14px;
+  right: max(20px, calc((100% - 1184px) / 2));
+  width: 44px;
+  border-radius: 50%;
+  padding: 0;
+}
+.welcome-highlights {
+  background: var(--accent-subtle);
+  border-block-end: 1px solid var(--line);
+}
+.welcome-highlights .welcome-wrap {
+  padding-block: 24px 14px;
+}
+.welcome-highlights dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 0;
+  margin: 0;
+}
+.welcome-highlights dl > div {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-left: 16px;
+  border-left: 1px solid var(--border-card);
+}
+.welcome-highlights dd {
+  margin: 0;
+  color: var(--welcome-green);
+  font-size: clamp(28px, 3.5vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.2;
+}
+.welcome-highlights dt {
+  font-size: 13px;
+  margin-top: 4px;
+}
+.welcome-highlights p {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--welcome-text);
+}
+.welcome-section {
+  padding-block: clamp(48px, 6vw, 88px);
+}
+.welcome h2 {
+  font-size: clamp(28px, 3.3vw, 46px);
+  line-height: 1.22;
+  letter-spacing: -0.045em;
+  color: var(--welcome-ink);
+}
+.welcome h3 {
+  font-size: 17px;
+  letter-spacing: -0.025em;
+}
+.welcome-section p {
+  color: var(--welcome-text);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.welcome-section-heading p {
+  margin-top: 12px;
+  max-width: 36ch;
+}
+.welcome-features,
+.welcome-steps {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+}
+.welcome-features {
+  gap: 0 24px;
+}
+.welcome-features li {
+  display: flex;
+  gap: 14px;
+  padding-block: 16px;
+  border-top: 1px solid var(--line);
+}
+.welcome-features li > svg {
+  color: var(--green);
+  margin-top: 3px;
+}
+.welcome-sports {
+  background: #f0f3e9;
+  border-block: 1px solid var(--line);
+}
+.welcome-sport-grid,
+.welcome-steps {
+  display: grid;
+  gap: 24px;
+  margin-top: 26px;
+}
+.welcome-sport {
+  margin: 0;
+  min-width: 0;
+}
+.welcome-sport > div {
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius);
+  background: linear-gradient(130deg, var(--accent-soft), var(--green));
+}
+.welcome-sport img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.welcome-sport img[hidden] {
+  display: none;
+}
+.welcome-sport figcaption {
+  margin-top: 12px;
+}
+.welcome-sport h3 {
+  font-size: 24px;
+  line-height: 1.3;
+}
+.welcome-steps li {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-card);
+}
+.welcome-steps li > span {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+.welcome-steps p {
+  margin-top: 4px;
+  max-width: 38ch;
+}
+.welcome-invite {
+  background: var(--accent-soft);
+}
+.welcome-invite > div {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 20px;
+  padding-block: 40px;
+}
+.welcome-footer {
+  padding-block: 24px;
+  font-size: 13px;
+  color: var(--welcome-text);
+}
+.welcome section[id] {
+  scroll-margin-top: 20px;
+}
+/* Trên điện thoại nhỏ, giữ logo, đăng nhập và menu trên cùng một hàng. */
+@media (max-width: 420px) {
+  .welcome .welcome-nav-login {
+    padding-inline: 12px;
+  }
+  .welcome-nav-login svg {
+    display: none;
+  }
+}
+@media (min-width: 700px) {
+  .welcome-nav-login {
+    order: 2;
+  }
+  .welcome-wrap {
+    width: min(calc(100% - 80px), 1184px);
+  }
+  .welcome-bar {
+    flex-wrap: nowrap;
+    min-height: 76px;
+    gap: 20px;
+  }
+  .welcome-nav,
+  .welcome-nav.is-open {
+    width: auto;
+    display: flex;
+    align-items: center;
+    order: 0;
+    padding: 0;
+  }
+  .welcome-menu {
+    display: none;
+  }
+  .welcome-hero-inner {
+    justify-content: center;
+    padding-block: 76px;
+    min-height: clamp(470px, 42vw, 600px);
+  }
+  .welcome-hero-media {
+    left: 26%;
+  }
+  .welcome-hero::before {
+    background: linear-gradient(
+      90deg,
+      #123b2c 0%,
+      #123b2c 22%,
+      rgb(13 46 34 / 94%) 35%,
+      rgb(13 46 34 / 70%) 51%,
+      rgb(13 46 34 / 14%) 76%
+    );
+  }
+  .welcome-highlights dl {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .welcome-highlights .welcome-wrap {
+    padding-block: 26px 12px;
+  }
+  .welcome-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .welcome-sport-grid,
+  .welcome-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .welcome-invite > div {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding-block: 52px;
+  }
+}
+@media (min-width: 1000px) {
+  .welcome-feature-section {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 64px;
+  }
+  .welcome-features {
+    margin: 0;
+    column-gap: 32px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-in-view {
+    animation: welcome-arrive 0.4s ease-out both;
+  }
+  @keyframes welcome-arrive {
+    from {
+      opacity: 0.55;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome .btn {
+    transition: none;
+  }
+  .welcome .btn:hover {
+    transform: none;
+  }
+}

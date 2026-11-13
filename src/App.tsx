@@ -16,6 +16,7 @@ import { routeAllowed } from "./lib/permissions";
  * Chỉ tải mã của màn hình khi cần truy cập (lazy loading), giảm phần tải ban đầu.
  * Suspense bên dưới hiển thị Loading trong lúc tải các module này.
  */
+const Welcome = lazy(() => import("./pages/Welcome"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AccountActions = lazy(() => import("./pages/AccountActions"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -23,6 +24,7 @@ const Members = lazy(() => import("./pages/Members"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Bookings = lazy(() => import("./pages/Bookings"));
+// Ba màn chính để theo Flow 3: Memberships mở checkout, Payments theo dõi hóa đơn, Reports xem số thu.
 const Memberships = lazy(() => import("./pages/Memberships"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const Payments = lazy(() => import("./pages/Payments"));
@@ -48,7 +50,7 @@ const Notifications = lazy(() =>
 );
 
 /**
- * Chưa đăng nhập: chuyển về /login. Đã đăng nhập nhưng không thuộc roles cho phép:
+ * Khách mở trang chủ đi đến giới thiệu, khách mở liên kết nghiệp vụ đi đến /login. Đã đăng nhập nhưng không thuộc roles cho phép:
  * hiện trang không đủ quyền. Hợp lệ: Outlet render route con tương ứng.
  * Ẩn menu riêng không đủ; guard này còn chặn người dùng gõ trực tiếp URL.
  */
@@ -56,7 +58,10 @@ export function Protected({ roles }: { roles?: Role[] }) {
   const { session } = useAuth();
   const db = useDemoData();
   const location = useLocation();
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session) {
+    return <Navigate to={location.pathname === "/" ? "/welcome" : "/login"} replace />;
+  }
+  // Quyền riêng của URL như /payments và /reports được ưu tiên trước danh sách roles của nhóm route.
   const permitted = routeAllowed(session, location.pathname, db || undefined);
   if (
     permitted !== undefined
@@ -76,6 +81,7 @@ export default function App() {
     <ErrorBoundary>
       <Suspense fallback={<Loading />}>
         <Routes>
+          <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Auth key="login" />} />
           <Route path="/register" element={<Auth key="register" register />} />
           <Route path="/verify-email" element={<AccountActions key="verify" action="verify" />} />
