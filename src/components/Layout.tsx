@@ -112,7 +112,12 @@ const navigation: { label: string; items: NavItem[] }[] = [
         icon: CalendarDays,
         roles: all,
       },
-      { to: "/bookings", label: "Đăng ký lớp", icon: Ticket, roles: all },
+      {
+        to: "/bookings",
+        label: "Đăng ký lớp",
+        icon: Ticket,
+        roles: ["CENTER_MANAGER", "MANAGER", "MEMBER", "RECEPTIONIST"],
+      },
     ],
   },
   {
@@ -206,6 +211,10 @@ export default function Layout() {
   const users = useUsers();
   const classes = useClasses();
   const role = session!.user.roleName;
+  const labelFor = (item: NavItem) =>
+    role === "COACH" && item.to === "/bookings"
+      ? "Học viên đăng ký"
+      : item.label;
   useEffect(() => {
     if (session?.mode !== "api") {
       setNotificationStreamStatus("disconnected");
@@ -288,9 +297,10 @@ export default function Layout() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-  const current =
-    navigation.flatMap((g) => g.items).find((i) => i.to === location.pathname)
-      ?.label || "Hồ sơ cá nhân";
+  const currentItem = navigation
+    .flatMap((g) => g.items)
+    .find((i) => i.to === location.pathname);
+  const current = currentItem ? labelFor(currentItem) : "Hồ sơ cá nhân";
   /**
    * Thông báo gói sắp hết hạn được tổng hợp từ dữ liệu DEMO trong 7 ngày tới.
    * Ở API mode chưa có nguồn thông báo này nên không hiển thị dữ liệu minh họa.
@@ -354,7 +364,7 @@ export default function Layout() {
                     }
                   >
                     <item.icon size={18} strokeWidth={1.7} />
-                    <span>{item.label}</span>
+                    <span>{labelFor(item)}</span>
                     {item.to === "/assistant" && (
                       <span className="nav-new">BETA</span>
                     )}
@@ -502,13 +512,13 @@ export default function Layout() {
                   (i) =>
                     (routeAllowed(session, i.to, db || undefined) ??
                       i.roles.includes(role)) &&
-                    matches(query, i.label),
+                    matches(query, labelFor(i)),
                 )
                 .slice(0, 5)
                 .map((i) => (
                   <Link to={i.to} key={i.to} onClick={() => setSearch(false)}>
                     <i.icon size={18} />
-                    <span>{i.label}</span>
+                    <span>{labelFor(i)}</span>
                     <ChevronRight size={16} />
                   </Link>
                 ))}

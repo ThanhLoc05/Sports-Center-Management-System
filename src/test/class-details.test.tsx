@@ -111,6 +111,19 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     expect(fetch.mock.calls.some(([url]) => url === "/api/v1/classes/1")).toBe(true);
     expect(fetch.mock.calls.every(([, init]) => !(init as RequestInit | undefined)?.method || (init as RequestInit).method === "GET")).toBe(true);
   });
+  it("opens class details by clicking anywhere on the card and keeps the CTA label", async () => {
+    session();
+    server();
+    page(<Classes />);
+    const heading = await screen.findByRole("heading", {
+      name: "Danh sách cũ 1",
+    });
+
+    await userEvent.click(heading);
+
+    expect(await screen.findByRole("heading", { name: "Chi tiết mới 1" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Xem lớp học" })).toBeVisible();
+  });
   it("filters COMPLETED and labels the card as completed instead of available", async () => {
     session(); const completed = { ...item(2), className: "Lớp đã xong", status: "COMPLETED" as const, scheduleTime: `${localDate(addDays(-1))}T08:00:00` };
     server(undefined, [item(), completed]); page(<Classes />); await screen.findByText("Danh sách cũ 1");

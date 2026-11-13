@@ -35,6 +35,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse registerUser(RegisterRequest request) {
+        validateMemberRegistrationEmail(request == null ? null : request.getEmail());
         User user = createAccount(request, "MEMBER", false);
         accountActions.sendSignupVerification(user);
         return mapToUserResponse(user);
@@ -45,6 +46,7 @@ public class UserServiceImpl implements UserService {
         var actor = userRepository.findById(actorId).orElseThrow(() -> new IllegalArgumentException("Actor not found"));
         if (actor.getRole() == null || !List.of("CENTER_MANAGER", "RECEPTIONIST").contains(actor.getRole().getRoleName()))
             throw new IllegalArgumentException("Staff access required");
+        validateMemberRegistrationEmail(request == null ? null : request.getEmail());
         return mapToUserResponse(createAccount(request, "MEMBER", true));
     }
 
@@ -65,20 +67,32 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Account fields are required");
         String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
         if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || email.length() > 255)
-            throw new IllegalArgumentException("Invalid email");
-        if (request.getPassword().length() < 8 || request.getPassword().length() > 128)
-            throw new IllegalArgumentException("Password must have 8 to 128 characters");
-        if (request.getFullName().trim().length() < 2 || request.getFullName().trim().length() > 100
-                || !request.getPhone().matches("[+0-9 ()-]{9,20}"))
-            throw new IllegalArgumentException("Invalid name or phone");
+            throw new IllegalArgumentException("Email không đúng định dạng.");
+        int minimumPasswordLength = "MEMBER".equals(roleName) ? 6 : 8;
+        if (request.getPassword().length() < minimumPasswordLength || request.getPassword().length() > 128)
+            throw new IllegalArgumentException("Mật khẩu phải có từ " + minimumPasswordLength + " đến 128 ký tự.");
+        String fullName = request.getFullName().trim();
+        String phone = request.getPhone().trim();
+        if (fullName.length() < 2 || fullName.length() > 100)
+            throw new IllegalArgumentException("Họ và tên phải có từ 2 đến 100 ký tự.");
+        if (!phone.matches("[+0-9 ()-]{9,20}"))
+            throw new IllegalArgumentException("Số điện thoại không đúng định dạng.");
         if (userRepository.existsByEmail(email) || userRepository.existsByEmailIgnoreCaseAndIdNot(email, -1)
                 || userRepository.existsByPendingEmailIgnoreCaseAndIdNot(email, -1))
-            throw new IllegalArgumentException("Email already used");
-        if (userRepository.existsByPhone(request.getPhone())) throw new IllegalArgumentException("Phone already used");
+            throw new IllegalArgumentException("Email đã được sử dụng.");
+        if (userRepository.existsByPhone(phone))
+            throw new IllegalArgumentException("Số điện thoại đã được sử dụng.");
         Role role = roleRepository.findByRoleName(roleName).orElseThrow(() -> new IllegalStateException("Role not configured"));
         return userRepository.save(User.builder().email(email).passwordHash(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName().trim()).phone(request.getPhone()).role(role).status("ACTIVE")
+                .fullName(fullName).phone(phone).role(role).status("ACTIVE")
                 .emailVerified(verified).createdAt(LocalDateTime.now()).build());
+    }
+
+    /** Áp dụng rule địa chỉ .com viết thường cho Member; tài khoản nhân viên dùng DTO riêng. */
+    private void validateMemberRegistrationEmail(String rawEmail) {
+        String email = rawEmail == null ? "" : rawEmail.trim();
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || !email.endsWith(".com") || email.length() > 255)
+            throw new IllegalArgumentException("Email phải đúng định dạng và kết thúc bằng .com viết thường.");
     }
 
     @Override

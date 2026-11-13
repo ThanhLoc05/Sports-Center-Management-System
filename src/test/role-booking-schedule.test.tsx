@@ -42,6 +42,12 @@ describe("Coach/Member booking and navigation scope", () => {
   it("requires an assigned class for Coach and ignores member query parameters", async () => {
     const booking = vi.spyOn(api, "bookings").mockResolvedValue([]);
     const { session } = page("/bookings?memberId=999", "COACH");
+    expect(await screen.findByRole("heading", { name: "Học viên đăng ký" })).toBeVisible();
+    expect(
+      within(document.getElementById("main-sidebar")!).queryByRole("link", {
+        name: "Học viên đăng ký",
+      }),
+    ).not.toBeInTheDocument();
     await screen.findByText("Chọn lớp phụ trách để xem đăng ký.");
     expect(booking).not.toHaveBeenCalled();
     expect(screen.queryByText("ID thành viên")).not.toBeInTheDocument();
@@ -55,7 +61,14 @@ describe("Coach/Member booking and navigation scope", () => {
 
   it.each(["COACH", "MEMBER", "RECEPTIONIST", "CENTER_MANAGER"] as Role[])("keeps support navigation appropriate for %s", async role => {
     page("/bookings", role);
-    await screen.findByRole("heading", { name: role === "MEMBER" ? "Đăng ký lớp của tôi" : "Đăng ký lớp học" });
+    await screen.findByRole("heading", {
+      name:
+        role === "MEMBER"
+          ? "Đăng ký lớp của tôi"
+          : role === "COACH"
+            ? "Học viên đăng ký"
+            : "Đăng ký lớp học",
+    });
     const sidebar = document.getElementById("main-sidebar")!;
     const link = within(sidebar).queryByRole("link", { name: "Yêu cầu hỗ trợ" });
     if (role === "COACH") expect(link).not.toBeInTheDocument();

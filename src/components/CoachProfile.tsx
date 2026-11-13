@@ -45,57 +45,59 @@ export function CoachProfileDialog({
       onClose={onClose}
       wide
     >
-      {profile.isPending ? (
-        <Loading />
-      ) : profile.error ? (
-        <ErrorState error={profile.error} retry={profile.refetch} />
-      ) : (
-        <>
-          <div className="member-detail-header">
-            <Avatar name={profile.data.fullName} size="large" />
-            <div>
-              <h2>{profile.data.fullName}</h2>
-              <p>{profile.data.professionalLevel || "Chưa cập nhật trình độ"}</p>
+      <div className="coach-profile-dialog-content">
+        {profile.isPending ? (
+          <Loading />
+        ) : profile.error ? (
+          <ErrorState error={profile.error} retry={profile.refetch} />
+        ) : (
+          <>
+            <div className="member-detail-header">
+              <Avatar name={profile.data.fullName} size="large" />
+              <div>
+                <h2>{profile.data.fullName}</h2>
+                <p>{profile.data.professionalLevel || "Chưa cập nhật trình độ"}</p>
+              </div>
             </div>
+            <div className="detail-grid">
+              <div>
+                <span>Chuyên môn</span>
+                <strong>{profile.data.specialties || "Chưa cập nhật"}</strong>
+              </div>
+              <div>
+                <span>Giới thiệu</span>
+                <strong>{profile.data.bio || "Chưa cập nhật"}</strong>
+              </div>
+            </div>
+          </>
+        )}
+        <h3>Lớp đang phụ trách</h3>
+        {classes.isPending ? (
+          <Loading />
+        ) : classes.error ? (
+          <ErrorState error={classes.error} retry={classes.refetch} />
+        ) : activeClasses.length ? (
+          <div className="roster-list">
+            {activeClasses.map((item) => (
+              <div key={item.id}>
+                <strong>{item.className}</strong>
+                <span>
+                  {(sports[item.sportId] || `Bộ môn #${item.sportId}`) +
+                    " · " +
+                    dateLabel(item.scheduleTime) +
+                    " · " +
+                    timeLabel(item.scheduleTime)}
+                </span>
+              </div>
+            ))}
           </div>
-          <div className="detail-grid">
-            <div>
-              <span>Chuyên môn</span>
-              <strong>{profile.data.specialties || "Chưa cập nhật"}</strong>
-            </div>
-            <div>
-              <span>Giới thiệu</span>
-              <strong>{profile.data.bio || "Chưa cập nhật"}</strong>
-            </div>
-          </div>
-        </>
-      )}
-      <h3>Lớp đang phụ trách</h3>
-      {classes.isPending ? (
-        <Loading />
-      ) : classes.error ? (
-        <ErrorState error={classes.error} retry={classes.refetch} />
-      ) : activeClasses.length ? (
-        <div className="roster-list">
-          {activeClasses.map((item) => (
-            <div key={item.id}>
-              <strong>{item.className}</strong>
-              <span>
-                {(sports[item.sportId] || `Bộ môn #${item.sportId}`) +
-                  " · " +
-                  dateLabel(item.scheduleTime) +
-                  " · " +
-                  timeLabel(item.scheduleTime)}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <Empty
-          title="Chưa có lớp đang mở"
-          description="Lịch lớp đang phụ trách sẽ hiển thị tại đây."
-        />
-      )}
+        ) : (
+          <Empty
+            title="Chưa có lớp đang mở"
+            description="Lịch lớp đang phụ trách sẽ hiển thị tại đây."
+          />
+        )}
+      </div>
     </Modal>
   );
 }

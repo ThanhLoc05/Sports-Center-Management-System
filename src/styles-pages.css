@@ -1014,6 +1014,8 @@
   gap: 22px;
 }
 .class-card {
+  position: relative;
+  cursor: pointer;
   background: #fff;
   border: 1px solid var(--border-card);
   border-radius: 12px;
@@ -1026,6 +1028,10 @@
 .class-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 25px #3b542812;
+}
+.class-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
 }
 .class-card-art {
   height: 150px;
