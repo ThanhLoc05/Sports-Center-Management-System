@@ -77,6 +77,15 @@ describe("Backend contract: BE branch DTOs and controller paths", () => {
       expect.objectContaining({ body: JSON.stringify(input) }),
     );
   });
+  it("uses the dedicated update endpoint for attendance make-up", async () => {
+    const fetch = vi.fn().mockResolvedValue(response({ id: 1 }));
+    vi.stubGlobal("fetch", fetch);
+    await api.makeUpAttendance(12);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/attendance/12/make-up",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
   it("sends actual invoice field names and starts payment separately", async () => {
     const fetch = vi.fn().mockResolvedValue(response({ id: 100 }));
     vi.stubGlobal("fetch", fetch);

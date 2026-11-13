@@ -19,6 +19,8 @@ public interface AttendanceService {
      */
     AttendanceResponse checkInMember(AttendanceRequest request);
 
+    AttendanceResponse makeUpAttendance(Integer attendanceId);
+
     /**
      * Get attendance record by ID
      * @param attendanceId Attendance ID

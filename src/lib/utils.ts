@@ -2,6 +2,7 @@
  * CÁC HÀM THUẦN DÙNG CHUNG: định dạng tiền/ngày giờ, tìm kiếm và xuất CSV.
  * Tách khỏi component để nhiều màn sử dụng cùng quy tắc và dễ kiểm thử độc lập.
  */
+import type { SportClass } from "./types";
 /**
  * Chỉ định dạng số tiền VND để hiển thị; không dùng chuỗi có dấu phân cách
  * này để gửi amount cho API, vì API cần giá trị số.
@@ -38,6 +39,22 @@ export const dateLabel = (
   }).format(parseDate(value));
 export const timeLabel = (value: string) =>
   dateLabel(value, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+export function isAttendanceWindowOpen(
+  sportClass: SportClass,
+  now = new Date(),
+): boolean {
+  const start = parseDate(sportClass.scheduleTime);
+  const duration = sportClass.durationMinutes;
+  if (
+    !Number.isFinite(start.getTime()) ||
+    !Number.isFinite(duration) ||
+    duration <= 0
+  )
+    return false;
+  const opensAt = start.getTime() - 15 * 60_000;
+  const closesAt = start.getTime() + (duration + 60) * 60_000;
+  return now.getTime() >= opensAt && now.getTime() <= closesAt;
+}
 /**
  * Tạo YYYY-MM-DD theo múi giờ trung tâm để lọc API và so ngày hết hạn nhất quán.
  */

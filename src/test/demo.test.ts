@@ -90,7 +90,7 @@ describe("Demo workflows and ownership boundaries", () => {
   });
   it("refuses duplicate attendance", async () => {
     login("COACH");
-    const a = readDemo().attendance[0];
+    const a = readDemo().attendance.find((attendance) => attendance.status === "PRESENT")!;
     await expect(
       api.checkIn({
         classId: a.classId,

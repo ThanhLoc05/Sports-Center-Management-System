@@ -48,6 +48,12 @@ public class AttendanceController {
         return ResponseEntity.status(201).body(attendanceService.checkInMember(request));
     }
 
+    @PatchMapping("/{attendanceId}/make-up")
+    @PreAuthorize("hasRole('COACH')")
+    public ResponseEntity<AttendanceResponse> makeUpAttendance(@PathVariable Integer attendanceId) {
+        return ResponseEntity.ok(attendanceService.makeUpAttendance(attendanceId));
+    }
+
     /**
      * XEM CHI TIẾT 1 BẢN GHI ĐIỂM DANH
      */

@@ -201,13 +201,14 @@ Báo cáo quản lý theo dòng tiền: tổng thu tính hóa đơn đã từng 
 
 ### 7.1. Điểm danh theo lớp — đã có API
 
-1. HLV/lễ tân/quản lý chọn lớp và thành viên cần điểm danh.
-2. Chọn `PRESENT` (có mặt) hoặc `ABSENT` (vắng).
-3. Frontend gửi lớp, thành viên, người ghi nhận và trạng thái.
-4. Backend kiểm tra các đối tượng tồn tại, trạng thái hợp lệ và chưa có điểm danh trùng cặp lớp/thành viên rồi lưu thời điểm ghi nhận.
-5. Người có quyền xem lại theo lớp hoặc lịch sử thành viên.
+1. HLV phụ trách/lễ tân/quản lý chọn lớp và thành viên đã có booking `BOOKED`.
+2. Có thể điểm danh từ 15 phút trước giờ bắt đầu đến 60 phút sau giờ kết thúc theo lịch; backend kiểm tra lại giới hạn này.
+3. Chọn `PRESENT` (có mặt) hoặc `ABSENT` (vắng). Mỗi thành viên chỉ có một bản ghi cho mỗi lớp.
+4. Trong cùng khung giờ, chỉ HLV được phân công cho lớp được dùng `PATCH /attendance/{id}/make-up` để đổi `ABSENT` thành `PRESENT`; không cho đổi ngược hoặc điểm danh bù sau hạn.
+5. Backend tự ghi nhận người thao tác và thời điểm. Lớp tự chuyển sang `COMPLETED` sau giờ kết thúc; khoảng ân hạn 60 phút chỉ dành cho hoàn tất/điều chỉnh điểm danh.
+6. Người có quyền xem lại theo lớp hoặc lịch sử thành viên.
 
-**Giới hạn:** cần rà soát backend có xác nhận HLV phụ trách lớp, thời điểm buổi học và quyền của người ghi nhận trước khi điểm danh. Đây là điểm danh theo lớp, chưa có check-in độc lập lúc vào cửa trung tâm. Không trình bày tỷ lệ điểm danh là tỷ lệ tham dự trên mọi buổi dự kiến nếu công thức hiện chỉ tính trên các bản ghi đã có.
+**Giới hạn:** đây là điểm danh theo lớp, chưa có check-in độc lập lúc vào cửa trung tâm. Không trình bày tỷ lệ điểm danh là tỷ lệ tham dự trên mọi buổi dự kiến nếu công thức hiện chỉ tính trên các bản ghi đã có.
 
 ### 7.2. Kế hoạch, kết quả và nhận xét — có API backend
 
@@ -280,7 +281,7 @@ Thanh toán gói đi theo luồng: `Memberships.tsx` → `MembershipCheckout.tsx
 | Chuyển khoản QR | `PaymentQr.tsx` | VietQR điền sẵn; lễ tân xác nhận thủ công qua `confirm-payment` sau khi đối chiếu sao kê |
 | Tự xác nhận chuyển khoản | — | Webhook ngân hàng/provider chưa tích hợp; cần thông tin kết nối và kiểm thử thật |
 | Báo cáo | `Reports.tsx` | `/payments/revenue`; nên chuyển sang thời điểm thu/hoàn |
-| Điểm danh | `Attendance.tsx` | `POST /attendance`, `GET /attendance/classes/{id}`, `GET /attendance/members/{id}` |
+| Điểm danh | `Attendance.tsx` | `POST /attendance`, `PATCH /attendance/{id}/make-up`, `GET /attendance/classes/{id}`, `GET /attendance/members/{id}` |
 
 ## 13. Kịch bản trình bày khoảng 6–7 phút
 
