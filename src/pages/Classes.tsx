@@ -34,6 +34,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
 import { api } from "../lib/api";
+import { operations } from "../lib/operations-api";
 
 import type { AccessLevel, SportClass } from "../lib/types";
 import {
@@ -823,8 +824,18 @@ function ClassDetailContent({
     queryFn: () => api.capacity(c.id),
   });
   const bookings = useQuery({
-    queryKey: ["classBookings", c.id],
-    queryFn: () => api.bookings(undefined, c.id),
+    queryKey: ["classStudents", session!.user.id, session!.user.roleName, c.id],
+    queryFn: async () => session!.mode === "api"
+      ? (await operations.students(c.id)).map((student) => ({
+          id: student.memberId,
+          memberId: student.memberId,
+          status: student.bookingStatus,
+          fullName: student.fullName?.trim(),
+        }))
+      : (await api.bookings(undefined, c.id)).map((booking) => ({
+          ...booking,
+          fullName: users.data?.find((u) => u.id === booking.memberId)?.fullName,
+        })),
     enabled: can("classes.roster"),
   });
   return (
@@ -902,15 +913,13 @@ function ClassDetailContent({
                     <div key={b.id}>
                       <Avatar
                         name={
-                          users.data?.find((u) => u.id === b.memberId)
-                            ?.fullName || `Thành viên ${b.memberId}`
+                          b.fullName || `Thành viên ${b.memberId}`
                         }
                         size="small"
                         index={b.memberId}
                       />
                       <strong>
-                        {users.data?.find((u) => u.id === b.memberId)
-                          ?.fullName || `Thành viên #${b.memberId}`}
+                        {b.fullName || `Thành viên #${b.memberId}`}
                       </strong>
                       <Badge status={b.status} />
                     </div>

@@ -32,6 +32,19 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.datasource.username=", "spring.datasource.password=", "spring.jpa.hibernate.ddl-auto=validate",
     "spring.sql.init.mode=never", "spring.flyway.enabled=false", "spring.liquibase.enabled=false"})
 class RoomClassSqlServerIT {
+    private static String isolatedCatalog() {
+        String catalog = System.getProperty("sportiva.flow2-test-db", "SportivaRoomRace_20261109");
+        if (!catalog.equals("SportivaRoomRace_20261109") && !catalog.equals("SportivaFlow2Fix_20261113"))
+            throw new IllegalArgumentException("Only the explicitly isolated Flow 2 test database is allowed");
+        return catalog;
+    }
+    @org.springframework.test.context.DynamicPropertySource
+    static void isolatedDataSource(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        String catalog = isolatedCatalog();
+        registry.add("spring.datasource.url", () -> "jdbc:sqlserver://DESKTOP-IKVPEK1;instanceName=SQLEXPRESS;databaseName=" + catalog + ";integratedSecurity=true;encrypt=true;trustServerCertificate=true;applicationName=SportivaRoomRaceIT");
+        registry.add("app.me09.scheduling-enabled", () -> "false");
+    }
+
     @Autowired RoomRepository rooms; @Autowired ClassRepository classes;
     @Autowired SportRepository sports; @Autowired UserRepository users; @Autowired RoleRepository roles;
     @Autowired ClassServiceImpl service; @Autowired RoomController controller;
@@ -60,7 +73,7 @@ class RoomClassSqlServerIT {
         }
     }
     @BeforeEach void setup() {
-        assertEquals("DESKTOP-IKVPEK1\\SQLEXPRESS|SportivaRoomRace_20261109",
+        assertEquals("DESKTOP-IKVPEK1\\SQLEXPRESS|" + isolatedCatalog(),
                 jdbc.queryForObject("SELECT CONVERT(varchar(128),@@SERVERNAME)+'|'+DB_NAME()",String.class));
         tx=new TransactionTemplate(tm); workers=Executors.newFixedThreadPool(2);
         tx.executeWithoutResult(s -> {

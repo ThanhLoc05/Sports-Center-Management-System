@@ -131,7 +131,7 @@ describe("Quản lý thành viên", () => {
       expect(
         await screen.findByRole("heading", { name: "Thành viên" }),
       ).toBeVisible();
-      const search = await screen.findByRole("searchbox", {
+      const search = await screen.findByRole("textbox", {
         name: "Tìm thành viên",
       });
       await user.type(search, "nguyen minh anh");
@@ -231,7 +231,7 @@ describe("Tra cứu thành viên — API mock", () => {
   it.each(["Nguyễn Tra Cứu", "lookup@example.test", "0912345678", "TV0081"])("reception searches %s and excludes staff", async (term) => {
     vi.stubGlobal("fetch", lookupServer()); apiMembers();
     await screen.findByRole("button", { name: /^Nguyễn Tra Cứu/ });
-    await userEvent.setup().type(screen.getByRole("searchbox", { name: "Tìm thành viên" }), term);
+    await userEvent.setup().type(screen.getByRole("textbox", { name: "Tìm thành viên" }), term);
     expect(screen.getByRole("button", { name: /^Nguyễn Tra Cứu/ })).toBeVisible();
     expect(screen.queryByText("Nhân viên ẩn")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Thay đổi trạng thái/)).not.toBeInTheDocument();
@@ -248,7 +248,7 @@ describe("Tra cứu thành viên — API mock", () => {
     expect(screen.getByText("Đang tải dữ liệu...")).toBeVisible();
     expect(screen.queryByText("Nguyễn Minh Anh")).not.toBeInTheDocument();
     await act(async () => resolve(json([lookupMember])));
-    await userEvent.setup().type(screen.getByRole("searchbox", { name: "Tìm thành viên" }), "khong-ton-tai");
+    await userEvent.setup().type(screen.getByRole("textbox", { name: "Tìm thành viên" }), "khong-ton-tai");
     expect(screen.getByRole("heading", { name: "Không có kết quả" })).toBeVisible();
   });
   it("opens detail from the list, retries a profile error and permits a missing profile", async () => {

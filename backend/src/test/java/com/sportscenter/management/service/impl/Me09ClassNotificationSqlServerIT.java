@@ -26,6 +26,19 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.datasource.username=","spring.datasource.password=","spring.jpa.hibernate.ddl-auto=validate",
         "spring.sql.init.mode=never","app.me09.scheduling-enabled=false","spring.jpa.show-sql=false"})
 class Me09ClassNotificationSqlServerIT {
+    private static String isolatedCatalog() {
+        String catalog = System.getProperty("sportiva.flow2-test-db", "SportivaME09_20261110");
+        if (!catalog.equals("SportivaME09_20261110") && !catalog.equals("SportivaFlow2Fix_20261113"))
+            throw new IllegalArgumentException("Only the explicitly isolated Flow 2 test database is allowed");
+        return catalog;
+    }
+    @org.springframework.test.context.DynamicPropertySource
+    static void isolatedDataSource(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        String catalog = isolatedCatalog();
+        registry.add("spring.datasource.url", () -> "jdbc:sqlserver://DESKTOP-IKVPEK1;instanceName=SQLEXPRESS;databaseName=" + catalog + ";integratedSecurity=true;encrypt=true;trustServerCertificate=true;applicationName=Flow2RegressionIT");
+        registry.add("app.me09.scheduling-enabled", () -> "false");
+    }
+
     @Autowired JdbcTemplate jdbc;@Autowired ClassController controller;@Autowired ClassRepository classes;
     @Autowired RoomRepository rooms;@Autowired SportRepository sports;@Autowired UserRepository users;
     @Autowired RoleRepository roles;@Autowired ClassBookingRepository bookings;@Autowired PlatformTransactionManager tm;
@@ -33,7 +46,7 @@ class Me09ClassNotificationSqlServerIT {
     LocalDateTime oldTime;
     int actor(String role){String key=UUID.randomUUID().toString();var u=users.saveAndFlush(User.builder().email(key+"@example.test").phone(key).fullName(role+" test "+key).passwordHash("not-a-login-credential").role(roles.findByRoleName(role).orElseThrow()).status("ACTIVE").createdAt(LocalDateTime.now()).build());if(role.equals("CENTER_MANAGER"))managerEmail=u.getEmail();return u.getId();}
     @BeforeEach void setup(){
-        assertEquals("DESKTOP-IKVPEK1\\SQLEXPRESS|SportivaME09_20261110",jdbc.queryForObject("SELECT CONVERT(varchar(128),@@SERVERNAME)+'|'+DB_NAME()",String.class));
+        assertEquals("DESKTOP-IKVPEK1\\SQLEXPRESS|" + isolatedCatalog(),jdbc.queryForObject("SELECT CONVERT(varchar(128),@@SERVERNAME)+'|'+DB_NAME()",String.class));
         actor("CENTER_MANAGER");member=actor("MEMBER");cancelledMember=actor("MEMBER");coach=actor("COACH");otherCoach=actor("COACH");
         String key=UUID.randomUUID().toString();room=rooms.saveAndFlush(Room.builder().roomName("old-"+key).capacity(5).build()).getId();otherRoom=rooms.saveAndFlush(Room.builder().roomName("new-"+key).capacity(5).build()).getId();
         sport=sports.saveAndFlush(Sport.builder().sportName("sport-"+key).build()).getId();oldTime=LocalDateTime.now().plusDays(5).withHour(10).withMinute(0).withSecond(0).withNano(0);
