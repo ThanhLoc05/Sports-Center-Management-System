@@ -185,8 +185,8 @@ export default function Members({ team = false }: { team?: boolean }) {
       </div>
       {team && (
         <Notice>
-          Tạo tài khoản nhân viên và thay đổi vai trò chưa có endpoint backend.
-          Danh sách và cập nhật trạng thái hoạt động đã được tích hợp.
+          Quản lý có thể tạo tài khoản nhân viên, gán vai trò và cập nhật thông tin
+          hoặc trạng thái tài khoản. Quyền truy cập được xác định theo vai trò.
         </Notice>
       )}
       {!demo && !team && receptionist && (
