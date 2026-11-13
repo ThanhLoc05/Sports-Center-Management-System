@@ -20,6 +20,45 @@ import { useAuth } from "../lib/auth";
 
 import { Button, Field } from "../components/ui";
 import { errorText } from "../lib/utils";
+
+type RegistrationField =
+  | "fullName"
+  | "phone"
+  | "email"
+  | "password"
+  | "confirmPassword";
+type RegistrationFieldErrors = Partial<Record<RegistrationField, string>>;
+
+function validateRegistration(data: FormData): RegistrationFieldErrors {
+  const errors: RegistrationFieldErrors = {};
+  const fullName = String(data.get("fullName") || "").trim();
+  const phone = String(data.get("phone") || "").trim();
+  const email = String(data.get("email") || "").trim();
+  const password = String(data.get("password") || "");
+  const confirmation = String(data.get("confirmPassword") || "");
+
+  if (fullName.length < 2 || fullName.length > 100)
+    errors.fullName = "Họ và tên phải có từ 2 đến 100 ký tự.";
+  if (!/^[+0-9 ()-]{9,20}$/.test(phone))
+    errors.phone = "Số điện thoại phải có 9–20 ký tự số hoặc dấu +, khoảng trắng, ngoặc, dấu gạch.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !email.endsWith(".com"))
+    errors.email = "Email phải đúng định dạng và kết thúc bằng .com viết thường.";
+  if (password.length < 6 || password.length > 128)
+    errors.password = "Mật khẩu phải có từ 6 đến 128 ký tự.";
+  if (!confirmation || confirmation !== password)
+    errors.confirmPassword = "Mật khẩu xác nhận chưa khớp.";
+  return errors;
+}
+
+function registrationErrorField(message: string): RegistrationField | undefined {
+  const value = message.toLocaleLowerCase();
+  if (value.includes("email")) return "email";
+  if (value.includes("phone") || value.includes("số điện thoại")) return "phone";
+  if (value.includes("password") || value.includes("mật khẩu")) return "password";
+  if (value.includes("fullname") || value.includes("họ và tên")) return "fullName";
+  return undefined;
+}
+
 export default function AuthPage({ register = false }: { register?: boolean }) {
   const { session, signIn } = useAuth();
   const navigate = useNavigate();
@@ -27,6 +66,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<RegistrationFieldErrors>({});
   // Giữ kết quả đăng ký qua lần đổi route; không lưu mật khẩu vào dữ liệu demo.
   const success = location.state?.registrationComplete
     ? configuredMode === "demo"
@@ -44,12 +84,16 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
     const data = new FormData(e.currentTarget);
     setBusy(true);
     setError("");
+    setFieldErrors({});
     try {
       const email = String(data.get("email")).trim(),
         password = String(data.get("password"));
       if (register) {
-        if (password !== data.get("confirmPassword"))
-          throw new Error("Mật khẩu xác nhận chưa khớp.");
+        const errors = validateRegistration(data);
+        if (Object.keys(errors).length) {
+          setFieldErrors(errors);
+          return;
+        }
         await api.register({
           email,
           password,
@@ -62,7 +106,10 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
         navigate("/");
       }
     } catch (e) {
-      setError(errorText(e));
+      const message = errorText(e);
+      const field = register ? registrationErrorField(message) : undefined;
+      if (field) setFieldErrors({ [field]: message });
+      else setError(message);
     } finally {
       setBusy(false);
     }
@@ -137,7 +184,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
               : "Đăng nhập để tiếp tục quản lý và kết nối."}
           </p>
           {success && <p className="notice">{success}</p>}
-          <form onSubmit={submit}>
+          <form onSubmit={submit} noValidate={register}>
             {register && (
               <>
                 <Field label="Họ và tên">
@@ -148,7 +195,17 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                     minLength={2}
                     maxLength={100}
                     placeholder="Nguyễn Minh Anh"
+                    aria-invalid={!!fieldErrors.fullName}
+                    onBlur={(event) => {
+                      const message = validateRegistration(new FormData(event.currentTarget.form!)).fullName;
+                      setFieldErrors((current) => ({ ...current, fullName: message }));
+                    }}
+                    onChange={(event) => {
+                      const message = validateRegistration(new FormData(event.currentTarget.form!)).fullName;
+                      setFieldErrors((current) => ({ ...current, fullName: message }));
+                    }}
                   />
+                  {fieldErrors.fullName && <p role="alert" className="form-error">{fieldErrors.fullName}</p>}
                 </Field>
                 <Field label="Số điện thoại">
                   <input
@@ -158,7 +215,17 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                     required
                     pattern="[+0-9 ()-]{9,20}"
                     placeholder="090 123 4567"
+                    aria-invalid={!!fieldErrors.phone}
+                    onBlur={(event) => {
+                      const message = validateRegistration(new FormData(event.currentTarget.form!)).phone;
+                      setFieldErrors((current) => ({ ...current, phone: message }));
+                    }}
+                    onChange={(event) => {
+                      const message = validateRegistration(new FormData(event.currentTarget.form!)).phone;
+                      setFieldErrors((current) => ({ ...current, phone: message }));
+                    }}
                   />
+                  {fieldErrors.phone && <p role="alert" className="form-error">{fieldErrors.phone}</p>}
                 </Field>
               </>
             )}
@@ -169,8 +236,21 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                 autoComplete="email"
                 required
                 maxLength={255}
+                pattern={register ? "[^\\s@]+@[^\\s@]+\\.com" : undefined}
+                title={register ? "Email phải kết thúc bằng .com viết thường." : undefined}
                 placeholder="ban@example.com"
+                aria-invalid={!!fieldErrors.email}
+                onBlur={(event) => {
+                  const message = validateRegistration(new FormData(event.currentTarget.form!)).email;
+                  if (register) setFieldErrors((current) => ({ ...current, email: message }));
+                }}
+                onChange={(event) => {
+                  if (!register) return;
+                  const message = validateRegistration(new FormData(event.currentTarget.form!)).email;
+                  setFieldErrors((current) => ({ ...current, email: message }));
+                }}
               />
+              {register && fieldErrors.email && <p role="alert" className="form-error">{fieldErrors.email}</p>}
             </Field>
             <Field label="Mật khẩu">
               <div className="password-field">
@@ -178,12 +258,23 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                   type={show ? "text" : "password"}
                   name="password"
                   autoComplete={register ? "new-password" : "current-password"}
-                  minLength={register ? 8 : 1}
+                  minLength={register ? 6 : 1}
                   maxLength={128}
                   required
                   placeholder={
-                    register ? "Tối thiểu 8 ký tự" : "Nhập mật khẩu của bạn"
+                    register ? "Tối thiểu 6 ký tự" : "Nhập mật khẩu của bạn"
                   }
+                  aria-invalid={!!fieldErrors.password}
+                  onBlur={(event) => {
+                    if (!register) return;
+                    const errors = validateRegistration(new FormData(event.currentTarget.form!));
+                    setFieldErrors((current) => ({ ...current, password: errors.password }));
+                  }}
+                  onChange={(event) => {
+                    if (!register) return;
+                    const errors = validateRegistration(new FormData(event.currentTarget.form!));
+                    setFieldErrors((current) => ({ ...current, password: errors.password, confirmPassword: errors.confirmPassword }));
+                  }}
                 />
                 <button
                   type="button"
@@ -193,6 +284,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                   {show ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {register && fieldErrors.password && <p role="alert" className="form-error">{fieldErrors.password}</p>}
             </Field>
             {register && (
               <Field label="Xác nhận mật khẩu">
@@ -201,9 +293,19 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                   name="confirmPassword"
                   autoComplete="new-password"
                   required
-                  minLength={8}
+                  minLength={6}
                   placeholder="Nhập lại mật khẩu"
+                  aria-invalid={!!fieldErrors.confirmPassword}
+                  onBlur={(event) => {
+                    const message = validateRegistration(new FormData(event.currentTarget.form!)).confirmPassword;
+                    setFieldErrors((current) => ({ ...current, confirmPassword: message }));
+                  }}
+                  onChange={(event) => {
+                    const message = validateRegistration(new FormData(event.currentTarget.form!)).confirmPassword;
+                    setFieldErrors((current) => ({ ...current, confirmPassword: message }));
+                  }}
                 />
+                {fieldErrors.confirmPassword && <p role="alert" className="form-error">{fieldErrors.confirmPassword}</p>}
               </Field>
             )}
             {error && (
@@ -223,7 +325,10 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
             {register ? "Đã có tài khoản?" : "Bạn chưa có tài khoản?"}{" "}
             <Link
               to={register ? "/login" : "/register"}
-              onClick={() => setError("")}
+              onClick={() => {
+                setError("");
+                setFieldErrors({});
+              }}
             >
               {register ? "Đăng nhập" : "Đăng ký thành viên"}
               <ArrowUpRight size={13} />

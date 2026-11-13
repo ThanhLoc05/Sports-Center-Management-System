@@ -62,7 +62,12 @@ public class BookingServiceImpl implements BookingService {
         if (activeSubscription.isEmpty()) {
             throw new IllegalArgumentException("Học viên chưa có gói tập hợp lệ hoặc gói tập đã hết hạn. Vui lòng thanh toán gói tập trước khi đặt lịch.");
         }
-        var memberPackage = packageRepository.findById(activeSubscription.get().getPackageId())
+        var subscription = activeSubscription.get();
+        if (clazz.getScheduleTime().toLocalDate().isAfter(subscription.getEndDate())) {
+            throw new IllegalArgumentException("Ngày học nằm sau ngày hết hạn gói tập. Vui lòng gia hạn gói.");
+        }
+
+        var memberPackage = packageRepository.findById(subscription.getPackageId())
                 .orElseThrow(() -> new IllegalStateException("Gói của hội viên không tồn tại"));
         String packageLevel = normalizeAccessLevel(memberPackage.getAccessLevel());
         String requiredLevel = normalizeAccessLevel(clazz.getRequiredAccessLevel());

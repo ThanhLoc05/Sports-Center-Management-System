@@ -1,6 +1,5 @@
 package com.sportscenter.management.controller;
 
-import com.sportscenter.management.dto.Request.MemberSubscriptionRequest;
 import com.sportscenter.management.dto.Request.MembershipPackageRequest;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
 import com.sportscenter.management.dto.Response.MembershipPackageResponse;
@@ -8,11 +7,13 @@ import com.sportscenter.management.service.MembershipService;
 import com.sportscenter.auth.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * ============================================================================
@@ -22,8 +23,7 @@ import java.util.List;
  * 1. Xem danh sách gói tập (GET /packages): Công khai cho khách vãng lai và mọi học viên.
  * 2. Tạo gói tập mới (POST /packages): Chỉ dành riêng cho Quản lý trung tâm.
  * 3. Cập nhật gói tập (PUT /packages/{packageId}): Chỉ dành riêng cho Quản lý trung tâm.
- * 4. Đăng ký gói tập (POST /subscribe): Tạo subscription PENDING_PAYMENT và hóa đơn PENDING theo giá gói.
- * 5. Gia hạn gói tập (POST /{subscriptionId}/renew): Tạo subscription PENDING_PAYMENT nối tiếp và hóa đơn PENDING.
+ * 4. Đăng ký/gia hạn mới: dùng API /api/v1/membership-orders; endpoint cũ trả 410 Gone.
  * 6. Xem gói tập đang hoạt động / lịch sử / ngày hết hạn: Chính chủ học viên hoặc Lễ tân/Quản lý.
  * 7. Hủy gói (POST /{subscriptionId}/cancel): Chuyển trạng thái sang CANCELLED.
  */
@@ -71,27 +71,13 @@ public class MembershipController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Đăng ký gói hội viên mới:
-     * - Tạo subscription trạng thái PENDING_PAYMENT.
-     * - Tự động phát sinh hóa đơn PENDING với số tiền lấy từ giá niêm yết của gói.
-     * - Gói chỉ chuyển ACTIVE sau khi hóa đơn được xác nhận thanh toán.
-     */
+    /** @deprecated Đăng ký mới phải đi qua API membership-orders để tạo đơn và hóa đơn thống nhất. */
     @PostMapping("/subscribe")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberSubscriptionResponse> subscribe(@Valid @RequestBody MemberSubscriptionRequest request) {
-        Integer currentUserId = securityUtils.getCurrentUserId();
-        if (currentUserId == null) return ResponseEntity.status(401).build();
-
-        // Học viên chỉ được đăng ký cho chính mình; Lễ tân và Quản lý được hỗ trợ tại quầy
-        if (securityUtils.hasRole("MEMBER") && !currentUserId.equals(request.getMemberId())) {
-            return ResponseEntity.status(403).build();
-        }
-        if (!securityUtils.isOwnerOrAuthorized(request.getMemberId())) {
-            return ResponseEntity.status(403).build();
-        }
-
-        return ResponseEntity.status(201).body(membershipService.subscribeMembershipPackage(request));
+    public ResponseEntity<Map<String, String>> subscribe() {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "code", "LEGACY_ENDPOINT_DISABLED",
+                "message", "API đăng ký cũ đã ngừng hoạt động. Hãy dùng POST /api/v1/membership-orders."));
     }
 
     /**
@@ -132,23 +118,13 @@ public class MembershipController {
         return expirationDate == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(expirationDate);
     }
 
-    /**
-     * Gia hạn gói tập:
-     * - Tạo subscription PENDING_PAYMENT nối tiếp kỳ cũ (hoặc từ hôm nay nếu đã hết hạn).
-     * - Tự động phát sinh hóa đơn PENDING.
-     */
+    /** @deprecated Gia hạn mới phải đi qua API membership-orders để tạo đơn và hóa đơn thống nhất. */
     @PostMapping("/{subscriptionId}/renew")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<MemberSubscriptionResponse> renew(
-            @PathVariable Integer subscriptionId, @RequestParam Integer packageId) {
-        var subscription = membershipService.getSubscriptionById(subscriptionId);
-        if (subscription == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if (!securityUtils.isOwnerOrAuthorized(subscription.getMemberId())) {
-            return ResponseEntity.status(403).build();
-        }
-        return ResponseEntity.ok(membershipService.renewSubscription(subscriptionId, packageId));
+    public ResponseEntity<Map<String, String>> renew() {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "code", "LEGACY_ENDPOINT_DISABLED",
+                "message", "API gia hạn cũ đã ngừng hoạt động. Hãy dùng POST /api/v1/membership-orders."));
     }
 
     /**
