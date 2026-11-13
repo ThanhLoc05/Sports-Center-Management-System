@@ -68,10 +68,11 @@ function start(binary, args, cwd, name, windowsVerbatimArguments = false) {
     err = fs.openSync(path.join(local, name + ".stderr.log"), "a");
   const child = spawn(binary, args, {
     cwd,
-    env,
-    // Windows: chạy cùng phiên console để CMD/Maven không thoát im lặng.
-    // stdio ghi ra file và unref giúp launcher kết thúc khi dịch vụ đã sẵn sàng.
-    detached: false,
+    // Vite không tự tắt khi stdin đóng do launcher chạy nền; chỉ áp dụng cho frontend.
+    env: name === "frontend" ? { ...env, CI: "true" } : env,
+    // Tách Vite khỏi console của launcher để frontend tiếp tục chạy khi lệnh kết thúc.
+    // CMD/Maven vẫn dùng cùng phiên console để backend không thoát im lặng.
+    detached: name === "frontend",
     windowsHide: true,
     stdio: ["ignore", out, err],
     windowsVerbatimArguments,
