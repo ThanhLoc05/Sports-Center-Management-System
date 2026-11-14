@@ -13,7 +13,7 @@ nhận JWT + user         Controller → Service → SQL Server
 ```
 
 - Đăng nhập: `POST /users/login` với email/mật khẩu; phản hồi gồm `token` và `user`.
-- Đăng ký tài khoản tự phục vụ: `POST /users/register`; backend tạo tài khoản `MEMBER`.
+- Đăng ký Member tự phục vụ: `POST /users/register` gửi mã OTP; `POST /users/register/verify-code` chỉ tạo tài khoản `MEMBER` sau khi mã đúng. Có thể gửi lại bằng `POST /users/register/resend-code`.
 - Khi đã đăng nhập, API dùng JWT. Mở trang thường tạo các request GET để tải dữ liệu; bấm lưu/xác nhận mới phát sinh request ghi.
 - `/api/assistant` là API riêng của trợ lý AI, không đi qua `/api/v1` và không phải luồng nghiệp vụ lưu SQL của hệ thống.
 - Nếu chạy **Demo mode** trong test, dữ liệu thay đổi nằm ở localStorage, không phải database. Các luồng bên dưới giả định API mode.

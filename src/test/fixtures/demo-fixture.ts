@@ -230,7 +230,7 @@ export function seedDatabase(): DemoDatabase {
         id: 1,
         name: "Essential",
         durationDays: 30,
-        price: 800000,
+        price: 800,
         description: "Khởi đầu thói quen khỏe mạnh.",
         features: [
           "Tập gym không giới hạn",
@@ -245,7 +245,7 @@ export function seedDatabase(): DemoDatabase {
         id: 2,
         name: "Signature",
         durationDays: 90,
-        price: 2100000,
+        price: 2100,
         description: "Nâng tầm trải nghiệm tập luyện.",
         features: [
           "Tất cả quyền lợi Essential",
@@ -261,7 +261,7 @@ export function seedDatabase(): DemoDatabase {
         id: 3,
         name: "All Access",
         durationDays: 365,
-        price: 8000000,
+        price: 8000,
         description: "Một năm đầu tư cho chính bạn.",
         features: [
           "Tất cả quyền lợi Signature",

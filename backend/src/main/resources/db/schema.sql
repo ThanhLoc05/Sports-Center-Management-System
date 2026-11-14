@@ -141,6 +141,31 @@ BEGIN
     );
 END;
 
+IF OBJECT_ID(N'dbo.pending_member_registrations', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.pending_member_registrations (
+        registration_id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_pending_member_registrations PRIMARY KEY,
+        email NVARCHAR(255) NOT NULL,
+        password_hash NVARCHAR(255) NOT NULL,
+        full_name NVARCHAR(100) NOT NULL,
+        phone NVARCHAR(20) NOT NULL,
+        otp_hash NVARCHAR(100) NOT NULL,
+        created_at DATETIME2 NOT NULL,
+        expires_at DATETIME2 NOT NULL,
+        last_sent_at DATETIME2 NOT NULL,
+        resend_window_started_at DATETIME2 NOT NULL,
+        attempt_count INT NOT NULL CONSTRAINT DF_pending_member_registrations_attempt DEFAULT 0,
+        resend_count INT NOT NULL CONSTRAINT DF_pending_member_registrations_resend DEFAULT 0,
+        CONSTRAINT UQ_pending_member_registrations_email UNIQUE (email),
+        CONSTRAINT CK_pending_member_registrations_attempt CHECK (attempt_count BETWEEN 0 AND 5),
+        CONSTRAINT CK_pending_member_registrations_resend CHECK (resend_count BETWEEN 0 AND 5)
+    );
+    CREATE INDEX IX_pending_member_registrations_expiry
+        ON dbo.pending_member_registrations(expires_at);
+    CREATE INDEX IX_pending_member_registrations_phone
+        ON dbo.pending_member_registrations(phone, expires_at);
+END;
+
 IF OBJECT_ID(N'dbo.coach_profiles', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.coach_profiles (
@@ -582,16 +607,16 @@ IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Hồ bơi')
 
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 1 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói STANDARD 1 tháng', 30, 500000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
+    VALUES (N'Gói STANDARD 1 tháng', 30, 500, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói STANDARD 3 tháng', 90, 1350000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
+    VALUES (N'Gói STANDARD 3 tháng', 90, 1350, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 1 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói VIP 1 tháng', 30, 800000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
+    VALUES (N'Gói VIP 1 tháng', 30, 800, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói VIP 3 tháng', 90, 2100000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
+    VALUES (N'Gói VIP 3 tháng', 90, 2100, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
 
 END;
 

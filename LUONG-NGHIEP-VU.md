@@ -273,7 +273,7 @@ Thanh toán gói đi theo luồng: `Memberships.tsx` → `MembershipCheckout.tsx
 
 | Luồng | Trang frontend chính | API tiêu biểu — tiền tố `/api/v1` |
 |---|---|---|
-| Tài khoản | `Auth.tsx`, `Members.tsx`, `Settings.tsx` | `POST /users/register`, `POST /users/login`, `GET /users`, `PATCH /users/{id}/status` |
+| Tài khoản | `Auth.tsx`, `MemberRegistrationVerification.tsx`, `Members.tsx`, `Settings.tsx` | `POST /users/register`, `POST /users/register/verify-code`, `POST /users/register/resend-code`, `POST /users/login`, `GET /users`, `PATCH /users/{id}/status` |
 | Gói | `Memberships.tsx`, `MembershipCheckout.tsx` | `GET /membership-packages`, `POST/GET /membership-orders`, `POST /membership-orders/{id}/confirm-payment`; API subscribe/renew cũ đã bị chặn |
 | Lớp | `Classes.tsx`, `Schedule.tsx` | `GET/POST /classes`, `PUT /classes/{id}`, `POST /classes/{id}/cancel`; request/response có cấp truy cập |
 | Booking | `Classes.tsx`, `Bookings.tsx` | `POST /classes/{id}/book?memberId=...`, `DELETE /bookings/{id}`; backend kiểm tra quyền gói |
