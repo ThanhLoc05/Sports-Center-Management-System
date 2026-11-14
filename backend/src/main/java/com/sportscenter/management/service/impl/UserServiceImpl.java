@@ -36,9 +36,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse registerUser(RegisterRequest request) {
         validateMemberRegistrationEmail(request == null ? null : request.getEmail());
-        User user = createAccount(request, "MEMBER", false);
-        accountActions.sendSignupVerification(user);
-        return mapToUserResponse(user);
+        // Đăng ký trực tiếp cho buổi demo; dùng lại kiểm tra trùng và mã hóa mật khẩu hiện có.
+        // Gán đủ điều kiện đăng nhập ngay để không cần gửi hoặc nhập mã xác minh email.
+        return mapToUserResponse(createAccount(request, "MEMBER", true));
     }
 
     @Override

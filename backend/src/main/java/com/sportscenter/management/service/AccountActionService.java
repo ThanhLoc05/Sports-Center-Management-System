@@ -51,19 +51,6 @@ public class AccountActionService {
         issue(user, Purpose.VERIFY_EMAIL, user.getEmail(), Duration.ofHours(24));
     }
 
-    /** Sends an OTP for a pending signup; no user row or frontend verification link exists yet. */
-    public void sendMemberRegistrationCode(String fullName, String targetEmail, String code, Duration lifetime) {
-        SimpleMailMessage mail = new SimpleMailMessage();
-        if (fromAddress != null && !fromAddress.isBlank()) mail.setFrom(fromAddress);
-        mail.setTo(targetEmail);
-        mail.setSubject("Mã xác minh đăng ký Sportiva");
-        mail.setText("Xin chào " + fullName + ",\n\n"
-                + "Mã xác minh đăng ký tài khoản Sportiva của bạn là: " + code + "\n\n"
-                + "Mã chỉ dùng một lần và hết hạn sau " + lifetime.toMinutes() + " phút. "
-                + "Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email.");
-        mailSender.send(mail);
-    }
-
     public void sendPendingEmailVerification(User user, String newEmail) {
         issue(user, Purpose.VERIFY_EMAIL, newEmail, Duration.ofHours(24));
     }

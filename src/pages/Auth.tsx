@@ -71,12 +71,12 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
   const success = location.state?.registrationComplete
     ? configuredMode === "demo"
       ? "Đã tạo tài khoản demo. Đăng nhập bằng email vừa đăng ký và mật khẩu chung Sportiva@123."
-      : "Email đã được xác minh và tài khoản đã được tạo. Bạn có thể đăng nhập."
+      : "Đăng ký thành công. Bạn có thể đăng nhập."
     : "";
   if (session) return <Navigate to="/" replace />;
   /**
-   * Đọc FormData và kiểm tra mật khẩu xác nhận nếu đăng ký. API mode yêu cầu OTP
-   * trước khi tạo tài khoản; demo mode tiếp tục tạo user preview tại chỗ. Đăng nhập
+   * Đọc FormData và kiểm tra mật khẩu xác nhận nếu đăng ký. Tạo tài khoản thành công
+   * thì về đăng nhập để dùng email và mật khẩu vừa tạo. Đăng nhập
    * xong đưa Session vào AuthProvider rồi về dashboard. catch hiện lỗi,
    * finally mở lại nút; navigate chỉ đổi route, không gọi trực tiếp backend.
    */
@@ -101,13 +101,9 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
           fullName: String(data.get("fullName")).trim(),
           phone: String(data.get("phone")).trim(),
         };
-        if (configuredMode === "api") {
-          await api.beginMemberRegistration(input);
-          navigate(`/verify-registration?email=${encodeURIComponent(email)}`);
-        } else {
-          await api.register(input);
-          navigate("/login", { state: { registrationComplete: true } });
-        }
+        // Đăng ký trực tiếp rồi mở đăng nhập; backend xác định vai trò MEMBER và lưu mật khẩu mã hóa.
+        await api.register(input);
+        navigate("/login", { state: { registrationComplete: true } });
       } else {
         signIn(await api.login(email, password));
         navigate("/");
