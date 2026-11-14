@@ -1,0 +1,57 @@
+/* Ảnh phủ khung có sẵn, giữ nguyên vị trí nút sửa và thông tin lớp. */
+.class-card-art > .class-sport-image,
+.class-detail-banner > .class-sport-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.class-sport-image[hidden] {
+  display: none;
+}
+.class-card-art:has(> .class-sport-image:not([hidden]))::after,
+.class-detail-banner:has(> .class-sport-image:not([hidden]))::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(10 33 25 / 25%), rgb(10 33 25 / 72%));
+}
+/* Lớp phủ và nhãn đặc giúp chữ đọc rõ trên ảnh sáng hoặc nhiều chi tiết. */
+.class-card-art:has(> .class-sport-image:not([hidden])) > .class-art-circle,
+.class-card-art:has(> .class-sport-image:not([hidden])) > .class-art-icon,
+.class-card-art:has(> .class-sport-image:not([hidden])) > .class-art-word {
+  display: none;
+}
+.class-card-art:has(> .class-sport-image:not([hidden])) > .class-sport-label {
+  color: #194b37;
+  background: #fff;
+  border-color: #fff;
+  opacity: 1;
+}
+.class-card-art:has(> .class-sport-image:not([hidden])) > .class-level {
+  color: #fff;
+  opacity: 1;
+  z-index: 1;
+}
+.class-card-art:has(> .class-sport-image:not([hidden])) > .class-edit {
+  z-index: 2;
+  color: #194b37;
+  background: #fff;
+  opacity: 1;
+}
+.class-detail-banner {
+  position: relative;
+  overflow: hidden;
+}
+.class-detail-banner:has(> .class-sport-image:not([hidden])) > div,
+.class-detail-banner:has(> .class-sport-image:not([hidden])) > svg,
+.class-detail-banner:has(> .class-sport-image:not([hidden])) > .badge {
+  position: relative;
+  z-index: 1;
+}
+.class-detail-banner:has(> .class-sport-image:not([hidden])) > div,
+.class-detail-banner:has(> .class-sport-image:not([hidden])) > svg {
+  color: #fff;
+}

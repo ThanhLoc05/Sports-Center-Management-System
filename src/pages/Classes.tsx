@@ -15,6 +15,8 @@ import {
  * và xem sức chứa. Cùng dữ liệu lớp được tái sử dụng trong lịch hoạt động.
  */
 import { useCatalog } from "../lib/catalog";
+import { sportVisual, sportImage } from "../lib/sport-visuals";
+import "../styles-sports.css";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -622,6 +624,7 @@ function ClassCard({
   onEdit?: () => void;
 }) {
   const { sports, rooms } = useCatalog();
+  const visual = sportVisual(sports[c.sportId]);
   const capacity = useQuery({
     queryKey: ["capacity", c.id],
     queryFn: () => api.capacity(c.id),
@@ -650,6 +653,12 @@ function ClassCard({
       }}
     >
       <div className={`class-card-art sport-${c.sportId}`}>
+        {/* Tải ảnh theo bộ môn; lỗi tải thì khung trang trí cũ vẫn hiển thị. */}
+        {visual && (
+          <img key={visual.image} className="class-sport-image" src={sportImage(visual.image)} alt={visual.alt}
+            width={840} height={560} loading="lazy" decoding="async"
+            onError={(event) => { event.currentTarget.hidden = true; }} />
+        )}
         <div className="class-art-circle" />
         <span className="class-sport-label">
           {sports[c.sportId] || (demo ? "Thể thao" : `Bộ môn #${c.sportId}`)}
@@ -812,6 +821,7 @@ function ClassDetailContent({
   onCancel?: (item: SportClass) => void;
 }) {
   const { sports, rooms } = useCatalog();
+  const visual = sportVisual(sports[c.sportId]);
   const users = useUsers();
 
   const [showCoach, setShowCoach] = useState(false);
@@ -848,6 +858,11 @@ function ClassDetailContent({
       >
         <div className="class-detail">
           <div className={`class-detail-banner sport-${c.sportId}`}>
+            {visual && (
+              <img key={visual.image} className="class-sport-image" src={sportImage(visual.image)} alt={visual.alt}
+                width={840} height={560} decoding="async"
+                onError={(event) => { event.currentTarget.hidden = true; }} />
+            )}
             <Dumbbell size={50} strokeWidth={1} />
             <div>
               <span>{sports[c.sportId] || `Bộ môn #${c.sportId}`}</span>

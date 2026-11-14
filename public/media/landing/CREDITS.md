@@ -9,3 +9,14 @@
 | `pilates.webp`     | Ahmet Kurt        | [Woman Performing Pilates Exercise on Reformer – Pexels](https://www.pexels.com/photo/woman-performing-pilates-exercise-on-reformer-33360215/)                               | [Pexels License](https://www.pexels.com/license/)                       |
 
 Clip dùng bản H.264 720p từ Mixkit. Poster và ba ảnh bộ môn đã được chuyển sang WebP để giảm dung lượng tải.
+
+## Ảnh bộ môn bổ sung, dùng chung cho trang giới thiệu và lớp học
+
+| Tệp | Tác giả | Nguồn gốc | Giấy phép |
+| --- | --- | --- | --- |
+| `badminton.webp` | XinCheng Zhang | [Young Man Playing Badminton Indoors](https://www.pexels.com/photo/young-man-playing-badminton-indoors-31791134/) | [Pexels License](https://www.pexels.com/license/) |
+| `basketball.webp` | Kampus Production | [Close-Up Shot of People Holding Basketball](https://www.pexels.com/photo/close-up-shot-of-people-holding-basketball-6763771/) | [Pexels License](https://www.pexels.com/license/) |
+| `swimming.webp` | SHVETS production | [A Swimmer Standing at the Edge of a Pool](https://www.pexels.com/photo/a-swimmer-standing-at-the-edge-of-a-pool-8028695/) | [Pexels License](https://www.pexels.com/license/) |
+| `boxing.webp` | Antoni Shkraba | [An Athlete Training in Boxing](https://www.pexels.com/photo/an-athlete-training-in-boxing-4401812/) | [Pexels License](https://www.pexels.com/license/) |
+
+Bốn ảnh bổ sung tải dạng WebP 840 × 560, nén và cắt theo tỷ lệ 3:2 từ CDN Pexels.

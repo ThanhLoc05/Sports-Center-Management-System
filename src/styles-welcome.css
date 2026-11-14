@@ -416,3 +416,23 @@
     transform: none;
   }
 }
+
+/* Căn giữa hàng cuối khi danh mục có bảy môn, giữ thẻ ảnh cùng tỷ lệ. */
+.welcome-sport-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.welcome-sport {
+  flex: 0 1 100%;
+}
+@media (min-width: 640px) {
+  .welcome-sport {
+    flex-basis: calc((100% - 24px) / 2);
+  }
+}
+@media (min-width: 1000px) {
+  .welcome-sport {
+    flex-basis: calc((100% - 72px) / 4);
+  }
+}

@@ -20,6 +20,9 @@ import {
 import { Button } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import "../styles-welcome.css";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
+import { sportVisual, sportVisuals, sportImage } from "../lib/sport-visuals";
 
 const media = "/media/landing";
 const sections = [
@@ -70,26 +73,6 @@ const features = [
     icon: MessageCircle,
     title: "Đánh giá",
     description: "Chia sẻ trải nghiệm sau buổi tập.",
-  },
-];
-const disciplines = [
-  {
-    title: "Yoga",
-    image: "yoga",
-    alt: "Học viên chống tay trên thảm, giữ tư thế thăng bằng nghiêng.",
-    detail: "Hơi thở & thăng bằng",
-  },
-  {
-    title: "Fitness",
-    image: "fitness",
-    alt: "Học viên tập với tạ tay trước gương trong phòng tập.",
-    detail: "Sức mạnh & sức bền",
-  },
-  {
-    title: "Pilates",
-    image: "pilates",
-    alt: "Học viên nghiêng người kéo giãn trên máy Pilates Reformer.",
-    detail: "Kiểm soát & linh hoạt",
   },
 ];
 const steps = [
@@ -196,6 +179,17 @@ function Hero() {
 }
 
 function WelcomeContent() {
+  // Danh mục công khai dùng cùng API /sports với trang lớp học để tên môn luôn khớp.
+  // Khi backend chưa truy cập được, vẫn hiển thị bảy môn hiện có cùng ảnh lưu tại FE.
+  const sportsQuery = useQuery({ queryKey: ["sports"], queryFn: api.sports });
+  const disciplines =
+    sportsQuery.data?.map((sport) => ({
+      title: sport.name,
+      image: sportVisual(sport.name)?.image || "hero-poster",
+      alt: sportVisual(sport.name)?.alt || "Không gian vận động Sportiva.",
+      detail: sportVisual(sport.name)?.detail || sport.description,
+    })) ?? sportVisuals;
+
   const [menuOpen, setMenuOpen] = useState(false);
   const menuToggle = useRef<HTMLButtonElement>(null);
   const page = useRef<HTMLDivElement>(null);
@@ -314,14 +308,14 @@ function WelcomeContent() {
             <h2 data-welcome-reveal>Khám phá bộ môn</h2>
             <div className="welcome-sport-grid">
               {disciplines.map((sport) => (
-                <figure key={sport.image} className="welcome-sport">
+                <figure key={sport.title} className="welcome-sport">
                   <div>
                     <img
                       width="840"
                       height="560"
                       loading="lazy"
                       decoding="async"
-                      src={media + "/" + sport.image + ".webp"}
+                      src={sportImage(sport.image)}
                       alt={sport.alt}
                       onError={(event) => {
                         event.currentTarget.hidden = true;
