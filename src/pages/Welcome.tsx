@@ -183,12 +183,20 @@ function WelcomeContent() {
   // Khi backend chưa truy cập được, vẫn hiển thị bảy môn hiện có cùng ảnh lưu tại FE.
   const sportsQuery = useQuery({ queryKey: ["sports"], queryFn: api.sports });
   const disciplines =
-    sportsQuery.data?.map((sport) => ({
-      title: sport.name,
-      image: sportVisual(sport.name)?.image || "hero-poster",
-      alt: sportVisual(sport.name)?.alt || "Không gian vận động Sportiva.",
-      detail: sportVisual(sport.name)?.detail || sport.description,
-    })) ?? sportVisuals;
+    // Hai bộ môn thử nghiệm chỉ ẩn ở trang giới thiệu; quản lý vẫn đọc đủ danh mục từ API.
+    sportsQuery.data
+      ?.filter(
+        (sport) =>
+          !["yoga2", "yoga3"].includes(
+            sport.name.trim().toLocaleLowerCase("vi").replace(/\s+/g, ""),
+          ),
+      )
+      .map((sport) => ({
+        title: sport.name,
+        image: sportVisual(sport.name)?.image || "hero-poster",
+        alt: sportVisual(sport.name)?.alt || "Không gian vận động Sportiva.",
+        detail: sportVisual(sport.name)?.detail || sport.description,
+      })) ?? sportVisuals;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuToggle = useRef<HTMLButtonElement>(null);

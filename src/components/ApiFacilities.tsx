@@ -22,7 +22,8 @@ import {
  * Chỉ thông báo thành công và tải lại danh sách sau khi backend chấp nhận.
  */
 export default function ApiFacilities() {
-  const [tab, setTab] = useState<"rooms" | "sports">("rooms");
+  // Mở đúng danh mục bộ môn khi vào màn quản lý; phòng tập vẫn chọn bằng tab bên cạnh.
+  const [tab, setTab] = useState<"rooms" | "sports">("sports");
   const [create, setCreate] = useState(false);
   const [edit, setEdit] = useState<{
     id: number;
@@ -38,7 +39,11 @@ export default function ApiFacilities() {
   const client = useQueryClient();
   const toast = useToast();
   const rooms = useQuery({ queryKey: ["rooms"], queryFn: api.rooms });
-  const sports = useQuery({ queryKey: ["sports"], queryFn: api.sports });
+  const sports = useQuery({
+    queryKey: ["sports"],
+    queryFn: api.sports,
+    refetchOnMount: "always",
+  });
   const q = tab === "rooms" ? rooms : sports;
   return (
     <>
@@ -51,14 +56,29 @@ export default function ApiFacilities() {
         }
       />
       <div className="page-actions">
-        <Button variant="secondary" onClick={() => setTab("rooms")}>
+        <Button
+          variant={tab === "rooms" ? "primary" : "secondary"}
+          aria-pressed={tab === "rooms"}
+          onClick={() => setTab("rooms")}
+        >
           Phòng tập
         </Button>
-        <Button variant="secondary" onClick={() => setTab("sports")}>
+        <Button
+          variant={tab === "sports" ? "primary" : "secondary"}
+          aria-pressed={tab === "sports"}
+          onClick={() => setTab("sports")}
+        >
           Bộ môn
         </Button>
       </div>
-      <Panel>
+      <Panel
+        title={tab === "sports" ? "Danh mục bộ môn" : "Danh mục phòng tập"}
+        description={
+          tab === "sports"
+            ? `${sports.data?.length || 0} bộ môn trong hệ thống. Bạn có thể chỉnh sửa hoặc xóa ở từng dòng.`
+            : undefined
+        }
+      >
         {q.isPending ? (
           <Loading />
         ) : q.error ? (
@@ -93,6 +113,8 @@ export default function ApiFacilities() {
           />
         ) : (
           <DataTable
+            // Hiện toàn bộ bộ môn để các mục mới không bị khuất ở trang sau.
+            pageSize={Math.max(sports.data?.length || 0, 8)}
             rows={sports.data || []}
             columns={[
               { key: "name", label: "Bộ môn", render: (s) => s.name },
@@ -126,8 +148,8 @@ export default function ApiFacilities() {
         )}
       </Panel>
       <Notice>
-        Chỉ xóa được phòng/bộ môn chưa được lớp học tham chiếu. Thay đổi sức chứa
-        phòng sẽ bị backend từ chối nếu xung đột với lớp hiện có.
+        Chỉ xóa được phòng/bộ môn chưa được lớp học tham chiếu. Thay đổi sức
+        chứa phòng sẽ bị backend từ chối nếu xung đột với lớp hiện có.
       </Notice>
       {remove && (
         <Confirm
@@ -152,21 +174,15 @@ export default function ApiFacilities() {
           submitLabel="Lưu thay đổi"
           onSubmit={async (d) => {
             if (tab === "rooms") {
-              await facilitiesApi.updateRoom(
-                edit.id,
-                {
-                  roomName: String(d.get("name")),
-                  capacity: Number(d.get("capacity")),
-                },
-              );
+              await facilitiesApi.updateRoom(edit.id, {
+                roomName: String(d.get("name")),
+                capacity: Number(d.get("capacity")),
+              });
             } else {
-              await facilitiesApi.updateSport(
-                edit.id,
-                {
-                  sportName: String(d.get("name")),
-                  description: String(d.get("description")),
-                },
-              );
+              await facilitiesApi.updateSport(edit.id, {
+                sportName: String(d.get("name")),
+                description: String(d.get("description")),
+              });
             }
             await client.invalidateQueries({ queryKey: [tab] });
             setEdit(null);
@@ -174,7 +190,12 @@ export default function ApiFacilities() {
           }}
         >
           <Field label={tab === "rooms" ? "Tên phòng" : "Tên bộ môn"}>
-            <input name="name" required maxLength={255} defaultValue={edit.name} />
+            <input
+              name="name"
+              required
+              maxLength={255}
+              defaultValue={edit.name}
+            />
           </Field>
           {tab === "rooms" ? (
             <Field label="Sức chứa">

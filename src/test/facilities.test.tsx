@@ -54,16 +54,30 @@ function server() {
     throw Error("Unexpected request " + path);
   });
 }
-function page(app = false) {
+function page(app = false, selectRooms = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   render(<QueryClientProvider client={client}><AuthProvider><ToastProvider><MemoryRouter initialEntries={["/facilities"]}>
     {app ? <App /> : <Facilities />}
   </MemoryRouter></ToastProvider></AuthProvider></QueryClientProvider>);
+  // Các ca phòng tập chủ động chọn tab, độc lập với tab bộ môn mặc định của màn quản lý.
+  if (!app && selectRooms) fireEvent.click(screen.getByRole("button", { name: "Phòng tập" }));
   return client;
 }
 const posts = () => vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === "POST");
 
 describe("Rooms/Sports — API catalog", () => {
+  it("mặc định mở bộ môn và hiện đủ cả các mục thứ tám, thứ chín để sửa/xóa", async () => {
+    session();
+    const sports = Array.from({length: 7}, (_, i) => ({id:i+1,sportName:`Bộ môn ${i+1}`,description:""}));
+    sports.push({id:12,sportName:"yoga 3",description:"abc"},{id:13,sportName:"yoga2",description:""});
+    vi.stubGlobal("fetch", vi.fn(async url => json(String(url).endsWith("/sports") ? sports : [room])));
+    page(false, false);
+    expect(await screen.findByText("yoga2")).toBeVisible();
+    expect(screen.getByText("yoga 3")).toBeVisible();
+    expect(screen.getByRole("button", {name:"Bộ môn"})).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", {name:"Xóa bộ môn yoga2"})).toBeVisible();
+    expect(within(screen.getByText("yoga 3").closest("tr")!).getByRole("button", {name:"Chỉnh sửa bộ môn"})).toBeVisible();
+  });
   it("maps GET DTOs without reading demo data", async () => {
     session(); vi.stubGlobal("fetch", server());
     expect(await api.rooms()).toEqual([{ id: 81, name: room.roomName, capacity: 23, description: "" }]);
