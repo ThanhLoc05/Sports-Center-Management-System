@@ -1,0 +1,22 @@
+/* Giữ nút tìm cùng hàng với ô nhập; cho xuống dòng khi màn hình hẹp. */
+.membership-member-search {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 24px 16px;
+}
+.membership-member-search .search-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+}
+@media (max-width: 480px) {
+  .membership-member-search {
+    padding-inline: 16px;
+  }
+  .membership-member-search .search-input {
+    flex-basis: 100%;
+  }
+}

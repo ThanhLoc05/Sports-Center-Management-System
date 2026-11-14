@@ -3,6 +3,7 @@ package com.sportscenter.management.service.impl;
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.payment.*;
 import com.sportscenter.management.dto.Request.ConfirmMembershipOrderRequest;
+import com.sportscenter.management.dto.Request.CancelMembershipOrderRequest;
 import com.sportscenter.management.dto.Request.MembershipOrderRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.dto.Response.MemberSubscriptionResponse;
@@ -194,6 +195,35 @@ public class MembershipOrderService {
         MembershipOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu thanh toán gói."));
         ensureCanRead(order);
+        return toResponse(order);
+    }
+
+    /**
+     * Hủy yêu cầu chưa thu tiền trong cùng transaction với hóa đơn.
+     * Khóa cùng hàng đơn như xác nhận tiền mặt/webhook để chỉ một thao tác có thể hoàn tất.
+     * Webhook tới sau khi hủy sẽ được luồng SePay hiện có lưu REVIEW_REQUIRED, không cấp gói.
+     */
+    public MembershipOrderResponse cancel(Integer orderId, CancelMembershipOrderRequest request) {
+        currentActorId();
+        if (!isStaff()) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ lễ tân hoặc quản lý được hủy đơn chờ.");
+        MembershipOrder order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu thanh toán gói."));
+        // Gửi lại sau lỗi mạng trả về trạng thái đã lưu, không tác động gói hay tạo hóa đơn mới.
+        if ("CANCELLED".equals(order.getStatus())) return toResponse(order);
+        if (!"PENDING_PAYMENT".equals(order.getStatus())) throw conflict("Chỉ có thể hủy đơn đang chờ thanh toán.");
+        if (!Objects.equals(order.getVersion(), request.getVersion()))
+            throw conflict("Đơn đã thay đổi. Tải lại trạng thái trước khi hủy.");
+        Invoice invoice = invoiceRepository.findByMembershipOrderId(orderId)
+                .orElseThrow(() -> new IllegalStateException("Yêu cầu gói chưa có hóa đơn liên kết"));
+        if (!"PENDING".equals(invoice.getPaymentStatus()) || invoice.getSubscriptionId() != null)
+            throw conflict("Hóa đơn không còn chờ thanh toán; không thể hủy đơn này.");
+        if (bankEvents.receivedTotal(invoice.getId()).signum() > 0)
+            throw conflict("Đơn đã ghi nhận tiền chuyển khoản. Cần đối soát khoản tiền trước khi xử lý tiếp.");
+        invoice.setPaymentStatus("CANCELLED");
+        invoiceRepository.save(invoice);
+        order.setStatus("CANCELLED");
+        orderRepository.saveAndFlush(order);
+        // Đơn hết PENDING_PAYMENT sẽ giải phóng điều kiện tạo đơn mới; kỳ gói cũ được giữ nguyên.
         return toResponse(order);
     }
 

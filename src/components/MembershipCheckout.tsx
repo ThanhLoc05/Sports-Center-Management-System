@@ -14,7 +14,9 @@ import type {
   PaymentMethod,
 } from "../lib/membership-checkout";
 import type { Subscription } from "../lib/types";
-import { dateLabel, errorText, localDate, money } from "../lib/utils";
+import { dateLabel, errorText, idLabel, localDate, matches, money } from "../lib/utils";
+import { Search } from "lucide-react";
+import "../styles-membership-members.css";
 import { MembershipDelivery, TransferVerification } from "./MembershipDelivery";
 import { usePaymentMember } from "../lib/use-payment-member";
 import { PaymentQr } from "./PaymentQr";
@@ -37,6 +39,7 @@ import {
   useToast,
 } from "./ui";
 
+// Chọn lời xác nhận theo đơn mua mới, gia hạn cùng gói hoặc đổi gói cho kỳ tiếp theo.
 const orderAction = (order: MembershipOrder) =>
   order.kind === "NEW"
     ? "đăng ký gói mới"
@@ -68,9 +71,11 @@ const positiveId = (text: string | null) =>
   Number(text) > 0
     ? Number(text)
     : undefined;
+// Danh sách đơn tải lại mỗi 10 giây; khi API lỗi thì dừng polling để người dùng chủ động thử lại.
 const pendingInterval = (query: { state: { error: unknown } }) =>
   query.state.error ? false : 10000;
 
+/** Khi đơn đã xác nhận/hoàn tiền, làm mới cache gói và hóa đơn để các màn liên quan đọc lại từ BE. */
 function useConfirmedMemberships(orders?: MembershipOrder[]) {
   const client = useQueryClient();
   const refreshed = useRef(new Set<string>());
@@ -96,6 +101,7 @@ function useConfirmedMemberships(orders?: MembershipOrder[]) {
   }, [orders, client]);
 }
 
+/** Trang chọn gói: tải danh mục và lịch sử thật, xác định gói hiện tại rồi mở form mua/gia hạn. */
 export function MembershipCheckoutPage() {
   const { session } = useAuth();
   const member = session!.user.roleName === "MEMBER";
@@ -104,7 +110,14 @@ export function MembershipCheckoutPage() {
     member ? String(session!.user.id) : params.get("memberId") || "",
   );
   const selected = positiveId(memberId);
-  const users = useUsers();
+  const users = useUsers(true);
+  const [memberSearchInput, setMemberSearchInput] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const memberCode = memberSearch.trim().match(/^(?:TV\s*)?(\d+)$/i);
+  // Danh sách chỉ lấy MEMBER từ API thật; tìm mã chính xác, tên gần đúng có hỗ trợ không dấu.
+  const memberRows = (users.data || []).filter((user) => user.roleName === "MEMBER")
+    .filter((user) => memberCode ? user.id === Number(memberCode[1]) : matches(memberSearch, user.fullName));
+  const selectedMember = users.data?.find((user) => user.id === selected && user.roleName === "MEMBER");
   const packages = useQuery({
     queryKey: ["membership-packages"],
     queryFn: membershipCheckout.packages,
@@ -119,6 +132,7 @@ export function MembershipCheckoutPage() {
     source?: Subscription;
     offer?: MembershipOffer;
   } | null>(null);
+  // Chỉ cho tạo yêu cầu từ lịch sử đã tải xong; tránh gia hạn nhầm gói khi dữ liệu còn đang đổi.
   const historyReady =
     !subscriptions.isPending &&
     !subscriptions.isFetching &&
@@ -145,14 +159,37 @@ export function MembershipCheckoutPage() {
       />
       {!member && (
         <Panel className="panel-spaced" title="Thành viên cần hỗ trợ">
-          <Field label="ID thành viên xem gói">
-            <input
-              type="number"
-              min="1"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-            />
-          </Field>
+          {/* Tách tìm và chọn để lễ tân xem danh sách đầy đủ trước khi mở gói của đúng người. */}
+          <form className="membership-member-search" onSubmit={(event) => {
+            event.preventDefault(); setMemberSearch(memberSearchInput);
+          }}>
+            <SearchInput label="Tìm thành viên xem gói" placeholder="Nhập ID, mã TV hoặc tên thành viên..."
+              value={memberSearchInput} onChange={(value) => {
+                setMemberSearchInput(value); if (!value) setMemberSearch("");
+              }} />
+            <Button type="submit" variant="secondary"><Search size={16} />Tìm kiếm</Button>
+            {memberSearch && <Button type="button" variant="ghost" onClick={() => {
+              setMemberSearchInput(""); setMemberSearch("");
+            }}>Xem tất cả</Button>}
+          </form>
+          {selectedMember && <Notice>Đang xem gói của {idLabel(selectedMember.id)} · {selectedMember.fullName}.</Notice>}
+          {users.isPending ? <Loading /> : users.error ? <ErrorState error={users.error} retry={users.refetch} /> : (
+            <DataTable rows={memberRows} label="Danh sách thành viên xem gói" columns={[
+              { key: "id", label: "Mã thành viên", render: (user) => idLabel(user.id) },
+              { key: "name", label: "Họ tên", render: (user) => <strong>{user.fullName}</strong> },
+              { key: "contact", label: "Liên hệ", render: (user) => (
+                <div className="contact-cell"><span>{user.email}</span><small>{user.phone || "—"}</small></div>
+              ) },
+              { key: "status", label: "Trạng thái", render: (user) => <Badge status={user.status} /> },
+              { key: "select", label: "Thao tác", render: (user) => (
+                <Button variant={selected === user.id ? "primary" : "secondary"}
+                  aria-label={`Xem gói của ${user.fullName}, ${idLabel(user.id)}`}
+                  onClick={() => { setMemberId(String(user.id)); setDraft(null); }}>
+                  {selected === user.id ? "Đang xem" : "Xem gói"}
+                </Button>
+              ) },
+            ]} />
+          )}
         </Panel>
       )}
       {subscriptions.isFetching && selected && <Loading />}
@@ -300,6 +337,7 @@ export function MembershipCheckoutPage() {
   );
 }
 
+/** Form gom Member + gói + phương thức; lưu đơn chờ rồi điều hướng sang hóa đơn để thanh toán. */
 export function MembershipOrderForm({
   memberId,
   source,
@@ -360,6 +398,7 @@ export function MembershipOrderForm({
             : Number(data.get("memberId"));
         if (source && source.memberId !== target)
           throw Error("Gói cũ không thuộc thành viên đã chọn.");
+        // Chỉ gửi mã gói/phương thức và gói cũ nếu gia hạn; số tiền phải do BE tính, không lấy từ form.
         const input: MembershipOrderInput = {
           memberId: target,
           packageId: selected.id,
@@ -379,6 +418,7 @@ export function MembershipOrderForm({
             ? "Yêu cầu đã được xác nhận. Đang mở hóa đơn."
             : "Đã tạo yêu cầu chờ thanh toán. Gói hiện tại chưa thay đổi.",
         );
+        // Hai mã trên URL giúp trang Thanh toán mở đúng đơn vừa tạo, không phải tự tìm lại trong bảng.
         navigate(`/payments?memberId=${order.memberId}&orderId=${order.id}`);
       }}
     >
@@ -496,6 +536,7 @@ export function MembershipOrders({
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  // Member luôn xem chính mình; memberId truyền vào dành cho nhân viên hỗ trợ tại quầy.
   const effectiveMember =
     session!.user.roleName === "MEMBER" ? session!.user.id : memberId;
   const query = useQuery({
@@ -505,8 +546,10 @@ export function MembershipOrders({
     refetchInterval: pendingInterval,
   });
   useConfirmedMemberships(query.error ? undefined : query.data);
+  // Link từ checkout ưu tiên mở orderId trên URL; bấm trong bảng thì dùng đơn đang chọn ở state.
   const fromUrl = paymentPage ? positiveId(params.get("orderId")) : undefined;
   const detailId = fromUrl || selected;
+  // Lọc bảng trên dữ liệu đã tải, không thay trạng thái đơn trong SQL.
   const rows = (query.data || []).filter(
     (o) =>
       (can("payments.collect") || o.memberId === session!.user.id) &&
@@ -649,6 +692,7 @@ export function MembershipOrders({
   );
 }
 
+/** Chi tiết đơn dùng chung cho Member/nhân viên: đọc kết quả BE, hiển thị QR hoặc form tiền mặt và vùng in hóa đơn. */
 export function MembershipOrderDetail({
   orderId,
   onClose,
@@ -660,11 +704,13 @@ export function MembershipOrderDetail({
   const can = usePermissions();
   const client = useQueryClient();
   const toast = useToast();
+  // Liên kết nút xác nhận ở footer với form nhận tiền bằng thuộc tính form/id của HTML.
   const cashFormId = useId();
   const query = useQuery({
     queryKey: ["membership-order", orderId],
     queryFn: () => membershipCheckout.detail(orderId),
     retry: false,
+    // Chi tiết đơn tải mỗi 8 giây khi còn chờ tiền/thông báo; hoàn tất hoặc lỗi thì ngừng polling.
     // Theo dõi trạng thái thật của đơn và thông báo trong website.
     refetchInterval: (q) =>
       q.state.error
@@ -683,11 +729,13 @@ export function MembershipOrderDetail({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [refundOpen, setRefundOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const confirmKey = useRef({ fingerprint: "", key: "" });
   const lastStatus = useRef<string | undefined>(undefined);
   // Đổi đơn phải bỏ xác nhận của phiếu trước; không để checkbox thu tiền bị dùng lại.
   useEffect(() => {
     setChecked(false);
+    setCancelOpen(false);
     setError("");
     confirmKey.current = { fingerprint: "", key: "" };
     lastStatus.current = undefined;
@@ -709,11 +757,18 @@ export function MembershipOrderDetail({
     lastStatus.current = order?.status;
   }, [order?.status, order?.memberId, client, toast]);
   // Nút submit đặt ở footer và liên kết form bằng HTML form/id; kiểm tra thu tiền giữ nguyên.
+  // Chỉ hiện nút thu tiền cho đơn CASH còn chờ và người có quyền; đơn QR đi theo webhook của BE.
   const canCollectCash =
     !!order &&
     order.status === "PENDING_PAYMENT" &&
     order.invoice.paymentMethod === "CASH" &&
     can("payments.collect");
+  // Cho nhân viên hủy đơn lập sai; BE kiểm tra lại tiền đã nhận và phiên bản dưới khóa.
+  const canCancel =
+    !!order &&
+    order.status === "PENDING_PAYMENT" &&
+    can("payments.collect") &&
+    (order.bankTransfer?.receivedAmount ?? 0) === 0;
   const canRefund =
     !!order &&
     order.status === "CONFIRMED" &&
@@ -896,6 +951,7 @@ export function MembershipOrderDetail({
                               fingerprint,
                               key: crypto.randomUUID(),
                             };
+                          // Gửi khoản thu đã được nhân viên kiểm tra; chỉ hiển thị thành công theo response từ BE.
                           const updated = await membershipCheckout.confirm(
                             order,
                             "",
@@ -976,6 +1032,11 @@ export function MembershipOrderDetail({
                 </Button>
               </div>
               <div className="membership-order-primary">
+                {canCancel && (
+                  <Button variant="danger" disabled={busy} onClick={() => setCancelOpen(true)}>
+                    Hủy đơn chờ
+                  </Button>
+                )}
                 {canRefund && (
                   <Button
                     variant="danger"
@@ -1008,6 +1069,26 @@ export function MembershipOrderDetail({
         )
       )}
     </Modal>
+    {cancelOpen && order && (
+      <Confirm title="Hủy đơn chờ thanh toán?"
+        description={`Hủy hóa đơn HD${order.invoice.id} của TV${order.memberId}. Chỉ xác nhận khi chưa nhận tiền. Gói hiện tại được giữ nguyên và có thể tạo lại đơn đúng. Sau khi hủy, không chuyển tiền theo QR của đơn này.`}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            const updated = await membershipCheckout.cancel(order);
+            client.setQueryData(["membership-order", orderId], updated);
+            await client.invalidateQueries();
+            setCancelOpen(false);
+            toast("Đã hủy đơn chờ. Bạn có thể tạo lại yêu cầu đăng ký hoặc gia hạn.");
+          } catch (error) {
+            await query.refetch();
+            throw error;
+          } finally {
+            setBusy(false);
+          }
+        }} />
+    )}
     {refundOpen && order && (
       <Confirm
         title="Xác nhận hoàn tiền?"
@@ -1047,6 +1128,7 @@ export function MembershipNotifications() {
     retry: false,
     refetchInterval: pendingInterval,
   });
+  // Danh sách thông báo xác nhận được dựng từ các đơn đã hoàn tất; đơn chờ chưa có thông báo thành công.
   const rows = query.data?.filter((o) => o.status === "CONFIRMED") || [];
   return (
     <>

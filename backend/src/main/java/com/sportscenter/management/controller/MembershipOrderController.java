@@ -2,6 +2,7 @@ package com.sportscenter.management.controller;
 
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.dto.Request.ConfirmMembershipOrderRequest;
+import com.sportscenter.management.dto.Request.CancelMembershipOrderRequest;
 import com.sportscenter.management.dto.Request.MembershipOrderRequest;
 import com.sportscenter.management.dto.Response.MembershipOfferResponse;
 import com.sportscenter.management.dto.Response.MembershipOrderResponse;
@@ -88,6 +89,15 @@ public class MembershipOrderController {
             @Valid @RequestBody ConfirmMembershipOrderRequest request,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
         return orderService.confirm(orderId, request, idempotencyKey);
+    }
+
+    /** Hủy đơn lập sai khi chưa thu tiền; giữ lịch sử đơn và hóa đơn để tra cứu. */
+    @PostMapping("/membership-orders/{orderId}/cancel")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
+    public MembershipOrderResponse cancel(
+            @PathVariable Integer orderId,
+            @Valid @RequestBody CancelMembershipOrderRequest request) {
+        return orderService.cancel(orderId, request);
     }
 
 }

@@ -115,6 +115,91 @@ const member = {
   status: "ACTIVE",
 };
 
+describe("Hủy đơn chờ thanh toán", () => {
+  const cancelled: MembershipOrder = {
+    ...pending,
+    status: "CANCELLED",
+    version: 1,
+    invoice: { ...pending.invoice, paymentStatus: "CANCELLED" },
+  };
+  it("lễ tân xác nhận hủy qua API và QR biến mất sau phản hồi", async () => {
+    vi.spyOn(membershipCheckout, "detail")
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValue(cancelled);
+    const cancel = vi
+      .spyOn(membershipCheckout, "cancel")
+      .mockResolvedValue(cancelled);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json(member)),
+    );
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Hủy đơn chờ" }),
+    );
+    expect(cancel).not.toHaveBeenCalled();
+    const confirmation = screen.getByRole("dialog", {
+      name: "Hủy đơn chờ thanh toán?",
+    });
+    await user.click(
+      within(confirmation).getByRole("button", { name: "Xác nhận" }),
+    );
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith(pending));
+    await screen.findByText("Yêu cầu đã hủy. Không thanh toán cho đơn này.");
+    expect(
+      screen.queryByRole("button", { name: "Hủy đơn chờ" }),
+    ).not.toBeInTheDocument();
+  });
+  it("member không có nút hủy đơn của nhân viên", async () => {
+    vi.spyOn(membershipCheckout, "detail").mockResolvedValue(pending);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json(member)),
+    );
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />, "MEMBER");
+    await screen.findByText("Gói tháng TEST");
+    expect(
+      screen.queryByRole("button", { name: "Hủy đơn chờ" }),
+    ).not.toBeInTheDocument();
+  });
+  it("ẩn nút hủy khi backend đã ghi nhận một phần tiền QR", async () => {
+    vi.spyOn(membershipCheckout, "detail").mockResolvedValue({
+      ...pending,
+      bankTransfer: { status: "AMOUNT_MISMATCH", receivedAmount: 5000 },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json(member)),
+    );
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    await screen.findByText("Gói tháng TEST");
+    expect(
+      screen.queryByRole("button", { name: "Hủy đơn chờ" }),
+    ).not.toBeInTheDocument();
+  });
+  it("hợp đồng hủy gửi đúng version và từ chối phản hồi hóa đơn còn chờ", async () => {
+    wrap(<div />);
+    const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      json(cancelled),
+    );
+    vi.stubGlobal("fetch", fetch);
+    await expect(membershipCheckout.cancel(pending)).resolves.toMatchObject({
+      status: "CANCELLED",
+    });
+    expect(String(fetch.mock.calls[0][0])).toContain(
+      "/membership-orders/20/cancel",
+    );
+    expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).toEqual({
+      version: 0,
+    });
+    fetch.mockResolvedValue(json({ ...cancelled, invoice: pending.invoice }));
+    await expect(membershipCheckout.cancel(pending)).rejects.toThrow(
+      "chưa đồng bộ",
+    );
+  });
+});
+
 describe("Phần FE còn thiếu của luồng thanh toán", () => {
   it("renders a QR and explains omitted optional name without altering the reference", async () => {
     vi.stubGlobal(

@@ -3,6 +3,7 @@ package com.sportscenter.management.service.impl;
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.payment.*;
 import com.sportscenter.management.dto.Request.ConfirmMembershipOrderRequest;
+import com.sportscenter.management.dto.Request.CancelMembershipOrderRequest;
 import com.sportscenter.management.entity.Invoice;
 import com.sportscenter.management.entity.MemberSubscription;
 import com.sportscenter.management.entity.MembershipOrder;
@@ -333,4 +334,65 @@ class MembershipOrderServiceTest {
         verify(manager, never()).commit(any());
         // Mock chỉ xác minh Spring gọi rollback, không mô phỏng khả năng hoàn tác của SQL Server.
     }
+    private void cancelPending(int id, int version) {
+        CancelMembershipOrderRequest request = new CancelMembershipOrderRequest();
+        request.setVersion(version);
+        service.cancel(id, request);
+    }
+
+    @Test
+    void staffCanCancelPendingCashWithoutChangingCurrentSubscription() {
+        when(security.isReceptionist()).thenReturn(true);
+        pendingOrder(20);
+        cancelPending(20, 0);
+        assertEquals("CANCELLED", savedOrders.get(20).getStatus());
+        assertEquals("CANCELLED", savedInvoices.get(20).getPaymentStatus());
+        assertEquals("ACTIVE", source.getStatus());
+        assertEquals(1, periods.size());
+        verify(subscriptions, never()).saveAndFlush(any());
+        verify(notifications, never()).notifyConfirmed(any(), any(), any());
+    }
+
+    @Test
+    void managerCanCancelUnpaidQrAndRetryDoesNotChangeAnything() {
+        when(security.isCenterManager()).thenReturn(true);
+        pendingOrder(20);
+        savedOrders.get(20).setPaymentMethod("BANK_TRANSFER");
+        savedInvoices.get(20).setPaymentMethod("BANK_TRANSFER");
+        cancelPending(20, 0);
+        cancelPending(20, 0);
+        assertEquals("CANCELLED", savedInvoices.get(20).getPaymentStatus());
+        verify(orders, times(1)).saveAndFlush(any());
+    }
+
+    @Test
+    void memberCannotCancelStaffOrderEvenByCallingServiceDirectly() {
+        pendingOrder(20);
+        assertEquals(403, assertThrows(ResponseStatusException.class, () -> cancelPending(20, 0)).getStatusCode().value());
+        assertEquals("PENDING_PAYMENT", savedOrders.get(20).getStatus());
+    }
+
+    @Test
+    void paidOrderCannotBeCancelledAndCancelledOrderCannotBeConfirmed() {
+        when(security.isReceptionist()).thenReturn(true);
+        pendingOrder(20); confirm(20);
+        assertEquals(409, assertThrows(ResponseStatusException.class, () -> cancelPending(20, 0)).getStatusCode().value());
+        assertEquals("PAID", savedInvoices.get(20).getPaymentStatus());
+        pendingOrder(21); cancelPending(21, 0);
+        assertThrows(ResponseStatusException.class, () -> confirm(21));
+        assertEquals("CANCELLED", savedInvoices.get(21).getPaymentStatus());
+    }
+
+    @Test
+    void cancelRejectsStaleVersionAndPartiallyReceivedTransfer() {
+        when(security.isReceptionist()).thenReturn(true);
+        pendingOrder(20);
+        assertThrows(ResponseStatusException.class, () -> cancelPending(20, 1));
+        when(bankEvents.receivedTotal(120)).thenReturn(new BigDecimal("5000"));
+        assertThrows(ResponseStatusException.class, () -> cancelPending(20, 0));
+        assertEquals("PENDING_PAYMENT", savedOrders.get(20).getStatus());
+        assertEquals("PENDING", savedInvoices.get(20).getPaymentStatus());
+        verify(orders, never()).saveAndFlush(any());
+    }
+
 }

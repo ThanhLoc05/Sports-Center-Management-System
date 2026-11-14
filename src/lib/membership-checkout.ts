@@ -6,6 +6,7 @@ import { transferReference, validateBank } from "./payment-qr";
 import type { BankConfig } from "./payment-qr";
 import type { Invoice, Subscription } from "./types";
 
+/** Giá niêm yết là price; payableAmount chỉ là mức QR demo nếu server trả demoPayment=true. */
 export interface MembershipOffer {
   id: number;
   name: string;
@@ -17,6 +18,7 @@ export interface MembershipOffer {
   description?: string;
 }
 export type PaymentMethod = "CASH" | "BANK_TRANSFER";
+/** Một đơn gom hóa đơn, snapshot gói/ngân hàng và kết quả xác nhận để các vai trò đọc cùng dữ liệu. */
 export interface MembershipOrder {
   id: number;
   memberId: number;
@@ -55,6 +57,7 @@ function id(value: number) {
     throw new ApiError("Mã dữ liệu không hợp lệ.");
   return value;
 }
+/** Kiểm tra giá/thời hạn trước khi đưa gói vào checkout; FE không tự đặt giá bán. */
 function offer(value: MembershipOffer): MembershipOffer {
   if (
     !value ||
@@ -88,7 +91,9 @@ export function validateMembershipOrder(
   if (
     !value ||
     !["NEW", "RENEWAL"].includes(value.kind) ||
-    !["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "REFUNDED"].includes(value.status) ||
+    !["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "REFUNDED"].includes(
+      value.status,
+    ) ||
     !Number.isSafeInteger(value.version) ||
     value.version < 0
   )
@@ -127,6 +132,8 @@ export function validateMembershipOrder(
     throw new ApiError(
       "Chưa có kết quả xác nhận thanh toán và kích hoạt gói hợp lệ.",
     );
+  if (value.status === "CANCELLED" && invoice.paymentStatus !== "CANCELLED")
+    throw new ApiError("Trạng thái hủy đơn và hóa đơn chưa đồng bộ.");
   if (
     value.status === "REFUNDED" &&
     (invoice.paymentStatus !== "REFUNDED" ||
@@ -161,6 +168,7 @@ export function validateMembershipOrder(
     );
   return value;
 }
+/** Chuyển lỗi API chưa hỗ trợ thành hướng dẫn liên hệ lễ tân; giữ nguyên các lỗi khác để màn hình xử lý. */
 async function contract<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return await request<T>(path, init);
@@ -174,12 +182,14 @@ async function contract<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 export const membershipCheckout = {
+  // GET danh mục checkout và chỉ cho chọn gói ACTIVE đã qua kiểm tra dữ liệu.
   async packages() {
     const data = await contract<MembershipOffer[]>("/membership-packages");
     if (!Array.isArray(data))
       throw new ApiError("Danh mục gói trả về không đúng định dạng.");
     return data.map(offer).filter((p) => p.status === "ACTIVE");
   },
+  // Member đọc đơn của mình; nhân viên có thể đọc danh sách hoặc lọc theo memberId. BE vẫn kiểm tra quyền.
   async list(memberId?: number) {
     const data = await contract<MembershipOrder[]>(
       "/membership-orders" + (memberId ? "?memberId=" + id(memberId) : ""),
@@ -191,6 +201,7 @@ export const membershipCheckout = {
       throw new ApiError("Yêu cầu thanh toán không thuộc thành viên đang xem.");
     return orders;
   },
+  // Dùng khi mở hóa đơn và khi polling; chỉ đọc trạng thái, không xác nhận đã nhận tiền.
   async detail(orderId: number) {
     const order = validateMembershipOrder(
       await contract<MembershipOrder>("/membership-orders/" + id(orderId)),
@@ -199,6 +210,7 @@ export const membershipCheckout = {
       throw new ApiError("Mã yêu cầu trả về không khớp.");
     return order;
   },
+  // POST tạo đơn chờ. Giữ cùng Idempotency-Key khi thử lại cùng lựa chọn để BE không tạo thêm hóa đơn.
   async create(input: MembershipOrderInput, key: string) {
     id(input.memberId);
     id(input.packageId);
@@ -218,6 +230,29 @@ export const membershipCheckout = {
       throw new ApiError("Yêu cầu trả về không khớp thông tin đã chọn.");
     return order;
   },
+  // Hủy đơn chờ qua BE; chỉ cập nhật giao diện theo trạng thái đơn/hóa đơn trả về.
+  async cancel(order: MembershipOrder) {
+    if (order.status !== "PENDING_PAYMENT")
+      throw new ApiError("Chỉ có thể hủy đơn đang chờ thanh toán.");
+    const updated = validateMembershipOrder(
+      await contract<MembershipOrder>(
+        `/membership-orders/${id(order.id)}/cancel`,
+        {
+          method: "POST",
+          body: JSON.stringify({ version: order.version }),
+        },
+      ),
+    );
+    if (
+      updated.id !== order.id ||
+      updated.memberId !== order.memberId ||
+      updated.invoice.id !== order.invoice.id ||
+      updated.status !== "CANCELLED"
+    )
+      throw new ApiError("Chưa nhận được xác nhận hủy đúng đơn từ máy chủ.");
+    return updated;
+  },
+  // POST xác nhận tiền mặt gửi version của đơn; BE kiểm tra và trả kết quả gói đã ghi thành công.
   async confirm(order: MembershipOrder, _transactionId: string, key: string) {
     if (order.status !== "PENDING_PAYMENT")
       throw new ApiError("Yêu cầu không còn chờ thanh toán.");

@@ -123,6 +123,14 @@ class SepayWebhookServiceTest {
         verify(events).saveAndFlush(capture.capture());
         assertEquals("REVIEW_REQUIRED", capture.getValue().getStatus()); verifyNoInteractions(memberships);
     }
+    @Test void transferAfterCancellationIsKeptForReviewWithoutActivatingMembership() {
+        order.setStatus("CANCELLED");
+        service.accept(valid());
+        ArgumentCaptor<BankPaymentEvent> capture = ArgumentCaptor.forClass(BankPaymentEvent.class);
+        verify(events).saveAndFlush(capture.capture());
+        assertEquals("REVIEW_REQUIRED", capture.getValue().getStatus());
+        verifyNoInteractions(memberships);
+    }
     @Test void eventFromBeforeTheOrderOrFarInTheFutureCannotPayIt() {
         SepayWebhookRequest v=valid();
         for(LocalDateTime time:new LocalDateTime[]{now.minusDays(1),now.plusDays(1)})
