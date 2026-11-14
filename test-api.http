@@ -261,7 +261,7 @@ Authorization: {{memberToken}}
   "capacity": 12
 }
 
-### Register a new member
+### Start member registration (a six-digit OTP is sent by email)
 POST {{baseUrl}}/api/v1/users/register
 Content-Type: {{contentType}}
 
@@ -270,6 +270,15 @@ Content-Type: {{contentType}}
   "password": "phucvinh",
   "fullName": "Tran Phuc Vinh",
   "phone": "0345887992"
+}
+
+### Verify the OTP from the email before the account is created
+POST {{baseUrl}}/api/v1/users/register/verify-code
+Content-Type: {{contentType}}
+
+{
+  "email": "phucvinh@gmail.com",
+  "code": "123456"
 }
 
 ### Login to get access token

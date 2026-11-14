@@ -59,14 +59,6 @@ public class UserController {
     private final CoachProfileService coachProfileService;
     private final UserRepository userRepository;
 
-    /**
-     * ĐĂNG KÝ TÀI KHOẢN MỚI (DÀNH CHO HỌC VIÊN - MEMBER HOẶC LỄ TÂN TẠO TẠI QUẦY)
-     */
-    @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(201).body(userService.registerUser(request));
-    }
-
     @PostMapping("/members")
     @PreAuthorize("hasAnyRole('CENTER_MANAGER','RECEPTIONIST')")
     public ResponseEntity<UserResponse> createMember(@Valid @RequestBody RegisterRequest request) {

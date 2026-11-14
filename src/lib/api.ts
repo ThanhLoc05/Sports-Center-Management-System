@@ -374,6 +374,15 @@ function requirePermission(permission: Permission) {
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 export const api = {
+  beginMemberRegistration(input: RegisterInput) {
+    return post<{ message: string }>("/users/register", input);
+  },
+  verifyMemberRegistration(email: string, code: string) {
+    return post<{ message: string }>("/users/register/verify-code", { email: email.trim(), code });
+  },
+  resendMemberRegistrationCode(email: string) {
+    return post<{ message: string }>("/users/register/resend-code", { email: email.trim() });
+  },
   verifyEmail(token: string) {
     return request<{ message: string }>("/users/verify-email", { method: "POST", body: JSON.stringify({ token }) }, false);
   },
