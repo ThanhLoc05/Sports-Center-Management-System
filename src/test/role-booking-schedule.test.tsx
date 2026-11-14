@@ -78,8 +78,9 @@ describe("Coach/Member booking and navigation scope", () => {
   it.each(["RECEPTIONIST", "CENTER_MANAGER"] as Role[])("preserves assisted member lookup for %s", async role => {
     const booking = vi.spyOn(api, "bookings").mockResolvedValue([]);
     page("/bookings?memberId=10", role);
-    await waitFor(() => expect(booking).toHaveBeenCalledWith(10, undefined));
-    expect(screen.getByText("ID thành viên")).toBeVisible();
+    await waitFor(() => expect(booking).toHaveBeenCalled());
+    expect(booking.mock.calls.every(args => args[0] === undefined && Number(args[1]) > 0)).toBe(true);
+    expect(screen.getByLabelText("Tìm đăng ký theo ID hoặc tên thành viên")).toHaveValue("10");
     expect(screen.getByRole("button", { name: "Đăng ký lớp" })).toBeVisible();
   });
 

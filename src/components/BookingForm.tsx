@@ -12,13 +12,21 @@ import {
   subscriptionUsage,
 } from "../lib/entitlements";
 import { api } from "../lib/api";
+import { dateLabel, timeLabel, parseDate, errorText } from "../lib/utils";
 import {
-  dateLabel,
-  timeLabel,
-  parseDate,
-  errorText,
-} from "../lib/utils";
-import { Field, FormModal, Notice, useToast } from "./ui";
+  Button,
+  Empty,
+  ErrorState,
+  Field,
+  FormModal,
+  Loading,
+  Notice,
+  SearchInput,
+  useToast,
+} from "./ui";
+import { Search } from "lucide-react";
+import { matches, idLabel } from "../lib/utils";
+import "../styles-bookings.css";
 
 /** Một form cho cả đặt từ thẻ lớp và trang đăng ký.
  * Demo kiểm tra đủ quyền lợi gói. API chỉ đọc điều kiện thật mà backend cung cấp,
@@ -34,7 +42,7 @@ export default function BookingForm({
 }) {
   const { session } = useAuth();
   const db = useDemoData();
-  const users = useUsers();
+  const users = useUsers(true);
   const classes = useClasses();
   const client = useQueryClient();
   const toast = useToast();
@@ -43,6 +51,20 @@ export default function BookingForm({
   const [selectedMember, setMember] = useState(
     member ? session!.user.id : memberId || 0,
   );
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberFilter, setMemberFilter] = useState("");
+  const memberCode = memberFilter.trim().match(/^(?:TV\s*)?(\d+)$/i);
+  const memberOptions = (users.data || [])
+    .filter((u) => u.roleName === "MEMBER" && u.status === "ACTIVE")
+    .filter((u) =>
+      memberCode
+        ? u.id === Number(memberCode[1])
+        : matches(memberFilter, u.fullName),
+    );
+  // Enter trong ô tìm chỉ lọc danh sách, tránh gửi form đăng ký khi chưa chọn đúng người.
+  function searchMembers() {
+    setMemberFilter(memberSearch);
+  }
   const [selectedClass, setClass] = useState(classId || 0);
   const activeMembership = useQuery({
     queryKey: ["activeSubscription", selectedMember],
@@ -101,7 +123,10 @@ export default function BookingForm({
             : apiAccess?.reason || "Chưa xác minh được quyền lợi gói tập."
           : !clazz
             ? "Chọn lớp học."
-            : !classAccessAllowed(apiAccess.accessLevel, clazz.requiredAccessLevel)
+            : !classAccessAllowed(
+                  apiAccess.accessLevel,
+                  clazz.requiredAccessLevel,
+                )
               ? "Cấp gói không đáp ứng cấp yêu cầu của lớp học."
               : clazz.status !== "SCHEDULED" ||
                   parseDate(clazz.scheduleTime) <= new Date()
@@ -137,37 +162,78 @@ export default function BookingForm({
       }}
     >
       {!member && (
-        <Field label="Thành viên">
-          {users.data?.some((u) => u.roleName === "MEMBER") ? (
-            <select
-              required
-              value={selectedMember || ""}
-              onChange={(e) => {
-                setMember(Number(e.target.value));
-                if (!classId) setClass(0);
+        <div className="booking-member-picker">
+          <div
+            className="booking-search-row"
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                event.target instanceof HTMLInputElement
+              ) {
+                event.preventDefault();
+                searchMembers();
+              }
+            }}
+          >
+            <SearchInput
+              label="Tìm thành viên để đăng ký lớp"
+              placeholder="Nhập ID, mã TV hoặc tên thành viên..."
+              value={memberSearch}
+              onChange={(value) => {
+                setMemberSearch(value);
+                setMember(0);
+                if (!value) setMemberFilter("");
               }}
-            >
-              <option value="">Chọn thành viên</option>
-              {users.data
-                .filter((u) => u.roleName === "MEMBER" && u.status === "ACTIVE")
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName}
-                  </option>
-                ))}
-            </select>
-          ) : (
-            <input
-              type="number"
-              min="1"
-              required
-              value={selectedMember || ""}
-              onChange={(e) => setMember(Number(e.target.value))}
-              placeholder="ID thành viên ở backend"
             />
-          )}
-        </Field>
+            <Button type="button" variant="secondary" onClick={searchMembers}>
+              <Search size={16} />
+              Tìm kiếm
+            </Button>
+          </div>
+          <div
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
+          >
+            {users.isPending ? (
+              <Loading />
+            ) : users.error ? (
+              <ErrorState error={users.error} retry={users.refetch} />
+            ) : (
+              <Field
+                label="Thành viên"
+                hint={`${memberOptions.length} thành viên phù hợp. Chọn tên để xem gói tập.`}
+              >
+                <select
+                  required
+                  size={5}
+                  value={selectedMember || ""}
+                  onChange={(e) => {
+                    setMember(Number(e.target.value));
+                    if (!classId) setClass(0);
+                  }}
+                >
+                  <option value="" disabled>
+                    Chọn thành viên
+                  </option>
+                  {memberOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {idLabel(u.id)} · {u.fullName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {users.isSuccess && memberOptions.length === 0 && (
+              <Empty
+                title="Không tìm thấy thành viên"
+                description="Thử tìm theo tên hoặc mã thành viên khác."
+              />
+            )}
+          </div>
+        </div>
       )}
+
       <Notice>
         {subscription
           ? `${pkg?.name || (apiAccess?.allowed ? `${apiAccess.pkg.packageName} · ${apiAccess.accessLevel}` : `Gói #${subscription.packageId}`)} · đến ${dateLabel(subscription.endDate)}`
@@ -235,7 +301,10 @@ export default function BookingForm({
                   ? check.reason
                   : !db &&
                       (!apiAccess?.allowed ||
-                        !classAccessAllowed(apiAccess.accessLevel, c.requiredAccessLevel))
+                        !classAccessAllowed(
+                          apiAccess.accessLevel,
+                          c.requiredAccessLevel,
+                        ))
                     ? apiAccess?.allowed
                       ? "Cấp gói không đáp ứng cấp yêu cầu của lớp học."
                       : "Chưa xác minh được quyền lợi gói tập."

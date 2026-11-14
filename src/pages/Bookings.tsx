@@ -1,4 +1,5 @@
 import BookingForm from "../components/BookingForm";
+import "../styles-bookings.css";
 import { usePermissions } from "../lib/hooks";
 /**
  * FLOW 2 — QUẢN LÝ BOOKING (MỐI LIÊN HỆ THÀNH VIÊN ↔ LỚP).
@@ -6,7 +7,7 @@ import { usePermissions } from "../lib/hooks";
  * Hủy booking trả chỗ của một học viên, khác với quản lý hủy toàn bộ lớp.
  */
 import { useState } from "react";
-import { CalendarDays, Plus, XCircle } from "lucide-react";
+import { CalendarDays, Plus, Search, XCircle } from "lucide-react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -33,55 +34,63 @@ export default function Bookings() {
   const { session } = useAuth();
   const can = usePermissions();
   const member = session!.user.roleName === "MEMBER",
-    coach = session!.user.roleName === "COACH",
-    demo = session!.mode === "demo";
+    coach = session!.user.roleName === "COACH";
   const [params] = useSearchParams();
   const classes = useClasses();
-  const users = useUsers();
-  const [memberId, setMemberId] = useState(
-    member ? String(session!.user.id) : params.get("memberId") || "",
-  );
+  const users = useUsers(true);
+  const initialSearch = !member && !coach ? params.get("memberId") || "" : "";
+  const [searchInput, setSearchInput] = useState(initialSearch);
   const [classId, setClassId] = useState("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState("all");
   const [create, setCreate] = useState(false);
   const [cancel, setCancel] = useState<Booking | null>(null);
   const client = useQueryClient();
   const toast = useToast();
-  /**
-   * API hiện bắt buộc phạm vi theo thành viên hoặc lớp, không có lấy tất cả.
-   * enabled ngăn gọi khi chưa chọn phạm vi; member tự có ID của mình từ phiên.
-   */
+  const staff = !member && !coach;
+  // BE có API theo từng lớp. FE tổng hợp tất cả lớp để lễ tân thấy đầy đủ ngay khi mở.
+  // Promise.all giữ trạng thái lỗi nếu một lớp tải thất bại, tránh hiển thị danh sách thiếu.
   const query = useQuery({
     queryKey: [
-      "bookings", session!.user.id, session!.user.roleName,
-      member ? session!.user.id : memberId,
-      member ? undefined : classId,
+      "bookings",
+      session!.user.id,
+      session!.user.roleName,
+      staff
+        ? classes.data?.map((c) => c.id)
+        : member
+          ? session!.user.id
+          : classId,
     ],
-    queryFn: () =>
-      member
-        ? api.bookings(session!.user.id)
-        : coach
-          ? api.bookings(undefined, Number(classId))
-          : api.bookings(Number(memberId) || undefined, Number(classId) || undefined),
+    queryFn: async () => {
+      if (member) return api.bookings(session!.user.id);
+      if (coach) return api.bookings(undefined, Number(classId));
+      const lists = await Promise.all(
+        (classes.data || []).map((c) => api.bookings(undefined, c.id)),
+      );
+      return [
+        ...new Map(
+          lists.flat().map((booking) => [booking.id, booking]),
+        ).values(),
+      ];
+    },
     enabled: coach
       ? !!classId && !!classes.data?.some((c) => c.id === Number(classId))
-      : demo || member || !!memberId || !!classId,
+      : member || (classes.isSuccess && !classes.error),
   });
+  // Số thuần hoặc TV0010 tìm đúng mã thành viên; tên vẫn tìm gần đúng, không phân biệt dấu.
+  const searchedMemberId = search.trim().match(/^(?:TV\s*)?(\d+)$/i);
   const rows = (query.data || []).filter((b) => {
     const c = classes.data?.find((c) => c.id === b.classId),
       u = users.data?.find((u) => u.id === b.memberId);
     return (
       (!coach || classes.data?.some((c) => c.id === b.classId)) &&
-      (!member || (b.memberId === session!.user.id &&
-        (!classId || b.classId === Number(classId)))) &&
-      matches(
-        search,
-        c?.className,
-        u?.fullName,
-        idLabel(b.id, "DK"),
-        b.memberId,
-      ) &&
+      (!member ||
+        (b.memberId === session!.user.id &&
+          (!classId || b.classId === Number(classId)))) &&
+      (!staff || !classId || b.classId === Number(classId)) &&
+      (searchedMemberId
+        ? b.memberId === Number(searchedMemberId[1])
+        : matches(search, c?.className, u?.fullName, idLabel(b.id, "DK"))) &&
       (status === "all" || b.status === status)
     );
   });
@@ -125,18 +134,6 @@ export default function Bookings() {
             <p>Theo dõi các đăng ký và hỗ trợ thay đổi lịch tập.</p>
           </div>
           <div className="table-filters">
-            {!member && !coach && (
-              <label className="inline-id-field">
-                <span>ID thành viên</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Tất cả"
-                  value={memberId}
-                  onChange={(e) => setMemberId(e.target.value)}
-                />
-              </label>
-            )}
             <Select
               label="Lọc theo lớp học"
               value={classId}
@@ -152,11 +149,41 @@ export default function Bookings() {
           </div>
         </div>
         <div className="table-subtoolbar">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Tìm lớp, thành viên, mã đăng ký..."
-          />
+          <form
+            className="booking-search-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearch(searchInput);
+            }}
+          >
+            <SearchInput
+              value={searchInput}
+              onChange={(value) => {
+                setSearchInput(value);
+                if (!value) setSearch("");
+              }}
+              label="Tìm đăng ký theo ID hoặc tên thành viên"
+              placeholder="Nhập ID, mã TV hoặc tên thành viên..."
+            />
+            <Button type="submit" variant="secondary">
+              <Search size={16} />
+              Tìm kiếm
+            </Button>
+            {search && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setSearchInput("");
+                  setSearch("");
+                  setClassId("");
+                  setStatus("all");
+                }}
+              >
+                Xem tất cả
+              </Button>
+            )}
+          </form>
           <Select
             label="Trạng thái đăng ký"
             value={status}
@@ -167,14 +194,12 @@ export default function Bookings() {
             <option value="CANCELLED">Đã hủy</option>
           </Select>
         </div>
-        {coach && classes.error ? (
+        {staff && users.error ? (
+          <ErrorState error={users.error} retry={users.refetch} />
+        ) : !member && classes.error ? (
           <ErrorState error={classes.error} retry={classes.refetch} />
         ) : coach && !classId ? (
           <Notice>Chọn lớp phụ trách để xem đăng ký.</Notice>
-        ) : !demo && !memberId && !classId ? (
-          <Notice>
-            Chọn một lớp học hoặc nhập ID thành viên để tải đăng ký từ backend.
-          </Notice>
         ) : query.isPending ? (
           <Loading />
         ) : query.error ? (
@@ -262,7 +287,7 @@ export default function Bookings() {
       </Panel>
       {create && (
         <BookingForm
-          memberId={Number(memberId) || undefined}
+          memberId={searchedMemberId ? Number(searchedMemberId[1]) : undefined}
           onClose={() => setCreate(false)}
         />
       )}

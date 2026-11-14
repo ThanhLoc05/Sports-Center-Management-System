@@ -1,0 +1,42 @@
+/* Ô tìm và nút cùng hàng; xuống dòng trên màn hình hẹp để không che thao tác. */
+.booking-search-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.booking-search-row .search-input {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+.table-subtoolbar > .booking-search-row {
+  flex: 1;
+}
+.booking-member-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 16px;
+}
+/* Danh sách nhiều dòng giúp lễ tân thấy tên và mã mà không cần nhớ ID. */
+.booking-member-picker select[size] {
+  height: auto;
+  min-height: 160px;
+  padding: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.booking-member-picker select[size] option {
+  padding: 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .booking-search-row .search-input {
+    flex-basis: 100%;
+  }
+}
