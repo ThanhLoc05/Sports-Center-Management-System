@@ -115,7 +115,7 @@ describe("Demo workflows and ownership boundaries", () => {
     expect(
       readDemo().invoices.find((i) => i.subscriptionId === fresh.id),
     ).toMatchObject({
-      amount: 2100000,
+      amount: 2100,
       paymentStatus: "PENDING",
       memberId: 10,
     });

@@ -607,16 +607,16 @@ IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Hồ bơi')
 
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 1 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói STANDARD 1 tháng', 30, 500000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
+    VALUES (N'Gói STANDARD 1 tháng', 30, 500, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói STANDARD 3 tháng', 90, 1350000, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
+    VALUES (N'Gói STANDARD 3 tháng', 90, 1350, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 1 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói VIP 1 tháng', 30, 800000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
+    VALUES (N'Gói VIP 1 tháng', 30, 800, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói VIP 3 tháng', 90, 2100000, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
+    VALUES (N'Gói VIP 3 tháng', 90, 2100, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
 
 END;
 
