@@ -33,6 +33,7 @@ import java.util.Base64;
 public class AccountActionService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int TOKEN_BYTES = 32;
+    private static final int MAX_RESET_PASSWORD_BYTES = 72;
 
     private final AccountActionTokenRepository tokens;
     private final UserRepository users;
@@ -109,8 +110,11 @@ public class AccountActionService {
     }
 
     public void resetPassword(String rawToken, String newPassword) {
-        if (newPassword == null || newPassword.length() < 8 || newPassword.length() > 128) {
-            throw new IllegalArgumentException("Mật khẩu mới phải có từ 8 đến 128 ký tự");
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 8) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 8 ký tự.");
+        }
+        if (newPassword.getBytes(StandardCharsets.UTF_8).length > MAX_RESET_PASSWORD_BYTES) {
+            throw new IllegalArgumentException("Mật khẩu mới không được vượt quá 72 byte UTF-8.");
         }
         LocalDateTime now = LocalDateTime.now();
         AccountActionToken token = findUsable(rawToken, Purpose.RESET_PASSWORD, now);

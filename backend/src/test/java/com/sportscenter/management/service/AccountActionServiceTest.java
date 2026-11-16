@@ -99,6 +99,15 @@ class AccountActionServiceTest {
         verify(users).save(user);
     }
 
+    @Test
+    void resetRejectsPasswordOverBcryptByteLimitBeforeUsingToken() {
+        var failure = assertThrows(IllegalArgumentException.class,
+                () -> service.resetPassword("raw-token", "\u00e1".repeat(37)));
+
+        assertTrue(failure.getMessage().contains("72 byte"));
+        verifyNoInteractions(tokens, users, passwords);
+    }
+
     private static AccountActionToken token(Purpose purpose, String targetEmail) {
         return AccountActionToken.builder().id(5L).userId(10).purpose(purpose)
                 .targetEmail(targetEmail).tokenHash("hash")

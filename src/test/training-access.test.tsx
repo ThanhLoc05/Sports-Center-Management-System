@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -15,15 +15,32 @@ const users = [
 ];
 const plan = { id: 21, coachId: 3, memberId: 10, title: "Giáo án cá nhân", description: "Bài tập cá nhân", createdAt: "2026-10-30T09:00:00" };
 const classPlan = { ...plan, id: 22, memberId: null, classId: 8, title: "Giáo án lớp", description: "Nội dung riêng của lớp" };
+const completedClass = {
+  id: 8,
+  className: "Fitness sáng",
+  coachId: 3,
+  scheduleTime: "2026-11-16T08:34:00",
+  status: "COMPLETED",
+};
+const reviewedLog = {
+  id: 41,
+  coachId: 3,
+  memberId: 10,
+  scheduleId: 8,
+  createdAt: "2026-11-30T18:10:00",
+  details: [{ exerciseName: "Row", sets: 3, reps: 10, weightKg: 16 }],
+  feedbackFromCoach: "Giữ lưng thẳng khi kéo",
+};
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 function ChangeAccount() {
   const { signIn } = useAuth();
   return <button onClick={() => signIn({ mode: "api", token: "test-only", user: { id: 11, fullName: "Member B", roleName: "MEMBER", status: "ACTIVE", email: "member-b@example.test", phone: "0900000011" } })}>Đổi tài khoản test</button>;
 }
-function mount(role = "CENTER_MANAGER") {
-  sessionStorage.setItem("sportiva-session", JSON.stringify({ mode: "api", token: "test-only", user: { id: role === "MEMBER" ? 10 : 1, fullName: "Test", roleName: role, status: "ACTIVE" } }));
+function mount(role = "CENTER_MANAGER", path = "/training") {
+  const id = users.find((user) => user.roleName === role)?.id ?? 1;
+  sessionStorage.setItem("sportiva-session", JSON.stringify({ mode: "api", token: "test-only", user: { id, fullName: "Test", roleName: role, status: "ACTIVE" } }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  render(<QueryClientProvider client={client}><AuthProvider><ToastProvider><ChangeAccount /><MemoryRouter><ApiTraining /></MemoryRouter></ToastProvider></AuthProvider></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><AuthProvider><ToastProvider><ChangeAccount /><MemoryRouter initialEntries={[path]}><ApiTraining /></MemoryRouter></ToastProvider></AuthProvider></QueryClientProvider>);
   return client;
 }
 function server() {
@@ -37,6 +54,157 @@ function server() {
   });
 }
 describe("Tập luyện — phạm vi thành viên và đổi HLV, chỉ mock API", () => {
+  it("opens the create plan form from the coach dashboard shortcut", async () => {
+    vi.stubGlobal("fetch", server());
+    mount("COACH", "/training?new=1");
+
+    const form = await screen.findByRole("dialog", {
+      name: "Tạo kế hoạch tập luyện",
+    });
+    expect(form).toBeVisible();
+    await userEvent.setup().click(within(form).getByRole("button", { name: "Đóng" }));
+    expect(form).not.toBeInTheDocument();
+  });
+  it("shows progress for the new student after selecting an exercise for the previous student", async () => {
+    const logs = [
+      {
+        id: 31,
+        coachId: 3,
+        memberId: 10,
+        createdAt: "2026-10-30T09:00:00",
+        details: [
+          { exerciseName: "Row", sets: 3, reps: 10, weightKg: 12 },
+          { exerciseName: "Squat", sets: 3, reps: 10, weightKg: 22 },
+        ],
+      },
+      {
+        id: 32,
+        coachId: 3,
+        memberId: 11,
+        createdAt: "2026-10-31T09:00:00",
+        details: [{ exerciseName: "Plank", sets: 2, reps: 1, weightKg: 0 }],
+      },
+    ];
+    const respond = server();
+    vi.stubGlobal(
+      "fetch",
+      (url: RequestInfo | URL, init?: RequestInit) =>
+        String(url).endsWith("/workout-logs/coach/3")
+          ? json(logs)
+          : respond(url, init),
+    );
+    mount();
+    const user = userEvent.setup();
+    await screen.findByText(/Plank: 2 hiệp/);
+    const student = screen.getByLabelText("Học viên theo dõi");
+    await user.selectOptions(student, "10");
+    await user.selectOptions(screen.getByLabelText("Bài tập theo dõi"), "Squat");
+    expect(screen.getByRole("row", { name: /3 10 22$/ })).toBeVisible();
+
+    await user.selectOptions(student, "11");
+    expect(screen.getByLabelText("Bài tập theo dõi")).toHaveValue("Plank");
+    expect(screen.getByRole("row", { name: /2 1 0$/ })).toBeVisible();
+  });
+  it("links a log to an eligible class and clears the class when the coach changes students", async () => {
+    const classes = [
+      completedClass,
+      { ...completedClass, id: 9, className: "Fitness chiều", scheduleTime: "2026-11-20T16:00:00" },
+      { ...completedClass, id: 12, className: "Fitness đã hủy", status: "CANCELLED" },
+    ];
+    const respond = server();
+    const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/classes/my-classes") return json(classes);
+      if (path === "/api/v1/classes/8/students")
+        return json([{ memberId: 10, fullName: "Học viên A", bookingStatus: "BOOKED" }]);
+      if (path === "/api/v1/classes/9/students")
+        return json([{ memberId: 11, fullName: "Học viên B", bookingStatus: "BOOKED" }]);
+      if (path === "/api/v1/classes/8/bookings")
+        return json([
+          { classId: 8, memberId: 10, status: "BOOKED" },
+          { classId: 8, memberId: 11, status: "CANCELLED" },
+        ]);
+      if (path === "/api/v1/classes/9/bookings")
+        return json([
+          { classId: 9, memberId: 10, status: "CANCELLED" },
+          { classId: 9, memberId: 11, status: "BOOKED" },
+        ]);
+      if (path === "/api/v1/workout-logs" && init?.method === "POST")
+        return json({ ...reviewedLog, memberId: 11, scheduleId: 9 }, 201);
+      return respond(url, init);
+    });
+    vi.stubGlobal("fetch", fetch);
+    mount("COACH");
+    const user = userEvent.setup();
+    const create = screen.getByRole("button", { name: "Ghi kết quả buổi tập" });
+    await waitFor(() => expect(create).toBeEnabled());
+    await user.click(create);
+
+    const student = screen.getByLabelText("Học viên");
+    const session = screen.getByLabelText("Buổi tập");
+    await user.selectOptions(student, "10");
+    await within(session).findByRole("option", { name: "Fitness sáng · 16/11/2026 08:34" });
+    expect(within(session).queryByRole("option", { name: /Fitness chiều|Fitness đã hủy/ })).toBeNull();
+    await user.selectOptions(session, "8");
+
+    await user.selectOptions(student, "11");
+    expect(session).toHaveValue("");
+    const nextSession = await within(session).findByRole("option", {
+      name: "Fitness chiều · 20/11/2026 16:00",
+    });
+    expect(within(session).queryByRole("option", { name: /Fitness sáng/ })).toBeNull();
+    await user.selectOptions(session, nextSession);
+    await user.type(screen.getByLabelText("Tên bài tập"), "Row");
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    const post = fetch.mock.calls.find(([url, init]) =>
+      String(url) === "/api/v1/workout-logs" && init?.method === "POST",
+    );
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({
+      memberId: 11,
+      coachId: 3,
+      scheduleId: 9,
+    });
+    expect(fetch.mock.calls.some(([url]) =>
+      String(url).endsWith("/classes/12/bookings") ||
+      String(url).includes("/api/v1/members/"),
+    )).toBe(false);
+  });
+  it("shows the linked session date next to a member's later feedback and renders unlinked logs", async () => {
+    const respond = server();
+    vi.stubGlobal("fetch", async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/classes") return json([completedClass]);
+      if (path === "/api/v1/workout-logs/member/10") return json([
+        reviewedLog,
+        { ...reviewedLog, id: 42, scheduleId: null, feedbackFromCoach: "Nhận xét cũ" },
+      ]);
+      return respond(url, init);
+    });
+    mount("MEMBER");
+
+    const row = await screen.findByRole("row", { name: /Fitness sáng.*Giữ lưng thẳng khi kéo/ });
+    expect(within(row).getByText("Fitness sáng · 16/11/2026 08:34")).toBeVisible();
+    expect(within(row).getByText("Ghi nhận 30/11/2026 18:10")).toBeVisible();
+    const unlinked = screen.getByRole("row", { name: /Nhận xét cũ/ });
+    expect(within(unlinked).getByText("Chưa gắn buổi học")).toBeVisible();
+  });
+  it("shows the linked session in the coach feedback form after a class is reassigned", async () => {
+    const respond = server();
+    vi.stubGlobal("fetch", async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/classes/8") return json({ ...completedClass, coachId: 4 });
+      if (path === "/api/v1/workout-logs/coach/3") return json([reviewedLog]);
+      return respond(url, init);
+    });
+    mount("COACH");
+
+    const row = await screen.findByRole("row", { name: /Fitness sáng.*Giữ lưng thẳng khi kéo/ });
+    await userEvent.setup().click(within(row).getByRole("button", { name: "Ghi nhận xét" }));
+    const form = screen.getByRole("dialog", { name: "Nhận xét kết quả buổi tập" });
+    expect(within(form).getByText(/Fitness sáng · 16\/11\/2026 08:34/)).toBeVisible();
+  });
   it("clears the selected student when manager switches coaches", async () => {
     vi.stubGlobal("fetch", server()); mount(); const user = userEvent.setup();
     await screen.findByRole("button", { name: plan.title });
@@ -59,8 +227,9 @@ describe("Tập luyện — phạm vi thành viên và đổi HLV, chỉ mock AP
   it("keeps personal plans when there are no bookings and hides member write controls", async () => {
     const fetch = server(); const fallback = fetch.getMockImplementation()!;
     fetch.mockImplementation(async (url, init) => String(url).endsWith("/members/10/bookings") ? json([]) : fallback(url, init));
-    vi.stubGlobal("fetch", fetch); mount("MEMBER");
+    vi.stubGlobal("fetch", fetch); mount("MEMBER", "/training?new=1");
     await screen.findByRole("button", { name: plan.title });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(fetch.mock.calls.some(([url]) => String(url).includes("/workout-plans/class/"))).toBe(false);
     for (const name of ["Tạo kế hoạch", "Sửa giáo án", "Xóa giáo án", "Ghi kết quả buổi tập", "Ghi nhận xét"])
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();

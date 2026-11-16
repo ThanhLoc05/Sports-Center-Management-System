@@ -374,7 +374,27 @@ function requirePermission(permission: Permission) {
  */
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
+
+interface RegistrationCodeDelivery {
+  message: string;
+  expiresAtEpochMs: number;
+}
+
 export const api = {
+  beginMemberRegistration(input: RegisterInput) {
+    return post<RegistrationCodeDelivery>("/users/register", input);
+  },
+  verifyMemberRegistration(email: string, code: string) {
+    return post<{ message: string }>("/users/register/verify-code", {
+      email: email.trim(),
+      code,
+    });
+  },
+  resendMemberRegistrationCode(email: string) {
+    return post<RegistrationCodeDelivery>("/users/register/resend-code", {
+      email: email.trim(),
+    });
+  },
   verifyEmail(token: string) {
     return request<{ message: string }>("/users/verify-email", { method: "POST", body: JSON.stringify({ token }) }, false);
   },
@@ -509,13 +529,10 @@ export const api = {
       throw new ApiError("Phản hồi đăng nhập không hợp lệ.");
     return { ...data, mode: "api" };
   },
-  /**
-   * Flow 1: tạo thành viên qua POST /users/register. Nhánh demo kiểm tra trùng
-   * email/điện thoại, luôn gán MEMBER và không lưu mật khẩu nhập từ form.
-   */
+  /** Nhánh demo tạo bản xem trước tại chỗ; API thật phải đi qua bước xác minh OTP. */
   async register(input: RegisterInput): Promise<User> {
     if (configuredMode === "api" || mode() === "api")
-      return post("/users/register", input);
+      throw new ApiError("Đăng ký thật cần xác minh email. Hãy bắt đầu từ biểu mẫu đăng ký.");
     const db = readDemo();
     if (db.users.some((u) => u.phone === input.phone))
       throw new ApiError("Số điện thoại đã được sử dụng.");

@@ -3,7 +3,7 @@ vi.hoisted(() => {
   vi.stubEnv("VITE_DATA_MODE", "api");
 });
 afterAll(() => vi.unstubAllEnvs());
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -168,10 +168,10 @@ describe("account email actions", () => {
       );
     },
   );
-  it("does not send without a capability token", async () => {
+  it.each(["verify-email", "reset-password"])("disables %s without an emailed token", async (route) => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
-    page("/verify-email");
+    page(`/${route}`);
     expect(
       await screen.findByRole("button", { name: "Xác nhận" }),
     ).toBeDisabled();
@@ -192,6 +192,28 @@ describe("account email actions", () => {
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("chưa khớp");
     expect(fetch).not.toHaveBeenCalled();
+  });
+  it("enforces the UTF-8 byte limit when submitting reset-password", async () => {
+    const fetch = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal("fetch", fetch);
+    page("/reset-password?token=test-capability");
+    const password = await screen.findByLabelText("Mật khẩu mới");
+    const confirmation = screen.getByLabelText("Nhập lại mật khẩu");
+    const submit = screen.getByRole("button", { name: "Xác nhận" });
+
+    const overLimit = "á".repeat(37);
+    fireEvent.change(password, { target: { value: overLimit } });
+    fireEvent.change(confirmation, { target: { value: overLimit } });
+    await userEvent.click(submit);
+    expect(await screen.findByRole("alert")).toHaveTextContent("72 byte");
+    expect(fetch).not.toHaveBeenCalled();
+
+    const atLimit = "á".repeat(36);
+    fireEvent.change(password, { target: { value: atLimit } });
+    fireEvent.change(confirmation, { target: { value: atLimit } });
+    await userEvent.click(submit);
+    expect(await screen.findByText("Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.")).toBeVisible();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("disables the form while pending and shows server error without fake success", async () => {
     let finish!: (value: Response) => void;

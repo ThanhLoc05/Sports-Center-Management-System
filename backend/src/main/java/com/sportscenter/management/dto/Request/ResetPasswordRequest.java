@@ -13,7 +13,7 @@ public class ResetPasswordRequest {
     @Size(max = 128)
     private String token;
 
-    @NotBlank
-    @Size(min = 8, max = 128)
+    @NotBlank(message = "Vui lòng nhập mật khẩu mới.")
+    @Size(min = 8, max = 72, message = "Mật khẩu mới phải có ít nhất 8 ký tự và tối đa 72 byte UTF-8.")
     private String newPassword;
 }

@@ -5,6 +5,7 @@ import { api, configuredMode } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Action = "verify" | "forgot" | "reset" | "resend";
+const MAX_RESET_PASSWORD_BYTES = 72;
 
 export default function AccountActions({ action }: { action: Action }) {
   const [params, setParams] = useSearchParams();
@@ -23,6 +24,7 @@ export default function AccountActions({ action }: { action: Action }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const needsToken = action === "verify" || action === "reset";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,10 +42,14 @@ export default function AccountActions({ action }: { action: Action }) {
         setMessage("Email đã được xác minh. Bạn có thể đăng nhập.");
       } else if (action === "reset") {
         if (!token) throw new Error("Liên kết đặt lại mật khẩu thiếu token.");
+        if (new TextEncoder().encode(password).length > MAX_RESET_PASSWORD_BYTES)
+          throw new Error("Mật khẩu mới quá dài. Giới hạn là 72 byte UTF-8.");
         if (password !== confirm)
           throw new Error("Mật khẩu xác nhận chưa khớp.");
         await api.resetPassword(token, password);
         setToken("");
+        setPassword("");
+        setConfirm("");
         setMessage("Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.");
       } else {
         if (action === "forgot") await api.forgotPassword(email);
@@ -72,7 +78,7 @@ export default function AccountActions({ action }: { action: Action }) {
         <div className="auth-form-content">
           <span className="eyebrow">SPORTIVA</span>
           <h1>{title[action]}</h1>
-          {(action === "verify" || action === "reset") && !token && !message && (
+          {needsToken && !token && !message && (
             <Notice>Liên kết không còn token trong phiên này. Hãy mở lại liên kết trong email để tiếp tục.</Notice>
           )}
           {message && <Notice>{message}</Notice>}
@@ -94,14 +100,13 @@ export default function AccountActions({ action }: { action: Action }) {
                 />
               </Field>
             )}
-            {action === "reset" && (
+            {action === "reset" && token && (
               <>
                 <Field label="Mật khẩu mới">
                   <input
                     type="password"
                     autoComplete="new-password"
                     minLength={8}
-                    maxLength={128}
                     required
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -112,7 +117,6 @@ export default function AccountActions({ action }: { action: Action }) {
                     type="password"
                     autoComplete="new-password"
                     minLength={8}
-                    maxLength={128}
                     required
                     value={confirm}
                     onChange={(event) => setConfirm(event.target.value)}
@@ -126,7 +130,7 @@ export default function AccountActions({ action }: { action: Action }) {
             <Button
               type="submit"
               loading={busy}
-              disabled={busy || (action === "verify" && !token)}
+              disabled={busy || (needsToken && !token)}
             >
               Xác nhận
             </Button>

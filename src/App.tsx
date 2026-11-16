@@ -19,6 +19,7 @@ import { routeAllowed } from "./lib/permissions";
 const Welcome = lazy(() => import("./pages/Welcome"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AccountActions = lazy(() => import("./pages/AccountActions"));
+const MemberRegistrationVerification = lazy(() => import("./pages/MemberRegistrationVerification"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Members = lazy(() => import("./pages/Members"));
 const Classes = lazy(() => import("./pages/Classes"));
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Auth key="login" />} />
           <Route path="/register" element={<Auth key="register" register />} />
+          <Route path="/verify-registration" element={<MemberRegistrationVerification />} />
           <Route path="/verify-email" element={<AccountActions key="verify" action="verify" />} />
           <Route path="/forgot-password" element={<AccountActions key="forgot" action="forgot" />} />
           <Route path="/reset-password" element={<AccountActions key="reset" action="reset" />} />

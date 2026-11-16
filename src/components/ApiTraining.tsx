@@ -1,18 +1,20 @@
 /**
  * HLV quản lý giáo án cá nhân/cả lớp, ghi kết quả và nhận xét sau buổi tập.
  * Thành viên chỉ xem dữ liệu của mình; quản lý có thể chọn HLV để tra cứu.
- * Giáo án và nhật ký là hai dữ liệu riêng, không dùng planId/classId làm scheduleId.
+ * Nhật ký có thể lưu buổi học đã chọn bằng scheduleId.
  * Mỗi lần lưu thành công sẽ làm mới cache tương ứng để cập nhật màn hình.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
 import { useAssignedStudents } from "../lib/use-coach-data";
 import { operations } from "../lib/operations-api";
 import { api } from "../lib/api";
 import type { WorkoutPlan, WorkoutLog, Exercise } from "../lib/operations-api";
-import { dateLabel, matches } from "../lib/utils";
+import type { SportClass } from "../lib/types";
+import { dateLabel, matches, timeLabel } from "../lib/utils";
 import {
   Button,
   Confirm,
@@ -29,12 +31,18 @@ import {
   SearchInput,
   useToast,
 } from "./ui";
+
+function classSessionLabel(item: SportClass) {
+  return `${item.className} · ${dateLabel(item.scheduleTime)} ${timeLabel(item.scheduleTime)}`;
+}
+
 export default function ApiTraining() {
   const { session } = useAuth();
   return <TrainingContent key={`${session?.user.id}:${session?.user.roleName}`} />;
 }
 function TrainingContent() {
   const { session } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const actor = session!.user;
   const member = actor.roleName === "MEMBER";
   const coach = actor.roleName === "COACH";
@@ -47,6 +55,7 @@ function TrainingContent() {
     : Number(
         coachChoice || users.data?.find((u) => u.roleName === "COACH")?.id || 0,
       );
+  const canCreatePlan = !!coachId && !students.error && !students.isPending;
   const scope = member ? actor.id : coachId;
   const plans = useQuery({
     queryKey: ["workout-plans", member ? "member" : "coach", scope, actor.id, actor.roleName],
@@ -99,8 +108,42 @@ function TrainingContent() {
   const scopedClasses = (classes.data || []).filter(
     (c) => c.coachId === coachId && c.status !== "CANCELLED",
   );
+  const classesById = new Map((classes.data || []).map((c) => [c.id, c]));
+  const missingClassIds = [
+    ...new Set(
+      visibleLogs.flatMap(({ scheduleId }) =>
+        scheduleId != null && !classesById.has(scheduleId) ? [scheduleId] : [],
+      ),
+    ),
+  ];
+  const recordedClasses = useQueries({
+    queries: missingClassIds.map((id) => ({
+      queryKey: ["classDetail", id, actor.id],
+      queryFn: () => api.classDetail(id),
+      enabled: !classes.isPending,
+      retry: false,
+    })),
+  });
+  for (const result of recordedClasses) {
+    if (result.data) classesById.set(result.data.id, result.data);
+  }
+  const logSessionLabel = (log: WorkoutLog) => {
+    if (log.scheduleId == null) return "Chưa gắn buổi học";
+    const item = classesById.get(log.scheduleId);
+    return item ? classSessionLabel(item) : `Buổi tập #${log.scheduleId}`;
+  };
   const name = (id: number) =>
     students.data.find((s) => s.memberId === id)?.fullName || "Học viên #" + id;
+
+  useEffect(() => {
+    if (!coach || !canCreatePlan || searchParams.get("new") !== "1") return;
+
+    setEdit(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("new");
+    setSearchParams(nextParams, { replace: true });
+  }, [coach, canCreatePlan, searchParams, setSearchParams]);
+
   return (
     <>
       <PageHeader
@@ -110,7 +153,7 @@ function TrainingContent() {
           !member ? (
             <>
               <Button
-                disabled={!coachId || !!students.error || students.isPending}
+                disabled={!canCreatePlan}
                 onClick={() => setEdit(true)}
               >
                 Tạo kế hoạch
@@ -261,15 +304,15 @@ function TrainingContent() {
               columns={[
                 {
                   key: "date",
-                  label: "Buổi ghi nhận",
-                  render: (l) =>
-                    dateLabel(l.createdAt, {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }),
+                  label: "Buổi tập",
+                  render: (l) => (
+                    <div className="contact-cell">
+                      <strong>{logSessionLabel(l)}</strong>
+                      <small>
+                        Ghi nhận {dateLabel(l.createdAt)} {timeLabel(l.createdAt)}
+                      </small>
+                    </div>
+                  ),
                 },
                 {
                   key: "student",
@@ -307,7 +350,9 @@ function TrainingContent() {
                 },
               ]}
             />
-            {selectedMember > 0 && <Progress logs={visibleLogs} />}
+            {selectedMember > 0 && (
+              <Progress key={selectedMember} logs={visibleLogs} />
+            )}
           </>
         )}
       </Panel>
@@ -381,6 +426,7 @@ function TrainingContent() {
         <LogForm
           coachId={coachId}
           students={students.data}
+          classes={scopedClasses}
           onClose={() => setNewLog(false)}
         />
       )}
@@ -395,7 +441,10 @@ function TrainingContent() {
           }}
         >
           <p>
-            {name(feedback.memberId)} · {dateLabel(feedback.createdAt)}
+            {name(feedback.memberId)} ·{" "}
+            {feedback.scheduleId == null
+              ? dateLabel(feedback.createdAt)
+              : logSessionLabel(feedback)}
           </p>
           <Field label="Nhận xét và đánh giá tiến độ">
             <textarea
@@ -464,13 +513,47 @@ function PlanTarget({
 function LogForm({
   coachId,
   students,
+  classes,
   onClose,
 }: {
   coachId: number;
   students: Student[];
+  classes: SportClass[];
   onClose: () => void;
 }) {
+  const { session } = useAuth();
+  const actor = session!.user;
+  const [memberId, setMemberId] = useState("");
+  const [scheduleId, setScheduleId] = useState("");
   const [rows, setRows] = useState<Exercise[]>([{ exerciseName: "" }]);
+  const bookingQueries = useQueries({
+    queries: memberId
+      ? classes.map((item) => ({
+          queryKey: ["workout-class-bookings", actor.id, actor.roleName, item.id],
+          queryFn: () => api.bookings(undefined, item.id),
+          retry: false,
+        }))
+      : [],
+  });
+  const eligibleClasses = classes
+    .filter((item, index) => {
+      const result = bookingQueries[index];
+      return (
+        result?.isSuccess &&
+        result.data.some(
+          (booking) =>
+            booking.classId === item.id &&
+            booking.memberId === Number(memberId) &&
+            booking.status === "BOOKED",
+        )
+      );
+    })
+    .sort((a, b) => b.scheduleTime.localeCompare(a.scheduleTime));
+  const selectedClass = eligibleClasses.find(
+    (item) => String(item.id) === scheduleId,
+  );
+  const invalidSchedule = !!scheduleId && !selectedClass;
+  const bookingErrors = bookingQueries.filter((query) => query.isError);
   const client = useQueryClient();
   const toast = useToast();
   const change = (i: number, key: keyof Exercise, value: string) =>
@@ -494,10 +577,14 @@ function LogForm({
       title="Ghi kết quả buổi tập"
       wide
       onClose={onClose}
+      submitDisabled={invalidSchedule}
       onSubmit={async (d) => {
+        if (invalidSchedule)
+          throw new Error("Hãy chọn lại buổi tập trước khi lưu.");
         await operations.saveLog({
-          memberId: Number(d.get("memberId")),
+          memberId: Number(memberId),
           coachId,
+          ...(selectedClass && { scheduleId: selectedClass.id }),
           feedbackFromCoach: String(d.get("feedback")),
           details: rows,
         });
@@ -506,7 +593,15 @@ function LogForm({
       }}
     >
       <Field label="Học viên">
-        <select name="memberId" required defaultValue="">
+        <select
+          name="memberId"
+          required
+          value={memberId}
+          onChange={(e) => {
+            setMemberId(e.target.value);
+            setScheduleId("");
+          }}
+        >
           <option value="">Chọn học viên</option>
           {students.map((s) => (
             <option key={s.memberId} value={s.memberId}>
@@ -515,6 +610,35 @@ function LogForm({
           ))}
         </select>
       </Field>
+      <Field label="Buổi tập">
+        <select
+          name="scheduleId"
+          value={scheduleId}
+          disabled={!memberId}
+          onChange={(e) => setScheduleId(e.target.value)}
+        >
+          <option value="">Ghi nhận riêng</option>
+          {invalidSchedule && (
+            <option value={scheduleId} disabled>
+              Chọn lại buổi tập
+            </option>
+          )}
+          {eligibleClasses.map((item) => (
+            <option key={item.id} value={item.id}>
+              {classSessionLabel(item)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {bookingQueries.some((query) => query.isPending) && (
+        <p role="status">Đang tải danh sách buổi tập...</p>
+      )}
+      {bookingErrors.length > 0 && (
+        <ErrorState
+          error={bookingErrors[0].error}
+          retry={() => bookingErrors.forEach((query) => void query.refetch())}
+        />
+      )}
       {rows.map((r, i) => (
         <fieldset key={i}>
           <legend>Bài tập {i + 1}</legend>
@@ -574,10 +698,6 @@ function LogForm({
       <Field label="Nhận xét buổi tập">
         <textarea name="feedback" maxLength={4000} />
       </Field>
-      <Notice>
-        Kết quả được ghi theo thời điểm máy chủ nhận. Không tự gắn ID lớp vào ID
-        buổi tập khi backend chưa trả dữ liệu buổi tương ứng.
-      </Notice>
     </FormModal>
   );
 }
@@ -587,7 +707,7 @@ function Progress({ logs }: { logs: WorkoutLog[] }) {
   const names = [
     ...new Set(logs.flatMap((l) => l.details.map((d) => d.exerciseName))),
   ];
-  const selected = exercise || names[0] || "";
+  const selected = names.includes(exercise) ? exercise : (names[0] ?? "");
   const rows = logs
     .flatMap((l) =>
       l.details

@@ -15,7 +15,7 @@ import {
   Activity,
 } from "lucide-react";
 import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { api, configuredMode } from "../lib/api";
+import { api, ApiError, configuredMode } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 import { Button, Field } from "../components/ui";
@@ -28,6 +28,7 @@ type RegistrationField =
   | "password"
   | "confirmPassword";
 type RegistrationFieldErrors = Partial<Record<RegistrationField, string>>;
+const MAX_REGISTRATION_PASSWORD_BYTES = 72;
 
 function validateRegistration(data: FormData): RegistrationFieldErrors {
   const errors: RegistrationFieldErrors = {};
@@ -43,8 +44,10 @@ function validateRegistration(data: FormData): RegistrationFieldErrors {
     errors.phone = "Số điện thoại phải có 9–20 ký tự số hoặc dấu +, khoảng trắng, ngoặc, dấu gạch.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !email.endsWith(".com"))
     errors.email = "Email phải đúng định dạng và kết thúc bằng .com viết thường.";
-  if (password.length < 6 || password.length > 128)
-    errors.password = "Mật khẩu phải có từ 6 đến 128 ký tự.";
+  if (password.length < 6)
+    errors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
+  else if (new TextEncoder().encode(password).length > MAX_REGISTRATION_PASSWORD_BYTES)
+    errors.password = "Mật khẩu không được vượt quá 72 byte UTF-8.";
   if (!confirmation || confirmation !== password)
     errors.confirmPassword = "Mật khẩu xác nhận chưa khớp.";
   return errors;
@@ -71,12 +74,12 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
   const success = location.state?.registrationComplete
     ? configuredMode === "demo"
       ? "Đã tạo tài khoản demo. Đăng nhập bằng email vừa đăng ký và mật khẩu chung Sportiva@123."
-      : "Đăng ký thành công. Bạn có thể đăng nhập."
+      : "Email đã được xác minh và tài khoản thành viên đã được tạo. Bạn có thể đăng nhập."
     : "";
   if (session) return <Navigate to="/" replace />;
   /**
-   * Đọc FormData và kiểm tra mật khẩu xác nhận nếu đăng ký. Tạo tài khoản thành công
-   * thì về đăng nhập để dùng email và mật khẩu vừa tạo. Đăng nhập
+   * Đọc FormData và kiểm tra mật khẩu xác nhận nếu đăng ký. API thật gửi OTP rồi
+   * chuyển sang trang xác minh; demo tiếp tục dùng tài khoản xem trước. Đăng nhập
    * xong đưa Session vào AuthProvider rồi về dashboard. catch hiện lỗi,
    * finally mở lại nút; navigate chỉ đổi route, không gọi trực tiếp backend.
    */
@@ -101,16 +104,25 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
           fullName: String(data.get("fullName")).trim(),
           phone: String(data.get("phone")).trim(),
         };
-        // Đăng ký trực tiếp rồi mở đăng nhập; backend xác định vai trò MEMBER và lưu mật khẩu mã hóa.
-        await api.register(input);
-        navigate("/login", { state: { registrationComplete: true } });
+        if (configuredMode === "api") {
+          const delivery = await api.beginMemberRegistration(input);
+          navigate(`/verify-registration?email=${encodeURIComponent(email)}`, {
+            state: { expiresAtEpochMs: delivery.expiresAtEpochMs },
+          });
+        } else {
+          await api.register(input);
+          navigate("/login", { state: { registrationComplete: true } });
+        }
       } else {
         signIn(await api.login(email, password));
         navigate("/");
       }
     } catch (e) {
       const message = errorText(e);
-      const field = register ? registrationErrorField(message) : undefined;
+      const serviceUnavailable = e instanceof ApiError && e.status === 503;
+      const field = register && !serviceUnavailable
+        ? registrationErrorField(message)
+        : undefined;
       if (field) setFieldErrors({ [field]: message });
       else setError(message);
     } finally {
@@ -262,7 +274,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                   name="password"
                   autoComplete={register ? "new-password" : "current-password"}
                   minLength={register ? 6 : 1}
-                  maxLength={128}
+                  maxLength={register ? undefined : 128}
                   required
                   placeholder={
                     register ? "Tối thiểu 6 ký tự" : "Nhập mật khẩu của bạn"
