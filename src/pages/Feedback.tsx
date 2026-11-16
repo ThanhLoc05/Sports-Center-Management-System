@@ -8,6 +8,8 @@ import { Button, DataTable, ErrorState, Field, FormModal, Loading, Notice, PageH
 
 type Kind = "coach" | "class" | "member";
 const labels = { coach: "ID HLV", class: "ID lớp", member: "ID thành viên" };
+// Gợi ý đổi theo đối tượng đang chọn, giúp nhập đúng loại ID mà không đổi API tra cứu.
+const placeholders = { coach: "Nhập ID huấn luyện viên", class: "Nhập ID lớp học", member: "Nhập ID thành viên" };
 export default function Feedback() {
   const { session } = useAuth();
   if (session?.mode !== "api") return <><PageHeader title="Đánh giá" /><Notice>Đánh giá sử dụng API Backend; chưa có dữ liệu đánh giá trong demo.</Notice></>;
@@ -57,7 +59,7 @@ function FeedbackContent() {
             <option value="coach">Đánh giá HLV</option><option value="class">Đánh giá lớp</option>
             {(member || staff) && <option value="member">{member ? "Nhận xét dành cho tôi" : "Nhận xét thành viên"}</option>}
           </select></Field>
-          <Field label={labels[kind]}><input type="number" min={1} step={1} required value={targetId}
+          <Field label={labels[kind]}><input type="number" min={1} step={1} required placeholder={placeholders[kind]} value={targetId}
             readOnly={member && kind === "member"} onChange={e => { setTargetId(e.target.value); setSelection(null); setLookupError(""); }} /></Field>
           <Button type="submit">Xem đánh giá</Button>
         </form>
@@ -115,7 +117,7 @@ function FeedbackForm({ coach, initialKind, initialId, onClose, onSaved }: {
       <option value="coach">HLV</option><option value="class">Lớp học</option>
     </select></Field>}
     <Field label={coach ? "ID thành viên nhận xét" : kind === "class" ? "ID lớp nhận đánh giá" : "ID HLV nhận đánh giá"}>
-      <input key={kind} name="targetId" type="number" min={1} step={1} required defaultValue={kind === initialKind ? initialId : undefined} />
+      <input key={kind} name="targetId" type="number" min={1} step={1} required placeholder={coach ? placeholders.member : placeholders[kind]} defaultValue={kind === initialKind ? initialId : undefined} />
     </Field>
     <Field label="Điểm đánh giá (không bắt buộc)"><select name="rating" defaultValue="">
       <option value="">Không chấm điểm</option>{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} / 5</option>)}
