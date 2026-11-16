@@ -5,9 +5,8 @@
     Script co the chay lai: khong nhan doi tai khoan, goi, don, lop va giao dich da co.
     Ho ten va so dien thoai cac tai khoan seed duoc dong bo theo danh sach demo.
 
-    Tai khoan demo hien co dung Sportiva@2026.
-    Ba tai khoan member.demo/coach.demo/reception.demo dung password123.
-    Mat khau duoc ma hoa BCrypt; chi dung cho database local/demo.
+    Tat ca tai khoan demo duoc seed bang mat khau 123456 (ma hoa BCrypt).
+    Chi dung mat khau nay cho database local/demo.
 
     Tao: 31 MEMBER, 4 COACH, 2 RECEPTIONIST, 1 CENTER_MANAGER,
     28 gói đã thanh toán (24 còn hạn), 2 order đang chờ, 19 buổi lớp,
@@ -78,8 +77,7 @@ IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'ZALOP
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'PAYOS')
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'PAYOS', N'PayOS', 0);
 
-DECLARE @DemoPasswordHash NVARCHAR(255) = N'$2a$10$QUa4z.6PjI2kh8cTzUrQZ.zSc/PE0BdWwVxoHRubh8U2akaptBUm6';
-DECLARE @AdditionalDemoPasswordHash NVARCHAR(255) = N'$2a$10$sVIhAnludcT9T.T/GNxq0ep1LDFHaKEd9aFw71dwBANfxs5sRnjQW';
+DECLARE @DemoPasswordHash NVARCHAR(255) = N'$2a$10$APcOektaBqLiVoqw3VkfJOvNhP5pXsOY2hMUfpyQ7pFHs3obvUu5m';
 DECLARE @Today DATE = CONVERT(DATE, SYSDATETIME());
 
 DECLARE @SeedAccounts TABLE (
@@ -130,14 +128,7 @@ INSERT INTO @SeedAccounts (email, full_name, phone, role_name) VALUES
 
 INSERT INTO dbo.users (email, password_hash, full_name, phone, role_id, status)
 SELECT seed.email,
-       CASE
-           WHEN seed.email IN (
-               N'member.demo@sportiva.com',
-               N'coach.demo@sportiva.com',
-               N'reception.demo@sportiva.com'
-           ) THEN @AdditionalDemoPasswordHash
-           ELSE @DemoPasswordHash
-       END,
+       @DemoPasswordHash,
        seed.full_name, seed.phone, role.role_id, N'ACTIVE'
 FROM @SeedAccounts AS seed
 JOIN dbo.roles AS role ON role.role_name = seed.role_name
@@ -151,9 +142,10 @@ IF EXISTS (
 )
     THROW 50002, N'So dien thoai seed bi trung voi tai khoan khac. Dung script va chon lai so demo.', 1;
 
-/* Đồng bộ họ tên và số điện thoại cho tài khoản seed đã tồn tại. */
+/* Đồng bộ thông tin và đặt lại mật khẩu cho mọi tài khoản seed đã tồn tại. */
 UPDATE existing
-SET full_name = seed.full_name,
+SET password_hash = @DemoPasswordHash,
+    full_name = seed.full_name,
     phone = seed.phone
 FROM dbo.users AS existing
 JOIN @SeedAccounts AS seed ON seed.email = existing.email
