@@ -13,6 +13,7 @@ import com.sportscenter.management.repository.MembershipPackageRepository;
 import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.BookingService;
+import com.sportscenter.management.service.MemberClassNotifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,18 +35,15 @@ public class BookingServiceImpl implements BookingService {
     private final MembershipPackageRepository packageRepository;
     private final com.sportscenter.management.service.MemberReminderService reminders;
 
+    private final MemberClassNotifications classNotifications;
+
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
         if (classId == null || memberId == null) {
             throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
 
-        // Serialize bookings across different classes for the same member, not only seats in one class.
-        // Acquire the member lock before the class lock, consistently for self and assisted booking.
-        userRepository.findByIdForUpdate(memberId)
-                .filter(user -> "ACTIVE".equals(user.getStatus()))
-                .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại hoặc không hoạt động"));
-
+        // Booking and rescheduling both lock the target class before its members.
         Classes clazz = classRepository.findByIdForUpdate(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
         if (!"SCHEDULED".equals(clazz.getStatus())
@@ -53,7 +51,7 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Lớp học không mở đăng ký");
         }
 
-        userRepository.findById(memberId)
+        userRepository.findByIdForUpdate(memberId)
                 .filter(user -> "ACTIVE".equals(user.getStatus()))
                 .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại hoặc không hoạt động"));
 
@@ -123,6 +121,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus("BOOKED");
         var saved=bookingRepository.saveAndFlush(booking);
         reminders.remindClass(classId);
+        classNotifications.bookingConfirmed(saved, clazz);
         return toResponse(saved);
     }
 

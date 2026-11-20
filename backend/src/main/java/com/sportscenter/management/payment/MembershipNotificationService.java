@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter;
 public class MembershipNotificationService {
     private final MembershipNotificationRepository notifications;
     private final UserRepository users;
-    public record Notification(String status) {}
+    public record Notification(String status, Long id, LocalDateTime createdAt) {}
     public record Delivery(Notification notification) {}
 
     public void notifyConfirmed(MembershipOrder order, Invoice invoice, MemberSubscription subscription) {
@@ -37,6 +37,6 @@ public class MembershipNotificationService {
     /** Controller đã giới hạn đơn cho chính chủ/lễ tân/quản lý; chỉ trả SENT khi thông báo tồn tại trong SQL. */
     @Transactional(readOnly = true)
     public Delivery status(Integer orderId) {
-        return notifications.findByOrderId(orderId).map(n -> new Delivery(new Notification("SENT"))).orElse(null);
+        return notifications.findByOrderId(orderId).map(n -> new Delivery(new Notification("SENT", n.getId(), n.getCreatedAt()))).orElse(null);
     }
 }

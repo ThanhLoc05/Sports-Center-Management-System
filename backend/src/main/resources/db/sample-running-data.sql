@@ -1,4 +1,4 @@
-/*
+﻿/*
     Du lieu demo cho SportsCenterDB / SQL Server 2019.
 
     Dung sau khi chay schema.sql tren SportsCenterDB.

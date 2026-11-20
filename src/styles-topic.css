@@ -1239,22 +1239,39 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
 .payment-collection-dialog .confirm-description::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: currentColor; vertical-align: middle; }
 
 
-/* Thông báo có một khung chính; bỏ khung lồng để nội dung không sát viền và dễ đọc. */
-.membership-notifications-panel > .notification-card {
-  margin: 0 var(--ui-panel-space) 20px;
-  padding: 20px;
+.member-inbox .inbox-list {
+  display: grid;
+  gap: 12px;
+  padding: 0 clamp(12px, 3vw, 24px) 20px;
+}
+.member-inbox .inbox-card {
+  display: grid;
+  gap: 10px;
   min-width: 0;
+  padding: clamp(14px, 2vw, 20px);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--surface);
   overflow-wrap: anywhere;
 }
-.membership-notifications-panel .notification-card > strong {
-  max-width: 100%;
-  white-space: normal;
+.member-inbox .inbox-card.unread {
+  border-inline-start: 4px solid var(--green);
+  background: #f5f9f1;
 }
-.membership-notifications-panel .notification-card > p {
-  margin: 12px 0;
-  line-height: 1.7;
+.inbox-card-header, .inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
 }
-.membership-notifications-panel .notification-card > .panel {
+.inbox-card-header strong { flex: 1 1 12rem; min-width: 0; }
+.inbox-card small { color: var(--muted); }
+.inbox-card.unread .inbox-read-state { color: var(--green); font-weight: 600; }
+.inbox-card p { margin: 0; line-height: 1.6; }
+.inbox-message { white-space: pre-wrap; }
+.membership-inbox-card > strong { justify-self: start; max-width: 100%; white-space: normal; }
+.membership-inbox-card > .panel {
   margin: 16px 0 0;
   padding: 16px 0 0;
   border: 0;
@@ -1263,14 +1280,14 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
   box-shadow: none;
   background: transparent;
 }
-.membership-notifications-panel .notification-card > .panel > .panel-heading {
+.membership-inbox-card > .panel > .panel-heading {
   padding: 0 0 12px;
 }
-.membership-notifications-panel .notification-card > .panel > p {
+.membership-inbox-card > .panel > p {
   margin: 0 0 12px;
   line-height: 1.7;
 }
-.membership-notifications-panel .notification-card > a {
+.membership-inbox-card > a {
   display: inline-flex;
   align-items: center;
   min-height: 40px;
@@ -1319,9 +1336,6 @@ input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
   margin: 4px -24px 0;
 }
 @media (max-width: 760px) {
-  .membership-notifications-panel > .notification-card {
-    padding: 16px;
-  }
   .pending-editor-dialog > .notice {
     margin: 20px;
   }

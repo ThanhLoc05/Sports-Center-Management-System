@@ -201,7 +201,7 @@ describe("CO07 — gửi qua contract Backend", () => {
         /notifications\/(stream|unread|read)/.test(String(url)),
       ),
     ).toBe(false);
-    expect(screen.getByText(/Thông báo GENERAL được lưu/)).toBeVisible();
+    expect(screen.queryByText(/Thông báo GENERAL được lưu/)).not.toBeInTheDocument();
   });
   it("sends HOMEWORK to one assigned member and invalidates workout plans", async () => {
     const fetch = server({

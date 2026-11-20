@@ -28,6 +28,8 @@ Copy-Item .env.example .env.local
 
 Xin nhóm Backend thông tin instance, database riêng và cách xác thực được phép sử dụng. Clone/pull không tạo database hoặc tài khoản. Không mặc định database trên máy khác có cùng tên, schema hoặc dữ liệu.
 
+Các file seed dùng UTF-8. Khi nhập bằng PowerShell và SQL Server, truyền trực tiếp đường dẫn file cho `sqlcmd -S $instance -d $database -E -I -b -f 65001 -i $seedPath` sau khi chọn đúng instance và database. Nếu đọc script bằng Windows PowerShell, dùng `Get-Content -Raw -Encoding UTF8`. Với SSMS, mở file bằng UTF-8 (code page 65001).
+
 Database local mặc định là **`SportsCenterDB`**. Tệp SQL nằm trong `backend/src/main/resources/db/` và dùng schema khớp với entity backend hiện tại, không dùng bộ tên bảng của bản phác thảo `SportsCenterDesign`.
 
 - Tạo database mới: chạy `create-sports-center-sql2019.sql`, sau đó chọn `SportsCenterDB` và chạy `schema.sql`, `sample-running-data.sql`, rồi `seed-coach-profiles.sql` nếu cần hồ sơ HLV demo.

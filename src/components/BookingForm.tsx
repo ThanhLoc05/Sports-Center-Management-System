@@ -153,11 +153,17 @@ export default function BookingForm({
             db ? eligibility?.reason || "Chọn thành viên và lớp." : apiReason,
           );
         await api.book(selectedClass, selectedMember);
-        await client.invalidateQueries();
+        await Promise.all([
+          client.invalidateQueries({
+            queryKey: ["memberBookings", selectedMember, selectedClass],
+          }),
+          client.invalidateQueries({
+            queryKey: ["capacity", selectedClass],
+          }),
+          client.invalidateQueries(),
+        ]);
         toast(
-          db
-            ? "Đã đăng ký lớp thuộc quyền lợi gói tập."
-            : "Backend đã xác nhận đăng ký lớp.",
+          "Đăng ký lớp học thành công! Lớp học đã được thêm vào lịch của bạn.",
         );
       }}
     >

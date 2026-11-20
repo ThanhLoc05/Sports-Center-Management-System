@@ -83,9 +83,11 @@ class Me09ReminderSqlServerIT {
  }
  @Test void officialLateBookingCreatesReminderAndRollbackKeepsBothAtomic(){
   subscription(7);jdbc.update("UPDATE class_bookings SET status='CANCELLED' WHERE class_id=?",classId);
-  new TransactionTemplate(tm).executeWithoutResult(s->{bookingService.bookClass(classId,member);assertEquals(1,count());s.setRollbackOnly();});
+  new TransactionTemplate(tm).executeWithoutResult(s->{bookingService.bookClass(classId,member);assertEquals(2,count());s.setRollbackOnly();});
   assertEquals(0,count());assertEquals("CANCELLED",bookings.findByClassIdAndMemberId(classId,member).orElseThrow().getStatus());
-  bookingService.bookClass(classId,member);assertEquals(1,count());reminders.remindClass(classId);assertEquals(1,count());
+  bookingService.bookClass(classId,member);assertEquals(2,count());reminders.remindClass(classId);assertEquals(2,count());
+  for(String type:List.of("BOOKING_CONFIRMED:", "CLASS_REMINDER:"))
+   assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM member_notification_outbox WHERE recipient_id=? AND event_key LIKE ?",Integer.class,member,type+"%"));
  }
  @Test void schedulerUsesFiveMinuteAndVietnamNineOclockDefaults() throws Exception {
   var a=MemberNotificationJobs.class.getMethod("classes").getAnnotation(org.springframework.scheduling.annotation.Scheduled.class);

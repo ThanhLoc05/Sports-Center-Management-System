@@ -97,12 +97,24 @@ describe("Đặt lớp ở API mode không bị luồng demo chặn", () => {
         screen.getByRole("button", { name: "Xác nhận đăng ký" }),
       );
       await waitFor(() => expect(booking).toHaveBeenCalledWith(8, 42));
-      if (success) await waitFor(() => expect(close).toHaveBeenCalled());
+      if (success) {
+        await waitFor(() => expect(close).toHaveBeenCalled());
+        expect(
+          await screen.findByText(
+            "Đăng ký lớp học thành công! Lớp học đã được thêm vào lịch của bạn.",
+          ),
+        ).toBeVisible();
+      }
       else {
         expect(await screen.findByRole("alert")).toHaveTextContent(
           "Gói chưa đủ điều kiện từ backend",
         );
         expect(close).not.toHaveBeenCalled();
+        expect(
+          screen.queryByText(
+            "Đăng ký lớp học thành công! Lớp học đã được thêm vào lịch của bạn.",
+          ),
+        ).not.toBeInTheDocument();
       }
       client.clear();
     },
@@ -344,6 +356,16 @@ describe("BookingForm quyền STANDARD/VIP theo thành viên API", () => {
     "%s uses the selected member and blocks while changing members",
     async (role) => {
       let resolveMember!: (value: typeof active) => void;
+      vi.mocked(api.users).mockResolvedValue([
+        {
+          id: 99,
+          fullName: "Thành viên Thay đổi",
+          email: "member99@example.com",
+          phone: "0900000099",
+          roleName: "MEMBER",
+          status: "ACTIVE",
+        },
+      ]);
       vi.mocked(api.activeSubscription).mockImplementation(async (id) => {
         if (id === 99)
           return new Promise<typeof active>((resolve) => {
@@ -364,9 +386,9 @@ describe("BookingForm quyền STANDARD/VIP theo thành viên API", () => {
       fireEvent.change(screen.getByLabelText("Thành viên"), {
         target: { value: "99" },
       });
-      expect(await screen.findByText("Đang kiểm tra gói tập…")).toBeVisible();
-      expect(submit()).toBeDisabled();
+      await waitFor(() => expect(submit()).toBeDisabled());
       expect(api.activeSubscription).not.toHaveBeenCalledWith(1);
+      await waitFor(() => expect(api.activeSubscription).toHaveBeenCalledWith(99));
       resolveMember({ ...active, memberId: 99, packageId: 3 });
       await waitFor(() => expect(submit()).toBeEnabled());
       await userEvent.setup().click(submit());

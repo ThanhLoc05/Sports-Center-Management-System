@@ -21,6 +21,11 @@ function session(demo = false) {
   sessionStorage.setItem("sportiva-session", JSON.stringify(demo ? s : { ...s, mode: "api", token: "class-detail-test-only" }));
   return s;
 }
+function memberSession() {
+  const s = demoSession("MEMBER");
+  sessionStorage.setItem("sportiva-session", JSON.stringify({ ...s, mode: "api", token: "member-class-detail-test" }));
+  return s;
+}
 function server(detail: (id: number) => Promise<Response> = async id => json({ ...item(id), className: `Chi tiết mới ${id}` }), list = [item()]) {
   const fetch = vi.fn(async (url: RequestInfo | URL, _init?: RequestInit) => {
     const path = String(url), match = path.match(/^\/api\/v1\/classes\/(\d+)$/);
@@ -40,6 +45,48 @@ function page(node: React.ReactNode) {
 const detailNode = (id = 1) => <ClassDetail item={item(id)} onClose={() => {}} />;
 
 describe("Chi tiết lớp API và COMPLETED", () => {
+  it("shows the real Member booking state instead of a stale register button", async () => {
+    const s = memberSession();
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      const path = String(url);
+      if (/\/api\/v1\/classes\/1$/.test(path)) return json(item());
+      if (path.endsWith("/capacity")) return json(5);
+      if (path === `/api/v1/members/${s.user.id}/bookings`) {
+        return json([{ id: 71, classId: 1, memberId: s.user.id, bookedAt: "2026-11-20T10:00:00", status: "BOOKED" }]);
+      }
+      return json([]);
+    }));
+    page(detailNode());
+    expect(await screen.findByText("Bạn đã đăng ký lớp học này")).toBeVisible();
+    expect(screen.getByText(/Lớp học đã được thêm vào lịch của bạn/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Đăng ký lớp học" })).not.toBeInTheDocument();
+  });
+  it("allows booking when the Member has no ACTIVE booking", async () => {
+    const s = memberSession();
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      const path = String(url);
+      if (/\/api\/v1\/classes\/1$/.test(path)) return json(item());
+      if (path.endsWith("/capacity")) return json(5);
+      if (path === `/api/v1/members/${s.user.id}/bookings`) {
+        return json([{ id: 71, classId: 1, memberId: s.user.id, bookedAt: "2026-11-20T10:00:00", status: "CANCELLED" }]);
+      }
+      return json([]);
+    }));
+    page(detailNode());
+    expect(await screen.findByRole("button", { name: "Đăng ký lớp học" })).toBeEnabled();
+  });
+  it("does not allow booking when the class is full", async () => {
+    const s = memberSession();
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      const path = String(url);
+      if (/\/api\/v1\/classes\/1$/.test(path)) return json(item());
+      if (path.endsWith("/capacity")) return json(0);
+      if (path === `/api/v1/members/${s.user.id}/bookings`) return json([]);
+      return json([]);
+    }));
+    page(detailNode());
+    expect(await screen.findByRole("button", { name: "Lớp đã đủ chỗ" })).toBeDisabled();
+  });
   it("GETs by ID with authentication and does not use the list object", async () => {
     session(); const fetch = server(); page(detailNode());
     expect(await screen.findByRole("heading", { name: "Chi tiết mới 1" })).toBeVisible();

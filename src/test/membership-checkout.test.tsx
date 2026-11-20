@@ -555,14 +555,24 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
       invoice: { ...pending.invoice },
     });
     changed.subscription = { ...subscription, packageId: 2 };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => json([changed])),
-    );
+    changed.delivery = { notification: { status: "SENT", id: 11, createdAt: "2026-11-07T12:00:00" } };
+    const event = (id: number, time: string) => ({
+      kind: "GENERAL", id, senderId: 2, recipientId: 4, title: "Lịch " + id,
+      content: "Nội dung", createdAt: "2026-11-07T" + time,
+    });
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) =>
+      String(url).includes("/notifications?")
+        ? json({ content: [event(1, "12:00:01"), event(12, "12:00:00"), event(20, "11:59:59")], page: 0, size: 20, hasNext: false })
+        : json([changed]),
+    ));
     wrap(<MembershipNotifications />);
     expect(
       await screen.findByText("Đã xác nhận gia hạn với gói mới Gói quý TEST"),
     ).toBeVisible();
+    await screen.findByText("Lịch 1");
+    expect(screen.getAllByRole("article").map(card => card.querySelector("strong")?.textContent)).toEqual([
+      "Lịch 1", "Lịch 12", "Đã xác nhận gia hạn với gói mới Gói quý TEST", "Lịch 20",
+    ]);
   });
   it.each([
     { ...pending, invoice: { ...pending.invoice, memberId: 5 } },

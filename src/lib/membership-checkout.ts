@@ -39,7 +39,7 @@ export interface MembershipOrder {
     automationEnabled?: boolean;
   };
   delivery?: {
-    notification?: { status: "PENDING" | "SENT" | "FAILED" };
+    notification?: { status: "PENDING" | "SENT" | "FAILED"; id?: number; createdAt?: string };
   };
   createdAt: string;
   confirmedAt?: string;

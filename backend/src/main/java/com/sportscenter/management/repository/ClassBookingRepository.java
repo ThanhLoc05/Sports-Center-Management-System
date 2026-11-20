@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +32,24 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
      * @return List of bookings
      */
     List<ClassBooking> findByClassId(Integer classId);
+
+    @Query("select b.memberId from ClassBooking b where b.classId = :classId and b.status = 'BOOKED' order by b.memberId")
+    List<Integer> findBookedMemberIds(@Param("classId") Integer classId);
+
+    @Query(value = """
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM class_bookings roster
+                JOIN class_bookings booking ON booking.member_id = roster.member_id
+                JOIN classes c ON c.class_id = booking.class_id
+                WHERE roster.class_id = :classId AND roster.status = 'BOOKED'
+                  AND booking.class_id <> :classId AND booking.status = 'BOOKED'
+                  AND c.status = 'SCHEDULED' AND c.schedule_time < :endTime
+                  AND DATEADD(minute, COALESCE(c.duration_minutes, 60), c.schedule_time) > :startTime
+            ) THEN 1 ELSE 0 END AS bit)
+            """, nativeQuery = true)
+    boolean hasMemberScheduleConflict(@Param("classId") Integer classId,
+                                      @Param("startTime") LocalDateTime startTime,
+                                      @Param("endTime") LocalDateTime endTime);
 
     /**
      * Find all bookings for a member

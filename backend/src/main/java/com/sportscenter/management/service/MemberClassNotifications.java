@@ -2,10 +2,12 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.entity.Classes;
+import com.sportscenter.management.entity.ClassBooking;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /** Called inside the class transaction, after locking the class and before cancelling its roster. */
@@ -17,6 +19,16 @@ public class MemberClassNotifications {
     public record Before(LocalDateTime time,Integer room,Integer coach) {
         public static Before of(Classes row){return new Before(row.getScheduleTime(),row.getRoomId(),row.getCoachId());}
     }
+    private static final DateTimeFormatter CLASS_TIME = DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy");
+
+    public void bookingConfirmed(ClassBooking booking, Classes clazz) {
+        // A cancellation and rebooking reuse the booking ID, but start a new bookedAt.
+        String key = "BOOKING_CONFIRMED:" + booking.getId() + ":" + booking.getBookedAt();
+        String message = "Bạn đã đăng ký thành công lớp " + clazz.getClassName()
+                + " lúc " + clazz.getScheduleTime().format(CLASS_TIME) + ".";
+        outbox.enqueue(key, clazz.getCoachId(), booking.getMemberId(), "Đăng ký lớp thành công", message, "/schedule");
+    }
+
     public void changed(Before before,Classes row) {
         var changes=new ArrayList<String>();
         if(!Objects.equals(before.time(),row.getScheduleTime()))changes.add("Lịch: "+before.time()+" → "+row.getScheduleTime());

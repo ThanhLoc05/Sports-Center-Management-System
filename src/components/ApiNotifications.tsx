@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import {
   useInfiniteQuery,
@@ -16,6 +17,7 @@ import {
   getReceivedNotifications,
   notificationsApi,
   mergeNotificationItems,
+  newestNotificationFirst,
   subscribeNotificationStreamStatus,
   subscribeReceivedNotifications,
 } from "../lib/notifications-api";
@@ -23,7 +25,7 @@ import type {
   NotificationEvent,
   NotificationSendResult,
 } from "../lib/notifications-api";
-import { errorText } from "../lib/utils";
+import { dateLabel, errorText } from "../lib/utils";
 import { TrainingInstructions } from "./TrainingInstructions";
 import {
   Button,
@@ -55,16 +57,27 @@ interface Draft {
 }
 
 function notificationTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("vi-VN");
+  return dateLabel(value, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-export function ApiNotificationInbox() {
+interface InboxCard {
+  key: string;
+  id: number;
+  createdAt: string;
+  content: ReactNode;
+}
+
+interface InboxProps {
+  additionalCards?: InboxCard[];
+  canShowEmpty?: boolean;
+}
+
+export function ApiNotificationInbox(props: InboxProps) {
   const { session } = useAuth();
-  return <NotificationInbox key={`${session?.mode}:${session?.user.id}`} />;
+  return <NotificationInbox key={`${session?.mode}:${session?.user.id}`} {...props} />;
 }
 
-function NotificationInbox() {
+function NotificationInbox({ additionalCards = [], canShowEmpty = true }: InboxProps) {
   const { session } = useAuth();
   const client = useQueryClient();
   const toast = useToast();
@@ -143,97 +156,62 @@ function NotificationInbox() {
   ).map((item) =>
     item.kind === "GENERAL" ? readItems[item.id] || item : item,
   );
-  const streamMessage: Record<typeof stream.status, string> = {
-    disconnected: "Luồng nhận thông báo chưa kết nối.",
-    connecting: "Đang kết nối luồng thông báo…",
-    connected:
-      "Đang nhận thông báo trực tuyến. Người gửi và người nhận cần đăng nhập cùng lúc.",
-    reconnecting: "Mất kết nối tạm thời; hệ thống đang thử kết nối lại.",
-    error: "Không thể mở luồng nhận thông báo.",
-  };
+  const cards: InboxCard[] = items.map((event) => {
+    const link = event.link || (event.kind === "HOMEWORK" ? "/training" : undefined);
+    const general = event.kind === "GENERAL";
+    return {
+      key: `${event.kind}:${event.id}:${general ? "" : event.createdAt}`,
+      id: event.id,
+      createdAt: event.createdAt,
+      content: (
+        <article className={`inbox-card${general && !event.readAt ? " unread" : ""}`}>
+          <header className="inbox-card-header">
+            <strong>{event.title}</strong>
+            {general && <small className="inbox-read-state">{event.readAt ? "Đã đọc" : "Chưa đọc"}</small>}
+          </header>
+          <p className="inbox-message">{event.content}</p>
+          <small>{general ? "Thông báo" : "Bài tập"} · <time dateTime={event.createdAt}>{notificationTime(event.createdAt)}</time> · Người gửi #{event.senderId}</small>
+          {(link || (general && !event.readAt)) && (
+            <footer className="inbox-actions">
+              {link && <Link className="text-link" to={link}>Mở nội dung liên quan</Link>}
+              {general && !event.readAt && <Button variant="ghost" disabled={read.isPending} onClick={() => read.mutate(event.id)}>Đánh dấu đã đọc</Button>}
+            </footer>
+          )}
+        </article>
+      ),
+    };
+  });
+  cards.push(...additionalCards);
+  cards.sort(newestNotificationFirst);
   return (
-    <>
-      <Notice tone={stream.status === "error" ? "warning" : "info"}>
-        {stream.status === "reconnecting" && stream.error
-          ? `${streamMessage[stream.status]} ${stream.error}`
-          : stream.status === "error" && stream.error
-            ? `${streamMessage[stream.status]} ${stream.error}`
-            : streamMessage[stream.status]}{" "}
-        Thông báo GENERAL được lưu trong lịch sử của bạn. Bài tập HOMEWORK vẫn
-        được xem trong kế hoạch tập luyện.
-      </Notice>
-      <Panel title="Thông báo của bạn">
-        {history.isPending && <Loading />}
-        {history.error && (
-          <ErrorState
-            error={history.error}
-            retry={() => void history.refetch()}
-          />
-        )}
-        {!history.isPending && !history.error && items.length === 0 ? (
-          <Empty
-            title="Chưa nhận thông báo nào"
-            description="Thông báo sẽ xuất hiện khi huấn luyện viên gửi cho bạn."
-          />
-        ) : (
-          <div>
-            {items.map((event: NotificationEvent) => {
-              const link =
-                event.link ||
-                (event.kind === "HOMEWORK" ? "/training" : undefined);
-              return (
-                <article
-                  key={`${event.kind}:${event.id}:${event.createdAt}`}
-                  style={{
-                    borderBottom: "1px solid var(--border-card)",
-                    padding: "1rem 0",
-                  }}
-                >
-                  <div>
-                    <strong>{event.title}</strong>
-                    <p style={{ whiteSpace: "pre-wrap" }}>{event.content}</p>
-                    <small>
-                      {event.kind === "HOMEWORK" ? "Bài tập" : "Thông báo"} ·{" "}
-                      {notificationTime(event.createdAt)} · Người gửi #
-                      {event.senderId}
-                    </small>
-                    {event.kind === "GENERAL" && (
-                      <p>
-                        {event.readAt ? (
-                          "Đã đọc"
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            disabled={read.isPending}
-                            onClick={() => read.mutate(event.id)}
-                          >
-                            Đánh dấu đã đọc
-                          </Button>
-                        )}
-                      </p>
-                    )}
-                    {link && (
-                      <p>
-                        <Link to={link}>Mở nội dung liên quan</Link>
-                      </p>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-        {history.hasNextPage && (
-          <Button
-            variant="secondary"
-            loading={history.isFetchingNextPage}
-            onClick={() => void history.fetchNextPage()}
-          >
-            Tải thêm thông báo
-          </Button>
-        )}
-      </Panel>
-    </>
+    <Panel className="member-inbox" title="Thông báo của bạn">
+      {history.isPending && <Loading />}
+      {history.error && (
+        <ErrorState
+          error={history.error}
+          retry={() => void history.refetch()}
+        />
+      )}
+      {!history.isPending && !history.error && canShowEmpty && cards.length === 0 ? (
+        <Empty
+          title="Chưa nhận thông báo nào"
+          description="Xác nhận đăng ký, thay đổi lịch và bài tập sẽ xuất hiện tại đây."
+        />
+      ) : (
+        <div className="inbox-list">
+          {cards.map((card) => <Fragment key={card.key}>{card.content}</Fragment>)}
+        </div>
+      )}
+      {history.hasNextPage && (
+        <Button
+          variant="secondary"
+          loading={history.isFetchingNextPage}
+          onClick={() => void history.fetchNextPage()}
+        >
+          Tải thêm thông báo
+        </Button>
+      )}
+    </Panel>
   );
 }
 

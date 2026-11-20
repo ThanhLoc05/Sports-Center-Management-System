@@ -14,8 +14,10 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -167,25 +169,31 @@ public class ClassServiceImpl implements ClassService {
         entityManager.refresh(clazz,LockModeType.PESSIMISTIC_WRITE);
         if((request.getRoomId()==null && !targetRoom.equals(clazz.getRoomId()))
                 || (request.getCoachId()==null && !targetCoach.equals(clazz.getCoachId())))
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Lớp đã thay đổi tài nguyên; hãy tải lại dữ liệu.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp đã thay đổi tài nguyên; hãy tải lại dữ liệu.");
         var before=MemberClassNotifications.Before.of(clazz);
+        LocalDateTime start = request.getScheduleTime() != null ? request.getScheduleTime() : clazz.getScheduleTime();
+        int oldDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
+        int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : oldDuration;
+        if (request.getScheduleTime() != null && !start.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Thời gian lớp học phải là tương lai");
+        }
+        if (duration <= 0) {
+            throw new IllegalArgumentException("Thời lượng lớp học phải lớn hơn 0");
+        }
+        if ("SCHEDULED".equals(clazz.getStatus()) && (!start.equals(clazz.getScheduleTime()) || duration != oldDuration)) {
+            validateMemberSchedules(classId, start, start.plusMinutes(duration));
+        }
 
         if (request.getClassName() != null && !request.getClassName().isBlank()) {
             clazz.setClassName(request.getClassName());
         }
 
-        if (request.getScheduleTime() != null && !request.getScheduleTime().isAfter(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Thời gian lớp học phải là tương lai");
-        }
         if (request.getScheduleTime() != null) {
             clazz.setScheduleTime(request.getScheduleTime());
         }
 
         if (request.getDurationMinutes() != null) {
-            if (request.getDurationMinutes() <= 0) {
-                throw new IllegalArgumentException("Thời lượng lớp học phải lớn hơn 0");
-            }
-            clazz.setDurationMinutes(request.getDurationMinutes());
+            clazz.setDurationMinutes(duration);
         }
 
         if (request.getMaxCapacity() != null) {
@@ -218,9 +226,7 @@ public class ClassServiceImpl implements ClassService {
             throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
         }
 
-        LocalDateTime effectiveStart = clazz.getScheduleTime();
-        int effectiveDuration = clazz.getDurationMinutes() != null ? clazz.getDurationMinutes() : 60;
-        validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), effectiveStart, effectiveDuration);
+        validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), start, duration);
 
         Classes updatedClass = classRepository.save(clazz);
         memberNotifications.changed(before,updatedClass);
@@ -247,6 +253,18 @@ public class ClassServiceImpl implements ClassService {
     @Transactional(readOnly = true)
     public long getCurrentBookingCount(Integer classId) {
         return bookingRepository.countByClassIdAndStatus(classId, "BOOKED");
+    }
+
+    private void validateMemberSchedules(Integer classId, LocalDateTime start, LocalDateTime end) {
+        // The class lock stabilizes enrollments. Lock shared members in ID order before
+        // mutating the class, so concurrent bookings or moves validate the committed schedule.
+        for (Integer memberId : bookingRepository.findBookedMemberIds(classId)) {
+            userRepository.findByIdForUpdate(memberId);
+        }
+        if (bookingRepository.hasMemberScheduleConflict(classId, start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Không thể đổi lịch lớp vì có học viên đã đăng ký lớp khác trùng giờ.");
+        }
     }
 
     private void validateNoScheduleConflict(

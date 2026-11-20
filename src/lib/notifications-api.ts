@@ -1,4 +1,5 @@
 import { ApiError, getSession, openEventStream, request } from "./api";
+import { parseDate } from "./utils";
 
 export interface NotificationEvent {
   id: number;
@@ -19,6 +20,17 @@ export interface NotificationHistoryPage {
   hasNext: boolean;
 }
 
+type NotificationOrder = Pick<NotificationEvent, "createdAt" | "id">;
+
+export function newestNotificationFirst(a: NotificationOrder, b: NotificationOrder) {
+  const milliseconds = parseDate(b.createdAt).getTime() - parseDate(a.createdAt).getTime();
+  if (milliseconds) return milliseconds;
+  // SQL Server datetime2 can distinguish events inside the same millisecond.
+  const fraction = (value: string) =>
+    Number((value.match(/:\d{2}\.(\d+)/)?.[1] ?? "").padEnd(9, "0").slice(3, 9));
+  return fraction(b.createdAt) - fraction(a.createdAt) || b.id - a.id;
+}
+
 export function mergeNotificationItems(
   history: NotificationEvent[],
   live: NotificationEvent[],
@@ -32,9 +44,7 @@ export function mergeNotificationItems(
     const previous = items.get(key);
     items.set(key, { ...item, readAt: previous?.readAt || item.readAt });
   }
-  return [...items.values()].sort(
-    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id - a.id,
-  );
+  return [...items.values()].sort(newestNotificationFirst);
 }
 
 export interface NotificationInput {

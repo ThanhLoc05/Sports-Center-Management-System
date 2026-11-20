@@ -8,7 +8,6 @@ import ApiNotifications from "../components/ApiNotifications";
  */
 import { useState } from "react";
 import { MembershipNotifications } from "../components/MembershipCheckout";
-import { ApiNotificationInbox } from "../components/ApiNotifications";
 import { Link } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
@@ -392,10 +391,7 @@ function LegacyStudentsPage() {
 export function NotificationsPage() {
   const { session } = useAuth();
   return session?.mode === "api" && session.user.roleName === "MEMBER" ? (
-    <>
-      <MembershipNotifications />
-      <ApiNotificationInbox />
-    </>
+    <MembershipNotifications />
   ) : session?.mode === "api" ? (
     <ApiNotifications />
   ) : (

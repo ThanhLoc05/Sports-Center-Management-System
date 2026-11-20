@@ -22,6 +22,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  CheckCircle2,
   Clock3,
   Dumbbell,
   LayoutGrid,
@@ -833,6 +834,20 @@ function ClassDetailContent({
     queryKey: ["capacity", c.id],
     queryFn: () => api.capacity(c.id),
   });
+  const isMember = session!.user.roleName === "MEMBER";
+  const ownBookings = useQuery({
+    queryKey: ["memberBookings", session!.user.id, c.id],
+    queryFn: async () =>
+      (await api.bookings(session!.user.id)).filter(
+        (booking) => booking.classId === c.id,
+      ),
+    enabled: isMember,
+  });
+  const isRegistered =
+    ownBookings.isSuccess &&
+    ownBookings.data.some((booking) =>
+      ["BOOKED", "ACTIVE", "CONFIRMED"].includes(booking.status),
+    );
   const bookings = useQuery({
     queryKey: ["classStudents", session!.user.id, session!.user.roleName, c.id],
     queryFn: async () => session!.mode === "api"
@@ -945,7 +960,42 @@ function ClassDetailContent({
               </div>
             ))}
           <div className="detail-actions">
-            {(session!.user.roleName === "MEMBER" || can("bookings.assist")) &&
+            {isMember &&
+              c.status === "SCHEDULED" &&
+              parseDate(c.scheduleTime) > new Date() && (
+                ownBookings.isPending ? (
+                  <Button disabled>Đang kiểm tra đăng ký…</Button>
+                ) : ownBookings.error ? (
+                  <div className="booking-status-error">
+                    <ErrorState
+                      error={ownBookings.error}
+                      retry={ownBookings.refetch}
+                    />
+                  </div>
+                ) : isRegistered ? (
+                  <div className="booking-status-success" role="status">
+                    <CheckCircle2 size={20} />
+                    <div>
+                      <strong>Bạn đã đăng ký lớp học này</strong>
+                      <span>Lớp học đã được thêm vào lịch của bạn.</span>
+                    </div>
+                  </div>
+                ) : capacity.isPending ? (
+                  <Button disabled>Đang kiểm tra chỗ trống…</Button>
+                ) : capacity.error ? (
+                  <div className="booking-status-error">
+                    <ErrorState error={capacity.error} retry={capacity.refetch} />
+                  </div>
+                ) : (capacity.data ?? 0) <= 0 ? (
+                  <Button disabled>Lớp đã đủ chỗ</Button>
+                ) : (
+                  <Button onClick={() => setBooking(true)}>
+                    Đăng ký lớp học
+                  </Button>
+                )
+              )}
+            {session!.user.roleName !== "MEMBER" &&
+              can("bookings.assist") &&
               c.status === "SCHEDULED" &&
               parseDate(c.scheduleTime) > new Date() && (
                 <Button
@@ -956,9 +1006,7 @@ function ClassDetailContent({
                   }
                   onClick={() => setBooking(true)}
                 >
-                  {session!.user.roleName === "MEMBER"
-                    ? "Đăng ký lớp học"
-                    : "Đăng ký cho thành viên"}
+                  Đăng ký cho thành viên
                 </Button>
               )}
             {session!.user.roleName === "COACH" && can("attendance.record") && (

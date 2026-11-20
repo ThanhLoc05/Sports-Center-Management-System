@@ -59,7 +59,7 @@ export function useUsers(allowReceptionist = false) {
  * HLV gửi coachId của chính mình để tải lịch phụ trách; vai trò khác không
  * thêm bộ lọc đó. coachId cũng nằm trong queryKey để không dùng nhầm cache.
  */
-export function useClasses() {
+export function useClasses(options: { refetchOnMount?: boolean | "always" } = {}) {
   const { session } = useAuth();
   const coachId =
     session?.user.roleName === "COACH" ? session.user.id : undefined;
@@ -67,6 +67,7 @@ export function useClasses() {
     queryKey: ["classes", coachId],
     queryFn: () => api.classes(coachId),
     enabled: !!session,
+    ...options,
   });
 }
 /**

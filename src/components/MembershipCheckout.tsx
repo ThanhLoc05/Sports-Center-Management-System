@@ -17,6 +17,7 @@ import type { Subscription } from "../lib/types";
 import { dateLabel, errorText, idLabel, localDate, matches, money } from "../lib/utils";
 import { Search } from "lucide-react";
 import "../styles-membership-members.css";
+import { ApiNotificationInbox } from "./ApiNotifications";
 import { MembershipDelivery, TransferVerification } from "./MembershipDelivery";
 import { usePaymentMember } from "../lib/use-payment-member";
 import { PaymentQr } from "./PaymentQr";
@@ -1134,51 +1135,53 @@ export function MembershipNotifications() {
     <>
       <PageHeader
         title="Thông báo & bài tập"
-        description="Cập nhật xác nhận gói tập của tài khoản đang đăng nhập."
+        description="Theo dõi đăng ký lớp, lịch học, gói tập và bài tập của bạn."
       />
-      <Panel className="membership-notifications-panel" title="Xác nhận đăng ký / gia hạn">
-        {query.isPending ? (
-          <Loading />
-        ) : query.error ? (
-          <ErrorState error={query.error} retry={query.refetch} />
-        ) : rows.length ? (
-          rows.map((order) => (
-            <article className="notification-card" key={order.id}>
-              <strong className="payment-status status-paid">
-                Đã xác nhận {orderAction(order)} {order.package.name}
-              </strong>
-              <p>
-                {order.paymentReference} · {money(order.invoice.amount)} · TV
-                {order.memberId}
-              </p>
-              <p>
-                Thời hạn: {dateLabel(order.subscription!.startDate)} –{" "}
-                {dateLabel(order.subscription!.endDate)}
-                {order.subscription!.startDate > localDate() && (
-                  <>
-                    {" "}
-                    · Gói mới có hiệu lực từ{" "}
-                    {dateLabel(order.subscription!.startDate)}; quyền mới chưa
-                    áp dụng trước ngày này.
-                  </>
-                )}
-              </p>
-              <MembershipDelivery
-                order={order}
-                memberName={session!.user.fullName}
-              />
-              <Link to={`/payments?orderId=${order.id}`}>
-                Xem chi tiết hóa đơn
-              </Link>
-            </article>
-          ))
-        ) : (
-          <Empty
-            title="Chưa có xác nhận gói mới"
-            description="Yêu cầu chờ thanh toán sẽ chưa tạo thông báo gia hạn thành công."
-          />
-        )}
-      </Panel>
+      {query.isPending && <Loading />}
+      {query.error && <ErrorState error={query.error} retry={query.refetch} />}
+      <ApiNotificationInbox
+        canShowEmpty={query.isSuccess}
+        additionalCards={rows.map((order) => {
+          const notification = order.delivery?.notification;
+          const createdAt = notification?.createdAt ?? order.confirmedAt!;
+          return {
+            key: `membership:${order.id}`,
+            id: notification?.id ?? order.id,
+            createdAt,
+            content: (
+              <article className="inbox-card membership-inbox-card">
+                <strong className="payment-status status-paid">
+                  Đã xác nhận {orderAction(order)} {order.package.name}
+                </strong>
+                <p>
+                  {order.paymentReference} · {money(order.invoice.amount)} · TV
+                  {order.memberId}
+                </p>
+                <p>
+                  Thời hạn: {dateLabel(order.subscription!.startDate)} –{" "}
+                  {dateLabel(order.subscription!.endDate)}
+                  {order.subscription!.startDate > localDate() && (
+                    <>
+                      {" "}
+                      · Gói mới có hiệu lực từ{" "}
+                      {dateLabel(order.subscription!.startDate)}; quyền mới chưa
+                      áp dụng trước ngày này.
+                    </>
+                  )}
+                </p>
+                <small>Xác nhận gói · <time dateTime={createdAt}>{dateLabel(createdAt, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</time></small>
+                <MembershipDelivery
+                  order={order}
+                  memberName={session!.user.fullName}
+                />
+                <Link to={`/payments?orderId=${order.id}`}>
+                  Xem chi tiết hóa đơn
+                </Link>
+              </article>
+            ),
+          };
+        })}
+      />
     </>
   );
 }

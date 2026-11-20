@@ -4,6 +4,7 @@
  * dữ liệu users/classes đã tải; không phải API tìm kiếm toàn database.
  */
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient, type QueryFilters } from "@tanstack/react-query";
 import {
   Activity,
   DoorOpen,
@@ -194,6 +195,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
 ];
 export default function Layout() {
   const { session, signOut } = useAuth();
+  const client = useQueryClient();
   const toast = useToast();
   const toastRef = useRef(toast);
   toastRef.current = toast;
@@ -226,6 +228,26 @@ export default function Layout() {
     let active = true;
     clearReceivedNotifications();
 
+    const syncMemberSchedule = () => {
+      if (session.user.roleName !== "MEMBER") return;
+      const filters: QueryFilters[] = [
+        { queryKey: ["classes", undefined], exact: true },
+        { queryKey: ["bookings", session.user.id] },
+      ];
+      for (const filter of filters) {
+        // Lần tải đầu có thể đã đọc dữ liệu trước sự kiện nhưng chưa trả kết quả.
+        void client
+          .cancelQueries({
+            ...filter,
+            fetchStatus: "fetching",
+            predicate: (query) => query.state.data === undefined,
+          })
+          .then(() => {
+            if (active) return client.invalidateQueries(filter);
+          });
+      }
+    };
+
     void (async () => {
       let reconnecting = false;
       while (active && !controller.signal.aborted) {
@@ -236,12 +258,17 @@ export default function Layout() {
           await notificationsApi.connect(
             (event) => {
               if (!active || event.recipientId !== session.user.id) return;
-              if (recordReceivedNotification(event))
-                toastRef.current(event.title);
+              if (!recordReceivedNotification(event)) return;
+              toastRef.current(event.title);
+              if (event.kind === "GENERAL" && event.link === "/schedule")
+                syncMemberSchedule();
             },
             controller.signal,
             () => {
-              if (active) setNotificationStreamStatus("connected");
+              if (!active) return;
+              setNotificationStreamStatus("connected");
+              // SSE không phát lại thay đổi đã xảy ra trước khi kết nối.
+              syncMemberSchedule();
             },
           );
           if (!active || controller.signal.aborted) return;
@@ -273,7 +300,7 @@ export default function Layout() {
       clearReceivedNotifications();
       setNotificationStreamStatus("disconnected");
     };
-  }, [session?.mode, session?.token, session?.user.id, session?.user.roleName]);
+  }, [client, session?.mode, session?.token, session?.user.id, session?.user.roleName]);
   /**
    * Mỗi lần chuyển trang, đóng menu tạm và cuộn lên đầu để giao diện mobile
    * không che nội dung trang mới. Cleanup phím tắt được xử lý ở effect tiếp theo.

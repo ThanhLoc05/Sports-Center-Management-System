@@ -7,6 +7,8 @@ import com.sportscenter.management.repository.*;
 import com.sportscenter.management.service.MemberReminderService;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,7 @@ class BookingConcurrencySqlServerIT {
  @Autowired UserRepository users; @Autowired RoleRepository roles; @Autowired ClassRepository classes;
  @Autowired RoomRepository rooms; @Autowired SportRepository sports; @Autowired MembershipPackageRepository packages;
  @Autowired MemberSubscriptionRepository subscriptions;
+ @Autowired BookingServiceImpl bookingService;
  @MockitoBean MemberReminderService reminders;
  static final ThreadLocal<CyclicBarrier> snapshotBarrier=new ThreadLocal<>();
  @TestConfiguration static class Hooks {
@@ -84,6 +87,31 @@ class BookingConcurrencySqlServerIT {
   assertEquals(overlap?1:2,success,"Overlapping bookings must serialize on the same member");
   assertEquals(overlap?1:2,jdbc.queryForObject("SELECT COUNT(*) FROM class_bookings WHERE member_id=? AND status='BOOKED'",Integer.class,member));
  }
+ @ParameterizedTest
+ @ValueSource(booleans = {false, true})
+ void concurrentRegistrationSendsOneConfirmationPerSuccessfulBooking(boolean assisted) throws Exception {
+  var start = new CyclicBarrier(2);
+  Callable<Integer> attempt = () -> {
+   SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+     assisted ? receptionEmail : memberEmail, "unused", assisted ? "ROLE_RECEPTIONIST" : "ROLE_MEMBER"));
+   try {
+    start.await(10, TimeUnit.SECONDS);
+    return controller.bookClass(first, assisted ? member : null).getBody().getId();
+   } catch (IllegalArgumentException e) {
+    assertTrue(e.getMessage().contains("đã đăng ký")); return 0;
+   } finally { SecurityContextHolder.clearContext(); }
+  };
+  var one=pool.submit(attempt); var two=pool.submit(attempt);
+  int left=one.get(20,TimeUnit.SECONDS), right=two.get(20,TimeUnit.SECONDS);
+  assertTrue((left>0) != (right>0));
+  String sql="SELECT COUNT(*) FROM member_notification_outbox WHERE recipient_id=? AND event_key LIKE 'BOOKING_CONFIRMED:%'";
+  assertEquals(1,jdbc.queryForObject(sql,Integer.class,member));
+
+  bookingService.cancelBooking(Math.max(left,right));
+  bookingService.bookClass(first,member);
+  assertEquals(2,jdbc.queryForObject(sql,Integer.class,member));
+ }
+
  @Test void memberCannotBookOverlappingClassesConcurrently()throws Exception{race(false,true);}
  @Test void receptionistCannotBookOverlappingClassesForMemberConcurrently()throws Exception{race(true,true);}
  @Test void adjacentClassesRemainBookableConcurrently()throws Exception{race(false,false);}

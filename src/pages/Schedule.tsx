@@ -29,7 +29,11 @@ export default function Schedule() {
   const can = usePermissions();
   const member = session!.user.roleName === "MEMBER";
 
-  const classes = useClasses();
+  // A receptionist can book for this member after the dashboard has cached both lists.
+  const calendarQueryOptions = member && session?.mode === "api"
+    ? { refetchOnMount: "always" as const }
+    : {};
+  const classes = useClasses(calendarQueryOptions);
   const [offset, setOffset] = useState(0);
   const [sport, setSport] = useState("all");
   const [scope, setScope] = useState(member ? "mine" : "all");
@@ -44,6 +48,7 @@ export default function Schedule() {
     queryKey: ["bookings", session!.user.id],
     queryFn: () => api.bookings(session!.user.id),
     enabled: member,
+    ...calendarQueryOptions,
   });
   const calendarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

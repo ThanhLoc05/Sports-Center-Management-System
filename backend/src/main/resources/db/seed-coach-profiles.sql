@@ -1,4 +1,4 @@
-/*
+﻿/*
   Idempotently seed fictional, polished demo profiles for the four sample coaches.
   Experience and qualifications are fabricated for demonstration, not verification.
   Other existing coach profiles are left untouched.

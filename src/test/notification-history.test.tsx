@@ -77,6 +77,11 @@ const page = (content: NotificationEvent[], index = 0, hasNext = false) => ({
   hasNext,
 });
 describe("GENERAL persisted history", () => {
+  it("orders server timestamps at SQL precision, then equal instants by descending ID", () => {
+    const event = (id: number, fraction: string) => ({ ...row, id, createdAt: "2026-11-07T18:00:00." + fraction });
+    const ordered = mergeNotificationItems([event(9, "1000000"), event(3, "1000001")], [event(5, "1000001")]);
+    expect(ordered.map(item => item.id)).toEqual([5, 3, 9]);
+  });
   it("merges late history and live events without duplicates or losing read state", () => {
     expect(
       mergeNotificationItems(

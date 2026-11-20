@@ -43,7 +43,7 @@ describe("Class roster names from authorized students API", () => {
   it("never loads or exposes the roster to Member", async () => {
     const fetch = mock(); page("MEMBER"); await screen.findByRole("heading", { name: "Roster 1" });
     expect(screen.queryByText("Danh sách đăng ký")).not.toBeInTheDocument();
-    expect(fetch.mock.calls.some(([u]) => /\/(students|bookings)$/.test(String(u)))).toBe(false);
+    expect(fetch.mock.calls.some(([u]) => /\/classes\/\d+\/(students|bookings)$/.test(String(u)))).toBe(false);
   });
   it("uses an explicit identifier fallback only when the student name is blank", async () => {
     mock(async () => Response.json([student("  ")])); page("COACH");

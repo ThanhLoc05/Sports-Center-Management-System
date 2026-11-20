@@ -63,3 +63,21 @@ Never commit logs, screenshots, account data or local configuration.
 
 Without the opt-in flags these SQL/browser tests are disabled. `SecurityPolicyProposalTest` is a separate
 test-only proposal, not an enabled login/CORS/deployment policy and not required for the security fix commit.
+
+
+## Kiểm thử thông báo đăng ký lớp
+
+`BookingConfirmationSqlServerIT` chạy HTTP và SQL thật trên database riêng có tên
+`SportivaInboxTest_<timestamp>`. Chuẩn bị database mới với schema, V9, V11, V12 và V15,
+dùng UTF-8 và giữ Hibernate validate. Test kiểm tra tên database trước khi tạo fixture.
+
+Từ thư mục `backend`, chạy Maven với `-Dtest=BookingConfirmationSqlServerIT`,
+`-Dsportiva.inbox-sql=true` và `-Dsportiva.inbox-db=<tên database riêng>`.
+Windows Authentication cần JDK và JDBC native DLL tương ứng như các test SQL ở trên.
+
+Để chạy Chrome, bật Vite của cùng bản source ở `127.0.0.1:5187`, đặt
+`VITE_DATA_MODE=api` và `API_PROXY_TARGET=http://127.0.0.1:8187`.
+Thêm `-Dsportiva.inbox-chrome=true` và `-Dsportiva.inbox-evidence=<thư mục ngoài checkout>`.
+Backend 8187 thuộc context test và tự đóng. Runner `notification-inbox.mjs` nhận fixture
+và credential qua stdin từ JUnit. Các cổng phải trống trước khi chạy. Kết quả gồm SSE,
+thứ tự thông báo, readAt sau F5, booking lỗi/trùng, HTTP 409, đổi/hủy lớp và responsive.

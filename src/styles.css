@@ -42,7 +42,7 @@
 }
 body {
   margin: 0;
-  min-width: 360px;
+  min-width: 320px;
 }
 button,
 input,
@@ -1464,6 +1464,39 @@ td strong {
   padding-top: 24px;
   border-top: 1px solid var(--line);
   flex-wrap: wrap;
+}
+.booking-status-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 100%;
+  color: #315728;
+  background: #f3f8ef;
+  border: 1px solid #dce8d4;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.booking-status-success > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.booking-status-success > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.booking-status-success strong,
+.booking-status-success span {
+  overflow-wrap: anywhere;
+}
+.booking-status-success span {
+  color: #66735d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.booking-status-error {
+  min-width: 0;
+  max-width: 100%;
 }
 .member-detail {
   padding: 25px 26px;

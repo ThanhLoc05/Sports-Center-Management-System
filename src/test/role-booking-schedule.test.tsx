@@ -14,11 +14,11 @@ import type { Role } from "../lib/types";
 vi.mock("../lib/demo", () => import("./fixtures/published-demo-fixture"));
 afterEach(() => vi.unstubAllEnvs());
 
-function page(path: string, role: Role, live = false) {
+function page(path: string, role: Role, live = false, staleTime = 0) {
   if (live) vi.stubEnv("VITE_DATA_MODE", "api");
   const session = demoSession(role);
   sessionStorage.setItem("sportiva-session", JSON.stringify({ ...session, token: live ? "test-only" : session.token, mode: live ? "api" : "demo" }));
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0, staleTime } } });
   render(<QueryClientProvider client={client}><AuthProvider><ToastProvider>
     <MemoryRouter initialEntries={[path]}><App /></MemoryRouter>
   </ToastProvider></AuthProvider></QueryClientProvider>);
@@ -26,6 +26,37 @@ function page(path: string, role: Role, live = false) {
 }
 
 describe("Coach/Member booking and navigation scope", () => {
+  it("refreshes fresh dashboard caches when a Member enters the personal calendar", async () => {
+    const memberId = demoSession("MEMBER").user.id;
+    const day = localDate();
+    const items = readDemo().classes.slice(0, 2).map((item, i) => ({
+      ...item, status: "SCHEDULED", scheduleTime: day + (i === 0 ? "T09:00:00" : "T11:00:00"),
+    }));
+    const classes = vi.spyOn(api, "classes").mockResolvedValue([]);
+    const bookings = vi.spyOn(api, "bookings").mockResolvedValue([]);
+    vi.spyOn(api, "coaches").mockResolvedValue([]);
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json([])));
+    const { client } = page("/", "MEMBER", true, 30_000);
+    await waitFor(() => {
+      expect(client.getQueryData(["classes", undefined])).toEqual([]);
+      expect(client.getQueryData(["bookings", memberId])).toEqual([]);
+    });
+
+    // Another session creates the classes and bookings after this dashboard read.
+    classes.mockResolvedValue(items);
+    bookings.mockResolvedValue(items.map((item, i) => ({
+      id: i + 1, classId: item.id, memberId, status: "BOOKED", bookedAt: day,
+    })));
+    const user = userEvent.setup();
+    await user.click(within(document.getElementById("main-sidebar")!).getByRole("link", { name: "Lịch hoạt động" }));
+    await user.click(await screen.findByRole("button", { name: "Danh sách" }));
+    for (const item of items) {
+      const button = await screen.findByRole("button", { name: item.className });
+      expect(button.closest(".schedule-list-item")).toHaveTextContent(item.scheduleTime.slice(11, 16));
+    }
+    expect(screen.getByLabelText("Phạm vi lịch học")).toHaveValue("mine");
+  });
+
   it("filters member bookings locally without calling the private roster", async () => {
     const db = readDemo();
     const booking = vi.spyOn(api, "bookings").mockResolvedValue(db.classes.slice(0, 2).map((c, i) => ({
