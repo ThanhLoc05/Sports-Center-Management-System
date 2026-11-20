@@ -24,6 +24,7 @@ import type {
   NotificationSendResult,
 } from "../lib/notifications-api";
 import { errorText } from "../lib/utils";
+import { TrainingInstructions } from "./TrainingInstructions";
 import {
   Button,
   Empty,
@@ -603,16 +604,17 @@ function NotificationComposer() {
               defaultValue={draft?.title}
             />
           </Field>
-          <Field label="Nội dung / bài tập về nhà">
-            <textarea
-              name="content"
-              required
-              minLength={1}
-              maxLength={4000}
-              rows={8}
-              defaultValue={draft?.content}
-            />
-          </Field>
+          <TrainingInstructions
+            label="Nội dung / bài tập về nhà"
+            name="content"
+            initialValue={draft?.content}
+            minLength={1}
+            maxLength={4000}
+            rows={8}
+            showTemplates={kind === "HOMEWORK"}
+            forClass={audience === "class"}
+            classSportId={activeClass?.sportId}
+          />
           {formError && (
             <p className="muted">
               Chưa tải được danh sách người nhận; hãy tải lại trước khi xem

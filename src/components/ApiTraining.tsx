@@ -15,6 +15,9 @@ import { api } from "../lib/api";
 import type { WorkoutPlan, WorkoutLog, Exercise } from "../lib/operations-api";
 import type { SportClass } from "../lib/types";
 import { dateLabel, matches, timeLabel } from "../lib/utils";
+import { workoutMetricUnits } from "../lib/training-metrics";
+import type { WorkoutMetricUnit } from "../lib/training-metrics";
+import { TrainingInstructions } from "./TrainingInstructions";
 import {
   Button,
   Confirm,
@@ -325,10 +328,7 @@ function TrainingContent() {
                   render: (l) => (
                     <ul>
                       {l.details.map((d, i) => (
-                        <li key={d.id || i}>
-                          {d.exerciseName}: {d.sets ?? "—"} hiệp ×{" "}
-                          {d.reps ?? "—"} lần · {d.weightKg ?? "—"} kg
-                        </li>
+                        <li key={d.id || i}>{exerciseResult(d)}</li>
                       ))}
                     </ul>
                   ),
@@ -351,7 +351,7 @@ function TrainingContent() {
               ]}
             />
             {selectedMember > 0 && (
-              <Progress key={selectedMember} logs={visibleLogs} />
+              <Progress key={selectedMember} logs={visibleLogs} classesById={classesById} />
             )}
           </>
         )}
@@ -398,16 +398,6 @@ function TrainingContent() {
             classes={scopedClasses}
             plan={edit === true ? undefined : edit}
           />
-          <Field label="Nội dung giáo án">
-            <textarea
-              name="description"
-              required
-              minLength={3}
-              rows={10}
-              defaultValue={edit === true ? "" : edit.description}
-              placeholder="Mục tiêu, bài tập, số hiệp/lần, thời lượng và hướng dẫn thực hiện..."
-            />
-          </Field>
         </FormModal>
       )}
       {remove && (
@@ -467,10 +457,12 @@ function PlanTarget({
   plan,
 }: {
   students: Student[];
-  classes: import("../lib/types").SportClass[];
+  classes: SportClass[];
   plan?: WorkoutPlan;
 }) {
   const [target, setTarget] = useState(plan?.classId ? "class" : "member");
+  const [classId, setClassId] = useState(String(plan?.classId ?? ""));
+  const selectedClass = classes.find((item) => item.id === Number(classId));
   return (
     <>
       <Field label="Đối tượng nhận">
@@ -496,7 +488,12 @@ function PlanTarget({
         </Field>
       ) : (
         <Field label="Lớp nhận kế hoạch">
-          <select name="classId" required defaultValue={plan?.classId || ""}>
+          <select
+            name="classId"
+            required
+            value={classId}
+            onChange={(event) => setClassId(event.target.value)}
+          >
             <option value="">Chọn lớp</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
@@ -506,9 +503,76 @@ function PlanTarget({
           </select>
         </Field>
       )}
+      <TrainingInstructions
+        label="Nội dung giáo án"
+        name="description"
+        initialValue={plan?.description}
+        minLength={3}
+        rows={10}
+        forClass={target === "class"}
+        classSportId={selectedClass?.sportId}
+      />
     </>
   );
 }
+type Measurement = "none" | "fitness" | WorkoutMetricUnit;
+type ExerciseDraft = Exercise & { measurement?: Measurement };
+const measurementLabels: Record<Measurement, string> = {
+  none: "Chỉ ghi tên bài tập",
+  fitness: "Số hiệp, số lần và mức tạ",
+  ...workoutMetricUnits,
+};
+const metricSteps: Partial<Record<WorkoutMetricUnit, number>> = {
+  repetitions: 1,
+  rounds: 1,
+  hitsPer20: 1,
+};
+
+function measurementFor(exercise: Exercise): Measurement {
+  if (exercise.metricUnit != null && exercise.metricValue != null)
+    return exercise.metricUnit;
+  return exercise.sets != null ||
+    exercise.reps != null ||
+    exercise.weightKg != null
+    ? "fitness"
+    : "none";
+}
+
+function exerciseResult(exercise: Exercise) {
+  const { exerciseName, sets, reps, weightKg, metricUnit, metricValue } =
+    exercise;
+  if (metricUnit != null && metricValue != null)
+    return `${exerciseName}: ${metricValue} ${workoutMetricUnits[metricUnit]}`;
+  const results = [
+    sets != null && `${sets} hiệp`,
+    reps != null && `${reps} lần`,
+    weightKg != null && `${weightKg} kg`,
+  ].filter(Boolean);
+  return results.length
+    ? `${exerciseName}: ${results.join(" · ")}`
+    : exerciseName;
+}
+
+function exerciseDetails(
+  row: ExerciseDraft,
+  measurement: Measurement,
+): Exercise {
+  const exerciseName = row.exerciseName.trim();
+  if (measurement === "none") return { exerciseName };
+  if (measurement === "fitness")
+    return {
+      exerciseName,
+      sets: row.sets,
+      reps: row.reps,
+      weightKg: row.weightKg,
+    };
+  return {
+    exerciseName,
+    metricUnit: measurement,
+    metricValue: row.metricValue,
+  };
+}
+
 /** Form nhập nhiều bài tập cho một học viên trong một lần ghi kết quả. */
 function LogForm({
   coachId,
@@ -525,11 +589,16 @@ function LogForm({
   const actor = session!.user;
   const [memberId, setMemberId] = useState("");
   const [scheduleId, setScheduleId] = useState("");
-  const [rows, setRows] = useState<Exercise[]>([{ exerciseName: "" }]);
+  const [rows, setRows] = useState<ExerciseDraft[]>([{ exerciseName: "" }]);
   const bookingQueries = useQueries({
     queries: memberId
       ? classes.map((item) => ({
-          queryKey: ["workout-class-bookings", actor.id, actor.roleName, item.id],
+          queryKey: [
+            "workout-class-bookings",
+            actor.id,
+            actor.roleName,
+            item.id,
+          ],
           queryFn: () => api.bookings(undefined, item.id),
           retry: false,
         }))
@@ -552,26 +621,38 @@ function LogForm({
   const selectedClass = eligibleClasses.find(
     (item) => String(item.id) === scheduleId,
   );
+  const sports = useQuery({
+    queryKey: ["sports"],
+    queryFn: api.sports,
+    enabled: selectedClass?.sportId != null,
+  });
+  const sportName = sports.data?.find(
+    (item) => item.id === selectedClass?.sportId,
+  )?.name;
+  const defaultMeasurement =
+    selectedClass?.sportId != null &&
+    sportName?.trim().toLowerCase() !== "fitness"
+      ? "none"
+      : "fitness";
   const invalidSchedule = !!scheduleId && !selectedClass;
   const bookingErrors = bookingQueries.filter((query) => query.isError);
   const client = useQueryClient();
   const toast = useToast();
-  const change = (i: number, key: keyof Exercise, value: string) =>
-    setRows((rs) =>
-      rs.map((r, k) =>
-        k === i
-          ? {
-              ...r,
-              [key]:
-                key === "exerciseName"
-                  ? value
-                  : value === ""
-                    ? undefined
-                    : Number(value),
-            }
-          : r,
-      ),
+  const updateRow = (index: number, changes: Partial<ExerciseDraft>) => {
+    setRows((current) =>
+      current.map((row, i) => (i === index ? { ...row, ...changes } : row)),
     );
+  };
+  const updateNumber = (
+    index: number,
+    field: "sets" | "reps" | "weightKg" | "metricValue",
+    value: string,
+  ) => {
+    updateRow(index, {
+      [field]: value === "" ? undefined : Number(value),
+      measurement: rows[index].measurement ?? defaultMeasurement,
+    });
+  };
   return (
     <FormModal
       title="Ghi kết quả buổi tập"
@@ -586,7 +667,9 @@ function LogForm({
           coachId,
           ...(selectedClass && { scheduleId: selectedClass.id }),
           feedbackFromCoach: String(d.get("feedback")),
-          details: rows,
+          details: rows.map((row) =>
+            exerciseDetails(row, row.measurement ?? defaultMeasurement),
+          ),
         });
         await client.invalidateQueries({ queryKey: ["workout-logs"] });
         toast("Đã ghi kết quả buổi tập.");
@@ -639,55 +722,99 @@ function LogForm({
           retry={() => bookingErrors.forEach((query) => void query.refetch())}
         />
       )}
-      {rows.map((r, i) => (
-        <fieldset key={i}>
-          <legend>Bài tập {i + 1}</legend>
-          <div className="form-grid">
-            <Field label="Tên bài tập">
-              <input
-                value={r.exerciseName}
-                required
-                onChange={(e) => change(i, "exerciseName", e.target.value)}
-              />
-            </Field>
-            <Field label="Số hiệp">
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={r.sets ?? ""}
-                onChange={(e) => change(i, "sets", e.target.value)}
-              />
-            </Field>
-            <Field label="Số lần mỗi hiệp">
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={r.reps ?? ""}
-                onChange={(e) => change(i, "reps", e.target.value)}
-              />
-            </Field>
-            <Field label="Mức tạ (kg)">
-              <input
-                type="number"
-                min={0}
-                step="0.1"
-                value={r.weightKg ?? ""}
-                onChange={(e) => change(i, "weightKg", e.target.value)}
-              />
-            </Field>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={rows.length === 1}
-            onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
-          >
-            Bỏ bài tập này
-          </Button>
-        </fieldset>
-      ))}
+      {rows.map((r, i) => {
+        const measurement = r.measurement ?? defaultMeasurement;
+        return (
+          <fieldset key={i}>
+            <legend>Bài tập {i + 1}</legend>
+            <div className="form-grid">
+              <Field label="Tên bài tập">
+                <input
+                  value={r.exerciseName}
+                  required
+                  onChange={(e) =>
+                    updateRow(i, { exerciseName: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Cách ghi kết quả">
+                <select
+                  value={measurement}
+                  onChange={(e) =>
+                    updateRow(i, {
+                      measurement: e.target.value as Measurement,
+                      metricValue: undefined,
+                    })
+                  }
+                >
+                  {Object.entries(measurementLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {measurement === "fitness" ? (
+                <>
+                  <Field label="Số hiệp">
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={r.sets ?? ""}
+                      onChange={(e) => updateNumber(i, "sets", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Số lần mỗi hiệp">
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={r.reps ?? ""}
+                      onChange={(e) => updateNumber(i, "reps", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Mức tạ (kg)">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      value={r.weightKg ?? ""}
+                      onChange={(e) =>
+                        updateNumber(i, "weightKg", e.target.value)
+                      }
+                    />
+                  </Field>
+                </>
+              ) : (
+                measurement !== "none" && (
+                  <Field label={`Kết quả (${workoutMetricUnits[measurement]})`}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={measurement === "hitsPer20" ? 20 : 999999999.999}
+                      step={metricSteps[measurement] ?? 0.001}
+                      required
+                      value={r.metricValue ?? ""}
+                      onChange={(e) =>
+                        updateNumber(i, "metricValue", e.target.value)
+                      }
+                    />
+                  </Field>
+                )
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={rows.length === 1}
+              onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
+            >
+              Bỏ bài tập này
+            </Button>
+          </fieldset>
+        );
+      })}
       <Button
         type="button"
         variant="secondary"
@@ -702,39 +829,132 @@ function LogForm({
   );
 }
 /** So sánh các lần tập cùng bài từ nhật ký thật; đánh giá tiến độ do HLV ghi nhận. */
-function Progress({ logs }: { logs: WorkoutLog[] }) {
+function Progress({
+  logs,
+  classesById,
+}: {
+  logs: WorkoutLog[];
+  classesById: ReadonlyMap<number, SportClass>;
+}) {
   const [exercise, setExercise] = useState("");
+  const [measurement, setMeasurement] = useState<Measurement>();
   const names = [
     ...new Set(logs.flatMap((l) => l.details.map((d) => d.exerciseName))),
   ];
   const selected = names.includes(exercise) ? exercise : (names[0] ?? "");
+  const measurements = [
+    ...new Set(
+      logs.flatMap((log) =>
+        log.details
+          .filter((detail) => detail.exerciseName === selected)
+          .map(measurementFor),
+      ),
+    ),
+  ];
+  const selectedMeasurement =
+    measurement && measurements.includes(measurement)
+      ? measurement
+      : measurements[0];
   const rows = logs
     .flatMap((l) =>
       l.details
-        .filter((d) => d.exerciseName === selected)
-        .map((d, i) => ({ ...d, id: l.id * 1000 + i, createdAt: l.createdAt })),
+        .map((d, i) => ({
+          ...d,
+          id: d.id ?? l.id * 1000 + i,
+          createdAt: l.createdAt,
+          sessionTime:
+            l.scheduleId == null
+              ? undefined
+              : classesById.get(l.scheduleId)?.scheduleTime,
+        }))
+        .filter(
+          (d) =>
+            d.exerciseName === selected &&
+            measurementFor(d) === selectedMeasurement,
+        ),
     )
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) =>
+      (a.sessionTime ?? a.createdAt).localeCompare(
+        b.sessionTime ?? b.createdAt,
+      ),
+    );
   return (
     <Panel className="panel-spaced" title="Theo dõi tiến độ theo bài tập">
       <Field label="Bài tập theo dõi">
-        <select value={selected} onChange={(e) => setExercise(e.target.value)}>
+        <select
+          value={selected}
+          onChange={(e) => {
+            setExercise(e.target.value);
+            setMeasurement(undefined);
+          }}
+        >
           {names.map((n) => (
             <option key={n}>{n}</option>
           ))}
         </select>
       </Field>
+      {measurements.length > 1 && (
+        <Field label="Chỉ số theo dõi">
+          <select
+            value={selectedMeasurement}
+            onChange={(e) => setMeasurement(e.target.value as Measurement)}
+          >
+            {measurements.map((value) => (
+              <option key={value} value={value}>
+                {measurementLabels[value]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <DataTable
         rows={rows}
         columns={[
-          { key: "date", label: "Ngày", render: (r) => dateLabel(r.createdAt) },
-          { key: "sets", label: "Số hiệp", render: (r) => r.sets ?? "—" },
-          { key: "reps", label: "Số lần", render: (r) => r.reps ?? "—" },
           {
-            key: "weight",
-            label: "Mức tạ (kg)",
-            render: (r) => r.weightKg ?? "—",
+            key: "date",
+            label: "Ngày",
+            render: (r) => (
+              <div className="contact-cell">
+                <strong>{dateLabel(r.sessionTime ?? r.createdAt)}</strong>
+                <small>
+                  {r.sessionTime ? "Ngày buổi tập" : "Ngày ghi nhận"}
+                </small>
+              </div>
+            ),
           },
+          ...(selectedMeasurement === "fitness"
+            ? [
+                {
+                  key: "sets",
+                  label: "Số hiệp",
+                  render: (r: Exercise) => r.sets ?? "—",
+                },
+                {
+                  key: "reps",
+                  label: "Số lần",
+                  render: (r: Exercise) => r.reps ?? "—",
+                },
+                {
+                  key: "weight",
+                  label: "Mức tạ (kg)",
+                  render: (r: Exercise) => r.weightKg ?? "—",
+                },
+              ]
+            : selectedMeasurement && selectedMeasurement !== "none"
+              ? [
+                  {
+                    key: "metric",
+                    label: `Kết quả (${workoutMetricUnits[selectedMeasurement]})`,
+                    render: (r: Exercise) => r.metricValue ?? "—",
+                  },
+                ]
+              : [
+                  {
+                    key: "result",
+                    label: "Kết quả",
+                    render: () => "Chưa ghi chỉ số",
+                  },
+                ]),
         ]}
       />
       <p>

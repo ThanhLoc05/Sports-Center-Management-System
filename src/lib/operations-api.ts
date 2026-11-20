@@ -6,6 +6,8 @@
  * Lỗi từ backend được trả về màn hình, không dùng dữ liệu mẫu để giả lưu thành công.
  */
 import { ApiError, getSession, request } from "./api";
+import { isValidWorkoutMetric, isWorkoutMetricUnit } from "./training-metrics";
+import type { WorkoutMetricUnit } from "./training-metrics";
 export interface MemberProfileInput {
   fullName?: string;
   email?: string;
@@ -54,9 +56,11 @@ export type PlanInput = Omit<WorkoutPlan, "id" | "createdAt">;
 export interface Exercise {
   id?: number;
   exerciseName: string;
-  sets?: number;
-  reps?: number;
-  weightKg?: number;
+  metricValue?: number | null;
+  metricUnit?: WorkoutMetricUnit | null;
+  sets?: number | null;
+  reps?: number | null;
+  weightKg?: number | null;
 }
 export interface WorkoutLog {
   id: number;
@@ -114,30 +118,45 @@ export const operations = {
   async profile(userId: number): Promise<MemberProfile | null> {
     const memberId = id(userId);
     try {
-      return profileResponse(await request<MemberProfile>(`/users/${memberId}/profile`), memberId);
+      return profileResponse(
+        await request<MemberProfile>(`/users/${memberId}/profile`),
+        memberId,
+      );
     } catch (error) {
       // Chỉ 404 là chưa có hồ sơ; lỗi quyền/kết nối không được biến thành dữ liệu trống.
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
   },
-  async saveProfile(userId: number, input: MemberProfileInput): Promise<MemberProfileUpdateResult> {
+  async saveProfile(
+    userId: number,
+    input: MemberProfileInput,
+  ): Promise<MemberProfileUpdateResult> {
     const actor = role(["CENTER_MANAGER", "MANAGER", "RECEPTIONIST", "MEMBER"]);
     const memberId = id(userId);
     if (actor.user.roleName === "MEMBER" && actor.user.id !== memberId)
       throw new ApiError("Bạn chỉ được cập nhật hồ sơ của chính mình.", 403);
-    const result = await send<MemberProfileUpdateResult>(`/users/${memberId}/profile`, "PUT", {
-      fullName: input.fullName,
-      email: input.email,
-      phone: input.phone,
-      dob: input.dob,
-      gender: input.gender,
-      address: input.address,
-      fitnessGoals: input.fitnessGoals,
-    });
-    if (!result || !result.user || result.user.id !== memberId || !result.profile ||
-        (actor.user.id === memberId && typeof result.token !== "string") ||
-        (result.token !== null && typeof result.token !== "string"))
+    const result = await send<MemberProfileUpdateResult>(
+      `/users/${memberId}/profile`,
+      "PUT",
+      {
+        fullName: input.fullName,
+        email: input.email,
+        phone: input.phone,
+        dob: input.dob,
+        gender: input.gender,
+        address: input.address,
+        fitnessGoals: input.fitnessGoals,
+      },
+    );
+    if (
+      !result ||
+      !result.user ||
+      result.user.id !== memberId ||
+      !result.profile ||
+      (actor.user.id === memberId && typeof result.token !== "string") ||
+      (result.token !== null && typeof result.token !== "string")
+    )
       throw new ApiError("Dữ liệu cập nhật hồ sơ từ máy chủ không hợp lệ.");
     return {
       ...result,
@@ -175,7 +194,7 @@ export const operations = {
       await request<WorkoutLog[]>(`/workout-logs/${kind}/${id(target)}`),
     );
   },
-  /** Một nhật ký chứa nhiều bài tập; chỉ gửi số hiệp/lần và mức tạ hợp lệ. */
+  /** Mỗi bài dùng một chỉ số có đơn vị, các trường Fitness hoặc chỉ ghi tên. */
   saveLog(input: LogInput) {
     const actor = role(staff);
     id(input.memberId);
@@ -187,13 +206,28 @@ export const operations = {
         (e) =>
           !e.exerciseName.trim() ||
           [e.sets, e.reps].some(
-            (n) => n !== undefined && (!Number.isSafeInteger(n) || n < 1),
+            (n) => n != null && (!Number.isSafeInteger(n) || n < 1),
           ) ||
-          (e.weightKg !== undefined &&
+          (e.weightKg != null &&
             (!Number.isFinite(e.weightKg) || e.weightKg < 0)),
       )
     )
-      throw new ApiError("Kiểm tra bài tập, số hiệp, số lần và mức tạ.");
+      throw new ApiError("Kiểm tra tên bài tập, số hiệp, số lần và mức tạ.");
+    for (const exercise of input.details) {
+      const { metricUnit, metricValue, sets, reps, weightKg } = exercise;
+      if (metricUnit == null && metricValue == null) continue;
+      if (
+        metricUnit == null ||
+        metricValue == null ||
+        !isWorkoutMetricUnit(metricUnit) ||
+        !isValidWorkoutMetric(metricValue, metricUnit) ||
+        sets != null ||
+        reps != null ||
+        weightKg != null
+      ) {
+        throw new ApiError("Kiểm tra giá trị và đơn vị của chỉ số tập luyện.");
+      }
+    }
     return send<WorkoutLog>("/workout-logs", "POST", input);
   },
   feedback(logId: number, feedback: string) {
@@ -213,7 +247,11 @@ export const operations = {
     role(["CENTER_MANAGER", "MANAGER"]);
     id(packageId);
     validatePackage(input);
-    return send(`/memberships/packages/${packageId}`, "PUT", normalizedPackage(input));
+    return send(
+      `/memberships/packages/${packageId}`,
+      "PUT",
+      normalizedPackage(input),
+    );
   },
   deletePackage(packageId: number) {
     role(["CENTER_MANAGER", "MANAGER"]);

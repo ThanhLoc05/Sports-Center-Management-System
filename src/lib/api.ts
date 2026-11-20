@@ -1245,8 +1245,8 @@ export const api = {
     );
   },
   /**
-   * Flow 4: đọc điểm danh theo lớp hoặc lịch sử một thành viên trong khoảng ngày.
-   * Sau phản hồi, frontend lọc ngày để màn hình nhất quán với khoảng đang chọn.
+   * Flow 4: lớp luôn lấy đủ bản ghi để xác định ai đã điểm danh.
+   * Chỉ lịch sử cá nhân dùng khoảng ngày.
    */
   async attendance(
     memberId?: number,
@@ -1254,14 +1254,17 @@ export const api = {
     start = localDate(addDays(-30)),
     end = localDate(),
   ): Promise<Attendance[]> {
-    if (mode() === "api") {
-      if (!memberId && !classId)
-        throw new ApiError("Chọn lớp hoặc thành viên để xem điểm danh.");
+    const fromApi = mode() === "api";
+    if (classId) {
+      return fromApi
+        ? assertArray(await request<Attendance[]>(`/attendance/classes/${classId}`))
+        : readDemo().attendance.filter((a) => a.classId === classId);
+    }
+    if (fromApi) {
+      if (!memberId) throw new ApiError("Chọn lớp hoặc thành viên để xem điểm danh.");
       return assertArray(
         await request<Attendance[]>(
-          classId
-            ? `/attendance/classes/${classId}`
-            : `/attendance/members/${memberId}?startDate=${start}&endDate=${end}`,
+          `/attendance/members/${memberId}?startDate=${start}&endDate=${end}`,
         ),
       ).filter(
         (a) =>
@@ -1272,7 +1275,6 @@ export const api = {
     return readDemo().attendance.filter(
       (a) =>
         (!memberId || a.memberId === memberId) &&
-        (!classId || a.classId === classId) &&
         a.checkedInAt.slice(0, 10) >= start &&
         a.checkedInAt.slice(0, 10) <= end,
     );

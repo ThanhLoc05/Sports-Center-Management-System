@@ -1855,7 +1855,7 @@
   min-width: 130px;
   font-size: 11px;
 }
-.attendance-controls .field:first-child {
+.attendance-class-controls .field:first-child {
   flex: 2;
 }
 .attendance-controls .field > input,
@@ -4216,7 +4216,7 @@
     flex: 1;
     gap: 6px;
   }
-  .attendance-controls .field:first-child:not(:last-child) {
+  .attendance-class-controls .field:first-child {
     flex-basis: 100%;
   }
   .attendance-controls .field > input,

@@ -22,7 +22,7 @@ const clients: QueryClient[] = [];
 afterEach(() => {
   clients.splice(0).forEach((c) => c.clear());
 });
-const clazz = { id: 8, className: "Lớp TEST", coachId: 3, status: "SCHEDULED" };
+const clazz = { id: 8, className: "Lớp TEST", sportId: 32, coachId: 3, status: "SCHEDULED" };
 const student = {
   memberId: 10,
   fullName: "Học viên TEST",
@@ -95,6 +95,8 @@ function server(
         : Response.json(accepted, { status: 202 });
     if (/\/classes\/8\/students$/.test(url))
       return options.roster ? options.roster() : Response.json([student]);
+    if (url === "/api/v1/sports")
+      return Response.json([{ id: 32, sportName: "Cầu lông" }]);
     if (url.includes("/classes"))
       return options.classes ? options.classes() : Response.json([clazz]);
     if (url === "/api/v1/users")
@@ -114,6 +116,23 @@ function server(
 }
 const posts = (fetch: ReturnType<typeof server>) =>
   fetch.mock.calls.filter(([, init]) => init?.method === "POST");
+
+it("offers the class sport template only for homework and preserves typed content", async () => {
+  server();
+  page();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Soạn thông báo / bài tập" }));
+  await screen.findByRole("option", { name: clazz.className });
+  await user.selectOptions(screen.getByLabelText("Lớp nhận thông báo"), "8");
+  const content = screen.getByLabelText<HTMLTextAreaElement>("Nội dung / bài tập về nhà");
+  await user.type(content, "Nội dung đã soạn");
+  expect(screen.queryByRole("button", { name: /Chèn mẫu/ })).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Loại nội dung"), "HOMEWORK");
+  await user.click(await screen.findByRole("button", { name: "Chèn mẫu Cầu lông" }));
+  expect(content.value).toContain("Nội dung đã soạn\n\nCầu lông");
+  expect(content.value).toContain("20 lần thử");
+});
+
 async function preview(audience = "class", kind = "GENERAL", coachId?: string) {
   const user = userEvent.setup();
   await user.click(

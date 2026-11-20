@@ -95,6 +95,8 @@ public class WorkoutLogServiceImpl implements WorkoutLogService {
                         .sets(d.getSets())
                         .reps(d.getReps())
                         .weightKg(d.getWeightKg())
+                        .metricValue(d.getMetricValue())
+                        .metricUnit(d.getMetricUnit())
                         .build();
                 log.getDetails().add(detail);
             }
@@ -144,6 +146,8 @@ public class WorkoutLogServiceImpl implements WorkoutLogService {
                         .sets(d.getSets())
                         .reps(d.getReps())
                         .weightKg(d.getWeightKg())
+                        .metricValue(d.getMetricValue())
+                        .metricUnit(d.getMetricUnit())
                         .build()).collect(Collectors.toList())
                 : new ArrayList<>();
 

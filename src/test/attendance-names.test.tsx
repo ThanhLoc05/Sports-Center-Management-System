@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,7 +9,7 @@ import { api, ApiError } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { demoSession, readDemo } from "../lib/demo";
 import { ToastProvider } from "../components/ui";
-import { localDate } from "../lib/utils";
+import { dateTimeLocal, localDate } from "../lib/utils";
 import type { Role } from "../lib/types";
 
 vi.mock("../lib/demo", () => import("./fixtures/published-demo-fixture"));
@@ -61,6 +61,31 @@ describe("Attendance student names stay within each role's API access", () => {
     expect(screen.getByRole("row", { name: new RegExp(historyName) })).toBeVisible();
   });
 
+  it("shows the selected class without date fields and excludes make-up from the pending count", async () => {
+    const { mount, first, attendance, session } = setup();
+    vi.mocked(api.classes).mockResolvedValueOnce([{
+      ...first,
+      status: "SCHEDULED",
+      scheduleTime: dateTimeLocal(new Date(Date.now() + 5 * 60_000)),
+    }]);
+    attendance.mockResolvedValueOnce([{
+      id: 803,
+      classId: first.id,
+      memberId: 902,
+      checkedInBy: session.user.id,
+      checkedInAt: `${localDate()}T09:00:00`,
+      status: "ABSENT",
+    }]);
+
+    mount();
+    expect(await screen.findByRole("button", { name: "Điểm danh bù" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Có mặt" })).toBeEnabled();
+    expect(screen.queryByLabelText("Từ ngày")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Đến ngày")).not.toBeInTheDocument();
+    expect(screen.getByText("Chưa điểm danh trong lớp").nextElementSibling).toHaveTextContent(/^1$/);
+    expect(attendance).toHaveBeenCalledWith(undefined, first.id);
+  });
+
   it("loads only the selected class and changes names when Coach changes class", async () => {
     const { mount, students, users } = setup();
     students.mockImplementation(async classId => [{ memberId: 901, fullName: classId === 701 ? pendingName : "Tên tại lớp thứ hai", email: "fixture@example.test", phone: "0900000901", bookingStatus: "BOOKED", bookedAt: "" }]);
@@ -109,6 +134,28 @@ describe("Attendance student names stay within each role's API access", () => {
     await waitFor(() => expect(attendance.mock.calls.some(call => call[0] === session.user.id && call[1] === undefined)).toBe(true));
     expect(students).not.toHaveBeenCalled();
     expect(users).not.toHaveBeenCalled();
+  });
+
+  it("only loads member history for a valid range, including a single day", async () => {
+    const { mount, attendance, session } = setup("MEMBER");
+    mount();
+    await screen.findByRole("table");
+
+    const from = screen.getByLabelText("Từ ngày");
+    const to = screen.getByLabelText("Đến ngày");
+    const today = localDate();
+    expect(to).toHaveAttribute("max", today);
+
+    attendance.mockClear();
+    fireEvent.change(from, { target: { value: "" } });
+    expect(screen.getByText("Chọn đủ ngày bắt đầu và ngày kết thúc.")).toBeVisible();
+    expect(screen.queryByText("Đang tải dữ liệu...")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Xuất CSV" })).toBeDisabled();
+    expect(attendance).not.toHaveBeenCalled();
+
+    fireEvent.change(from, { target: { value: today } });
+    await waitFor(() => expect(attendance).toHaveBeenCalledWith(session.user.id, undefined, today, today));
+    expect(await screen.findByRole("table")).toBeVisible();
   });
 
   it("preserves the existing demo Coach name source", async () => {

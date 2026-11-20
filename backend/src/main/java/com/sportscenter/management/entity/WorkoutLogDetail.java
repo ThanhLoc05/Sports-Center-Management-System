@@ -38,4 +38,10 @@ public class WorkoutLogDetail {
 
     @Column(name = "weight_kg", precision = 8, scale = 2)
     private BigDecimal weightKg;
+
+    @Column(name = "metric_value", precision = 12, scale = 3)
+    private BigDecimal metricValue;
+
+    @Column(name = "metric_unit", length = 20)
+    private String metricUnit;
 }

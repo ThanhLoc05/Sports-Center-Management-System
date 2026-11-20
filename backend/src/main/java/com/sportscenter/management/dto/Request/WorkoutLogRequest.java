@@ -1,5 +1,7 @@
 package com.sportscenter.management.dto.Request;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -21,5 +23,6 @@ public class WorkoutLogRequest {
 
     private String feedbackFromCoach;
 
-    private List<WorkoutLogDetailRequest> details;
+    @NotEmpty(message = "Nhật ký phải có ít nhất một bài tập")
+    private List<@Valid @NotNull(message = "Thông tin bài tập không được để trống") WorkoutLogDetailRequest> details;
 }

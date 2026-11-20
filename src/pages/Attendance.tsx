@@ -73,29 +73,30 @@ export default function Attendance() {
   const [create, setCreate] = useState(false);
   const [start, setStart] = useState(localDate(addDays(-30)));
   const [end, setEnd] = useState(localDate());
+  const today = localDate();
+  const dateError =
+    !start || !end
+      ? "Chọn đủ ngày bắt đầu và ngày kết thúc."
+      : start > end
+        ? "Từ ngày phải trước hoặc bằng Đến ngày."
+        : end > today
+          ? "Đến ngày không được sau hôm nay."
+          : "";
   const [pending, setPending] = useState<number | null>(null);
   const client = useQueryClient();
   const toast = useToast();
   /**
-   * MEMBER truy vấn lịch sử của chính mình; vai trò khác truy vấn lớp đang chọn.
-   * Khoảng ngày và ID nằm trong key; không gọi khi chưa có lớp hoặc ngày bị đảo.
+   * Lịch sử cá nhân lọc theo ngày. Dữ liệu điểm danh của lớp luôn được tải trọn vẹn.
    */
   const query = useQuery({
-    queryKey: [
-      "attendance",
-      member ? session!.user.id : undefined,
-      member ? undefined : effectiveClassId,
-      start,
-      end,
-    ],
+    queryKey: member
+      ? ["attendance", "member", session!.user.id, start, end]
+      : ["attendance", "class", session!.user.id, effectiveClassId],
     queryFn: () =>
-      api.attendance(
-        member ? session!.user.id : undefined,
-        member ? undefined : Number(effectiveClassId),
-        start,
-        end,
-      ),
-    enabled: (member || !!effectiveClassId) && start <= end,
+      member
+        ? api.attendance(session!.user.id, undefined, start, end)
+        : api.attendance(undefined, Number(effectiveClassId)),
+    enabled: member ? !dateError : !!effectiveClassId,
   });
   const bookings = useQuery({
     queryKey: ["classBookings", effectiveClassId],
@@ -121,21 +122,22 @@ export default function Attendance() {
     ? currentClass.status !== "CANCELLED" &&
       isAttendanceWindowOpen(currentClass)
     : false;
-  /**
-   * Danh sách cần điểm danh = booking BOOKED trừ người đã có attendance trong
-   * tập dữ liệu đang tải; đây là phép ghép phía frontend, không phải bảng SQL mới.
-   */
-  const roster =
-    bookings.data?.filter((b) => {
-      if (b.status !== "BOOKED") return false;
-      const attendance = query.data?.find((a) => a.memberId === b.memberId);
-      return (
-        !attendance ||
-        (attendance.status === "ABSENT" &&
-          session!.user.roleName === "COACH" &&
-          currentClass?.coachId === session!.user.id)
-      );
-    }) || [];
+  const attendanceByMember = new Map(
+    query.data?.map((entry) => [entry.memberId, entry]),
+  );
+  const bookedStudents =
+    bookings.data?.filter((booking) => booking.status === "BOOKED") || [];
+  const notRecorded = bookedStudents.filter(
+    (booking) => !attendanceByMember.has(booking.memberId),
+  );
+  const canMakeUp =
+    attendanceOpen &&
+    session!.user.roleName === "COACH" &&
+    currentClass?.coachId === session!.user.id;
+  const roster = bookedStudents.filter((booking) => {
+    const record = attendanceByMember.get(booking.memberId);
+    return !record || (record.status === "ABSENT" && canMakeUp);
+  });
   /**
    * Gửi memberId người học, classId và checkedInBy là người đang thao tác.
    * pending khóa thao tác tương ứng trong lúc chờ; chỉ báo thành công sau API
@@ -181,6 +183,7 @@ export default function Attendance() {
         actions={
           <>
             <ExportButton
+              disabled={!query.isSuccess}
               onClick={() =>
                 downloadCsv("diem-danh.csv", [
                   ["Mã", "ID thành viên", "ID lớp", "Thời gian", "Trạng thái"],
@@ -204,7 +207,13 @@ export default function Attendance() {
         }
       />
 
-      <div className="attendance-controls">
+      <div
+        className={
+          member
+            ? "attendance-controls"
+            : "attendance-controls attendance-class-controls"
+        }
+      >
         {!member && (
           <Field label="Lớp học">
             <select
@@ -221,37 +230,40 @@ export default function Attendance() {
             </select>
           </Field>
         )}
-        <Field label="Từ ngày">
-          <input
-            type="date"
-            value={start}
-            max={end}
-            onChange={(e) => setStart(e.target.value)}
-            required
-          />
-        </Field>
-        <Field label="Đến ngày">
-          <input
-            type="date"
-            value={end}
-            min={start}
-            onChange={(e) => setEnd(e.target.value)}
-            required
-          />
-        </Field>
+        {member && (
+          <>
+            <Field label="Từ ngày">
+              <input
+                type="date"
+                value={start}
+                max={end || today}
+                onChange={(e) => setStart(e.target.value)}
+                required
+              />
+            </Field>
+            <Field label="Đến ngày">
+              <input
+                type="date"
+                value={end}
+                min={start || undefined}
+                max={today}
+                onChange={(e) => setEnd(e.target.value)}
+                required
+              />
+            </Field>
+          </>
+        )}
         {!member && currentClass && (
           <div className="attendance-class-note">
             <Clock3 size={17} />
             {currentClass.durationMinutes} phút · Tối đa{" "}
-            {currentClass.maxCapacity} thành viên · Mở trước 15 phút, gia hạn
-            điểm danh bù 60 phút sau giờ kết thúc
+            {currentClass.maxCapacity} thành viên · Điểm danh từ 15 phút trước
+            giờ bắt đầu đến 60 phút sau khi kết thúc
           </div>
         )}
       </div>
-      {start > end && (
-        <Notice tone="warning">
-          Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.
-        </Notice>
+      {member && dateError && (
+        <Notice tone="warning">{dateError}</Notice>
       )}
       {coachNames && classStudents.error && (
         <ErrorState error={classStudents.error} retry={classStudents.refetch} />
@@ -263,7 +275,7 @@ export default function Attendance() {
           </span>
           <div>
             <p>Có mặt</p>
-            <strong>{present}</strong>
+            <strong>{query.isSuccess ? present : "—"}</strong>
           </div>
         </div>
         <div>
@@ -272,7 +284,7 @@ export default function Attendance() {
           </span>
           <div>
             <p>Vắng mặt</p>
-            <strong>{absent}</strong>
+            <strong>{query.isSuccess ? absent : "—"}</strong>
           </div>
         </div>
         <div>
@@ -286,9 +298,11 @@ export default function Attendance() {
                 : "Chưa điểm danh trong lớp"}
             </p>
             <strong>
-              {member
-                ? `${present + absent ? Math.round((present / (present + absent)) * 100) : 0}%`
-                : roster.length}
+              {query.isSuccess && (member || bookings.isSuccess)
+                ? member
+                  ? `${present + absent ? Math.round((present / (present + absent)) * 100) : 0}%`
+                  : notRecorded.length
+                : "—"}
             </strong>
           </div>
         </div>
@@ -301,22 +315,25 @@ export default function Attendance() {
       )}
       {!member && can("attendance.record") && (
         <Panel
-          title="Danh sách cần điểm danh"
-          description="Chỉ ghi nhận một lần cho mỗi thành viên trong một lớp."
+          title="Danh sách điểm danh"
+          description={
+            canMakeUp
+              ? "Gồm học viên chưa điểm danh và học viên vắng có thể điểm danh bù."
+              : "Gồm học viên chưa điểm danh trong lớp đã chọn."
+          }
         >
           <div className="check-in-roster">
-            {bookings.isPending && effectiveClassId ? (
+            {(bookings.isPending || query.isPending) && effectiveClassId ? (
               <Loading />
             ) : bookings.error ? (
               <ErrorState error={bookings.error} retry={bookings.refetch} />
+            ) : query.error ? (
+              <Notice tone="warning">Chưa tải được trạng thái điểm danh của lớp.</Notice>
             ) : roster.length ? (
               roster.map((b) => {
                 const name = memberName(b.memberId);
-                const makeup = query.data?.find(
-                  (attendance) =>
-                    attendance.memberId === b.memberId &&
-                    attendance.status === "ABSENT",
-                );
+                const makeup =
+                  attendanceByMember.get(b.memberId)?.status === "ABSENT";
                 return (
                   <div className="check-in-person" key={b.id}>
                     <Avatar
@@ -380,7 +397,8 @@ export default function Attendance() {
           />
         }
       >
-        {query.isPending && (member || effectiveClassId) ? (
+        {member && dateError ? null : query.isPending &&
+          (member || effectiveClassId) ? (
           <Loading />
         ) : query.error ? (
           <ErrorState error={query.error} retry={query.refetch} />
@@ -443,12 +461,6 @@ export default function Attendance() {
           />
         )}
       </Panel>
-      {!member && (
-        <Notice>
-          BE hiện chỉ chấp nhận điểm danh theo lớp, chưa có endpoint check-in
-          trung tâm độc lập. Thời gian lọc danh sách lớp được áp dụng phía FE.
-        </Notice>
-      )}
       {create && can("attendance.record") && (
         <FormModal
           title="Ghi nhận điểm danh"

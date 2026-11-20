@@ -16,4 +16,6 @@ public class WorkoutLogDetailResponse {
     private Integer sets;
     private Integer reps;
     private BigDecimal weightKg;
+    private BigDecimal metricValue;
+    private String metricUnit;
 }

@@ -1,11 +1,13 @@
 package com.sportscenter.management.service.impl;
 
 import com.sportscenter.auth.SecurityUtils;
+import com.sportscenter.management.dto.Request.WorkoutLogDetailRequest;
 import com.sportscenter.management.dto.Request.WorkoutLogRequest;
 import com.sportscenter.management.dto.Request.WorkoutPlanRequest;
 import com.sportscenter.management.entity.Classes;
 import com.sportscenter.management.entity.Role;
 import com.sportscenter.management.entity.User;
+import com.sportscenter.management.entity.WorkoutLog;
 import com.sportscenter.management.repository.AttendanceRepository;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
@@ -16,11 +18,13 @@ import com.sportscenter.management.service.impl.AttendanceServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class WorkoutServiceAuthorizationTest {
@@ -82,6 +86,36 @@ class WorkoutServiceAuthorizationTest {
         assertThrows(AccessDeniedException.class, () -> service.createLog(request));
         verify(logs, never()).save(any());
         verifyNoInteractions(bookings);
+    }
+
+    @Test
+    void savesAndReadsSportMetricAlongsideExistingFitnessFields() {
+        when(users.findById(4)).thenReturn(Optional.of(user(4, "MEMBER")));
+        when(users.findById(5)).thenReturn(Optional.of(user(5, "COACH")));
+        WorkoutLogRepository logs = mock(WorkoutLogRepository.class);
+        WorkoutLogServiceImpl service = new WorkoutLogServiceImpl(
+                logs, users, classes, mock(ClassBookingRepository.class), security);
+        when(logs.save(any(WorkoutLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.createLog(WorkoutLogRequest.builder().memberId(4).coachId(5)
+                .details(List.of(
+                        WorkoutLogDetailRequest.builder().exerciseName("Bơi 50 m")
+                                .metricValue(new BigDecimal("42.5")).metricUnit("seconds").build(),
+                        WorkoutLogDetailRequest.builder().exerciseName("Squat").sets(3).reps(10)
+                                .weightKg(new BigDecimal("20")).build()))
+                .build());
+
+        var saved = org.mockito.ArgumentCaptor.forClass(WorkoutLog.class);
+        verify(logs).save(saved.capture());
+        when(logs.findByMemberId(4)).thenReturn(List.of(saved.getValue()));
+        var details = service.getLogsByMemberId(4).getFirst().getDetails();
+        assertEquals("seconds", details.get(0).getMetricUnit());
+        assertEquals(new BigDecimal("42.5"), details.get(0).getMetricValue());
+        assertNull(details.get(0).getWeightKg());
+        assertEquals(3, details.get(1).getSets());
+        assertEquals(10, details.get(1).getReps());
+        assertEquals(new BigDecimal("20"), details.get(1).getWeightKg());
+        assertNull(details.get(1).getMetricUnit());
     }
 
     @Test

@@ -65,6 +65,77 @@ describe("Tập luyện — phạm vi thành viên và đổi HLV, chỉ mock AP
     await userEvent.setup().click(within(form).getByRole("button", { name: "Đóng" }));
     expect(form).not.toBeInTheDocument();
   });
+
+  it("inserts a personal sport template without overwriting the coach's draft", async () => {
+    const respond = server();
+    vi.stubGlobal("fetch", (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url) === "/api/v1/sports"
+        ? json([{ id: 88, sportName: "Yoga" }])
+        : respond(url, init),
+    );
+    mount("COACH", "/training?new=1");
+    const form = await screen.findByRole("dialog", { name: "Tạo kế hoạch tập luyện" });
+    const user = userEvent.setup();
+    const content = within(form).getByLabelText<HTMLTextAreaElement>("Nội dung giáo án");
+    await user.type(content, "Ghi chú của HLV.");
+    await within(form).findByRole("option", { name: "Yoga" });
+    await user.selectOptions(within(form).getByLabelText("Bộ môn để gợi ý bài tập"), "88");
+    await user.click(within(form).getByRole("button", { name: "Chèn mẫu Yoga" }));
+    expect(content.value).toContain("Ghi chú của HLV.\n\nYoga");
+    expect(content.value).toContain("số giây");
+  });
+
+  it("records a non-Fitness result and filters progress by its unit after reloading", async () => {
+    const swim = { ...completedClass, className: "Lớp bơi", sportId: 88 };
+    const logs = [{
+      ...reviewedLog,
+      details: [{ exerciseName: "Bơi 50 m", metricValue: 2, metricUnit: "rounds" }],
+    }];
+    const respond = server();
+    const fetch = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/sports") return json([{ id: 88, sportName: "Bơi lội" }]);
+      if (path === "/api/v1/classes/my-classes") return json([swim]);
+      if (path === "/api/v1/classes/8/students")
+        return json([{ memberId: 10, fullName: "Học viên A", bookingStatus: "BOOKED" }]);
+      if (path === "/api/v1/classes/8/bookings")
+        return json([{ classId: 8, memberId: 10, status: "BOOKED" }]);
+      if (path === "/api/v1/workout-logs" && init?.method === "POST") {
+        const saved = { ...reviewedLog, ...JSON.parse(String(init.body)), id: 42 };
+        logs.push(saved);
+        return json(saved, 201);
+      }
+      if (path === "/api/v1/workout-logs/coach/3") return json(logs);
+      return respond(url, init);
+    });
+    vi.stubGlobal("fetch", fetch);
+    mount("COACH");
+    const user = userEvent.setup();
+    const open = screen.getByRole("button", { name: "Ghi kết quả buổi tập" });
+    await waitFor(() => expect(open).toBeEnabled());
+    await user.click(open);
+    const form = within(screen.getByRole("dialog", { name: "Ghi kết quả buổi tập" }));
+    await user.selectOptions(form.getByLabelText("Học viên"), "10");
+    await form.findByRole("option", { name: /Lớp bơi/ });
+    await user.selectOptions(form.getByLabelText("Buổi tập"), "8");
+    expect(form.queryByLabelText("Mức tạ (kg)")).not.toBeInTheDocument();
+    await user.type(form.getByLabelText("Tên bài tập"), "Bơi 50 m");
+    await user.selectOptions(form.getByLabelText("Cách ghi kết quả"), "seconds");
+    await user.type(form.getByLabelText("Kết quả (giây)"), "42.5");
+    await user.click(form.getByRole("button", { name: "Lưu thay đổi" }));
+    await screen.findByText("Bơi 50 m: 42.5 giây");
+    expect(logs.at(-1)?.details).toEqual([
+      { exerciseName: "Bơi 50 m", metricUnit: "seconds", metricValue: 42.5 },
+    ]);
+
+    await user.selectOptions(screen.getByLabelText("Học viên theo dõi"), "10");
+    const progress = within(screen.getByRole("heading", { name: "Theo dõi tiến độ theo bài tập" }).closest("section")!);
+    await user.selectOptions(progress.getByLabelText("Chỉ số theo dõi"), "seconds");
+    expect(progress.getByRole("columnheader", { name: "Kết quả (giây)" })).toBeVisible();
+    expect(progress.getByRole("cell", { name: "42.5" })).toBeVisible();
+    expect(progress.getByRole("table")).not.toHaveTextContent("Kết quả (hiệp)");
+    expect(progress.getAllByRole("row")).toHaveLength(2);
+  });
   it("shows progress for the new student after selecting an exercise for the previous student", async () => {
     const logs = [
       {
@@ -190,6 +261,50 @@ describe("Tập luyện — phạm vi thành viên và đổi HLV, chỉ mock AP
     const unlinked = screen.getByRole("row", { name: /Nhận xét cũ/ });
     expect(within(unlinked).getByText("Chưa gắn buổi học")).toBeVisible();
   });
+
+  it("orders exercise progress by session date when older results are entered later", async () => {
+    const respond = server();
+    vi.stubGlobal("fetch", async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/classes") return json([
+        completedClass,
+        { ...completedClass, id: 9, scheduleTime: "2026-11-18T08:34:00" },
+      ]);
+      if (path === "/api/v1/workout-logs/member/10") return json([
+        reviewedLog,
+        { ...reviewedLog, id: 42, scheduleId: 9, createdAt: "2026-11-18T09:40:00",
+          details: [{ exerciseName: "Row", sets: 3, reps: 10, weightKg: 20 }] },
+      ]);
+      return respond(url, init);
+    });
+    mount("MEMBER");
+
+    const panel = (await screen.findByRole("heading", { name: "Theo dõi tiến độ theo bài tập" })).closest("section")!;
+    await waitFor(() => {
+      const rows = within(panel).getAllByRole("row").slice(1);
+      expect(rows).toHaveLength(2);
+      expect(within(rows[0]).getByText("16/11/2026")).toBeVisible();
+      expect(within(rows[0]).getByText("16")).toBeVisible();
+      expect(within(rows[1]).getByText("18/11/2026")).toBeVisible();
+      expect(within(rows[1]).getByText("20")).toBeVisible();
+    });
+  });
+
+  it.each([null, 999])("labels the progress fallback as the recording date without a known session (%s)", async scheduleId => {
+    const respond = server();
+    vi.stubGlobal("fetch", async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/workout-logs/member/10") return json([{ ...reviewedLog, scheduleId }]);
+      if (path === "/api/v1/classes/999") return json({ message: "Không tìm thấy buổi tập" }, 404);
+      return respond(url, init);
+    });
+    mount("MEMBER");
+
+    const panel = (await screen.findByRole("heading", { name: "Theo dõi tiến độ theo bài tập" })).closest("section")!;
+    expect(within(panel).getByText("30/11/2026")).toBeVisible();
+    expect(within(panel).getByText("Ngày ghi nhận")).toBeVisible();
+  });
+
   it("shows the linked session in the coach feedback form after a class is reassigned", async () => {
     const respond = server();
     vi.stubGlobal("fetch", async (url: RequestInfo | URL, init?: RequestInit) => {

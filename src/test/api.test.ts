@@ -86,6 +86,18 @@ describe("Backend contract: BE branch DTOs and controller paths", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
   });
+  it("returns every class attendance record even outside the member history range", async () => {
+    const recorded = [
+      { id: 12, classId: 2, checkedInAt: "2026-10-01T23:55:00", status: "PRESENT" },
+      { id: 13, classId: 2, checkedInAt: "2026-10-02T00:15:00", status: "ABSENT" },
+    ];
+    const fetch = vi.fn().mockResolvedValue(response(recorded));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(api.attendance(undefined, 2, "2026-10-01", "2026-10-01"))
+      .resolves.toEqual(recorded);
+    expect(fetch).toHaveBeenCalledWith("/api/v1/attendance/classes/2", expect.anything());
+  });
   it("sends actual invoice field names and starts payment separately", async () => {
     const fetch = vi.fn().mockResolvedValue(response({ id: 100 }));
     vi.stubGlobal("fetch", fetch);

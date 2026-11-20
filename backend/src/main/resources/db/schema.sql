@@ -498,10 +498,20 @@ BEGIN
         sets INT NULL,
         reps INT NULL,
         weight_kg DECIMAL(8,2) NULL,
+        metric_value DECIMAL(12,3) NULL,
+        metric_unit VARCHAR(20) NULL,
         CONSTRAINT FK_workout_log_details_logs FOREIGN KEY (log_id) REFERENCES dbo.workout_logs(id) ON DELETE CASCADE,
         CONSTRAINT CK_workout_log_details_sets CHECK (sets IS NULL OR sets > 0),
         CONSTRAINT CK_workout_log_details_reps CHECK (reps IS NULL OR reps > 0),
-        CONSTRAINT CK_workout_log_details_weight CHECK (weight_kg IS NULL OR weight_kg >= 0)
+        CONSTRAINT CK_workout_log_details_weight CHECK (weight_kg IS NULL OR weight_kg >= 0),
+        CONSTRAINT CK_workout_log_details_metric CHECK (
+            (metric_value IS NULL AND metric_unit IS NULL)
+            OR (metric_value IS NOT NULL AND metric_unit IS NOT NULL AND metric_value >= 0
+                AND metric_unit IN ('seconds', 'minutes', 'meters', 'kilometers', 'repetitions', 'rounds', 'hitsPer20')
+                AND (metric_unit NOT IN ('repetitions', 'rounds', 'hitsPer20') OR metric_value = FLOOR(metric_value))
+                AND (metric_unit <> 'hitsPer20' OR metric_value <= 20)
+                AND sets IS NULL AND reps IS NULL AND weight_kg IS NULL)
+        )
     );
 END;
 
