@@ -1416,3 +1416,68 @@ select:not([multiple]):not([size]) {
 .notice > div {
   min-width: 0;
 }
+/*
+ * Thẻ thống kê, thẻ lớp học và thẻ gói tập xuất hiện lần lượt khi vào trang.
+ * Cách làm: keyframe chỉ đổi opacity/transform, mỗi thẻ trễ thêm 50ms theo thứ tự;
+ * fill-mode backwards để sau khi chạy xong hiệu ứng hover của thẻ vẫn hoạt động.
+ * Lý do: trang có nhịp điệu hơn khi demo; chỉ bật khi người dùng không chọn giảm chuyển động.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes card-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .stats-grid > .stat-card,
+  .class-card-grid > .class-card,
+  .pricing-grid > .pricing-card {
+    animation: card-rise 0.35s ease-out backwards;
+  }
+  .stats-grid > :nth-child(2),
+  .class-card-grid > :nth-child(2),
+  .pricing-grid > :nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .stats-grid > :nth-child(3),
+  .class-card-grid > :nth-child(3),
+  .pricing-grid > :nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .stats-grid > :nth-child(4),
+  .class-card-grid > :nth-child(4),
+  .pricing-grid > :nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .stats-grid > :nth-child(n + 5),
+  .class-card-grid > :nth-child(n + 5),
+  .pricing-grid > :nth-child(n + 5) {
+    animation-delay: 200ms;
+  }
+}
+/*
+ * Phản hồi khi nhấn nút và khi rê chuột lên thẻ thống kê.
+ * Cách làm: nút thu nhỏ nhẹ lúc :active; thẻ thống kê nổi lên 2px kèm bóng, chỉ trên thiết bị có chuột.
+ * Lý do: người dùng cảm nhận được thao tác đã ăn; điện thoại không dính trạng thái hover.
+ */
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+.stat-value {
+  font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) {
+  .stat-card {
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px #3b542812;
+  }
+}

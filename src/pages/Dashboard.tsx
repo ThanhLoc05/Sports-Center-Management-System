@@ -4,7 +4,7 @@
  * Số liệu/biểu đồ không có endpoint được phân biệt với dữ liệu demo để tránh hiểu sai.
  */
 import { useCatalog } from "../lib/catalog";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -71,6 +71,54 @@ import {
   Select,
   TextLink,
 } from "../components/ui";
+/**
+ * Hiệu ứng đếm tăng dần cho số liệu thẻ thống kê (vd "15.316.000 ₫" chạy từ 0 lên).
+ * Cách làm: chỉ nhận chuỗi bắt đầu bằng số dạng vi-VN (dấu chấm ngăn nghìn), tách phần
+ * số và phần đuôi, dùng requestAnimationFrame tăng số trong ~0,8s rồi trả đúng chuỗi gốc.
+ * Lý do: tạo điểm nhấn khi mở Tổng quan mà không đổi dữ liệu; chuỗi không phải số
+ * (tên gói, "—") hiển thị nguyên, và tắt hẳn khi người dùng bật giảm chuyển động.
+ */
+function countUpParts(value: string) {
+  const match = /^(\d{1,3}(?:\.\d{3})*|\d+)(\D*)$/.exec(value);
+  const reduced =
+    typeof window.matchMedia !== "function" ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return match && !reduced ? match : null;
+}
+function useCountUp(value: string) {
+  // Bắt đầu từ 0 ngay ở lần vẽ đầu để không bị nháy số cuối rồi mới đếm lại.
+  const [display, setDisplay] = useState(() => {
+    const match = countUpParts(value);
+    return match ? "0" + match[2] : value;
+  });
+  useEffect(() => {
+    const match = countUpParts(value);
+    if (!match) {
+      setDisplay(value);
+      return;
+    }
+    const target = Number(match[1].replace(/\./g, ""));
+    const suffix = match[2];
+    const duration = 800;
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      if (progress < 1) {
+        setDisplay(
+          Math.round(target * eased).toLocaleString("vi-VN") + suffix,
+        );
+        frame = requestAnimationFrame(tick);
+      } else {
+        setDisplay(value);
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+  return display;
+}
 function StatCard({
   title,
   value,
@@ -86,6 +134,7 @@ function StatCard({
   tone?: string;
   trend?: string;
 }) {
+  const shown = useCountUp(value);
   return (
     <div className="stat-card">
       <div className="stat-top">
@@ -94,7 +143,9 @@ function StatCard({
           <Icon size={18} strokeWidth={1.7} />
         </span>
       </div>
-      <strong className="stat-value">{value}</strong>
+      <strong className="stat-value" aria-label={value}>
+        {shown}
+      </strong>
       <div className="stat-bottom">
         {trend && (
           <span className="stat-trend">
@@ -139,6 +190,37 @@ export default function Dashboard() {
     queryKey: ["revenue", start, end],
     queryFn: () => api.revenue(`${start}T00:00:00`, `${end}T23:59:59`),
     enabled: manager,
+  });
+  /**
+   * Biểu đồ doanh thu từng ngày với dữ liệu thật từ backend (API mode).
+   * Cách làm: gọi cùng endpoint /payments/revenue cho mỗi ngày trong kỳ (tối đa 31 lần, chạy song song)
+   * rồi ghép thành mảng {date, revenue}; key theo start/end để cache riêng tuần/tháng.
+   * Lý do: backend chưa có endpoint tổng hợp theo ngày; dùng lại đúng endpoint của số tổng
+   * nên cộng các ngày luôn khớp con số "Doanh thu kỳ này", không phải sửa backend.
+   */
+  const dailyRevenue = useQuery({
+    queryKey: ["revenue-daily", start, end],
+    queryFn: async () => {
+      const count =
+        Math.round(
+          (parseDate(end).getTime() - parseDate(start).getTime()) / 86400000,
+        ) + 1;
+      const days = Array.from({ length: count }, (_, i) =>
+        addDays(i, parseDate(start)),
+      );
+      const amounts = await Promise.all(
+        days.map((day) => {
+          const key = localDate(day);
+          return api.revenue(`${key}T00:00:00`, `${key}T23:59:59`);
+        }),
+      );
+      return days.map((day, i) => ({
+        date: dateLabel(day, { day: "2-digit", month: "2-digit" }),
+        revenue: Number(amounts[i]) || 0,
+      }));
+    },
+    enabled: manager && !demo,
+    retry: false,
   });
   /**
    * Thành viên cần booking để chọn lịch của mình. Ở API mode không tải booking
@@ -487,11 +569,15 @@ export default function Dashboard() {
                       Doanh thu đã thanh toán
                     </span>
                   </div>
-                  {demo ? (
+                  {!demo && dailyRevenue.isPending ? (
+                    <div className="revenue-chart">
+                      <Loading />
+                    </div>
+                  ) : demo || dailyRevenue.data ? (
                     <div className="revenue-chart">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart
-                          data={chart}
+                          data={demo ? chart : dailyRevenue.data}
                           margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
                         >
                           <defs>
