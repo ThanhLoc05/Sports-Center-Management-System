@@ -883,6 +883,13 @@ td {
   flex-wrap: wrap;
   gap: 8px 12px;
 }
+.row-actions.package-row-actions {
+  flex-wrap: nowrap;
+}
+.package-row-actions .btn,
+.package-duration {
+  white-space: nowrap;
+}
 .person-cell,
 .person-cell > span:last-child,
 .contact-cell {

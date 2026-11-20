@@ -46,6 +46,7 @@ import {
 import { routeAllowed } from "../lib/permissions";
 import { api } from "../lib/api";
 import { readDemo } from "../lib/demo";
+import { membershipCheckout } from "../lib/membership-checkout";
 import { isStaff } from "../lib/types";
 import {
   parseDate,
@@ -152,6 +153,12 @@ export default function Dashboard() {
     queryKey: ["subscriptions", user.id],
     queryFn: () => api.subscriptions(user.id),
     enabled: member,
+  });
+  const memberPackages = useQuery({
+    queryKey: ["membership-packages"],
+    queryFn: membershipCheckout.packages,
+    enabled: member && !demo,
+    retry: false,
   });
   /**
    * Các số liệu cần tập dữ liệu đầy đủ như điểm danh/ngày và biểu đồ mẫu lấy từ
@@ -311,7 +318,11 @@ export default function Dashboard() {
               value={
                 activeSub
                   ? db?.packages.find((p) => p.id === activeSub.packageId)
-                      ?.name || `Gói #${activeSub.packageId}`
+                      ?.name ||
+                    memberPackages.data?.find(
+                      (p) => p.id === activeSub.packageId,
+                    )?.name ||
+                    `Gói #${activeSub.packageId}`
                   : "Chưa có gói"
               }
               subtitle={

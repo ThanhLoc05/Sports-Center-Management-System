@@ -610,6 +610,9 @@
   position: relative;
   z-index: 2;
 }
+.brand.brand-light {
+  color: #f5f6ea;
+}
 .brand-light .brand-symbol {
   background: #e4edc0;
   color: #336044;

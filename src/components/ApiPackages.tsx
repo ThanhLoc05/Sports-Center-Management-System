@@ -61,7 +61,11 @@ export default function ApiPackages() {
               {
                 key: "duration",
                 label: "Thời hạn",
-                render: (p) => p.durationDays + " ngày",
+                render: (p) => (
+                  <span className="package-duration">
+                    {p.durationDays + " ngày"}
+                  </span>
+                ),
               },
               {
                 key: "level",
@@ -82,7 +86,7 @@ export default function ApiPackages() {
                 key: "action",
                 label: "Thao tác",
                 render: (p) => (
-                  <div className="row-actions">
+                  <div className="row-actions package-row-actions">
                     <Button variant="ghost" onClick={() => setEdit(p)}>
                       Chỉnh sửa gói
                     </Button>
