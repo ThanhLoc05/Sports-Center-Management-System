@@ -39,6 +39,23 @@ function server(initial: Feedback[] = [comment]) {
         type: actor.roleName === "COACH" ? "COACH_TO_MEMBER" : input.classId ? "CLASS_FEEDBACK" : "MEMBER_TO_COACH" };
       rows.push(created); return json(created, 201);
     }
+    if (path.endsWith("/classes")) return json([{ id: 8, className: "Lớp bơi" }, { id: 18, className: "Lớp bơi" }]);
+    if (path.endsWith("/users")) return json([
+      { id: 10, roleName: "MEMBER", fullName: "Thành Đạt" },
+      { id: 20, roleName: "MEMBER", fullName: "Thành Đạt" },
+      { id: 3, roleName: "COACH", fullName: "Trần Minh" },
+    ]);
+    if (path.endsWith("/users/coaches")) {
+      return json([3, 12].map(coachId => ({
+        coachId, fullName: "Trần Minh", professionalLevel: null, specialties: null, bio: null,
+      })));
+    }
+    const kind = new URL(path, "http://localhost").searchParams.get("kind");
+    if (kind) {
+      const type = { coach: "MEMBER_TO_COACH", class: "CLASS_FEEDBACK", member: "COACH_TO_MEMBER" }[kind];
+      const actor = getSession()!.user;
+      return json(rows.filter(row => row.type === type && (kind !== "member" || actor.roleName !== "MEMBER" || row.toUserId === actor.id)));
+    }
     const match = path.match(/\/feedbacks\/(coach|class|member)\/(\d+)$/);
     if (match) {
       const id = Number(match[2]); const list = rows.filter(f => match[1] === "class" ? f.classId === id : f.toUserId === id);
@@ -52,17 +69,67 @@ async function createForm(role: "MEMBER" | "COACH", target: "coach" | "class" = 
   await user.click(screen.getByRole("button", { name: role === "COACH" ? "Nhận xét thành viên" : "Viết đánh giá" }));
   const dialog = screen.getByRole("dialog");
   if (role === "MEMBER") await user.selectOptions(within(dialog).getByLabelText("Đối tượng đánh giá"), target);
-  await user.clear(within(dialog).getByRole("spinbutton"));
-  await user.type(within(dialog).getByRole("spinbutton"), role === "COACH" ? "10" : target === "class" ? "8" : "3");
+  if (role === "MEMBER" && target === "coach") {
+    await user.selectOptions(await within(dialog).findByLabelText("Chọn huấn luyện viên"), "3");
+  } else {
+    await user.clear(within(dialog).getByRole("spinbutton"));
+    await user.type(within(dialog).getByRole("spinbutton"), role === "COACH" ? "10" : "8");
+  }
   await user.type(within(dialog).getByLabelText("Nội dung đánh giá"), "Đánh giá Unicode — rất tốt");
   return { user, dialog };
 }
 describe("Feedback — contract và UI, chỉ mock API", () => {
+  it("shows unrated coaches and distinguishes coaches sharing a name", async () => {
+    const fetch = server([{ ...comment, type: "MEMBER_TO_COACH", toUserId: 3, targetName: "Trần Minh" }]);
+    vi.stubGlobal("fetch", fetch); page("RECEPTIONIST"); const user = userEvent.setup();
+    const field = await screen.findByRole("combobox", { name: "Tìm theo tên hoặc ID" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    await user.click(field);
+    expect(await screen.findByRole("option", { name: "Trần Minh · #12" })).toBeVisible();
+    await user.type(field, "tran minh");
+    await user.click(screen.getByRole("option", { name: "Trần Minh · #12" }));
+    expect(field).toHaveValue("Trần Minh");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(await screen.findByText("Huấn luyện viên này chưa có đánh giá.")).toBeVisible();
+    await user.click(field);
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(await screen.findByRole("cell", { name: comment.comment })).toBeVisible();
+    await user.clear(field);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText(/Tổng đánh giá: 1/)).toBeVisible();
+  });
+  it.each([
+    ["class", "Lớp bơi", "lop boi", 8, 18, "Lớp học này chưa có đánh giá."],
+    ["member", "Thành Đạt", "thanh dat", 10, 20, "Thành viên này chưa có nhận xét."],
+  ] as const)("selects %s by name even without prior feedback", async (kind, name, term, id, other, empty) => {
+    vi.stubGlobal("fetch", server([{ ...comment, classId: 8, type: kind === "class" ? "CLASS_FEEDBACK" : "COACH_TO_MEMBER" }]));
+    page("RECEPTIONIST"); const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Loại dữ liệu"), kind);
+    const field = screen.getByRole("combobox", { name: "Tìm theo tên hoặc ID" });
+    await user.click(field);
+    expect(await screen.findByRole("option", { name: name + " · #" + id })).toBeVisible();
+    await user.type(field, term);
+    await user.click(screen.getByRole("option", { name: name + " · #" + other }));
+    expect(field).toHaveValue(name);
+    expect(await screen.findByText(empty)).toBeVisible();
+    await user.click(field);
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(await screen.findByRole("cell", { name: comment.comment })).toBeVisible();
+  });
+  it("only suggests the signed-in member for private feedback", async () => {
+    const fetch = server(); vi.stubGlobal("fetch", fetch); page("MEMBER");
+    await userEvent.setup().click(await screen.findByRole("combobox", { name: "Tìm theo tên hoặc ID" }));
+    const list = await screen.findByRole("listbox");
+    expect(await within(list).findByRole("option", { name: /#10$/ })).toBeVisible();
+    expect(within(list).getAllByRole("option")).toHaveLength(1);
+    expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/users"))).toBe(false);
+  });
   it("member reads received feedback with null rating and no management actions", async () => {
     const fetch = server(); vi.stubGlobal("fetch", fetch); page();
     expect(await screen.findByText(comment.comment)).toBeVisible();
     expect(screen.getByText("Không chấm điểm")).toBeVisible();
-    expect(fetch.mock.calls.some(([url]) => String(url) === "/api/v1/feedbacks/member/10")).toBe(true);
+    expect(fetch.mock.calls.some(([url]) => String(url) === "/api/v1/feedbacks?kind=member")).toBe(true);
     for (const name of ["Sửa đánh giá", "Xóa đánh giá", "Duyệt đánh giá"]) expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
   });
   it.each(["coach", "class"] as const)("member sends %s feedback with correct DTO, then reads server data", async target => {
@@ -79,32 +146,44 @@ describe("Feedback — contract và UI, chỉ mock API", () => {
     const fetch = server([]); vi.stubGlobal("fetch", fetch); page("COACH"); const { user, dialog } = await createForm("COACH");
     await user.click(within(dialog).getByRole("button", { name: "Gửi nhận xét" }));
     expect(await screen.findByText("Đã gửi nhận xét thành viên.")).toBeVisible();
-    expect(fetch.mock.calls.some(([url]) => String(url).includes("/feedbacks/member/"))).toBe(false);
+    expect(fetch.mock.calls.some(([url]) => String(url).includes("kind=member"))).toBe(false);
     expect(JSON.parse(String(fetch.mock.calls.find(([, init]) => init?.method === "POST")![1]?.body))).toEqual({ toUserId: 10, rating: null, comment: "Đánh giá Unicode — rất tốt" });
     expect(screen.queryByRole("option", { name: "Nhận xét thành viên" })).not.toBeInTheDocument();
   });
   it.each(["RECEPTIONIST", "CENTER_MANAGER"] as Role[])("%s reads coach summary, class and member lists without write actions", async role => {
-    const fetch = server([{ ...comment, toUserId: 3, rating: 4, type: "MEMBER_TO_COACH" }, { ...comment, id: 72, classId: 8, type: "CLASS_FEEDBACK" }, comment]);
+    const cases = [
+      { kind: "coach", name: "Nguyễn Minh Tuấn", search: "minh tuan", type: "MEMBER_TO_COACH" },
+      { kind: "class", name: "Bóng rổ", search: "bong ro", type: "CLASS_FEEDBACK" },
+      { kind: "member", name: "Lê Thị Hà", search: "thi ha", type: "COACH_TO_MEMBER" },
+    ] as const;
+    const fetch = server(cases.flatMap((c, i) => [c.name, "Đối tượng khác"].map((targetName, j) => ({
+      ...comment, id: 70 + i * 2 + j, type: c.type, targetName, senderName: "Người gửi", rating: 4,
+    }))));
     vi.stubGlobal("fetch", fetch); page(role); const user = userEvent.setup();
-    expect(screen.queryByRole("button", { name: /Viết đánh giá|Nhận xét thành viên/ })).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("ID HLV"), "3"); await user.click(screen.getByRole("button", { name: "Xem đánh giá" }));
-    expect(await screen.findByText("Điểm trung bình: 4.5 / 5 · Tổng đánh giá: 1")).toBeVisible();
-    await user.selectOptions(screen.getByLabelText("Loại dữ liệu"), "class"); await user.type(screen.getByLabelText("ID lớp"), "8"); await user.click(screen.getByRole("button", { name: "Xem đánh giá" }));
-    await screen.findByText("Nhận xét tiếng Việt");
-    await user.selectOptions(screen.getByLabelText("Loại dữ liệu"), "member"); await user.type(screen.getByLabelText("ID thành viên"), "10"); await user.click(screen.getByRole("button", { name: "Xem đánh giá" }));
-    await screen.findAllByText("Nhận xét tiếng Việt");
+    for (const c of cases) {
+      await user.selectOptions(screen.getByLabelText("Loại dữ liệu"), c.kind);
+      expect(await screen.findByRole("cell", {name:c.name})).toBeVisible();
+      expect(screen.getByRole("cell", {name:"Đối tượng khác"})).toBeVisible();
+      const field = screen.getByLabelText("Tìm theo tên hoặc ID");
+      await user.type(field, c.search);
+      await user.click(screen.getByRole("button", { name: "Tìm kiếm" }));
+      expect(screen.getByRole("cell", {name:c.name})).toBeVisible();
+      expect(screen.queryByRole("cell", {name:"Đối tượng khác"})).not.toBeInTheDocument();
+      await user.clear(field);
+      expect(screen.getByRole("cell", {name:"Đối tượng khác"})).toBeVisible();
+    }
     expect(fetch.mock.calls.some(([, init]) => ["POST", "PUT", "PATCH", "DELETE"].includes(init?.method || ""))).toBe(false);
   });
   it("shows loading and empty state without demo fallback", async () => {
     let finish!: (r: Response) => void; const fetch = server(); const fallback = fetch.getMockImplementation()!;
-    fetch.mockImplementation(async (url, init) => String(url).endsWith("/feedbacks/member/10") ? new Promise<Response>(resolve => { finish = resolve; }) : fallback(url, init));
+    fetch.mockImplementation(async (url, init) => String(url).endsWith("/feedbacks?kind=member") ? new Promise<Response>(resolve => { finish = resolve; }) : fallback(url, init));
     vi.stubGlobal("fetch", fetch); page(); expect(screen.getByText("Đang tải dữ liệu...")).toBeVisible();
     await act(async () => finish(json([]))); expect(await screen.findByRole("heading", { name: "Không có kết quả" })).toBeVisible();
   });
   it.each([400, 403, 500, 0])("shows GET error %s and retries", async status => {
     const fetch = server(); const fallback = fetch.getMockImplementation()!; let fail = true;
     fetch.mockImplementation(async (url, init) => {
-      if (String(url).endsWith("/feedbacks/member/10") && fail) { fail = false; if (!status) throw Error("offline"); return json({ message: "Lỗi tải đánh giá" }, status); }
+      if (String(url).endsWith("/feedbacks?kind=member") && fail) { fail = false; if (!status) throw Error("offline"); return json({ message: "Lỗi tải đánh giá" }, status); }
       return fallback(url, init);
     });
     vi.stubGlobal("fetch", fetch); page(); await screen.findByRole("alert"); await userEvent.setup().click(screen.getByRole("button", { name: "Thử lại" }));
@@ -112,7 +191,7 @@ describe("Feedback — contract và UI, chỉ mock API", () => {
   });
   it("handles 401 with the existing login redirect", async () => {
     const fetch = server(); const fallback = fetch.getMockImplementation()!;
-    fetch.mockImplementation(async (url, init) => String(url).includes("/feedbacks/") ? json({}, 401) : fallback(url, init));
+    fetch.mockImplementation(async (url, init) => String(url).includes("/feedbacks?") ? json({}, 401) : fallback(url, init));
     vi.stubGlobal("fetch", fetch); page(); await waitFor(() => expect(getSession()).toBeNull());
     expect(await screen.findByRole("button", { name: "Đăng nhập" })).toBeVisible();
   });
@@ -139,16 +218,16 @@ describe("Feedback — contract và UI, chỉ mock API", () => {
   });
   it("does not display an old lookup response after changing target", async () => {
     let finish!: (r: Response) => void; const fetch = server(); const fallback = fetch.getMockImplementation()!;
-    fetch.mockImplementation(async (url, init) => String(url).endsWith("/feedbacks/coach/3") ? new Promise<Response>(resolve => { finish = resolve; }) : fallback(url, init));
+    fetch.mockImplementation(async (url, init) => String(url).endsWith("/feedbacks?kind=coach") ? new Promise<Response>(resolve => { finish = resolve; }) : fallback(url, init));
     vi.stubGlobal("fetch", fetch); page("CENTER_MANAGER"); const user = userEvent.setup();
-    await user.type(screen.getByLabelText("ID HLV"), "3"); await user.click(screen.getByRole("button", { name: "Xem đánh giá" })); await waitFor(() => expect(finish).toBeDefined());
-    await user.selectOptions(screen.getByLabelText("Loại dữ liệu"), "class"); await user.type(screen.getByLabelText("ID lớp"), "8"); await user.click(screen.getByRole("button", { name: "Xem đánh giá" }));
-    await act(async () => finish(json({ coachId: 3, averageRating: 5, totalReviews: 1, feedbacks: [{ ...comment, comment: "Phản hồi HLV cũ" }] })));
+    await waitFor(() => expect(finish).toBeDefined());
+    await user.selectOptions(screen.getByLabelText("Loại dữ liệu"), "class");
+    await act(async () => finish(json([{ ...comment, type: "MEMBER_TO_COACH", comment: "Phản hồi HLV cũ" }])));
     expect(screen.queryByText("Phản hồi HLV cũ")).not.toBeInTheDocument();
   });
   it("does not retain the old account's form or late feedback list", async () => {
     let finish!: (r: Response) => void; const fetch = server(); const fallback = fetch.getMockImplementation()!;
-    fetch.mockImplementation(async (url, init) => String(url).endsWith("/feedbacks/member/10") ? new Promise<Response>(resolve => { finish = resolve; }) : fallback(url, init));
+    fetch.mockImplementation(async (url, init) => String(url).endsWith("/feedbacks?kind=member") && getSession()?.user.id === 10 ? new Promise<Response>(resolve => { finish = resolve; }) : fallback(url, init));
     vi.stubGlobal("fetch", fetch); page("MEMBER", true); const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Viết đánh giá" })); await waitFor(() => expect(finish).toBeDefined());
     await user.click(screen.getByRole("button", { name: "Đổi người dùng test" })); await act(async () => finish(json([comment])));

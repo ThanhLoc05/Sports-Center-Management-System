@@ -30,6 +30,12 @@ public class FeedbackController {
     private final FeedbackService feedbackService;
     private final SecurityUtils securityUtils;
 
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public List<FeedbackResponse> browse(@RequestParam("kind") String kind) {
+        return feedbackService.browse(kind);
+    }
+
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<FeedbackResponse> createFeedback(@Valid @RequestBody FeedbackRequest request) {

@@ -167,6 +167,7 @@
   flex: 0 0 auto;
   padding: 22px 26px;
 }
+/* Khung Flow 3 chia thông tin đơn, gói/số tiền và xác nhận để dễ đối chiếu. */
 .membership-order-body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -272,9 +273,51 @@
 .membership-order-card .panel > .notice {
   margin: 12px 16px;
 }
+.panel.feedback-lookup { overflow: visible; }
+.feedback-target-search { position: relative; }
+.feedback-target-options {
+  position: absolute;
+  inset: calc(100% + 4px) 0 auto;
+  z-index: 5;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--surface, white);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+}
+.feedback-target-options > [role="option"] {
+  padding: 8px 12px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.feedback-target-options > [role="option"]:hover,
+.feedback-target-options > [data-active="true"],
+.feedback-target-options > [aria-selected="true"] {
+  background: var(--surface-soft, #eff4e9);
+}
+
+.class-coach-directory {
+  margin-inline: var(--ui-panel-space);
+}
+.class-coach-directory > div {
+  padding-inline-end: 0.5rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .class-coach-directory > div {
+    display: grid;
+    justify-items: start;
+  }
+}
+
 .membership-order-notification > .panel {
   margin-bottom: 0;
   padding: 18px;
+}
+/* Khung thông báo đã có đệm riêng, nên nút sao chép dùng cùng lề với nội dung. */
+.membership-order-notification > .panel > .btn {
+  margin: 0;
+  max-width: 100%;
 }
 .membership-order-notification .panel-heading {
   padding: 0 0 12px;
@@ -402,6 +445,7 @@
     padding: 0;
     overflow: visible;
   }
+  /* Khi in nhiều trang, giữ một khối thông tin liền nhau để tránh cắt ngang nội dung hóa đơn. */
   .membership-order-card {
     break-inside: avoid;
     margin-bottom: 12px;
@@ -649,6 +693,7 @@
   --ui-gutter: 32px;
   --ui-panel-space: 24px;
   --ui-control-height: 40px;
+  --ui-modal-space: 24px;
   --payment-unpaid-bg: #fde8e6;
   --payment-unpaid-border: #e0564a;
   --payment-unpaid-text: #a8281d;
@@ -716,24 +761,33 @@
   padding: 20px var(--ui-panel-space) 16px;
   gap: 12px 16px;
 }
-/* Panel có nội dung trực tiếp cần đệm riêng; bảng vẫn được giữ sát mép khung. */
-.panel-spaced > :is(p, .field, .notice, .form-grid, .mini-stats, .inline-lookup, .detail-grid) {
-  margin: 0 var(--ui-panel-space) 16px;
+/* Nội dung thân Panel tự nhận lề chung, kể cả khi trang quên panel-spaced.
+ * :where giữ độ ưu tiên thấp để khung con đã có đệm riêng tiếp tục dùng lề của nó;
+ * không chọn table-scroll/footer vì bảng có vùng cuộn và đệm ô riêng. */
+:where(.panel) > :is(p, .field, .notice, .form-grid, .mini-stats, .inline-lookup, .detail-grid) {
+  margin: 0 var(--ui-panel-space) var(--ui-panel-space);
 }
-.panel-spaced > .search-input {
+/* Form tra cứu dùng lề của thân card, tránh cộng thêm padding cũ hai lần. */
+.panel > .inline-lookup {
+  padding: 0;
+}
+:where(.panel) > :is(p, .field, .notice, .form-grid, .mini-stats, .inline-lookup, .detail-grid):first-child {
+  margin-top: var(--ui-panel-space);
+}
+:where(.panel) > .search-input {
   margin: 0 var(--ui-panel-space) 16px;
   width: auto;
   min-width: 0;
 }
-.panel-spaced > .btn {
+:where(.panel) > .btn {
   margin: 0 var(--ui-panel-space) 20px;
   max-width: calc(100% - 2 * var(--ui-panel-space));
 }
-.panel-spaced > p {
+:where(.panel) > p {
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
-.panel-spaced > .mini-stats {
+:where(.panel) > .mini-stats {
   gap: 16px;
 }
 .btn {
@@ -1025,11 +1079,13 @@ td {
   max-width: 100%;
 }
 /* Chỉ trạng thái thanh toán dùng đỏ/xanh này; chữ và trạng thái hủy/hoàn tiền giữ nguyên. */
+/* Class chưa thanh toán dùng màu đỏ, chỉ thể hiện trạng thái đơn do TSX truyền vào. */
 .status-unpaid {
   --payment-status-bg: var(--payment-unpaid-bg);
   --payment-status-border: var(--payment-unpaid-border);
   --payment-status-text: var(--payment-unpaid-text);
 }
+/* Class đã thanh toán dùng màu xanh; nhãn chữ và chấm trạng thái vẫn được giữ để dễ nhận biết. */
 .status-paid {
   --payment-status-bg: var(--payment-paid-bg);
   --payment-status-border: var(--payment-paid-border);
@@ -1108,6 +1164,7 @@ td {
   .form-grid,
   .detail-grid,
   .profile-details { grid-template-columns: minmax(0, 1fr); }
+  :root { --ui-modal-space: 20px; }
   .modal-overlay { padding: 12px; }
   .modal { max-height: calc(100dvh - 24px); }
   .modal-heading { padding: 20px; }
@@ -1341,4 +1398,14 @@ select:not([multiple]):not([size]) {
   .invoice-detail-dialog > .payment-qr {
     margin: 20px;
   }
+}
+
+/* Nội dung đặt trực tiếp trong Modal cũng có lề như header/footer; form và
+ * detail-grid đã tự có padding nên không bị cộng đệm thêm. */
+:where(.modal) > :is(.notice, p:not(.confirm-description), h3, .mini-stats, .exercise-list) {
+  margin: var(--ui-modal-space);
+  overflow-wrap: anywhere;
+}
+.notice > div {
+  min-width: 0;
 }

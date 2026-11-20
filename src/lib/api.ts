@@ -416,6 +416,12 @@ export const api = {
     if (!result?.id || result.roleName !== input.roleName) throw new ApiError("Phản hồi tạo nhân viên không hợp lệ.");
     return result;
   },
+  async feedbackList(kind: "coach" | "class" | "member"): Promise<Feedback[]> {
+    const actor = feedbackActor();
+    if (kind === "member" && actor.roleName === "COACH")
+      throw new ApiError("Bạn không có quyền xem nhận xét thành viên.", 403);
+    return assertArray(await request<Feedback[]>(`/feedbacks?kind=${kind}`)).map(feedbackResponse);
+  },
   async coachFeedback(coachId: number): Promise<CoachFeedbackResponse> {
     feedbackActor();
     const result = await request<CoachFeedbackResponse>(`/feedbacks/coach/${feedbackId(coachId)}`);

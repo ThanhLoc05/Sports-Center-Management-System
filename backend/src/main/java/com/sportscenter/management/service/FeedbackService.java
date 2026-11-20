@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface FeedbackService {
 
+    List<FeedbackResponse> browse(String kind);
+
     FeedbackResponse createFeedback(FeedbackRequest request);
 
     List<FeedbackResponse> getFeedbacksForCoach(Integer coachId);

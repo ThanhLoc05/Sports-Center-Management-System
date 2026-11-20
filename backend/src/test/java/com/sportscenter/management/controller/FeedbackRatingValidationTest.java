@@ -16,6 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +48,29 @@ class FeedbackRatingValidationTest {
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter())
                 .setValidator(validator).build();
+    }
+
+    @Test
+    void memberListIsScopedToCurrentUser() throws Exception {
+        mvc.perform(get("/api/v1/feedbacks").param("kind", "member"))
+                .andExpect(status().isOk());
+        verify(feedbacks).browse("COACH_TO_MEMBER", 10);
+    }
+
+    @Test
+    void coachCannotBrowsePrivateMemberComments() {
+        when(security.hasRole("MEMBER")).thenReturn(false);
+        var service = new FeedbackServiceImpl(feedbacks, users, security);
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> service.browse("member"));
+        verifyNoInteractions(feedbacks);
+    }
+
+    @Test
+    void receptionistCanBrowseMemberCommentsByCategory() throws Exception {
+        when(security.isReceptionist()).thenReturn(true);
+        mvc.perform(get("/api/v1/feedbacks").param("kind", "member"))
+                .andExpect(status().isOk());
+        verify(feedbacks).browse("COACH_TO_MEMBER", null);
     }
 
     @AfterEach

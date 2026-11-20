@@ -19,4 +19,6 @@ public class FeedbackResponse {
     private String comment;
     private String type;
     private LocalDateTime createdAt;
+    private String senderName;
+    private String targetName;
 }

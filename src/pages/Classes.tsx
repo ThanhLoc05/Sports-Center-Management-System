@@ -329,7 +329,7 @@ export default function Classes() {
           ) : coaches.error ? (
             <ErrorState error={coaches.error} retry={coaches.refetch} />
           ) : coaches.data.length ? (
-            <div className="roster-list">
+            <div className="roster-list class-coach-directory">
               {coaches.data.map((coachProfile) => (
                 <div key={coachProfile.coachId}>
                   <strong>{coachProfile.fullName}</strong>

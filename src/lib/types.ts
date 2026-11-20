@@ -196,6 +196,8 @@ export interface TrainingLog {
 }
 export type FeedbackType = "MEMBER_TO_COACH" | "CLASS_FEEDBACK" | "COACH_TO_MEMBER";
 export interface Feedback {
+  senderName?: string | null;
+  targetName?: string | null;
   id: number;
   fromUserId: number;
   toUserId: number | null;

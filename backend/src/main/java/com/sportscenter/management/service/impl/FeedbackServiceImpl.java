@@ -25,6 +25,25 @@ public class FeedbackServiceImpl implements FeedbackService {
     private final SecurityUtils securityUtils;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<FeedbackResponse> browse(String kind) {
+        String type = switch (kind) {
+            case "coach" -> "MEMBER_TO_COACH";
+            case "class" -> "CLASS_FEEDBACK";
+            case "member" -> "COACH_TO_MEMBER";
+            default -> throw new IllegalArgumentException("Loại đánh giá không hợp lệ");
+        };
+        Integer memberId = null;
+        if ("member".equals(kind) && !securityUtils.isCenterManager() && !securityUtils.isReceptionist()) {
+            memberId = securityUtils.getCurrentUserId();
+            if (!securityUtils.hasRole("MEMBER") || memberId == null) {
+                throw new org.springframework.security.access.AccessDeniedException("Không có quyền xem nhận xét thành viên");
+            }
+        }
+        return feedbackRepository.browse(type, memberId);
+    }
+
+    @Override
     public FeedbackResponse createFeedback(FeedbackRequest request) {
         if (request == null || request.getComment() == null || request.getComment().isBlank()) {
             throw new IllegalArgumentException("Nội dung nhận xét/đánh giá không được để trống");
