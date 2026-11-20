@@ -55,7 +55,7 @@ export default function ApiFacilities() {
           </Button>
         }
       />
-      <div className="page-actions">
+      <div className="page-actions facility-tabs">
         <Button
           variant={tab === "rooms" ? "primary" : "secondary"}
           aria-pressed={tab === "rooms"}
