@@ -137,6 +137,20 @@ Get-NetTCPConnection -State Listen -LocalPort 8080 -ErrorAction SilentlyContinue
 
 Lệnh dừng tiến trình dùng cổng đó; đổi sang 5173 để dừng FE.
 
+## Demo Flow 4 sáng 21/11/2026
+
+Sau khi cập nhật mã và khởi động lại backend theo cách thường dùng, Sportiva tự chuẩn bị lịch bên dưới nếu database đã có tài khoản và gói còn hạn từ `sample-running-data.sql`. Các lớp có 5 học viên đã đăng ký, chưa điểm danh. Bộ seed chạy khi khởi động từ 20/11 đến 11:55 ngày 21/11, theo giờ Việt Nam. Nếu database trên máy demo đã có bộ dữ liệu mẫu, không cần chạy SQL hoặc script riêng cho Flow 4.
+
+| Lớp | Lịch học | Khung giờ điểm danh |
+| --- | --- | --- |
+| DEMO Flow 4 21-11 - Cầu lông giao cầu | 09:05–09:35 | 08:50–10:35 |
+| DEMO Flow 4 21-11 - Bóng rổ ném rổ | 09:45–10:15 | 09:30–11:15 |
+| DEMO Flow 4 21-11 - Cầu lông di chuyển | 10:25–10:55 | 10:10–11:55 |
+
+Mở **Lớp học**, tìm `DEMO Flow 4 21-11` và xem HLV được phân công. Bộ seed ưu tiên Lê Hoàng Nam (`coach1.demo@sportiva.test`), sau đó đến Phạm Ngọc Mai (`coach2.demo@sportiva.test`) và Võ Thành Long (`coach3.demo@sportiva.test`) nếu HLV trước đó trùng lịch. Đăng nhập bằng tài khoản phụ trách và vào **Điểm danh**. Các tài khoản từ bộ seed mới dùng mật khẩu `123456`. Database đã có tài khoản tiếp tục dùng mật khẩu hiện tại.
+
+Dữ liệu nằm trong [demo-flow4-20261121.sql](backend/src/main/resources/db/demo-flow4-20261121.sql). Khởi động lại không tạo lớp trùng hay đặt lại điểm danh. Đặt `APP_DEMO_FLOW4_ENABLED=false` để tắt tự nạp lịch.
+
 ## Tài khoản đã tạo để trình bày
 
 Các tài khoản sau thuộc **database local trên máy trình bày**. Clone hoặc pull Git không sao chép database, không tự tạo tài khoản trên máy khác.
