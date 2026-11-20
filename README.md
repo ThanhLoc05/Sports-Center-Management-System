@@ -145,13 +145,13 @@ Sau khi cập nhật mã và khởi động lại backend theo cách thường d
 
 | Lớp | Lịch học | Khung giờ điểm danh |
 | --- | --- | --- |
-| DEMO Flow 4 21-11 - Cầu lông giao cầu | 09:05–09:35 | 08:50–10:35 |
-| DEMO Flow 4 21-11 - Bóng rổ ném rổ | 09:45–10:15 | 09:30–11:15 |
-| DEMO Flow 4 21-11 - Cầu lông di chuyển | 10:25–10:55 | 10:10–11:55 |
+| Cầu lông cơ bản - Kỹ thuật giao cầu | 09:05–09:35 | 08:50–10:35 |
+| Bóng rổ - Kỹ thuật ném rổ | 09:45–10:15 | 09:30–11:15 |
+| Cầu lông cơ bản - Kỹ thuật di chuyển | 10:25–10:55 | 10:10–11:55 |
 
-Mở **Lớp học**, tìm `DEMO Flow 4 21-11` và xem HLV được phân công. Bộ seed ưu tiên Lê Hoàng Nam (`coach1.demo@sportiva.test`), sau đó đến Phạm Ngọc Mai (`coach2.demo@sportiva.test`) và Võ Thành Long (`coach3.demo@sportiva.test`) nếu HLV trước đó trùng lịch. Đăng nhập bằng tài khoản phụ trách và vào **Điểm danh**. Các tài khoản từ bộ seed mới dùng mật khẩu `123456`. Database đã có tài khoản tiếp tục dùng mật khẩu hiện tại.
+Mở **Lớp học**, tìm theo tên và giờ học trong bảng để xem HLV được phân công. Bộ seed ưu tiên Lê Hoàng Nam (`coach1.demo@sportiva.test`), sau đó đến Phạm Ngọc Mai (`coach2.demo@sportiva.test`) và Võ Thành Long (`coach3.demo@sportiva.test`) nếu HLV trước đó trùng lịch. Đăng nhập bằng tài khoản phụ trách và vào **Điểm danh**. Các tài khoản từ bộ seed mới dùng mật khẩu `123456`. Database đã có tài khoản tiếp tục dùng mật khẩu hiện tại.
 
-Dữ liệu nằm trong [demo-flow4-20261121.sql](backend/src/main/resources/db/demo-flow4-20261121.sql). Khởi động lại không tạo lớp trùng hay đặt lại điểm danh. Đặt `APP_DEMO_FLOW4_ENABLED=false` để tắt tự nạp lịch.
+Dữ liệu nằm trong [demo-flow4-20261121.sql](backend/src/main/resources/db/demo-flow4-20261121.sql). Khi khởi động lại, script nhận diện lớp theo tên seed cũ hoặc tên mới ở đúng ca, rồi chuẩn hóa tên trên bản ghi đã có. Đặt `APP_DEMO_FLOW4_ENABLED=false` để tắt tự nạp lịch.
 
 ## Tài khoản đã tạo để trình bày
 

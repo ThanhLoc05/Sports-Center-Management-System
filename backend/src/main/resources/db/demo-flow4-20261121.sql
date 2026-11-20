@@ -35,17 +35,44 @@ BEGIN TRY
         THROW 51031, N'Không lấy được khóa nạp lớp demo Flow 4.', 1;
 
     DECLARE @Slots TABLE (
-        slot INT PRIMARY KEY, class_name NVARCHAR(255), sport_name NVARCHAR(255),
+        slot INT PRIMARY KEY, class_name NVARCHAR(255), legacy_name NVARCHAR(255), sport_name NVARCHAR(255),
         schedule_time DATETIME2, preferred_room NVARCHAR(255)
     );
     INSERT INTO @Slots VALUES
-        (1, N'DEMO Flow 4 21-11 - Cầu lông giao cầu', N'Cầu lông', DATEADD(MINUTE, 545, @DemoDay), N'Sân đa năng 1'),
-        (2, N'DEMO Flow 4 21-11 - Bóng rổ ném rổ', N'Bóng rổ', DATEADD(MINUTE, 585, @DemoDay), N'Sân đa năng 2'),
-        (3, N'DEMO Flow 4 21-11 - Cầu lông di chuyển', N'Cầu lông', DATEADD(MINUTE, 625, @DemoDay), N'Sân đa năng 1');
+        (1, N'Cầu lông cơ bản - Kỹ thuật giao cầu', N'DEMO Flow 4 21-11 - Cầu lông giao cầu',
+            N'Cầu lông', DATEADD(MINUTE, 545, @DemoDay), N'Sân đa năng 1'),
+        (2, N'Bóng rổ - Kỹ thuật ném rổ', N'DEMO Flow 4 21-11 - Bóng rổ ném rổ',
+            N'Bóng rổ', DATEADD(MINUTE, 585, @DemoDay), N'Sân đa năng 2'),
+        (3, N'Cầu lông cơ bản - Kỹ thuật di chuyển', N'DEMO Flow 4 21-11 - Cầu lông di chuyển',
+            N'Cầu lông', DATEADD(MINUTE, 625, @DemoDay), N'Sân đa năng 1');
 
-    /* Lớp đã tạo có thể đã được chỉnh, hủy hoặc điểm danh. Giữ nguyên lớp đó. */
+    /* Nhận tên cũ và các cách viết tên mới ở đúng ca học. */
+    DECLARE @ExistingSlots TABLE (slot INT, class_id INT, PRIMARY KEY (slot, class_id));
+    INSERT INTO @ExistingSlots (slot, class_id)
+    SELECT slot.slot, existing.class_id
+    FROM @Slots AS slot
+    JOIN dbo.sports AS sport ON sport.sport_name = slot.sport_name
+    JOIN dbo.classes AS existing WITH (UPDLOCK, HOLDLOCK) ON existing.sport_id = sport.sport_id
+    WHERE existing.class_name = slot.legacy_name
+       OR (
+           existing.schedule_time = slot.schedule_time
+           AND REPLACE(REPLACE(existing.class_name, N' ', N''), N'-', N'') COLLATE Latin1_General_100_CI_AS
+               = REPLACE(REPLACE(slot.class_name, N' ', N''), N'-', N'') COLLATE Latin1_General_100_CI_AS
+       );
+
+    /* Chỉ đổi tên khi nhận diện được một lớp duy nhất cho ca. */
+    UPDATE existing SET class_name = slot.class_name
+    FROM dbo.classes AS existing
+    JOIN @ExistingSlots AS match ON match.class_id = existing.class_id
+    JOIN @Slots AS slot ON slot.slot = match.slot
+    WHERE existing.class_name COLLATE Latin1_General_100_BIN2 <> slot.class_name COLLATE Latin1_General_100_BIN2
+      AND NOT EXISTS (
+          SELECT 1 FROM @ExistingSlots AS duplicate
+          WHERE duplicate.slot = match.slot AND duplicate.class_id <> match.class_id
+      );
+
     DELETE FROM @Slots
-    WHERE class_name IN (SELECT class_name FROM dbo.classes WITH (UPDLOCK, HOLDLOCK));
+    WHERE slot IN (SELECT slot FROM @ExistingSlots);
 
     IF EXISTS (SELECT 1 FROM @Slots)
     BEGIN

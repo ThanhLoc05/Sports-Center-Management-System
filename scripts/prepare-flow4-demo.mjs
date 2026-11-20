@@ -13,31 +13,36 @@ const memberEmail = (n) =>
 const sampleMembers = /^member\d{2}\.demo@sportiva\.test$/;
 const slots = [
   {
-    title: "Cầu lông giao cầu",
+    name: "Cầu lông cơ bản - Kỹ thuật giao cầu",
+    legacyTitle: "Cầu lông giao cầu",
     sport: "Cầu lông",
     room: "Sân đa năng 1",
     hour: "09:05",
     members: [1, 2, 4, 6, 11],
   },
   {
-    title: "Bóng rổ ném rổ",
+    name: "Bóng rổ - Kỹ thuật ném rổ",
+    legacyTitle: "Bóng rổ ném rổ",
     sport: "Bóng rổ",
     room: "Sân đa năng 2",
     hour: "09:45",
     members: [1, 12, 13, 14, 15],
   },
   {
-    title: "Cầu lông di chuyển",
+    name: "Cầu lông cơ bản - Kỹ thuật di chuyển",
+    legacyTitle: "Cầu lông di chuyển",
     sport: "Cầu lông",
     room: "Sân đa năng 1",
     hour: "10:25",
     members: [1, 16, 17, 18, 19],
   },
-].map((slot) => ({
+].map(({ legacyTitle, ...slot }) => ({
   ...slot,
-  name: `DEMO Flow 4 21-11 - ${slot.title}`,
+  legacyName: `DEMO Flow 4 21-11 - ${legacyTitle}`,
   scheduleTime: `${demoDate}T${slot.hour}:00`,
 }));
+const classNameKey = (name) =>
+  name.toLocaleLowerCase("vi-VN").replaceAll(" ", "").replaceAll("-", "");
 
 async function readPassword() {
   if (process.env.SPORTIVA_DEMO_MANAGER_PASSWORD) {
@@ -143,7 +148,14 @@ async function main() {
   );
   const scheduled = classes.filter((item) => item.status === "SCHEDULED");
   const demoClasses = slots.map((slot) => {
-    const matches = classes.filter((item) => item.className === slot.name);
+    const sport = sports.find((item) => item.sportName === slot.sport);
+    const matches = classes.filter(
+      (item) =>
+        item.sportId === sport?.id &&
+        (item.className === slot.legacyName ||
+          (time(item.scheduleTime) === time(slot.scheduleTime) &&
+            classNameKey(item.className) === classNameKey(slot.name))),
+    );
     if (matches.length > 1)
       throw new Error(`Có nhiều lớp mang tên "${slot.name}".`);
     return matches[0];
@@ -277,7 +289,7 @@ async function main() {
   console.log(`HLV cho cả ba lớp: ${coach.fullName} (${coach.email})`);
   for (const item of plan) {
     console.log(
-      `${item.slot.hour} · ${item.slot.title} · ${item.room.roomName} · ${item.members.length} học viên`,
+      `${item.slot.hour} · ${item.existing?.className ?? item.slot.name} · ${item.room.roomName} · ${item.members.length} học viên`,
     );
   }
   if (checkOnly) {
