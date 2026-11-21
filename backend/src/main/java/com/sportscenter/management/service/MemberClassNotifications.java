@@ -19,19 +19,28 @@ public class MemberClassNotifications {
     public record Before(LocalDateTime time,Integer room,Integer coach) {
         public static Before of(Classes row){return new Before(row.getScheduleTime(),row.getRoomId(),row.getCoachId());}
     }
-    private static final DateTimeFormatter CLASS_TIME = DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy");
+    private static final DateTimeFormatter CLASS_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public void bookingConfirmed(ClassBooking booking, Classes clazz) {
-        // A cancellation and rebooking reuse the booking ID, but start a new bookedAt.
-        String key = "BOOKING_CONFIRMED:" + booking.getId() + ":" + booking.getBookedAt();
-        String message = "Bạn đã đăng ký thành công lớp " + clazz.getClassName()
-                + " lúc " + clazz.getScheduleTime().format(CLASS_TIME) + ".";
-        outbox.enqueue(key, clazz.getCoachId(), booking.getMemberId(), "Đăng ký lớp thành công", message, "/schedule");
+        notifyBooking("BOOKING_CONFIRMED", booking, clazz, "Đăng ký lớp thành công",
+                "Bạn đã đăng ký thành công lớp ");
+    }
+
+    public void bookingCancelled(ClassBooking booking, Classes clazz) {
+        notifyBooking("BOOKING_CANCELLED", booking, clazz, "Hủy đăng ký lớp thành công",
+                "Bạn đã hủy đăng ký lớp ");
+    }
+
+    private void notifyBooking(String event, ClassBooking booking, Classes clazz, String title, String message) {
+        // Each booking cycle has its own timestamp, even when it reuses the booking row.
+        String key = event + ":" + booking.getId() + ":" + booking.getBookedAt();
+        String content = message + clazz.getClassName() + " (" + clazz.getScheduleTime().format(CLASS_TIME) + ").";
+        outbox.enqueue(key, clazz.getCoachId(), booking.getMemberId(), title, content, "/schedule");
     }
 
     public void changed(Before before,Classes row) {
         var changes=new ArrayList<String>();
-        if(!Objects.equals(before.time(),row.getScheduleTime()))changes.add("Lịch: "+before.time()+" → "+row.getScheduleTime());
+        if(!Objects.equals(before.time(),row.getScheduleTime()))changes.add("Lịch: "+before.time().format(CLASS_TIME)+" → "+row.getScheduleTime().format(CLASS_TIME));
         if(!Objects.equals(before.room(),row.getRoomId()))changes.add("Phòng: "+roomName(before.room())+" → "+roomName(row.getRoomId()));
         if(!Objects.equals(before.coach(),row.getCoachId()))changes.add("HLV: "+coachName(before.coach())+" → "+coachName(row.getCoachId()));
         if(changes.isEmpty())return;
@@ -40,7 +49,7 @@ public class MemberClassNotifications {
     }
     public void cancelled(Classes row) {
         send("CLASS_CANCELLED:"+row.getId(),row,"Lớp học đã hủy",
-                "Thông báo tự động Sportiva. Lớp "+row.getClassName()+", lịch "+row.getScheduleTime()+" đã HỦY. Vui lòng xem lại lịch học.");
+                "Thông báo tự động Sportiva. Lớp "+row.getClassName()+", lịch "+row.getScheduleTime().format(CLASS_TIME)+" đã bị hủy. Vui lòng xem lại lịch học.");
     }
     private void send(String key,Classes row,String title,String content) {
         var recipients=jdbc.queryForList("SELECT b.member_id FROM class_bookings b WITH(UPDLOCK,HOLDLOCK) JOIN users u ON u.user_id=b.member_id JOIN roles r ON r.role_id=u.role_id WHERE b.class_id=? AND b.status='BOOKED' AND r.role_name='MEMBER' ORDER BY b.member_id",Integer.class,row.getId());

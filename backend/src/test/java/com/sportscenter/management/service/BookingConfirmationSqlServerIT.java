@@ -85,8 +85,41 @@ class BookingConfirmationSqlServerIT {
   assertEquals(201,call(reception,"POST","/classes/"+second+"/book?memberId="+other.id(),null).statusCode());assertEquals(1,count(other.id()));
   assertEquals(400,call(other,"POST","/classes/"+overlap+"/book",null).statusCode());assertEquals(1,count(other.id()));
   String content=jdbc.queryForObject("SELECT content FROM general_notifications WHERE recipient_id=?",String.class,member.id());
-  assertTrue(content.contains(classes.findById(first).orElseThrow().getClassName()));assertTrue(content.contains("09:00 ngày "+time.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))));
+  assertTrue(content.contains(classes.findById(first).orElseThrow().getClassName()));assertTrue(content.contains(time.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
   var history=call(member,"GET","/notifications?page=0&size=100",null);assertEquals(200,history.statusCode());assertEquals(1,((List<?>)JsonPath.read(history.body(),"$.content")).size());
+ }
+ @Test void bookingCancellationAndRebookingHaveSeparateHistoryEntries()throws Exception{
+  var booked=call(member,"POST","/classes/"+first+"/book",null);
+  assertEquals(201,booked.statusCode());
+  int id=JsonPath.read(booked.body(),"$.id");
+  assertEquals(200,call(member,"DELETE","/bookings/"+id,null).statusCode());
+  assertEquals(400,call(member,"DELETE","/bookings/"+id,null).statusCode());
+  var rebooked=call(member,"POST","/classes/"+first+"/book",null);
+  assertEquals(201,rebooked.statusCode());
+  assertEquals(id,(int)JsonPath.read(rebooked.body(),"$.id"));
+  var history=call(member,"GET","/notifications?page=0&size=2",null);
+  assertEquals(200,history.statusCode());
+  assertEquals(List.of("Đăng ký lớp thành công","Hủy đăng ký lớp thành công"),JsonPath.read(history.body(),"$.content[*].title"));
+  assertEquals(List.of("Đăng ký lớp thành công"),JsonPath.read(call(member,"GET","/notifications?page=1&size=2",null).body(),"$.content[*].title"));
+  assertEquals(List.of(),JsonPath.read(call(other,"GET","/notifications",null).body(),"$.content"));
+  assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM member_notification_outbox WHERE recipient_id=?",Integer.class,member.id()));
+ }
+ @Test void concurrentCancellationAndRollbackDoNotDuplicateHistory()throws Exception{
+  var booked=call(member,"POST","/classes/"+first+"/book",null);
+  assertEquals(201,booked.statusCode());
+  int id=JsonPath.read(booked.body(),"$.id");
+  new TransactionTemplate(tm).executeWithoutResult(status->{booking.cancelBooking(id);status.setRollbackOnly();});
+  assertEquals("BOOKED",jdbc.queryForObject("SELECT status FROM class_bookings WHERE booking_id=?",String.class,id));
+  assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM general_notifications WHERE recipient_id=?",Integer.class,member.id()));
+  var start=new java.util.concurrent.CountDownLatch(1);
+  try(var executor=java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()){
+   var self=executor.submit(()->{start.await();return call(member,"DELETE","/bookings/"+id,null).statusCode();});
+   var staff=executor.submit(()->{start.await();return call(reception,"DELETE","/bookings/"+id,null).statusCode();});
+   start.countDown();
+   assertEquals(List.of(200,400),java.util.stream.Stream.of(self.get(),staff.get()).sorted().toList());
+  }
+  assertEquals("CANCELLED",jdbc.queryForObject("SELECT status FROM class_bookings WHERE booking_id=?",String.class,id));
+  assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM member_notification_outbox WHERE recipient_id=? AND event_key LIKE 'BOOKING_CANCELLED:%'",Integer.class,member.id()));
  }
  @Test void rolledBackBookingLeavesNeitherHistoryNorOutbox(){
   new TransactionTemplate(tm).executeWithoutResult(status->{booking.bookClass(first,member.id());assertEquals(1,count(member.id()));status.setRollbackOnly();});

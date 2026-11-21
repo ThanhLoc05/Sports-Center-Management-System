@@ -14,6 +14,7 @@ import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.BookingService;
 import com.sportscenter.management.service.MemberClassNotifications;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class BookingServiceImpl implements BookingService {
     private final com.sportscenter.management.service.MemberReminderService reminders;
 
     private final MemberClassNotifications classNotifications;
+    private final EntityManager entityManager;
 
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
@@ -117,7 +119,13 @@ public class BookingServiceImpl implements BookingService {
         ClassBooking booking = existing.orElseGet(ClassBooking::new);
         booking.setClassId(classId);
         booking.setMemberId(memberId);
-        booking.setBookedAt(LocalDateTime.now());
+        LocalDateTime bookedAt = LocalDateTime.now();
+        // Match SQL Server DATETIME2 precision so the event identity survives a reload.
+        bookedAt = bookedAt.withNano(bookedAt.getNano() / 100 * 100);
+        if (booking.getBookedAt() != null && !bookedAt.isAfter(booking.getBookedAt())) {
+            bookedAt = booking.getBookedAt().plusNanos(100);
+        }
+        booking.setBookedAt(bookedAt);
         booking.setStatus("BOOKED");
         var saved=bookingRepository.saveAndFlush(booking);
         reminders.remindClass(classId);
@@ -182,12 +190,19 @@ public class BookingServiceImpl implements BookingService {
         ClassBooking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lượt đặt chỗ không tồn tại"));
 
+        // Serialize with booking, rescheduling and Manager cancellation on the same class.
+        Classes clazz = classRepository.findByIdForUpdate(booking.getClassId())
+                .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
+        // The controller's ownership check may have already loaded the booking in this request.
+        entityManager.refresh(booking);
         if (!"BOOKED".equals(booking.getStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hủy lượt đặt chỗ đang có hiệu lực");
         }
 
         booking.setStatus("CANCELLED");
-        return toResponse(bookingRepository.save(booking));
+        var saved = bookingRepository.saveAndFlush(booking);
+        classNotifications.bookingCancelled(saved, clazz);
+        return toResponse(saved);
     }
 
     private BookingResponse toResponse(ClassBooking booking) {
