@@ -23,6 +23,40 @@ import {
   Panel,
   Select,
 } from "../components/ui";
+const HOUR_HEIGHT = 76;
+
+function layoutDay(items: SportClass[]) {
+  const entries = items.map((item) => {
+    const [hour, minute] = timeLabel(item.scheduleTime).split(":").map(Number);
+    const top = (hour + minute / 60) * HOUR_HEIGHT;
+    const height = Math.max(58, item.durationMinutes / 60 * HOUR_HEIGHT - 4);
+    return { item, top, height, column: 0, columns: 1 };
+  }).sort((a, b) => a.top - b.top || a.item.id - b.item.id);
+
+  let groupStart = 0;
+  let groupEnd = 0;
+  let columnEnds: number[] = [];
+  const setGroupWidth = (end: number) => {
+    for (let i = groupStart; i < end; i++) entries[i].columns = columnEnds.length;
+  };
+
+  // Use the actual rendered height so even very short, adjacent classes stay clickable.
+  entries.forEach((entry, index) => {
+    if (entry.top >= groupEnd) {
+      setGroupWidth(index);
+      groupStart = index;
+      columnEnds = [];
+    }
+    const free = columnEnds.findIndex((end) => end <= entry.top);
+    entry.column = free === -1 ? columnEnds.length : free;
+    const bottom = entry.top + entry.height;
+    columnEnds[entry.column] = bottom;
+    groupEnd = Math.max(groupEnd, bottom);
+  });
+  setGroupWidth(entries.length);
+  return entries;
+}
+
 export default function Schedule() {
   const { sports, rooms } = useCatalog();
   const { session } = useAuth();
@@ -53,7 +87,7 @@ export default function Schedule() {
   const calendarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (view === "week" && calendarRef.current)
-      calendarRef.current.scrollTop = 6 * 76;
+      calendarRef.current.scrollTop = 6 * HOUR_HEIGHT;
   }, [view, classes.isPending]);
   /**
    * Tạo mốc giữa ngày theo UTC+7, tính thứ Hai đầu tuần và cộng offset theo tuần.
@@ -201,7 +235,7 @@ export default function Schedule() {
               <div className="calendar-body">
                 <div className="time-gutter">
                   {times.map((hour) => (
-                    <div key={hour} style={{ top: hour * 76 }}>
+                    <div key={hour} style={{ top: hour * HOUR_HEIGHT }}>
                       {String(hour).padStart(2, "0")}:00
                     </div>
                   ))}
@@ -215,39 +249,31 @@ export default function Schedule() {
                       <div
                         key={hour}
                         className="hour-line"
-                        style={{ top: hour * 76 }}
+                        style={{ top: hour * HOUR_HEIGHT }}
                       />
                     ))}
-                    {weekRows
-                      .filter((c) => c.scheduleTime.startsWith(localDate(d)))
-                      .map((c) => {
-                        const [hour, minute] = timeLabel(c.scheduleTime)
-                          .split(":")
-                          .map(Number);
-                        const top = (hour + minute / 60) * 76;
-                        return (
-                          <button
-                            key={c.id}
-                            className={`calendar-event sport-${c.sportId}`}
-                            style={{
-                              top: Math.max(0, top),
-                              height: Math.max(
-                                58,
-                                (c.durationMinutes / 60) * 76 - 4,
-                              ),
-                            }}
-                            onClick={() => setSelected(c)}
-                          >
-                            <strong>{c.className}</strong>
-                            <span>
-                              {timeLabel(c.scheduleTime)} · {c.durationMinutes}′
-                            </span>
-                            <small>
-                              {rooms[c.roomId] || `Phòng #${c.roomId}`}
-                            </small>
-                          </button>
-                        );
-                      })}
+                    {layoutDay(weekRows.filter((c) => c.scheduleTime.startsWith(localDate(d))))
+                      .map(({ item: c, top, height, column, columns }) => (
+                        <button
+                          key={c.id}
+                          className={`calendar-event sport-${c.sportId}`}
+                          style={{
+                            top,
+                            height,
+                            left: `calc(${column * 100 / columns}% + 4px)`,
+                            right: `calc(${(columns - column - 1) * 100 / columns}% + 4px)`,
+                          }}
+                          onClick={() => setSelected(c)}
+                        >
+                          <strong>{c.className}</strong>
+                          <span>
+                            {timeLabel(c.scheduleTime)} · {c.durationMinutes}′
+                          </span>
+                          <small>
+                            {rooms[c.roomId] || `Phòng #${c.roomId}`}
+                          </small>
+                        </button>
+                      ))}
                   </div>
                 ))}
               </div>

@@ -152,6 +152,8 @@ export default function BookingForm({
           throw new Error(
             db ? eligibility?.reason || "Chọn thành viên và lớp." : apiReason,
           );
+        const recipient = users.data?.find((user) => user.id === selectedMember)?.fullName
+          || `thành viên #${selectedMember}`;
         await api.book(selectedClass, selectedMember);
         await Promise.all([
           client.invalidateQueries({
@@ -163,7 +165,9 @@ export default function BookingForm({
           client.invalidateQueries(),
         ]);
         toast(
-          "Đăng ký lớp học thành công! Lớp học đã được thêm vào lịch của bạn.",
+          member
+            ? "Đăng ký lớp học thành công! Lớp học đã được thêm vào lịch của bạn."
+            : `Đã đăng ký lớp học cho ${recipient}.`,
         );
       }}
     >

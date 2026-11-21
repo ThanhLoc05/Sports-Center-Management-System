@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -25,6 +25,7 @@ async function openMemberCalendar(firstRead?: Promise<SportClass[]>) {
   const booking = { id: 91, memberId: session.user.id, classId: item.id, status: "BOOKED", bookedAt: date };
   const classes = vi.spyOn(api, "classes").mockImplementation(async () => [item]);
   if (firstRead) classes.mockImplementationOnce(() => firstRead);
+  const detail = vi.spyOn(api, "classDetail").mockImplementation(async () => item);
   const bookings = vi.spyOn(api, "bookings").mockImplementation(async () => [
     { ...booking, status: item.status === "CANCELLED" ? "CANCELLED" : "BOOKED" },
   ]);
@@ -51,7 +52,7 @@ async function openMemberCalendar(firstRead?: Promise<SportClass[]>) {
     link: "/schedule", createdAt: date + "T09:00:00",
   };
   return {
-    classes, bookings, connect, event, session, client, name: item.className,
+    classes, bookings, detail, connect, event, session, client, name: item.className,
     move: () => { item = { ...item, scheduleTime: date + "T16:00:00" }; },
     cancel: () => { item = { ...item, status: "CANCELLED" }; },
     emit: (overrides: Partial<NotificationEvent> = {}) => act(() => deliver({ ...event, ...overrides })),
@@ -102,4 +103,20 @@ it("catches up when the stream reconnects without replaying the missed event", a
   view.move();
   await waitFor(() => expect(view.connect).toHaveBeenCalledTimes(2), { timeout: 4000 });
   expect(await screen.findByText("16:00", { selector: ".schedule-list-item strong" })).toBeVisible();
+});
+
+it("refreshes the open detail modal when the class is moved and then cancelled", async () => {
+  const view = await openMemberCalendar();
+  await userEvent.setup().click(screen.getByRole("button", { name: view.name }));
+  const modal = () => within(screen.getByRole("dialog"));
+  await waitFor(() => expect(modal().getByText(/10:00/)).toBeVisible());
+  view.move();
+  view.emit();
+  await waitFor(() => expect(modal().getByText(/16:00/)).toBeVisible());
+  expect(modal().queryByText(/10:00/)).toBeNull();
+  view.cancel();
+  view.emit({ id: 124, title: "Lớp học đã hủy" });
+  await waitFor(() => expect(modal().getByText("Đã hủy")).toBeVisible());
+  expect(modal().queryByRole("button", { name: "Đăng ký lớp học" })).toBeNull();
+  expect(view.detail).toHaveBeenCalledTimes(3);
 });

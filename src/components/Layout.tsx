@@ -233,6 +233,12 @@ export default function Layout() {
       const filters: QueryFilters[] = [
         { queryKey: ["classes", undefined], exact: true },
         { queryKey: ["bookings", session.user.id] },
+        { queryKey: ["memberBookings", session.user.id] },
+        {
+          queryKey: ["classDetail"],
+          predicate: (query) => query.queryKey[2] === session.user.id,
+        },
+        { queryKey: ["capacity"] },
       ];
       for (const filter of filters) {
         // Lần tải đầu có thể đã đọc dữ liệu trước sự kiện nhưng chưa trả kết quả.
@@ -240,7 +246,9 @@ export default function Layout() {
           .cancelQueries({
             ...filter,
             fetchStatus: "fetching",
-            predicate: (query) => query.state.data === undefined,
+            predicate: (query) =>
+              query.state.data === undefined &&
+              (filter.predicate?.(query) ?? true),
           })
           .then(() => {
             if (active) return client.invalidateQueries(filter);

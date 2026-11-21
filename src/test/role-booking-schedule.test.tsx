@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "../App";
 import { AuthProvider } from "../lib/auth";
 import { api } from "../lib/api";
+import { operations } from "../lib/operations-api";
 import { demoSession, readDemo } from "../lib/demo";
 import { localDate } from "../lib/utils";
 import { ToastProvider } from "../components/ui";
@@ -136,4 +137,68 @@ describe("Coach/Member booking and navigation scope", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: c.className }));
     expect(await screen.findByRole("dialog")).toBeVisible();
   });
+});
+
+it("lets Coach see and find students by the assigned class roster without loading users", async () => {
+  const coachId = demoSession("COACH").user.id;
+  const item = readDemo().classes.find(c => c.coachId === coachId)!;
+  vi.spyOn(api, "classes").mockResolvedValue([item]);
+  vi.spyOn(api, "bookings").mockResolvedValue([
+    { id: 91, classId: item.id, memberId: 70, status: "BOOKED", bookedAt: localDate() },
+  ]);
+  const students = vi.spyOn(operations, "students").mockResolvedValue([
+    { memberId: 70, fullName: "Nguyễn Thảo", bookingStatus: "BOOKED" } as Awaited<ReturnType<typeof operations.students>>[number],
+  ]);
+  const users = vi.spyOn(api, "users");
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json([])));
+  page("/bookings", "COACH", true);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: item.className });
+  await user.selectOptions(screen.getByLabelText("Lọc theo lớp học"), String(item.id));
+  expect(await screen.findByText("Nguyễn Thảo")).toBeVisible();
+  await user.type(screen.getByLabelText("Tìm đăng ký theo ID hoặc tên thành viên"), "nguyen thao");
+  await user.click(screen.getByRole("button", { name: "Tìm kiếm" }));
+  expect(screen.getByText("Nguyễn Thảo")).toBeVisible();
+  expect(students).toHaveBeenCalledWith(item.id);
+  expect(users).not.toHaveBeenCalled();
+});
+
+it("keeps other staff rosters visible when a class fails and retries only that class", async () => {
+  const [a, b] = readDemo().classes;
+  vi.spyOn(api, "classes").mockResolvedValue([a, b]);
+  let failure = true;
+  const bookings = vi.spyOn(api, "bookings").mockImplementation(async (_, classId) => {
+    if (classId === b.id && failure) throw new Error("Không tải được");
+    return [{ id: classId!, classId: classId!, memberId: 10, status: "BOOKED", bookedAt: localDate() }];
+  });
+  page("/bookings", "RECEPTIONIST");
+  expect(await screen.findByText(a.className, { selector: "strong" })).toBeVisible();
+  expect(await screen.findByText(/Không tải được đăng ký của:/)).toHaveTextContent(b.className);
+  const user = userEvent.setup();
+  failure = false;
+  await user.click(screen.getByRole("button", { name: "Thử tải lại lớp bị lỗi" }));
+  expect(await screen.findByText(b.className, { selector: "strong" })).toBeVisible();
+  expect(bookings.mock.calls.filter(([, id]) => id === a.id)).toHaveLength(1);
+  await user.selectOptions(screen.getByLabelText("Lọc theo lớp học"), String(a.id));
+  expect(screen.queryByText(b.className, { selector: "strong" })).toBeNull();
+});
+
+it.each(["CENTER_MANAGER", "RECEPTIONIST"] as Role[])("keeps simultaneous classes separately clickable for %s", async role => {
+  const [first, second] = readDemo().classes;
+  const items = [
+    { ...first, scheduleTime: localDate() + "T10:00:00", durationMinutes: 60, status: "SCHEDULED" },
+    { ...second, scheduleTime: localDate() + "T10:00:00", durationMinutes: 30, status: "SCHEDULED" },
+    { ...first, id: 99, className: "Buổi chiều", scheduleTime: localDate() + "T12:00:00", durationMinutes: 60, status: "SCHEDULED" },
+  ];
+  vi.spyOn(api, "classes").mockResolvedValue(items);
+  page("/schedule", role);
+  const [a, b, later] = await Promise.all(items.map(c => screen.findByRole("button", { name: new RegExp(c.className) })));
+  expect(a.style.left).not.toEqual(b.style.left);
+  expect(later.style.left).toEqual(later.style.right);
+  const user = userEvent.setup();
+  await user.click(a);
+  expect(within(await screen.findByRole("dialog")).getByText(first.className)).toBeVisible();
+  await user.keyboard("{Escape}");
+  await user.click(b);
+  expect(within(await screen.findByRole("dialog")).getByText(second.className)).toBeVisible();
 });

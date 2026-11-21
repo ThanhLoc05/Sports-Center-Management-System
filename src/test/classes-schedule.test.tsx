@@ -192,7 +192,10 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
         name: "Morning Yoga",
       }),
     ).toBeVisible();
-    expect(bookings).not.toHaveBeenCalled();
+    expect(bookings).toHaveBeenCalledWith(demoSession("MEMBER").user.id);
+    expect(bookings.mock.calls.every(([memberId, classId]) =>
+      memberId === demoSession("MEMBER").user.id && classId === undefined,
+    )).toBe(true);
     expect(
       screen.getByRole("button", { name: "Đăng ký lớp học" }),
     ).toBeVisible();

@@ -215,6 +215,17 @@ describe("BookingForm quyền STANDARD/VIP theo thành viên API", () => {
   }
   const submit = () => screen.getByRole("button", { name: "Xác nhận đăng ký" });
 
+  it("names the recipient of a booking made by the receptionist", async () => {
+    vi.mocked(api.users).mockResolvedValue([
+      { id: 42, fullName: "Nguyễn An", roleName: "MEMBER", status: "ACTIVE" } as Awaited<ReturnType<typeof api.users>>[number],
+    ]);
+    page(8, "RECEPTIONIST", 42);
+    await waitFor(() => expect(submit()).toBeEnabled());
+    await userEvent.setup().click(submit());
+    expect(await screen.findByText("Đã đăng ký lớp học cho Nguyễn An.")).toBeVisible();
+    expect(api.book).toHaveBeenCalledWith(8, 42);
+  });
+
   it.each([
     ["STANDARD", 8, true],
     ["STANDARD", 9, false],

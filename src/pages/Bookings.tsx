@@ -9,9 +9,10 @@ import { usePermissions } from "../lib/hooks";
 import { useState } from "react";
 import { CalendarDays, Plus, Search, XCircle } from "lucide-react";
 import { useSearchParams, Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
+import { operations } from "../lib/operations-api";
 import { useClasses, useUsers } from "../lib/hooks";
 import type { Booking } from "../lib/types";
 import { dateLabel, idLabel, matches, timeLabel } from "../lib/utils";
@@ -48,40 +49,41 @@ export default function Bookings() {
   const client = useQueryClient();
   const toast = useToast();
   const staff = !member && !coach;
-  // BE có API theo từng lớp. FE tổng hợp tất cả lớp để lễ tân thấy đầy đủ ngay khi mở.
-  // Promise.all giữ trạng thái lỗi nếu một lớp tải thất bại, tránh hiển thị danh sách thiếu.
+  const selectedClass = classes.data?.find((item) => item.id === Number(classId));
   const query = useQuery({
-    queryKey: [
-      "bookings",
-      session!.user.id,
-      session!.user.roleName,
-      staff
-        ? classes.data?.map((c) => c.id)
-        : member
-          ? session!.user.id
-          : classId,
-    ],
-    queryFn: async () => {
-      if (member) return api.bookings(session!.user.id);
-      if (coach) return api.bookings(undefined, Number(classId));
-      const lists = await Promise.all(
-        (classes.data || []).map((c) => api.bookings(undefined, c.id)),
-      );
-      return [
-        ...new Map(
-          lists.flat().map((booking) => [booking.id, booking]),
-        ).values(),
-      ];
-    },
-    enabled: coach
-      ? !!classId && !!classes.data?.some((c) => c.id === Number(classId))
-      : member || (classes.isSuccess && !classes.error),
+    queryKey: ["bookings", session!.user.id, session!.user.roleName, member ? session!.user.id : classId],
+    queryFn: () => member
+      ? api.bookings(session!.user.id)
+      : api.bookings(undefined, Number(classId)),
+    enabled: member || (coach && !!selectedClass),
   });
+  const coachNames = useQuery({
+    queryKey: ["coachBookingNames", session!.user.id, selectedClass?.id],
+    queryFn: () => operations.students(selectedClass!.id),
+    enabled: coach && session!.mode === "api" && !!selectedClass,
+  });
+  const rosterClasses = staff
+    ? (classes.data ?? []).filter((item) => !classId || item.id === Number(classId))
+    : [];
+  const rosters = useQueries({
+    queries: rosterClasses.map((item) => ({
+      queryKey: ["bookings", session!.user.id, session!.user.roleName, item.id],
+      queryFn: () => api.bookings(undefined, item.id),
+    })),
+  });
+  const rosterErrors = rosterClasses.filter((_, index) => rosters[index].isError);
+  const bookings = staff ? rosters.flatMap((roster) => roster.data ?? []) : query.data ?? [];
+  const loadingBookings = staff
+    ? classes.isPending || (!bookings.length && rosters.some((roster) => roster.isPending))
+    : query.isPending;
+  const names = new Map(users.data?.map((user) => [user.id, user.fullName]));
+  for (const student of coachNames.data ?? []) {
+    if (student.fullName?.trim()) names.set(student.memberId, student.fullName.trim());
+  }
   // Số thuần hoặc TV0010 tìm đúng mã thành viên; tên vẫn tìm gần đúng, không phân biệt dấu.
   const searchedMemberId = search.trim().match(/^(?:TV\s*)?(\d+)$/i);
-  const rows = (query.data || []).filter((b) => {
-    const c = classes.data?.find((c) => c.id === b.classId),
-      u = users.data?.find((u) => u.id === b.memberId);
+  const rows = bookings.filter((b) => {
+    const c = classes.data?.find((c) => c.id === b.classId);
     return (
       (!coach || classes.data?.some((c) => c.id === b.classId)) &&
       (!member ||
@@ -90,7 +92,7 @@ export default function Bookings() {
       (!staff || !classId || b.classId === Number(classId)) &&
       (searchedMemberId
         ? b.memberId === Number(searchedMemberId[1])
-        : matches(search, c?.className, u?.fullName, idLabel(b.id, "DK"))) &&
+        : matches(search, c?.className, names.get(b.memberId), idLabel(b.id, "DK"))) &&
       (status === "all" || b.status === status)
     );
   });
@@ -194,15 +196,23 @@ export default function Bookings() {
             <option value="CANCELLED">Đã hủy</option>
           </Select>
         </div>
-        {staff && users.error ? (
-          <ErrorState error={users.error} retry={users.refetch} />
-        ) : !member && classes.error ? (
+        {staff && users.error && <ErrorState error={users.error} retry={users.refetch} />}
+        {coachNames.error && <ErrorState error={coachNames.error} retry={coachNames.refetch} />}
+        {rosterErrors.length > 0 && (
+          <Notice>
+            Không tải được đăng ký của: {rosterErrors.map((item) => item.className).join(", ")}.{" "}
+            <Button variant="secondary" onClick={() => {
+              for (const roster of rosters) if (roster.isError) void roster.refetch();
+            }}>Thử tải lại lớp bị lỗi</Button>
+          </Notice>
+        )}
+        {!member && classes.error ? (
           <ErrorState error={classes.error} retry={classes.refetch} />
-        ) : coach && !classId ? (
+        ) : coach && !classes.isPending && !selectedClass ? (
           <Notice>Chọn lớp phụ trách để xem đăng ký.</Notice>
-        ) : query.isPending ? (
+        ) : loadingBookings ? (
           <Loading />
-        ) : query.error ? (
+        ) : !staff && query.error ? (
           <ErrorState error={query.error} retry={query.refetch} />
         ) : (
           <DataTable
@@ -219,17 +229,17 @@ export default function Bookings() {
                 key: "member",
                 label: "Thành viên",
                 render: (b) => {
-                  const u = users.data?.find((u) => u.id === b.memberId);
+                  const name = names.get(b.memberId);
                   return (
                     <div className="person-cell">
                       <Avatar
-                        name={u?.fullName || `TV ${b.memberId}`}
+                        name={name || `TV ${b.memberId}`}
                         index={b.memberId}
                         size="small"
                       />
                       <span>
                         <strong>
-                          {u?.fullName || `Thành viên #${b.memberId}`}
+                          {name || `Thành viên #${b.memberId}`}
                         </strong>
                         <small>{idLabel(b.memberId)}</small>
                       </span>

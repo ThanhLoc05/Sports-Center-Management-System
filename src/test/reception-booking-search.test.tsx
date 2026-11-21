@@ -123,6 +123,7 @@ describe("Lễ tân tra cứu và đăng ký lớp hộ thành viên", () => {
   it("báo lỗi khi một lớp không tải được, tránh hiển thị danh sách thiếu như đã đầy đủ", async () => {
     const { bookings } = setup();
     bookings.mockRejectedValue(new Error("Không tải được đăng ký"));
-    expect(await screen.findByText("Không tải được đăng ký")).toBeVisible();
+    expect(await screen.findByText(/Không tải được đăng ký của:/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Thử tải lại lớp bị lỗi" })).toBeVisible();
   });
 });
