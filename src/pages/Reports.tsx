@@ -28,7 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { useAuth } from "../lib/auth";
-import { api } from "../lib/api";
+import { api, type RevenuePoint } from "../lib/api";
 import { readDemo } from "../lib/demo";
 import { useClasses, useUsers } from "../lib/hooks";
 import {
@@ -42,6 +42,7 @@ import {
 } from "../lib/utils";
 import {
   Button,
+  DataTable,
   Empty,
   ErrorState,
   ExportButton,
@@ -53,6 +54,49 @@ import {
 } from "../components/ui";
 import { methodLabels } from "./Payments";
 import { OperationsReport } from "./Management";
+
+// [FLOW 3] Khoảng báo cáo tối đa khoảng 3 năm để xem được doanh thu theo năm.
+const MAX_REPORT_DAYS = 1095;
+type GroupBy = "day" | "month" | "quarter" | "year";
+const groupLabels: Record<GroupBy, string> = {
+  day: "Ngày",
+  month: "Tháng",
+  quarter: "Quý",
+  year: "Năm",
+};
+/**
+ * [FLOW 3] Gộp doanh thu từng ngày thành từng kỳ (ngày/tháng/quý/năm).
+ * Mỗi kỳ = tổng các ngày thuộc kỳ đó, nên cộng các kỳ vẫn bằng số tổng của báo cáo.
+ */
+function groupRevenue(points: RevenuePoint[], groupBy: GroupBy) {
+  const result: (RevenuePoint & { id: number; label: string })[] = [];
+  for (const p of points) {
+    const [y, m, d] = p.date.split("-");
+    const label =
+      groupBy === "day"
+        ? `${d}/${m}/${y}`
+        : groupBy === "month"
+          ? `${m}/${y}`
+          : groupBy === "quarter"
+            ? `Quý ${Math.ceil(Number(m) / 3)}/${y}`
+            : y;
+    const last = result[result.length - 1];
+    if (last && last.label === label) {
+      last.gross += p.gross;
+      last.refunded += p.refunded;
+      last.net += p.net;
+    } else result.push({ ...p, id: result.length + 1, label });
+  }
+  return result;
+}
+/** [FLOW 3] Chọn nhanh khoảng ngày: tháng này / quý này / năm nay (đến hôm nay). */
+function presetRange(kind: "month" | "quarter" | "year") {
+  const today = localDate();
+  const [y, m] = today.split("-").map(Number);
+  const startMonth =
+    kind === "month" ? m : kind === "quarter" ? Math.floor((m - 1) / 3) * 3 + 1 : 1;
+  return { start: `${y}-${String(startMonth).padStart(2, "0")}-01`, end: today };
+}
 export default function Reports() {
   const { session } = useAuth();
   const demo = session!.mode === "demo";
@@ -64,9 +108,13 @@ export default function Reports() {
    */
   const [range, setRange] = useState({ start, end });
   const [chartType, setChartType] = useState("area");
+  // [FLOW 3] Cách nhóm biểu đồ/bảng doanh thu: theo ngày, tháng, quý hoặc năm.
+  const [groupBy, setGroupBy] = useState<GroupBy>("day");
+  // Số Member hoạt động/lớp mở là ảnh chụp hiện tại; tổng tiền bên dưới mới áp dụng bộ lọc ngày.
   const users = useUsers();
   const classes = useClasses();
   // Một response cho cả màn và CSV để các chỉ số luôn cùng khoảng thời gian.
+  // [FLOW 3] BÁO CÁO DOANH THU: GET /reports/summary -> tổng thu, tiền hoàn, doanh thu ròng, số hóa đơn.
   const query = useQuery({
     queryKey: ["revenue-summary", session!.user.id, range],
     queryFn: () =>
@@ -95,7 +143,7 @@ export default function Reports() {
     0,
   );
   const demoRefunded = refunded.reduce(
-    (total, invoice) => total + invoice.amount,
+    (total, invoice) => total + (invoice.refundedAmount ?? invoice.amount),
     0,
   );
   const demoSummary = {
@@ -123,21 +171,36 @@ export default function Reports() {
   const countLabel = (value?: number) =>
     value === undefined ? (reportLoading ? "…" : "—") : number(value);
   const days = Math.min(
-    366,
+    MAX_REPORT_DAYS + 1,
     Math.round(
       (new Date(range.end).getTime() - new Date(range.start).getTime()) /
         86400000,
     ) + 1,
   );
-  const chart = Array.from({ length: days }, (_, i) => {
-    const d = localDate(addDays(i, parseDate(range.start)));
-    return {
-      date: dateLabel(d, { day: "2-digit", month: "2-digit" }),
-      revenue: collectedInvoices
-        .filter((inv) => (inv.paidAt || inv.createdAt).startsWith(d))
-        .reduce((s, inv) => s + inv.amount, 0),
-    };
-  });
+  /**
+   * [FLOW 3] DOANH THU TỪNG NGÀY trong khoảng đã chọn.
+   * API: lấy summary.dailyRevenue do backend trả về (cùng công thức với các ô tổng).
+   * Demo: tự tính từ hóa đơn mẫu (thu theo ngày thanh toán, hoàn theo ngày hoàn).
+   */
+  const dailyPoints: RevenuePoint[] = demo
+    ? Array.from({ length: days }, (_, i) => {
+        const d = localDate(addDays(i, parseDate(range.start)));
+        const gross = collectedInvoices
+          .filter((inv) => (inv.paidAt || inv.createdAt).startsWith(d))
+          .reduce((s, inv) => s + inv.amount, 0);
+        const back = refunded
+          .filter((inv) => (inv.refundedAt || inv.createdAt).startsWith(d))
+          .reduce((s, inv) => s + (inv.refundedAmount ?? inv.amount), 0);
+        return { date: d, gross, refunded: back, net: gross - back };
+      })
+    : query.error
+      ? []
+      : query.data?.dailyRevenue || [];
+  // [FLOW 3] Gộp doanh thu từng ngày thành ngày / tháng / quý / năm cho biểu đồ và bảng tổng doanh thu.
+  const periods = groupRevenue(dailyPoints, groupBy);
+  // Giữ tên biến chart cho phần xuất CSV và biểu đồ.
+  const chart = periods.map((p) => ({ ...p, date: p.label, revenue: p.net }));
+  // Dữ liệu phân bổ phương thức lấy từ cùng summary với các ô tổng và file CSV.
   const breakdown = Object.entries(summary?.revenueByMethod || {})
     .map(([method, value]) => ({ name: methodLabels[method] || method, value }))
     .filter((item) => item.value > 0);
@@ -171,10 +234,10 @@ export default function Reports() {
                 ],
                 ["Phương thức", "Tổng thu (VND)"],
                 ...breakdown.map((item) => [item.name, item.value]),
-                ...(demo
+                ...(periods.length
                   ? [
-                      ["Ngày", "Tổng thu (VND)"],
-                      ...chart.map((item) => [item.date, item.revenue]),
+                      [groupLabels[groupBy], "Tổng thu (VND)", "Tiền hoàn (VND)", "Doanh thu ròng (VND)"],
+                      ...periods.map((p) => [p.label, p.gross, p.refunded, p.net]),
                     ]
                   : []),
               ]);
@@ -189,7 +252,7 @@ export default function Reports() {
           if (
             start <= end &&
             (new Date(end).getTime() - new Date(start).getTime()) / 86400000 <=
-              365
+              MAX_REPORT_DAYS
           )
             setRange({ start, end });
         }}
@@ -216,23 +279,50 @@ export default function Reports() {
             required
           />
         </Field>
+        {/* [FLOW 3] NÚT "Áp dụng": chọn khoảng ngày báo cáo rồi tải lại số liệu. */}
         <Button
           disabled={
             !start ||
             !end ||
             start > end ||
             (new Date(end).getTime() - new Date(start).getTime()) / 86400000 >
-              365
+              MAX_REPORT_DAYS
           }
           type="submit"
         >
           Áp dụng
         </Button>
       </form>
+      {/* [FLOW 3] NÚT CHỌN NHANH khoảng báo cáo: Tháng này / Quý này / Năm nay (áp dụng ngay). */}
+      <div className="report-presets">
+        <span>Chọn nhanh:</span>
+        {(
+          [
+            ["month", "Tháng này", "month"],
+            ["quarter", "Quý này", "month"],
+            ["year", "Năm nay", "month"],
+          ] as const
+        ).map(([kind, text, group]) => (
+          <Button
+            key={kind}
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              const next = presetRange(kind);
+              setStart(next.start);
+              setEnd(next.end);
+              setRange(next);
+              setGroupBy(kind === "month" ? "day" : group);
+            }}
+          >
+            {text}
+          </Button>
+        ))}
+      </div>
       {(new Date(end).getTime() - new Date(start).getTime()) / 86400000 >
-        365 && (
+        MAX_REPORT_DAYS && (
         <Notice tone="warning">
-          Chọn khoảng thời gian tối đa 366 ngày để xem báo cáo.
+          Chọn khoảng thời gian tối đa 3 năm để xem báo cáo.
         </Notice>
       )}
       {!demo && reportLoading && <Loading />}
@@ -328,29 +418,46 @@ export default function Reports() {
       </div>
       <OperationsReport start={range.start} end={range.end} />
       <div className="report-chart-grid">
+        {/* [FLOW 3] BIỂU ĐỒ DOANH THU theo khoảng ngày đã chọn; nhóm theo Ngày/Tháng/Quý/Năm; Đường = doanh thu ròng, Cột = tổng thu và tiền hoàn. */}
         <Panel
-          title="Xu hướng doanh thu"
-          description="Tổng thu theo từng ngày thanh toán."
+          title="Doanh thu theo thời gian"
+          description={`Từ ${dateLabel(range.start)} đến ${dateLabel(range.end)} · nhóm theo ${groupLabels[groupBy].toLowerCase()}.`}
           action={
-            demo ? (
-              <div className="segmented">
+            <div className="report-chart-actions">
+              <div className="segmented" aria-label="Nhóm doanh thu theo">
+                {(Object.keys(groupLabels) as GroupBy[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={groupBy === key ? "active" : ""}
+                    onClick={() => setGroupBy(key)}
+                  >
+                    {groupLabels[key]}
+                  </button>
+                ))}
+              </div>
+              <div className="segmented" aria-label="Kiểu biểu đồ">
                 <button
+                  type="button"
                   className={chartType === "area" ? "active" : ""}
                   onClick={() => setChartType("area")}
                 >
                   Đường
                 </button>
                 <button
+                  type="button"
                   className={chartType === "bar" ? "active" : ""}
                   onClick={() => setChartType("bar")}
                 >
                   Cột
                 </button>
               </div>
-            ) : undefined
+            </div>
           }
         >
-          {demo ? (
+          {reportLoading ? (
+            <Loading />
+          ) : chart.length ? (
             <div className="report-chart">
               <ResponsiveContainer width="100%" height="100%">
                 {chartType === "area" ? (
@@ -397,10 +504,11 @@ export default function Reports() {
                       tick={{ fontSize: 11, fill: "#8a9188" }}
                     />
                     <Tooltip
-                      formatter={(v) => [money(Number(v)), "Doanh thu"]}
+                      formatter={(v) => [money(Number(v)), "Doanh thu ròng"]}
                     />
                     <Area
                       dataKey="revenue"
+                      name="Doanh thu ròng"
                       type="monotone"
                       stroke="#306c4e"
                       strokeWidth={2.5}
@@ -431,11 +539,18 @@ export default function Reports() {
                       tick={{ fontSize: 11, fill: "#8a9188" }}
                     />
                     <Tooltip
-                      formatter={(v) => [money(Number(v)), "Doanh thu"]}
+                      formatter={(v, name) => [money(Number(v)), String(name)]}
                     />
                     <Bar
-                      dataKey="revenue"
+                      dataKey="gross"
+                      name="Tổng thu"
                       fill="#527c55"
+                      radius={[5, 5, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="refunded"
+                      name="Tiền hoàn"
+                      fill="#dfbd7d"
                       radius={[5, 5, 0, 0]}
                     />
                   </BarChart>
@@ -445,10 +560,10 @@ export default function Reports() {
           ) : (
             <div className="report-unavailable">
               <BarChart3 size={40} />
-              <h3>Chưa có dữ liệu theo từng ngày</h3>
+              <h3>Chưa có dữ liệu doanh thu theo thời gian</h3>
               <p>
-                Báo cáo hiện có số liệu tổng hợp trong kỳ. Biểu đồ sẽ hiển thị
-                khi có dữ liệu thu tiền theo từng ngày.
+                Không tải được doanh thu từng ngày cho khoảng đã chọn. Hãy tải
+                lại trang hoặc khởi động lại backend bản mới.
               </p>
             </div>
           )}
@@ -509,6 +624,43 @@ export default function Reports() {
           )}
         </Panel>
       </div>
+      {/* [FLOW 3] BẢNG TỔNG DOANH THU theo kỳ (ngày/tháng/quý/năm) trong khoảng ngày đã chọn, có dòng tổng cộng. */}
+      <Panel
+        title="Bảng tổng doanh thu"
+        description={`Từ ${dateLabel(range.start)} đến ${dateLabel(range.end)} · mỗi dòng là một ${groupLabels[groupBy].toLowerCase()}.`}
+      >
+        {reportLoading ? (
+          <Loading />
+        ) : !periods.length ? (
+          <Empty
+            title="Chưa có dữ liệu doanh thu"
+            description="Chọn khoảng thời gian khác hoặc tải lại trang."
+          />
+        ) : (
+          <>
+            <DataTable
+              label="Bảng tổng doanh thu"
+              rows={periods}
+              pageSize={12}
+              columns={[
+                { key: "label", label: groupLabels[groupBy], render: (p) => p.label },
+                { key: "gross", label: "Tổng thu", render: (p) => money(p.gross) },
+                { key: "refunded", label: "Tiền hoàn", render: (p) => money(p.refunded) },
+                {
+                  key: "net",
+                  label: "Doanh thu ròng",
+                  render: (p) => <strong>{money(p.net)}</strong>,
+                },
+              ]}
+            />
+            <p className="report-table-total">
+              Tổng cộng: thu <strong>{money(periods.reduce((s, p) => s + p.gross, 0))}</strong>
+              {" · "}hoàn <strong>{money(periods.reduce((s, p) => s + p.refunded, 0))}</strong>
+              {" · "}doanh thu ròng <strong>{money(periods.reduce((s, p) => s + p.net, 0))}</strong>
+            </p>
+          </>
+        )}
+      </Panel>
       <Notice>
         {demo
           ? "Báo cáo đang dùng dữ liệu demo trên trình duyệt. Khi kết nối API, chỉ số chỉ được hiển thị khi backend có dữ liệu tương ứng."

@@ -80,9 +80,6 @@ class MembershipOrderServiceTest {
                 .filter(s -> s.getId().equals(call.getArgument(0))).map(MemberSubscription::getMemberId).findFirst());
         when(subscriptions.save(any())).thenAnswer(call -> call.getArgument(0));
         when(subscriptions.findByMemberId(4)).thenAnswer(call -> new ArrayList<>(periods));
-        when(subscriptions.findLastActiveEndDate(4)).thenAnswer(call -> periods.stream()
-                .filter(s -> "ACTIVE".equals(s.getStatus()) && !s.getStartDate().isAfter(s.getEndDate()))
-                .map(MemberSubscription::getEndDate).max(LocalDate::compareTo));
         when(subscriptions.saveAndFlush(any())).thenAnswer(call -> {
             MemberSubscription period = call.getArgument(0);
             period.setId(10 + periods.size());
@@ -109,24 +106,25 @@ class MembershipOrderServiceTest {
     }
 
     @Test
-    void firstRenewalStartsAfterSourceAndDoesNotExistWhilePending() {
+    void renewalStartsAtConfirmationAndIncludesUnusedSourceDays() {
         pendingOrder(20);
         assertEquals(1, periods.size());
         assertEquals("PENDING", savedInvoices.get(20).getPaymentStatus());
         confirm(20);
-        assertEquals(source.getEndDate().plusDays(1), periods.get(1).getStartDate());
-        assertEquals(periods.get(1).getStartDate().plusDays(29), periods.get(1).getEndDate());
+        assertEquals(savedOrders.get(20).getConfirmedAt().toLocalDate(), periods.get(1).getStartDate());
+        assertEquals(source.getEndDate().plusDays(30), periods.get(1).getEndDate());
         assertEquals("PAID", savedInvoices.get(20).getPaymentStatus());
     }
 
     @Test
-    void secondPaidRenewalFromSameSourceMustFollowLastPaidPeriod() {
+    void secondPaidRenewalKeepsUnusedDaysOfFirstRenewal() {
         pendingOrder(20);
         confirm(20);
         // Chỉ tạo đơn kế tiếp sau khi đơn trước đã xác nhận, không giả lập hai đơn chờ cùng lúc.
         pendingOrder(21);
         confirm(21);
-        assertEquals(periods.get(1).getEndDate().plusDays(1), periods.get(2).getStartDate());
+        assertEquals(LocalDate.now(), periods.get(2).getStartDate());
+        assertEquals(periods.get(1).getEndDate().plusDays(30), periods.get(2).getEndDate());
     }
 
     @Test
@@ -139,10 +137,11 @@ class MembershipOrderServiceTest {
     }
 
     @Test
-    void confirmBeforeCancelKeepsPaidRenewalAndCancelsOnlySource() {
+    void cannotCancelRolledOverSourceSeparately() {
         pendingOrder(20);
         confirm(20);
-        assertEquals("CANCELLED", memberships.cancelSubscription(10).getStatus());
+        assertThrows(IllegalArgumentException.class, () -> memberships.cancelSubscription(10));
+        assertEquals("EXPIRED", source.getStatus());
         assertEquals("ACTIVE", periods.get(1).getStatus());
         assertEquals("CONFIRMED", savedOrders.get(20).getStatus());
         assertEquals("PAID", savedInvoices.get(20).getPaymentStatus());
@@ -229,8 +228,9 @@ class MembershipOrderServiceTest {
             confirm(id);
         }
         for (int i = 1; i < periods.size(); i++) {
-            assertEquals(periods.get(i - 1).getEndDate().plusDays(1), periods.get(i).getStartDate());
-            assertEquals(periods.get(i).getStartDate().plusDays(29), periods.get(i).getEndDate());
+            assertEquals(LocalDate.now(), periods.get(i).getStartDate());
+            assertEquals(source.getEndDate().plusDays(30L * i), periods.get(i).getEndDate());
+            assertEquals(periods.get(i).getId(), periods.get(i - 1).getRolledIntoId());
         }
     }
 
@@ -253,8 +253,8 @@ class MembershipOrderServiceTest {
         pendingOrder(20);
         savedOrders.get(20).setPackageDurationDays(1);
         confirm(20);
-        assertEquals(LocalDate.now().plusDays(1), periods.get(1).getStartDate());
-        assertEquals(periods.get(1).getStartDate(), periods.get(1).getEndDate());
+        assertEquals(LocalDate.now(), periods.get(1).getStartDate());
+        assertEquals(LocalDate.now().plusDays(1), periods.get(1).getEndDate());
     }
 
     @Test
@@ -275,7 +275,7 @@ class MembershipOrderServiceTest {
         var sequence = inOrder(orders, users, subscriptions);
         sequence.verify(orders).findByIdForUpdate(20);
         sequence.verify(users).findByIdForUpdate(4);
-        sequence.verify(subscriptions).findLastActiveEndDate(4);
+        sequence.verify(subscriptions).findByMemberId(4);
         sequence.verify(subscriptions).saveAndFlush(any());
     }
 

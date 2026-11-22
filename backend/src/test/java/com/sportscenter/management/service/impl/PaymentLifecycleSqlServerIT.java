@@ -56,6 +56,11 @@ class PaymentLifecycleSqlServerIT extends PaymentSqlServerSupport {
     Api create(Integer source,String key) throws Exception {
         return call("POST","membership-orders","{\"memberId\":"+memberId+",\"packageId\":"+packageId+",\"paymentMethod\":\"CASH\""+(source==null?"":",\"sourceSubscriptionId\":"+source)+"}",receptionToken,key);
     }
+    String refundBody(long invoiceId) {
+        return "{\"reason\":\"Test\",\"method\":\"CASH\",\"reference\":\"HD" + invoiceId + " TV" + memberId
+                + "\",\"returned\":true,\"expectedAmount\":100000}";
+    }
+
     Api confirm(int order,int version,String key) throws Exception {
         return call("POST","membership-orders/"+order+"/confirm-payment","{\"version\":"+version+"}",receptionToken,key);
     }
@@ -79,8 +84,8 @@ class PaymentLifecycleSqlServerIT extends PaymentSqlServerSupport {
         status(409,call("POST","membership-orders","{\"memberId\":"+memberId+",\"packageId\":"+(packageId+1)+",\"paymentMethod\":\"CASH\"}",receptionToken,key));
         status(409,create(null,UUID.randomUUID().toString()));
         status(409,call("POST","payments/invoices/"+invoice+"/pay",null,receptionToken,null));
-        status(400,call("POST","payments/invoices/"+invoice+"/refund",null,managerToken,null));
-        status(403,call("POST","payments/invoices/"+invoice+"/refund",null,receptionToken,null));
+        status(400,call("POST","payments/invoices/"+invoice+"/refund",refundBody(invoice),managerToken,null));
+        status(403,call("POST","payments/invoices/"+invoice+"/refund",refundBody(invoice),memberToken,null));
         status(403,call("POST","membership-orders/"+order+"/confirm-payment","{\"version\":0}",memberToken,UUID.randomUUID().toString()));
         status(409,confirm(order,99,UUID.randomUUID().toString()));
         persisted(pending,"PENDING_PAYMENT","PENDING",null);
@@ -91,29 +96,30 @@ class PaymentLifecycleSqlServerIT extends PaymentSqlServerSupport {
         assertEquals(sub,number(status(200,confirm(order,0,UUID.randomUUID().toString())),"$.subscription.id"));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM member_subscriptions WHERE member_id=?",Integer.class,memberId));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM membership_notifications WHERE order_id=?",Integer.class,order));
-        status(200,call("POST","payments/invoices/"+invoice+"/refund",null,managerToken,null));
+        status(200,call("POST","payments/invoices/"+invoice+"/refund",refundBody(invoice),receptionToken,null));
         Api refunded=status(200,call("GET","membership-orders/"+order,null,memberToken,null));
         assertEquals("REFUNDED",refunded.json().read("$.status"));
         assertEquals("REFUNDED",refunded.json().read("$.invoice.paymentStatus"));
         assertEquals("CANCELLED",refunded.json().read("$.subscription.status"));
         assertEquals("SENT",refunded.json().read("$.delivery.notification.status"));
         persisted(refunded,"REFUNDED","REFUNDED","CANCELLED");
-        status(400,call("POST","payments/invoices/"+invoice+"/refund",null,managerToken,null));
+        status(400,call("POST","payments/invoices/"+invoice+"/refund",refundBody(invoice),managerToken,null));
         status(409,confirm(order,1,UUID.randomUUID().toString()));
         status(409,create(sub,UUID.randomUUID().toString()));
     }
     @Test void renewalsAppendAfterLatestConfirmedPeriodWithoutOverlap() throws Exception {
         Api original=paid(null);int source=(int)number(original,"$.subscription.id");
         LocalDate end=LocalDate.parse(original.json().read("$.subscription.endDate",String.class));
-        Api first=paid(source);Api second=paid(source);
-        for(Api renewal:List.of(first,second))persisted(renewal,"CONFIRMED","PAID","ACTIVE");
-        assertEquals(end.plusDays(1).toString(),first.json().read("$.subscription.startDate"));
+        Api first=paid(source);Api second=paid((int)number(first,"$.subscription.id"));
+        persisted(first,"CONFIRMED","PAID","EXPIRED");
+        persisted(second,"CONFIRMED","PAID","ACTIVE");
+        assertEquals(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString(),first.json().read("$.subscription.startDate"));
         assertEquals(end.plusDays(10).toString(),first.json().read("$.subscription.endDate"));
-        assertEquals(end.plusDays(11).toString(),second.json().read("$.subscription.startDate"));
+        assertEquals(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString(),second.json().read("$.subscription.startDate"));
         assertEquals(end.plusDays(20).toString(),second.json().read("$.subscription.endDate"));
-        // Future ACTIVE periods do not replace today's currently usable source period.
+        // Quyền mới có hiệu lực ngay sau khi xác nhận.
         Api active=status(200,call("GET","memberships/members/"+memberId+"/active",null,memberToken,null));
-        assertEquals(source,number(active,"$.id"));
+        assertEquals(number(second,"$.subscription.id"),number(active,"$.id"));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM member_subscriptions a JOIN member_subscriptions b ON a.member_id=b.member_id AND a.subscription_id<b.subscription_id AND a.start_date<=b.end_date AND b.start_date<=a.end_date WHERE a.member_id=? AND a.status='ACTIVE' AND b.status='ACTIVE'",Integer.class,memberId));
     }
     @Test void expiredSourceRenewsFromTodayAndRefundedSourceCannotConfirmPendingRenewal() throws Exception {
@@ -126,7 +132,7 @@ class PaymentLifecycleSqlServerIT extends PaymentSqlServerSupport {
         persisted(renewal,"CONFIRMED","PAID","ACTIVE");
         int current=(int)number(renewal,"$.subscription.id");
         Api waiting=status(201,create(current,UUID.randomUUID().toString()));
-        status(200,call("POST","payments/invoices/"+number(renewal,"$.invoice.id")+"/refund",null,managerToken,null));
+        status(200,call("POST","payments/invoices/"+number(renewal,"$.invoice.id")+"/refund",refundBody(number(renewal,"$.invoice.id")),managerToken,null));
         status(409,confirm((int)number(waiting,"$.id"),0,UUID.randomUUID().toString()));
         persisted(waiting,"PENDING_PAYMENT","PENDING",null);
         assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM member_subscriptions WHERE member_id=?",Integer.class,memberId));
@@ -144,7 +150,7 @@ class PaymentLifecycleSqlServerIT extends PaymentSqlServerSupport {
         Api order=paid(null);int invoice=(int)number(order,"$.invoice.id");
         readers=new CountDownLatch(2);release=new CountDownLatch(1);readInvoice.set(invoice);
         try(var workers=Executors.newFixedThreadPool(2)) {
-            Callable<Integer> request=()->call("POST","payments/invoices/"+invoice+"/refund",null,managerToken,null).status();
+            Callable<Integer> request=()->call("POST","payments/invoices/"+invoice+"/refund",refundBody(invoice),managerToken,null).status();
             var first=workers.submit(request);var second=workers.submit(request);
             try{assertTrue(readers.await(10,TimeUnit.SECONDS),"Both transactions must preload the invoice");}
             finally{release.countDown();}
@@ -172,7 +178,7 @@ class PaymentLifecycleSqlServerIT extends PaymentSqlServerSupport {
         int invoice=(int)number(pending,"$.invoice.id"),order=(int)number(pending,"$.id");
         readers=new CountDownLatch(1);release=new CountDownLatch(1);readInvoice.set(invoice);
         try(var workers=Executors.newSingleThreadExecutor()) {
-            var refund=workers.submit(()->call("POST","payments/invoices/"+invoice+"/refund",null,managerToken,null));
+            var refund=workers.submit(()->call("POST","payments/invoices/"+invoice+"/refund",refundBody(invoice),managerToken,null));
             try {
                 assertTrue(readers.await(10,TimeUnit.SECONDS));
                 persisted(status(200,confirm(order,0,UUID.randomUUID().toString())),"CONFIRMED","PAID","ACTIVE");

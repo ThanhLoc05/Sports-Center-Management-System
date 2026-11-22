@@ -13,6 +13,8 @@ import type {
   ClassInput,
   Invoice,
   InvoiceInput,
+  RefundRequest,
+  RefundQuote,
   MembershipPackage,
   Mode,
   RegisterInput,
@@ -37,6 +39,14 @@ export interface RevenueSummary {
   totalPaidInvoices: number;
   totalRefundedInvoices: number;
   revenueByMethod: Record<string, number>;
+  // [FLOW 3] Doanh thu từng ngày trong kỳ (thu theo ngày thanh toán, hoàn theo ngày hoàn) để vẽ biểu đồ/bảng.
+  dailyRevenue?: RevenuePoint[];
+}
+export interface RevenuePoint {
+  date: string;
+  gross: number;
+  refunded: number;
+  net: number;
 }
 
 import {
@@ -328,7 +338,15 @@ function revenueSummaryResponse(value: RevenueSummary): RevenueSummary {
     !Number.isSafeInteger(value.totalRefundedInvoices) ||
     !value.revenueByMethod ||
     typeof value.revenueByMethod !== "object" ||
-    Object.values(value.revenueByMethod).some((amount) => !Number.isFinite(amount))
+    Object.values(value.revenueByMethod).some((amount) => !Number.isFinite(amount)) ||
+    (value.dailyRevenue != null &&
+      (!Array.isArray(value.dailyRevenue) ||
+        value.dailyRevenue.some(
+          (p) =>
+            !p ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(p.date) ||
+            ![p.gross, p.refunded, p.net].every(Number.isFinite),
+        )))
   )
     throw new ApiError("Dữ liệu tổng hợp doanh thu từ máy chủ không hợp lệ.");
   return value;
@@ -1179,34 +1197,64 @@ export const api = {
    * Đây là cập nhật trạng thái nghiệp vụ; code không tự chuyển khoản ngân hàng
    * và không tích hợp cổng VNPay chỉ vì có lựa chọn phương thức VNPAY.
    */
-  async pay(id: number, refund = false): Promise<Invoice> {
+  // [FLOW 3] API: GET /payments/refund-requests - danh sách yêu cầu hoàn chờ xử lý.
+  async pendingRefundRequests(): Promise<Invoice[]> {
+    if (!can(getSession(), "payments.refund")) throw new ApiError("Bạn không có quyền xử lý yêu cầu hoàn.", 403);
+    const rows = assertArray(await request<Invoice[]>("/payments/refund-requests"));
+    if (rows.some(i => !i?.membershipOrderId || !i.refundRequestedAt ||
+        !Number.isFinite(parseDate(i.refundRequestedAt).getTime()) || !Number.isSafeInteger(i.refundRequestedAmount)))
+      throw new ApiError("Danh sách yêu cầu hoàn tiền thiếu thông tin. Vui lòng tải lại.");
+    return rows;
+  },
+  // [FLOW 3] API: POST /payments/invoices/{id}/refund-request - Member gửi yêu cầu hoàn.
+  async requestRefund(id: number, reason: string, expectedAmount: number): Promise<Invoice> {
+    if (getSession()?.user.roleName !== "MEMBER") throw new ApiError("Chỉ thành viên được gửi yêu cầu.", 403);
+    return post(`/payments/invoices/${id}/refund-request`, { reason, expectedAmount });
+  },
+  // [FLOW 3] API: GET /payments/invoices/{id}/refund-quote - xem mức hoàn (100% trong ngày đăng ký, 90% ngày 2-3).
+  async refundQuote(id: number): Promise<RefundQuote> {
+    if (getSession()?.user.roleName !== "MEMBER" && !can(getSession(), "payments.refund"))
+      throw new ApiError("Bạn không có quyền xem mức hoàn.", 403);
+    if (mode() !== "api") throw new ApiError("Chỉ hoàn được hóa đơn đăng ký gói đã lưu trên máy chủ.");
+    const quote = await request<RefundQuote>(`/payments/invoices/${id}/refund-quote`);
+    if (!quote || !Number.isSafeInteger(quote.amount) || quote.amount <= 0 || ![90, 100].includes(quote.percent))
+      throw new ApiError("Mức hoàn trả về không hợp lệ.");
+    return quote;
+  },
+  // [FLOW 3] API: POST /payments/invoices/{id}/refund - ghi nhận hoàn tiền mặt.
+  async refund(id: number, receipt: RefundRequest): Promise<Invoice> {
+    if (!can(getSession(), "payments.refund")) throw new ApiError("Bạn không có quyền hoàn tiền.", 403);
+    if (mode() !== "api") throw new ApiError("Chỉ hoàn được hóa đơn đăng ký gói đã lưu trên máy chủ.");
+    return post(`/payments/invoices/${id}/refund`, receipt);
+  },
+  async pay(id: number): Promise<Invoice> {
     if (mode() === "api")
-      return post(`/payments/invoices/${id}/${refund ? "refund" : "pay"}`);
-    requirePermission(refund ? "payments.refund" : "payments.collect");
+      return post(`/payments/invoices/${id}/pay`);
+    requirePermission("payments.collect");
     const db = readDemo();
     const inv = db.invoices.find((i) => i.id === id);
     if (!inv) throw new ApiError("Không tìm thấy hóa đơn.");
-    if (refund ? inv.paymentStatus !== "PAID" : inv.paymentStatus !== "PENDING")
+    if (inv.paymentStatus !== "PENDING")
       throw new ApiError("Trạng thái hóa đơn không phù hợp.");
-    inv.paymentStatus = refund ? "REFUNDED" : "PAID";
-    if (refund) inv.refundedAt = dateTimeLocal();
-    else inv.paidAt = dateTimeLocal();
+    inv.paymentStatus = "PAID";
+    inv.paidAt = dateTimeLocal();
     notify(
       db,
       [inv.memberId],
-      refund ? "Đã ghi nhận hoàn tiền" : "Đã xác nhận thu tiền",
+      "Đã xác nhận thu tiền",
       `Hóa đơn #${id}`,
       "/payments",
       getSession()!.user.id,
       "PAYMENT",
     );
-    demoAudit(db, refund ? "Hoàn tiền" : "Xác nhận thanh toán", `HD${id}`);
+    demoAudit(db, "Xác nhận thanh toán", `HD${id}`);
     return inv;
   },
   /**
    * Net dòng tiền: tiền thu theo paidAt trừ tiền hoàn theo refundedAt.
    * Tham số dùng LocalDateTime địa phương, không thêm Z.
    */
+  // [FLOW 3] API: GET /payments/revenue - doanh thu ròng = tiền thu (theo paidAt) - tiền hoàn (theo refundedAt).
   async revenue(start: string, end: string): Promise<number> {
     if (mode() === "api")
       return request(
@@ -1228,7 +1276,7 @@ export const api = {
           (invoice.refundedAt || invoice.createdAt) >= start &&
           (invoice.refundedAt || invoice.createdAt) <= end,
       )
-      .reduce((sum, invoice) => sum + invoice.amount, 0);
+      .reduce((sum, invoice) => sum + (invoice.refundedAmount ?? invoice.amount), 0);
     return collected - refunded;
   },
   /**
@@ -1236,6 +1284,7 @@ export const api = {
    * → GET /reports/summary → BE kiểm tra quyền quản lý và tính số liệu từ DB
    * → FE kiểm tra cấu trúc summary rồi trả về cho màn hình. Lỗi BE được giữ nguyên.
    */
+  // [FLOW 3] API: GET /reports/summary - báo cáo tổng thu, tiền hoàn, doanh thu ròng, số hóa đơn.
   async revenueSummary(start: string, end: string): Promise<RevenueSummary> {
     if (mode() !== "api")
       throw new ApiError("Báo cáo doanh thu yêu cầu kết nối backend.");

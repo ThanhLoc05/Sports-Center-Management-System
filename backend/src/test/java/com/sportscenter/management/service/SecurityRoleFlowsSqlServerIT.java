@@ -68,7 +68,7 @@ class SecurityRoleFlowsSqlServerIT {
   checked(member,"cannot confirm cash",403,"POST","/membership-orders/1/confirm-payment","{\"version\":0}",UUID.randomUUID().toString());
   checked(member,"cannot assign role",403,"PATCH","/users/"+other.id()+"/role?roleName=COACH",null,null);
   checked(reception,"cannot assign role",403,"PATCH","/users/"+other.id()+"/role?roleName=COACH",null,null);
-  checked(reception,"cannot refund",403,"POST","/payments/invoices/1/refund",null,null);
+  checked(member,"cannot refund",403,"POST","/payments/invoices/1/refund","{\"reason\":\"Test\",\"method\":\"CASH\",\"reference\":\"PC-IT\",\"returned\":true,\"expectedAmount\":1000}",null);
   checked(null,"anonymous users",401,"GET","/users",null,null);
   jdbc.update("UPDATE users SET status='INACTIVE' WHERE user_id=?",other.id());
   checked(other,"inactive JWT",401,"GET","/users/"+other.id(),null,null);
@@ -125,7 +125,7 @@ class SecurityRoleFlowsSqlServerIT {
   String renewal="{\"memberId\":"+member.id()+",\"packageId\":"+pkg+",\"sourceSubscriptionId\":"+sub+",\"paymentMethod\":\"CASH\"}";
   var renewalResult=checked(member,"renewal pending",201,"POST","/membership-orders",renewal,UUID.randomUUID().toString());int renewed=JsonPath.read(renewalResult.body(),"$.id");int rv=JsonPath.read(renewalResult.body(),"$.version");
   checked(reception,"confirm renewal",200,"POST","/membership-orders/"+renewed+"/confirm-payment","{\"version\":"+rv+"}",UUID.randomUUID().toString());
-  int gaps=jdbc.queryForObject("SELECT COUNT(*) FROM member_subscriptions a JOIN member_subscriptions b ON a.member_id=b.member_id AND a.subscription_id<b.subscription_id WHERE a.member_id=? AND b.start_date<>DATEADD(day,1,a.end_date)",Integer.class,member.id());assertEquals(0,gaps);
+  assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM member_subscriptions WHERE member_id=? AND status='ACTIVE'",Integer.class,member.id()));
   int booking=jdbc.queryForObject("SELECT booking_id FROM class_bookings WHERE class_id=? AND member_id=?",Integer.class,classId,member.id());
   checked(reception,"assisted cancel",200,"DELETE","/bookings/"+booking,null,null);
   checked(coach,"roster after cancel",200,"GET","/classes/"+classId+"/students",null,null);
@@ -135,11 +135,13 @@ class SecurityRoleFlowsSqlServerIT {
   checked(unassigned,"new coach gains roster",200,"GET","/classes/"+classId+"/bookings",null,null);
   checked(manager,"cancel class",200,"POST","/classes/"+classId+"/cancel",null,null);
   int renewalInvoice=jdbc.queryForObject("SELECT invoice_id FROM invoices WHERE membership_order_id=?",Integer.class,renewed);
-  checked(manager,"internal refund",200,"POST","/payments/invoices/"+renewalInvoice+"/refund",null,null);
+  var quote=checked(manager,"refund quote",200,"GET","/payments/invoices/"+renewalInvoice+"/refund-quote",null,null);
+  Number refundAmount=JsonPath.read(quote.body(),"$.amount");
+  checked(reception,"internal refund",200,"POST","/payments/invoices/"+renewalInvoice+"/refund","{\"reason\":\"Test\",\"method\":\"CASH\",\"reference\":\"HD"+renewalInvoice+" TV"+member.id()+"\",\"returned\":true,\"expectedAmount\":"+refundAmount+"}",null);
   assertEquals("REFUNDED",jdbc.queryForObject("SELECT status FROM membership_orders WHERE membership_order_id=?",String.class,renewed));
   assertEquals("CANCELLED",jdbc.queryForObject("SELECT s.status FROM member_subscriptions s JOIN invoices i ON s.subscription_id=i.subscription_id WHERE i.invoice_id=?",String.class,renewalInvoice));
   var summary=checked(manager,"summary",200,"GET","/reports/summary?startDate="+LocalDate.now().minusDays(1)+"T00:00:00&endDate="+LocalDate.now().plusDays(1)+"T00:00:00",null,null);
-  java.math.BigDecimal sqlNet=jdbc.queryForObject("SELECT COALESCE(SUM(CASE WHEN payment_status IN('PAID','REFUNDED') AND COALESCE(paid_at,created_at) BETWEEN ? AND ? THEN amount ELSE 0 END),0)-COALESCE(SUM(CASE WHEN payment_status='REFUNDED' AND COALESCE(refunded_at,created_at) BETWEEN ? AND ? THEN amount ELSE 0 END),0) FROM invoices",java.math.BigDecimal.class,LocalDate.now().minusDays(1).atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay(),LocalDate.now().minusDays(1).atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
+  java.math.BigDecimal sqlNet=jdbc.queryForObject("SELECT COALESCE(SUM(CASE WHEN payment_status IN('PAID','REFUNDED') AND COALESCE(paid_at,created_at) BETWEEN ? AND ? THEN amount ELSE 0 END),0)-COALESCE(SUM(CASE WHEN payment_status='REFUNDED' AND COALESCE(refunded_at,created_at) BETWEEN ? AND ? THEN COALESCE(refunded_amount,amount) ELSE 0 END),0) FROM invoices",java.math.BigDecimal.class,LocalDate.now().minusDays(1).atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay(),LocalDate.now().minusDays(1).atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
   Number apiNet=JsonPath.read(summary.body(),"$.netRevenue");assertEquals(0,sqlNet.compareTo(new java.math.BigDecimal(apiNet.toString())));
  }
  @Test void signupVerificationAndReplayProtection()throws Exception{

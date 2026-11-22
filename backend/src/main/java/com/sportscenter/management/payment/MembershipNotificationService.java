@@ -18,6 +18,7 @@ public class MembershipNotificationService {
     public record Notification(String status, Long id, LocalDateTime createdAt) {}
     public record Delivery(Notification notification) {}
 
+    // [FLOW 3] TẠO THÔNG BÁO THANH TOÁN THÀNH CÔNG cho Member (mỗi đơn chỉ tạo 1 lần).
     public void notifyConfirmed(MembershipOrder order, Invoice invoice, MemberSubscription subscription) {
         if (notifications.findByOrderId(order.getId()).isPresent()) return;
         User member = users.findById(order.getMemberId()).orElseThrow(() -> new IllegalStateException("Không tìm thấy chủ đơn đã thanh toán"));
@@ -28,7 +29,7 @@ public class MembershipNotificationService {
         notification.setOrderId(order.getId()); notification.setMemberId(order.getMemberId());
         notification.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
         notification.setContent("Thành viên " + member.getFullName() + " (TV" + order.getMemberId() + ") đã " + action
-                + " thành công: " + order.getPackageName() + ". Mã thanh toán: HD" + invoice.getId() + " TV" + order.getMemberId()
+                + " thành công: " + order.getPackageName() + ". Mã thanh toán: " + invoice.paymentReference()
                 + ". Số tiền đã thu: " + invoice.getAmount().toPlainString() + " VND. Thời hạn: "
                 + date.format(subscription.getStartDate()) + " – " + date.format(subscription.getEndDate()) + ".");
         notifications.saveAndFlush(notification);

@@ -26,7 +26,7 @@ class PaymentRevenueServiceTest {
             orders,
             mock(MembershipPackageRepository.class),
             mock(UserRepository.class),
-            mock(SecurityUtils.class));
+            mock(SecurityUtils.class), mock(RefundBookings.class));
     private final LocalDateTime start = LocalDateTime.of(2026, 10, 1, 0, 0);
     private final LocalDateTime end = LocalDateTime.of(2026, 10, 31, 23, 59);
 

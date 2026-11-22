@@ -25,6 +25,12 @@ public class MemberSubscription {
     @Column(name = "package_id", nullable = false)
     private Integer packageId;
 
+    @Column(name = "rolled_into_id")
+    private Integer rolledIntoId;
+
+    @Column(name = "purchased_days")
+    private Integer purchasedDays;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 

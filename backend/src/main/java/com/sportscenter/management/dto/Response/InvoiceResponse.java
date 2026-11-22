@@ -35,4 +35,14 @@ public class InvoiceResponse {
     private LocalDateTime paidAt;
 
     private LocalDateTime refundedAt;
+
+    private LocalDateTime refundRequestedAt;
+    private String refundRequestReason;
+    private BigDecimal refundRequestedAmount;
+    private Integer refundRequestedPercent;
+    private BigDecimal refundedAmount;
+    private String refundReason;
+    private String refundMethod;
+    private String refundReference;
+    private Integer refundedBy;
 }

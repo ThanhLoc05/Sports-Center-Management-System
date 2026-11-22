@@ -36,6 +36,7 @@ public class SepayWebhookService {
     private static final Pattern REFERENCE = Pattern.compile("(?<![A-Z0-9])HD([1-9][0-9]{0,9})\\s+TV([1-9][0-9]{0,9})(?![A-Z0-9])");
 
     /** So sánh hằng thời gian; bí mật trống/ngắn hoặc chưa bật kết nối đều từ chối trước khi xử lý body. */
+    // [FLOW 3] XÁC THỰC WEBHOOK: so khớp API key của SePay, sai thì trả 401.
     public void authenticate(String authorization) {
         if (!properties.ready()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Kết nối đối soát ngân hàng chưa được bật/cấu hình.");
         String expected = "Apikey " + properties.getSepayApiKey();
@@ -43,17 +44,20 @@ public class SepayWebhookService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Webhook không được xác thực.");
     }
 
+    // [FLOW 3] ĐỐI SOÁT GIAO DỊCH SEPAY: tìm mã HD.. TV.. -> khớp hóa đơn/Member/tài khoản/thời gian -> chống trùng -> cộng tiền -> đủ tiền thì kích hoạt gói.
     public void accept(SepayWebhookRequest input) {
         // ID 0 là mẫu Gửi thử của SePay: chỉ kiểm tra kết nối, không lưu tiền hoặc kích hoạt gói.
         // Controller vẫn xác thực API key trước khi gọi tới đây, kể cả với mẫu thử.
         if (Long.valueOf(0).equals(input.id())) return;
         if (!"in".equals(input.transferType())) return;
+        // [FLOW 3] BƯỚC 1: dò đúng một mã HD{hóa đơn} TV{Member} trong nội dung chuyển khoản.
         var matcher = REFERENCE.matcher(input.content().toUpperCase(Locale.ROOT));
         if (!matcher.find()) return; // Giao dịch không chứa mã thanh toán của hệ thống, không tự đoán đơn theo tên.
         int invoiceId, memberId;
         try { invoiceId = Integer.parseInt(matcher.group(1)); memberId = Integer.parseInt(matcher.group(2)); }
         catch (NumberFormatException invalid) { return; }
         if (matcher.find()) return; // Nội dung có nhiều mã đơn: không tự chọn một đơn để thu.
+        // [FLOW 3] BƯỚC 2: đối chiếu hóa đơn, Member, đơn BANK_TRANSFER, tài khoản/ngân hàng nhận và thời gian giao dịch.
         Invoice invoice = invoices.findById(invoiceId).orElse(null);
         if (invoice == null || invoice.getMembershipOrderId() == null || !Integer.valueOf(memberId).equals(invoice.getMemberId())) return;
         MembershipOrder order = orders.findByIdForUpdate(invoice.getMembershipOrderId()).orElse(null);
@@ -66,6 +70,7 @@ public class SepayWebhookService {
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         if (order.getCreatedAt() == null || bankDate.isBefore(order.getCreatedAt().withNano(0)) || bankDate.isAfter(now.plusMinutes(5))) return;
         String fingerprint = fingerprint(input);
+        // [FLOW 3] BƯỚC 3: CHỐNG TRÙNG - SePay gửi lại cùng giao dịch thì bỏ qua, không gia hạn lần hai.
         BankPaymentEvent duplicate = events.findByProviderEventId(input.id()).orElse(null);
         if (duplicate != null) {
             if (!fingerprint.equals(duplicate.getPayloadFingerprint())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã giao dịch đã được dùng với dữ liệu khác.");
@@ -78,6 +83,7 @@ public class SepayWebhookService {
         event.setStatus("PENDING_PAYMENT".equals(order.getStatus()) ? "RECEIVED" : "REVIEW_REQUIRED");
         events.saveAndFlush(event); // Unique ID kiểm tra ngay trước khi cấp thêm thời hạn.
         if (!"PENDING_PAYMENT".equals(order.getStatus())) return;
+        // [FLOW 3] BƯỚC 4: cộng tổng tiền đã nhận; khớp đúng số tiền hóa đơn thì xác nhận thanh toán (confirmBankTransfer).
         BigDecimal total = events.receivedTotal(invoiceId);
         // Cho phép nhiều lần chuyển thiếu cộng đủ đúng hóa đơn; thừa tiền cần đối soát, không tự quyết định hoàn tiền.
         if (total.compareTo(invoice.getAmount()) == 0) {

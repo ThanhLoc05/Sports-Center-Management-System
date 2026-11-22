@@ -28,10 +28,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
 
     List<Invoice> findByPaymentStatus(String paymentStatus);
 
+    List<Invoice> findByPaymentStatusAndRefundRequestedAtIsNotNullOrderByRefundRequestedAtAscIdAsc(String paymentStatus);
+
     List<Invoice> findByPaymentStatusAndCreatedAtBetween(
             String paymentStatus, LocalDateTime startDate, LocalDateTime endDate);
 
     // Khoản thu được tính theo paidAt kể cả hóa đơn đã hoàn; hoàn tiền là dòng tiền riêng.
+    // [FLOW 3] SQL TỔNG THU: hóa đơn PAID hoặc REFUNDED, tính theo ngày thanh toán (paidAt).
     @Query("SELECT COALESCE(SUM(i.amount), 0) FROM Invoice i " +
             "WHERE i.paymentStatus IN ('PAID', 'REFUNDED') " +
             "AND COALESCE(i.paidAt, i.createdAt) BETWEEN :startDate AND :endDate")
@@ -41,7 +44,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
     );
 
     // Thống kê tổng tiền hoàn (REFUNDED) theo thời điểm hoàn tiền (refundedAt)
-    @Query("SELECT COALESCE(SUM(i.amount), 0) FROM Invoice i " +
+    // [FLOW 3] SQL TỔNG HOÀN: hóa đơn REFUNDED, tính theo ngày hoàn (refundedAt).
+    @Query("SELECT COALESCE(SUM(COALESCE(i.refundedAmount, i.amount)), 0) FROM Invoice i " +
             "WHERE i.paymentStatus = 'REFUNDED' AND COALESCE(i.refundedAt, i.createdAt) BETWEEN :startDate AND :endDate")
     BigDecimal calculateTotalRefunded(
             @Param("startDate") LocalDateTime startDate,
@@ -53,6 +57,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
             "WHERE i.paymentStatus IN ('PAID', 'REFUNDED') " +
             "AND COALESCE(i.paidAt, i.createdAt) BETWEEN :startDate AND :endDate")
     List<Invoice> findCollectedInvoicesBetween(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    // [FLOW 3] Hóa đơn đã hoàn tiền trong kỳ, tính theo thời điểm hoàn (dùng cho doanh thu từng ngày).
+    @Query("SELECT i FROM Invoice i " +
+            "WHERE i.paymentStatus = 'REFUNDED' AND COALESCE(i.refundedAt, i.createdAt) BETWEEN :startDate AND :endDate")
+    List<Invoice> findRefundedInvoicesBetween(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );

@@ -11,6 +11,7 @@ import java.util.Map;
 // TẠO MỚI: SepayWebhookController — Điểm nhận POST từ SePay; tự kiểm tra API key trước khi giao service đối soát, không dùng JWT của thành viên.
 public class SepayWebhookController {
     private final SepayWebhookService service;
+    // [FLOW 3] ENDPOINT WEBHOOK SEPAY: SePay gọi khi có tiền vào; kiểm tra API key rồi giao SepayWebhookService đối soát.
     @PostMapping
     public Map<String, Boolean> receive(@RequestHeader(name = "Authorization", required = false) String authorization,
                                         @Valid @RequestBody SepayWebhookRequest input) {

@@ -141,10 +141,11 @@ describe("Báo cáo tổng hợp — chế độ API", () => {
     expect(
       screen.queryByText("API chưa có tổng số giao dịch"),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Chưa có dữ liệu theo từng ngày")).toBeVisible();
+    // Response cũ không có dailyRevenue: không vẽ số liệu giả, báo chưa có dữ liệu theo thời gian.
     expect(
-      screen.queryByRole("button", { name: "Đường" }),
-    ).not.toBeInTheDocument();
+      screen.getByText("Chưa có dữ liệu doanh thu theo thời gian"),
+    ).toBeVisible();
+    expect(screen.getByText("Chưa có dữ liệu doanh thu")).toBeVisible();
   });
 
   it("exports the same figures and applied range even while date fields contain an unsubmitted draft", async () => {
@@ -306,6 +307,29 @@ describe("Báo cáo tổng hợp — chế độ API", () => {
     expect(csv).not.toHaveBeenCalled();
   });
 
+  it("[FLOW 3] shows the revenue table from dailyRevenue and groups days into months", async () => {
+    server(() =>
+      Response.json({
+        ...summary,
+        dailyRevenue: [
+          { date: "2026-10-31", gross: 300000, refunded: 0, net: 300000 },
+          { date: "2026-11-01", gross: 500000, refunded: 100000, net: 400000 },
+          { date: "2026-11-02", gross: 0, refunded: 0, net: 0 },
+        ],
+      }),
+    );
+    page();
+    const table = await screen.findByRole("table", { name: "Bảng tổng doanh thu" });
+    expect(within(table).getByText("31/10/2026")).toBeVisible();
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    await userEvent.click(screen.getByRole("button", { name: "Tháng" }));
+    const monthly = screen.getByRole("table", { name: "Bảng tổng doanh thu" });
+    expect(within(monthly).getAllByRole("row")).toHaveLength(3);
+    const november = within(monthly).getByText("11/2026").closest("tr")!;
+    expect(november.textContent).toContain(utils.money(500000));
+    expect(november.textContent).toContain(utils.money(400000));
+  });
+
   it("blocks inverted and overlong ranges without issuing a new request", async () => {
     const fetch = server();
     page();
@@ -319,8 +343,9 @@ describe("Báo cáo tổng hợp — chế độ API", () => {
       target: { value: "2026-10-10" },
     });
     expect(screen.getByRole("button", { name: "Áp dụng" })).toBeDisabled();
+    // Vượt giới hạn 3 năm (1095 ngày) thì không cho Áp dụng.
     fireEvent.change(screen.getByLabelText("Từ ngày"), {
-      target: { value: "2024-01-01" },
+      target: { value: "2023-01-01" },
     });
     fireEvent.change(screen.getByLabelText("Đến ngày"), {
       target: { value: "2026-10-10" },

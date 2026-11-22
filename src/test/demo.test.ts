@@ -120,7 +120,7 @@ describe("Demo workflows and ownership boundaries", () => {
       memberId: 10,
     });
   });
-  it("creates pending invoices, pays once and only managers can refund", async () => {
+  it("collects a standalone invoice once and requires a backend order for refund", async () => {
     login("RECEPTIONIST");
     const invoice = await api.invoice({
       memberId: 10,
@@ -130,11 +130,7 @@ describe("Demo workflows and ownership boundaries", () => {
     });
     await api.pay(invoice.id);
     await expect(api.pay(invoice.id)).rejects.toThrow("Trạng thái");
-    await expect(api.pay(invoice.id, true)).rejects.toMatchObject({
-      status: 403,
-    });
-    login("CENTER_MANAGER");
-    expect((await api.pay(invoice.id, true)).paymentStatus).toBe("REFUNDED");
+    await expect(api.refundQuote(invoice.id)).rejects.toThrow("máy chủ");
   });
   it("excludes pending/refunded invoices from revenue and honors the date range", async () => {
     login("CENTER_MANAGER");

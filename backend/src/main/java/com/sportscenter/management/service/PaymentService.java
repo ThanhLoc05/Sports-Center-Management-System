@@ -1,5 +1,9 @@
 package com.sportscenter.management.service;
 
+import com.sportscenter.management.dto.Response.RefundQuote;
+import com.sportscenter.management.dto.Request.MemberRefundRequest;
+import com.sportscenter.management.dto.Request.RefundRequest;
+
 import com.sportscenter.management.dto.Request.InvoiceRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.dto.Response.RevenueSummaryResponse;
@@ -19,7 +23,13 @@ public interface PaymentService {
 
     InvoiceResponse markAsPaid(Integer invoiceId);
 
-    InvoiceResponse refundInvoice(Integer invoiceId);
+    List<InvoiceResponse> pendingRefundRequests();
+
+    InvoiceResponse requestRefund(Integer invoiceId, MemberRefundRequest request);
+
+    RefundQuote quoteRefund(Integer invoiceId);
+
+    InvoiceResponse refundInvoice(Integer invoiceId, RefundRequest request);
 
     BigDecimal calculateTotalRevenue(LocalDateTime startDate, LocalDateTime endDate);
 

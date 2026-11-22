@@ -22,4 +22,6 @@ public class RevenueSummaryResponse {
     private long totalPaidInvoices;       // Hóa đơn đã từng thu tiền trong kỳ, kể cả hoàn ở kỳ sau
     private long totalRefundedInvoices;
     private Map<String, BigDecimal> revenueByMethod;
+    // [FLOW 3] Doanh thu từng ngày trong kỳ (để vẽ biểu đồ và bảng tổng doanh thu theo ngày/tháng/quý/năm).
+    private java.util.List<RevenuePoint> dailyRevenue;
 }

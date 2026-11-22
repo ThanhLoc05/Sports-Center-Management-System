@@ -203,6 +203,7 @@ public class MembershipOrderService {
      * Khóa cùng hàng đơn như xác nhận tiền mặt/webhook để chỉ một thao tác có thể hoàn tất.
      * Webhook tới sau khi hủy sẽ được luồng SePay hiện có lưu REVIEW_REQUIRED, không cấp gói.
      */
+    // [FLOW 3] HỦY ĐƠN CHỜ: chỉ nhân viên; hóa đơn PENDING -> CANCELLED, đơn -> CANCELLED.
     public MembershipOrderResponse cancel(Integer orderId, CancelMembershipOrderRequest request) {
         currentActorId();
         if (!isStaff()) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ lễ tân hoặc quản lý được hủy đơn chờ.");
@@ -228,11 +229,13 @@ public class MembershipOrderService {
     }
 
     /** Nhân viên chỉ thu tiền mặt; QR phải do giao dịch ngân hàng đã xác thực kích hoạt. */
+    // [FLOW 3] NHÁNH TIỀN MẶT: lễ tân xác nhận đã thu tiền -> confirmInternal(gateway = false).
     public MembershipOrderResponse confirm(Integer orderId, ConfirmMembershipOrderRequest request, String idempotencyKey) {
         return confirmInternal(orderId, request, idempotencyKey, false);
     }
 
     /** Chỉ webhook service gọi sau khi lưu giao dịch đã xác thực; không có REST endpoint công khai cho hàm này. */
+    // [FLOW 3] NHÁNH QR: webhook SePay đối soát đủ tiền thì gọi hàm này -> confirmInternal(gateway = true).
     public MembershipOrderResponse confirmBankTransfer(Integer orderId, String transactionId) {
         MembershipOrder order = orderRepository.findByIdForUpdate(orderId).orElseThrow();
         Invoice invoice = invoiceRepository.findByMembershipOrderId(orderId).orElseThrow();
@@ -245,6 +248,7 @@ public class MembershipOrderService {
         return confirmInternal(orderId, request, "sepay:" + transactionId, true);
     }
 
+    // [FLOW 3] XỬ LÝ CHUNG KHI THANH TOÁN THÀNH CÔNG: kiểm tra -> tạo gói -> hóa đơn PAID -> đơn CONFIRMED -> thông báo Member.
     private MembershipOrderResponse confirmInternal(Integer orderId, ConfirmMembershipOrderRequest request, String idempotencyKey, boolean gateway) {
         validateIdempotencyKey(idempotencyKey);
         MembershipOrder order = orderRepository.findByIdForUpdate(orderId)
@@ -273,6 +277,7 @@ public class MembershipOrderService {
             }
             return toResponse(order); // Retry sau khi server đã commit vẫn trả kết quả thật, không gia hạn lần hai.
         }
+        // [FLOW 3] BƯỚC KIỂM TRA: đơn phải còn chờ, version khớp (chống 2 người cùng xác nhận), khóa thành viên, hóa đơn còn PENDING.
         if (!"PENDING_PAYMENT".equals(order.getStatus())) {
             throw conflict("Yêu cầu này không còn ở trạng thái chờ thanh toán.");
         }
@@ -292,9 +297,10 @@ public class MembershipOrderService {
             throw conflict("Mã giao dịch ngân hàng này đã được dùng cho yêu cầu khác.");
         }
 
-        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDate today = now.toLocalDate();
         MemberSubscription source = null;
-        LocalDate startDate = today;
+
         if (order.getSourceSubscriptionId() != null) {
             source = subscriptionRepository.findById(order.getSourceSubscriptionId())
                     .orElseThrow(() -> new IllegalStateException("Không tìm thấy gói cũ cần gia hạn"));
@@ -308,27 +314,30 @@ public class MembershipOrderService {
                     || source.getStartDate().isAfter(source.getEndDate())) {
                 throw conflict("Kỳ nguồn không còn hợp lệ để gia hạn.");
             }
-            // Kỳ ACTIVE tương lai đã được xác nhận cũng phải được giữ nguyên, không nối lại từ kỳ nguồn cũ.
-            LocalDate lastEndDate = subscriptionRepository.findLastActiveEndDate(order.getMemberId()).orElse(null);
-            if (lastEndDate != null && !lastEndDate.isBefore(today)) {
-                startDate = lastEndDate.plusDays(1);
-            }
         }
-        LocalDate endDate = startDate.plusDays(order.getPackageDurationDays() - 1L);
+        // [FLOW 3] BƯỚC CẬP NHẬT GÓI: tạo gói mới ACTIVE, cộng dồn số ngày còn lại của gói cũ, gói cũ chuyển EXPIRED.
+        var periods = subscriptionRepository.findByMemberId(order.getMemberId());
+        var remaining = periods.stream().filter(s -> "ACTIVE".equals(s.getStatus()) && !s.getEndDate().isBefore(today)).toList();
+        LocalDate endDate = today.plusDays(order.getPackageDurationDays() - 1L + SubscriptionRollover.remainingDays(remaining, today));
         MemberSubscription subscription = MemberSubscription.builder()
                 .memberId(order.getMemberId())
                 .packageId(order.getPackageId())
-                .startDate(startDate)
+                .startDate(today)
+                .purchasedDays(order.getPackageDurationDays())
                 .endDate(endDate)
                 .status("ACTIVE")
                 .build();
         subscription = subscriptionRepository.saveAndFlush(subscription);
+        for (MemberSubscription previous : remaining) {
+            previous.setRolledIntoId(subscription.getId());
+            previous.setStatus("EXPIRED");
+        }
         if (source != null && "ACTIVE".equals(source.getStatus()) && source.getEndDate().isBefore(today)) {
             source.setStatus("EXPIRED");
             subscriptionRepository.save(source);
         }
 
-        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        // [FLOW 3] BƯỚC GHI NHẬN THANH TOÁN: hóa đơn PAID + thời điểm thu (paidAt, dùng cho báo cáo doanh thu); đơn CONFIRMED.
         invoice.setSubscriptionId(subscription.getId());
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(now);
@@ -343,6 +352,7 @@ public class MembershipOrderService {
         order.setConfirmationFingerprint(confirmationFingerprint);
         order = orderRepository.saveAndFlush(order);
         // BỔ SUNG: lưu thông báo cùng transaction; lỗi sẽ rollback, không báo gia hạn thành công giả.
+        // [FLOW 3] BƯỚC THÔNG BÁO: gửi thông báo trong hệ thống cho Member (đăng ký/gia hạn thành công).
         notifications.notifyConfirmed(order, invoice, subscription);
         return toResponse(order);
     }
@@ -379,7 +389,7 @@ public class MembershipOrderService {
                         .description(packageRepository.findById(order.getPackageId()).map(MembershipPackage::getDescription).orElse(null))
                         .build())
                 .invoice(invoice == null ? null : toInvoiceResponse(invoice))
-                .paymentReference(invoice == null ? null : "HD" + invoice.getId() + " TV" + order.getMemberId())
+                .paymentReference(invoice == null ? null : invoice.paymentReference())
                 .createdAt(order.getCreatedAt())
                 .confirmedAt(order.getConfirmedAt())
                 .subscription(toSubscriptionResponse(subscription))
@@ -404,7 +414,16 @@ public class MembershipOrderService {
                 .membershipOrderId(invoice.getMembershipOrderId()).memberId(invoice.getMemberId())
                 .receptionistId(invoice.getReceptionistId()).amount(invoice.getAmount()).currency(invoice.getCurrency())
                 .paymentMethod(invoice.getPaymentMethod()).paymentStatus(invoice.getPaymentStatus())
-                .createdAt(invoice.getCreatedAt()).paidAt(invoice.getPaidAt()).refundedAt(invoice.getRefundedAt()).build();
+                .createdAt(invoice.getCreatedAt()).paidAt(invoice.getPaidAt()).refundedAt(invoice.getRefundedAt())
+                .refundReason(invoice.getRefundReason())
+                .refundRequestedAt(invoice.getRefundRequestedAt())
+                .refundRequestReason(invoice.getRefundRequestReason())
+                .refundRequestedAmount(invoice.getRefundRequestedAmount())
+                .refundRequestedPercent(invoice.getRefundRequestedPercent())
+                .refundedAmount(invoice.getRefundedAmount())
+                .refundMethod(invoice.getRefundMethod())
+                .refundReference(invoice.getRefundReference())
+                .refundedBy(invoice.getRefundedBy()).build();
     }
 
     private MemberSubscriptionResponse toSubscriptionResponse(MemberSubscription subscription) {

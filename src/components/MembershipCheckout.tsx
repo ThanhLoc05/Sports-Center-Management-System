@@ -14,12 +14,14 @@ import type {
   PaymentMethod,
 } from "../lib/membership-checkout";
 import type { Subscription } from "../lib/types";
-import { dateLabel, errorText, idLabel, localDate, matches, money } from "../lib/utils";
+import { dateLabel, errorText, idLabel, localDate, matches, money, timeLabel } from "../lib/utils";
 import { Search } from "lucide-react";
 import "../styles-membership-members.css";
 import { ApiNotificationInbox } from "./ApiNotifications";
 import { MembershipDelivery, TransferVerification } from "./MembershipDelivery";
 import { usePaymentMember } from "../lib/use-payment-member";
+import { MemberRefundAction } from "./RefundRequests";
+import { RefundForm, RefundReceipt } from "./RefundForm";
 import { PaymentQr } from "./PaymentQr";
 import {
   Badge,
@@ -121,11 +123,13 @@ export function MembershipCheckoutPage() {
   const selectedMember = users.data?.find((user) => user.id === selected && user.roleName === "MEMBER");
   const packages = useQuery({
     queryKey: ["membership-packages"],
+    // [FLOW 3] LẤY API: GET /membership-packages - danh sách gói đang bán để lễ tân chọn.
     queryFn: membershipCheckout.packages,
     retry: false,
   });
   const subscriptions = useQuery({
     queryKey: ["subscriptions", selected],
+    // [FLOW 3] LẤY API: lịch sử gói của thành viên đang chọn (để biết đăng ký mới hay gia hạn).
     queryFn: () => api.subscriptions(selected!),
     enabled: !!selected,
   });
@@ -360,6 +364,7 @@ export function MembershipOrderForm({
   const toast = useToast();
   const packages = useQuery({
     queryKey: ["membership-packages"],
+    // [FLOW 3] LẤY API: GET /membership-packages - danh sách gói trong form đăng ký/gia hạn.
     queryFn: membershipCheckout.packages,
     retry: false,
   });
@@ -409,6 +414,7 @@ export function MembershipOrderForm({
         const fingerprint = JSON.stringify(input);
         if (attempt.current.fingerprint !== fingerprint)
           attempt.current = { fingerprint, key: crypto.randomUUID() };
+        // [FLOW 3] GỌI API TẠO ĐƠN: POST /membership-orders - tạo đơn chờ + hóa đơn PENDING (điểm bắt đầu Flow 3).
         const order = await membershipCheckout.create(
           input,
           attempt.current.key,
@@ -542,6 +548,7 @@ export function MembershipOrders({
     session!.user.roleName === "MEMBER" ? session!.user.id : memberId;
   const query = useQuery({
     queryKey: ["membership-orders", effectiveMember],
+    // [FLOW 3] LẤY API: GET /membership-orders?memberId= - danh sách đơn gói cho lễ tân/quản lý.
     queryFn: () => membershipCheckout.list(effectiveMember),
     retry: false,
     refetchInterval: pendingInterval,
@@ -556,9 +563,8 @@ export function MembershipOrders({
       (can("payments.collect") || o.memberId === session!.user.id) &&
       (methodFilter === "ALL" || o.invoice.paymentMethod === methodFilter) &&
       (statusFilter === "ALL" || o.status === statusFilter) &&
-      `${o.id} ${o.memberId} ${o.invoice.id} ${o.paymentReference} ${o.package.name}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
+      matches(search, o.memberName, o.id, o.memberId, o.invoice.id,
+        o.paymentReference, o.package.name, `TV${o.memberId}`, `HD${o.invoice.id}`),
   );
   return (
     <Panel
@@ -614,9 +620,10 @@ export function MembershipOrders({
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder="Tìm mã thanh toán, mã thành viên, gói tập..."
+            placeholder="Tìm tên thành viên, mã hóa đơn, mã thanh toán, gói tập..."
           />
           <DataTable
+            key={`${search}:${methodFilter}:${statusFilter}`}
             rows={rows}
             columns={[
               {
@@ -654,13 +661,14 @@ export function MembershipOrders({
                 label: "Trạng thái",
                 render: (o) => (
                   <span className={`payment-status ${o.status === "PENDING_PAYMENT" ? "status-unpaid" : o.status === "CONFIRMED" ? "status-paid" : o.status === "REFUNDED" ? "badge-refunded" : ""}`}>
-                    {orderStatus[o.status]}
+                    {o.status === "CONFIRMED" && o.invoice.refundRequestedAt ? "Chờ xử lý hoàn tiền" : orderStatus[o.status]}
                   </span>
                 ),
               },
               {
                 key: "view",
                 label: "Thao tác",
+                // [FLOW 3] NÚT "Chi tiết hóa đơn" trong danh sách đơn: mở hộp thoại chi tiết đơn/hóa đơn (MembershipOrderDetail bên dưới).
                 render: (o) => (
                   <Button variant="secondary" onClick={() => setSelected(o.id)}>
                     Chi tiết hóa đơn
@@ -694,6 +702,7 @@ export function MembershipOrders({
 }
 
 /** Chi tiết đơn dùng chung cho Member/nhân viên: đọc kết quả BE, hiển thị QR hoặc form tiền mặt và vùng in hóa đơn. */
+// [FLOW 3] HỘP THOẠI CHI TIẾT ĐƠN GÓI: nơi chứa toàn bộ nút của luồng thanh toán (QR, thu tiền mặt, hủy, in, hoàn tiền).
 export function MembershipOrderDetail({
   orderId,
   onClose,
@@ -709,14 +718,17 @@ export function MembershipOrderDetail({
   const cashFormId = useId();
   const query = useQuery({
     queryKey: ["membership-order", orderId],
+    // [FLOW 3] LẤY API: GET /membership-orders/{id} - chi tiết đơn + hóa đơn (trạng thái, số tiền, QR).
     queryFn: () => membershipCheckout.detail(orderId),
     retry: false,
     // Chi tiết đơn tải mỗi 8 giây khi còn chờ tiền/thông báo; hoàn tất hoặc lỗi thì ngừng polling.
     // Theo dõi trạng thái thật của đơn và thông báo trong website.
+    // [FLOW 3] TỰ TẢI LẠI TRẠNG THÁI: khi đơn còn chờ, FE gọi lại GET /membership-orders/{id} định kỳ để thấy đơn QR đã được SePay đối soát.
     refetchInterval: (q) =>
       q.state.error
         ? false
         : q.state.data?.status === "PENDING_PAYMENT" ||
+            (q.state.data?.status === "CONFIRMED" && !!q.state.data.invoice.refundRequestedAt) ||
             q.state.data?.delivery?.notification?.status === "PENDING"
           ? 8000
           : false,
@@ -878,7 +890,7 @@ export function MembershipOrderDetail({
                       Kết quả {order.kind === "RENEWAL" ? "gia hạn" : "đăng ký"}
                     </h3>
                     <Notice>
-                      Đã xác nhận {orderAction(order)} {order.package.name}.
+                      Đã xác nhận {orderAction(order)} {order.package.name} lúc {timeLabel(order.confirmedAt!)} ngày {dateLabel(order.confirmedAt!)}. 
                       Thời hạn: {dateLabel(order.subscription!.startDate)} –{" "}
                       {dateLabel(order.subscription!.endDate)}.{" "}
                       {order.subscription!.startDate > localDate() && (
@@ -914,6 +926,7 @@ export function MembershipOrderDetail({
                   </h3>
                   {order.invoice.paymentMethod === "BANK_TRANSFER" ? (
                     <>
+                      {/* [FLOW 3] KHUNG QR CHUYỂN KHOẢN (đơn BANK_TRANSFER): hiện tài khoản nhận, số tiền, nội dung HD.. TV.. TÊN (xem PaymentQr.tsx). */}
                       <PaymentQr
                         invoice={order.invoice}
                         bankAccount={order.bankAccount}
@@ -927,6 +940,7 @@ export function MembershipOrderDetail({
                       nhận đủ tiền và xác nhận, gói mới được gia hạn/kích hoạt.
                     </Notice>
                   )}
+                  {/* [FLOW 3] FORM THU TIỀN MẶT (chỉ Lễ tân/Quản lý, đơn CASH): tick xác nhận đã nhận đủ tiền rồi bấm nút xác nhận ở chân hộp thoại. */}
                   {canCollectCash && (
                     <form
                       id={cashFormId}
@@ -953,6 +967,7 @@ export function MembershipOrderDetail({
                               key: crypto.randomUUID(),
                             };
                           // Gửi khoản thu đã được nhân viên kiểm tra; chỉ hiển thị thành công theo response từ BE.
+                          // [FLOW 3] GỌI API XÁC NHẬN THU TIỀN MẶT: POST /membership-orders/{id}/confirm-payment -> BE tạo gói, hóa đơn PAID, đơn CONFIRMED.
                           const updated = await membershipCheckout.confirm(
                             order,
                             "",
@@ -997,6 +1012,7 @@ export function MembershipOrderDetail({
               ) : order.status === "REFUNDED" ? (
                 <section className="membership-order-card membership-order-full">
                   <h3>Kết quả hoàn tiền</h3>
+                  <RefundReceipt invoice={order.invoice} />
                   <Notice>
                     Hóa đơn đã được hoàn tiền và gói liên quan đã bị hủy. Thao
                     tác này chỉ ghi nhận hoàn tiền trong hệ thống, không tự
@@ -1008,6 +1024,19 @@ export function MembershipOrderDetail({
                   <h3>Trạng thái đơn</h3>
                   <Notice>Yêu cầu đã hủy. Không thanh toán cho đơn này.</Notice>
                 </section>
+              )}
+              {order.status === "CONFIRMED" && order.invoice.paymentStatus === "PAID" && (
+                order.invoice.refundRequestedAt ? (
+                  <section className="membership-order-card membership-order-full">
+                    <h3>Yêu cầu hoàn tiền · Chờ xử lý</h3>
+                    <p>Đã gửi lúc {timeLabel(order.invoice.refundRequestedAt)} ngày {dateLabel(order.invoice.refundRequestedAt)}.</p>
+                    <p>Lý do: {order.invoice.refundRequestReason}</p>
+                    <p>Số tiền hoàn đã chốt: {money(order.invoice.refundRequestedAmount!)} ({order.invoice.refundRequestedPercent}%).</p>
+                  </section>
+                ) : session!.user.roleName === "MEMBER" && order.memberId === session!.user.id && (
+                  // [FLOW 3] NÚT "Yêu cầu hoàn tiền" của Member (RefundRequests.tsx): Member gửi yêu cầu hoàn cho hóa đơn đã thanh toán.
+                  <MemberRefundAction invoice={order.invoice} onSent={query.refetch} />
+                )
               )}
               <p className="membership-order-updated membership-order-full">
                 Trạng thái được tải từ hệ thống.{" "}
@@ -1021,6 +1050,7 @@ export function MembershipOrderDetail({
             </div>
             <div className="modal-footer membership-order-footer">
               <div className="membership-order-secondary">
+                {/* [FLOW 3] NÚT "In / Lưu PDF": in hóa đơn bằng hộp thoại in của trình duyệt (chọn Lưu thành PDF). */}
                 <Button variant="secondary" onClick={() => window.print()}>
                   In / Lưu PDF
                 </Button>
@@ -1029,15 +1059,18 @@ export function MembershipOrderDetail({
                   disabled={busy}
                   onClick={() => void query.refetch()}
                 >
+                  {/* [FLOW 3] NÚT "Kiểm tra cập nhật": tải lại trạng thái đơn ngay (không chờ lần tự tải lại). */}
                   Kiểm tra cập nhật
                 </Button>
               </div>
               <div className="membership-order-primary">
                 {canCancel && (
+                  // [FLOW 3] NÚT "Hủy đơn chờ" (Lễ tân/Quản lý): mở xác nhận hủy -> POST /membership-orders/{id}/cancel.
                   <Button variant="danger" disabled={busy} onClick={() => setCancelOpen(true)}>
                     Hủy đơn chờ
                   </Button>
                 )}
+                {/* [FLOW 3] NÚT "Ghi nhận hoàn tiền" (Lễ tân/Quản lý): mở form hoàn tiền mặt (RefundForm.tsx). */}
                 {canRefund && (
                   <Button
                     variant="danger"
@@ -1047,6 +1080,7 @@ export function MembershipOrderDetail({
                     Ghi nhận hoàn tiền
                   </Button>
                 )}
+                {/* [FLOW 3] NÚT "Xác nhận thu tiền và kích hoạt gói": submit form thu tiền mặt ở trên -> gọi membershipCheckout.confirm. */}
                 {canCollectCash && (
                   <Button
                     type="submit"
@@ -1077,6 +1111,7 @@ export function MembershipOrderDetail({
         onConfirm={async () => {
           setBusy(true);
           try {
+            // [FLOW 3] GỌI API HỦY ĐƠN CHỜ: POST /membership-orders/{id}/cancel -> đơn CANCELLED, hóa đơn CANCELLED.
             const updated = await membershipCheckout.cancel(order);
             client.setQueryData(["membership-order", orderId], updated);
             await client.invalidateQueries();
@@ -1090,14 +1125,14 @@ export function MembershipOrderDetail({
           }
         }} />
     )}
-    {refundOpen && order && (
-      <Confirm
-        title="Xác nhận hoàn tiền?"
-        description={`HD${order.invoice.id} · ${money(order.invoice.amount)}. Thao tác sẽ đồng bộ hóa đơn, đơn hàng và hủy gói liên quan; không tự chuyển tiền ngân hàng.`}
+    {refundOpen && canRefund && order && (
+      <RefundForm invoice={order.invoice}
         onClose={() => setRefundOpen(false)}
-        onConfirm={async () => {
-          await api.pay(order.invoice.id, true);
+        onSaved={async () => {
           await Promise.all([
+            client.invalidateQueries({ queryKey: ["pending-refund-requests"] }),
+            client.invalidateQueries({ queryKey: ["revenue-summary"] }),
+            client.invalidateQueries({ queryKey: ["bookings"] }),
             client.invalidateQueries({ queryKey: ["membership-orders"] }),
             client.invalidateQueries({
               queryKey: ["activeSubscription", order.memberId],
@@ -1125,6 +1160,7 @@ export function MembershipNotifications() {
   const { session } = useAuth();
   const query = useQuery({
     queryKey: ["membership-orders", session!.user.id],
+    // [FLOW 3] LẤY API: GET /membership-orders?memberId= - Member xem đơn gói của chính mình.
     queryFn: () => membershipCheckout.list(session!.user.id),
     retry: false,
     refetchInterval: pendingInterval,

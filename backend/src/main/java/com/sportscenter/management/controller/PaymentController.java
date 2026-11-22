@@ -4,6 +4,9 @@ import com.sportscenter.management.dto.Request.InvoiceRequest;
 import com.sportscenter.management.dto.Response.InvoiceResponse;
 import com.sportscenter.management.service.PaymentService;
 import com.sportscenter.auth.SecurityUtils;
+import com.sportscenter.management.dto.Request.RefundRequest;
+import com.sportscenter.management.dto.Response.RefundQuote;
+import com.sportscenter.management.dto.Request.MemberRefundRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,8 +25,8 @@ import java.util.List;
  * Nghiệp vụ và phân quyền:
  * 1. Lập hóa đơn (POST /invoices): Lễ tân (RECEPTIONIST) và Quản lý trung tâm.
  * 2. Xác nhận đã thu tiền (POST /invoices/{id}/pay): Lễ tân và Quản lý.
- * 3. Hoàn tiền hóa đơn (POST /invoices/{id}/refund): CHỈ Quản lý trung tâm.
- * 4. Báo cáo doanh thu (GET /revenue): CHỈ Quản lý trung tâm.
+ * 3. Hoàn tiền hóa đơn (POST /invoices/{id}/refund): Lễ tân và Quản lý trung tâm.
+ * 4. Báo cáo doanh thu (GET /revenue): Quản lý trung tâm.
  * 5. Tra cứu hóa đơn của học viên: Học viên chỉ xem được hóa đơn của mình, Lễ tân/Quản lý xem được tất cả.
  */
 @RestController
@@ -97,18 +100,41 @@ public class PaymentController {
 
     /**
      * HOÀN TIỀN CHO HỌC VIÊN (REFUND)
-     * - Bảo mật chặt: CHỈ Quản lý trung tâm mới có thẩm quyền duyệt hoàn tiền.
+     * - Bảo mật chặt: Lễ tân hoặc Quản lý xác nhận sau khi trả đủ tiền.
      */
+    // [FLOW 3] ENDPOINT DANH SÁCH YÊU CẦU HOÀN CHỜ XỬ LÝ (Lễ tân/Quản lý).
+    @GetMapping("/refund-requests")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST','CENTER_MANAGER')")
+    public List<InvoiceResponse> pendingRefundRequests() {
+        return paymentService.pendingRefundRequests();
+    }
+
+    // [FLOW 3] ENDPOINT MEMBER GỬI YÊU CẦU HOÀN (chỉ MEMBER, hóa đơn của chính mình).
+    @PostMapping("/invoices/{invoiceId}/refund-request")
+    @PreAuthorize("hasRole('MEMBER')")
+    public InvoiceResponse requestRefund(@PathVariable Integer invoiceId, @Valid @RequestBody MemberRefundRequest request) {
+        return paymentService.requestRefund(invoiceId, request);
+    }
+
+    // [FLOW 3] ENDPOINT XEM MỨC HOÀN (Member/Lễ tân/Quản lý).
+    @GetMapping("/invoices/{invoiceId}/refund-quote")
+    @PreAuthorize("hasAnyRole('MEMBER','RECEPTIONIST','CENTER_MANAGER')")
+    public RefundQuote quoteRefund(@PathVariable Integer invoiceId) {
+        return paymentService.quoteRefund(invoiceId);
+    }
+
+    // [FLOW 3] ENDPOINT GHI NHẬN HOÀN TIỀN MẶT (Lễ tân/Quản lý) -> PaymentServiceImpl.refundInvoice.
     @PostMapping("/invoices/{invoiceId}/refund")
-    @PreAuthorize("hasRole('CENTER_MANAGER')")
-    public InvoiceResponse refund(@PathVariable Integer invoiceId) {
-        return paymentService.refundInvoice(invoiceId);
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
+    public InvoiceResponse refund(@PathVariable Integer invoiceId, @Valid @RequestBody RefundRequest request) {
+        return paymentService.refundInvoice(invoiceId, request);
     }
 
     /**
      * BÁO CÁO TỔNG DOANH THU THEO KHOẢNG THỜI GIAN
      * - Bảo mật chặt: CHỈ Quản lý mới được xem doanh thu tài chính của trung tâm.
      */
+    // [FLOW 3] ENDPOINT DOANH THU RÒNG theo khoảng ngày (chỉ CENTER_MANAGER).
     @GetMapping("/revenue")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
     public BigDecimal getRevenue(
@@ -119,7 +145,7 @@ public class PaymentController {
 
     /**
      * BÁO CÁO DOANH THU THEO PHƯƠNG THỨC THANH TOÁN (Tiền mặt / Chuyển khoản / Thẻ)
-     * - Bảo mật: CHỈ Quản lý trung tâm.
+     * - Bảo mật: Lễ tân và Quản lý trung tâm.
      */
     @GetMapping("/revenue/by-method")
     @PreAuthorize("hasRole('CENTER_MANAGER')")

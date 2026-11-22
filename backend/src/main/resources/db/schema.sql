@@ -35,6 +35,24 @@ BEGIN
         ALTER TABLE dbo.invoices ADD paid_at DATETIME2 NULL;
     IF COL_LENGTH(N'dbo.invoices', N'refunded_at') IS NULL
         ALTER TABLE dbo.invoices ADD refunded_at DATETIME2 NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_requested_at') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_requested_at DATETIME2 NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_request_reason') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_request_reason NVARCHAR(500) NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_requested_amount') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_requested_amount DECIMAL(18,2) NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_requested_percent') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_requested_percent INT NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refunded_amount') IS NULL
+        ALTER TABLE dbo.invoices ADD refunded_amount DECIMAL(18,2) NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_reason') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_reason NVARCHAR(500) NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_method') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_method VARCHAR(20) NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refund_reference') IS NULL
+        ALTER TABLE dbo.invoices ADD refund_reference NVARCHAR(120) NULL;
+    IF COL_LENGTH(N'dbo.invoices', N'refunded_by') IS NULL
+        ALTER TABLE dbo.invoices ADD refunded_by INT NULL;
 END;
 /* BE mới có @Nationalized: JDBC đọc bằng getNString nên cột VARCHAR cũ
    phải chuyển sang NVARCHAR. Chỉ mở rộng kiểu, giữ tên/ID và dữ liệu hiện có. */
@@ -273,6 +291,11 @@ BEGIN
 END;
 
 /* Đơn đăng ký/gia hạn lưu ảnh chụp giá gói và chỉ được kích hoạt sau khi thu tiền. */
+IF COL_LENGTH(N'dbo.member_subscriptions', N'rolled_into_id') IS NULL
+    ALTER TABLE dbo.member_subscriptions ADD rolled_into_id INT NULL REFERENCES dbo.member_subscriptions(subscription_id);
+IF COL_LENGTH(N'dbo.member_subscriptions', N'purchased_days') IS NULL
+    ALTER TABLE dbo.member_subscriptions ADD purchased_days INT NULL;
+
 IF OBJECT_ID(N'dbo.membership_orders', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.membership_orders (
@@ -352,6 +375,15 @@ BEGIN
         created_at DATETIME2 NOT NULL CONSTRAINT DF_invoices_created_at DEFAULT SYSDATETIME(),
         paid_at DATETIME2 NULL,
         refunded_at DATETIME2 NULL,
+        refund_requested_at DATETIME2 NULL,
+        refund_request_reason NVARCHAR(500) NULL,
+        refund_requested_amount DECIMAL(18,2) NULL,
+        refund_requested_percent INT NULL,
+        refunded_amount DECIMAL(18,2) NULL,
+        refund_reason NVARCHAR(500) NULL,
+        refund_method VARCHAR(20) NULL,
+        refund_reference NVARCHAR(120) NULL,
+        refunded_by INT NULL,
         CONSTRAINT FK_invoices_subscriptions FOREIGN KEY (subscription_id) REFERENCES dbo.member_subscriptions(subscription_id),
         CONSTRAINT FK_invoices_membership_orders FOREIGN KEY (membership_order_id) REFERENCES dbo.membership_orders(membership_order_id),
         CONSTRAINT FK_invoices_members FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),

@@ -53,6 +53,41 @@ public class Invoice {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "refund_reason", length = 500)
+    private String refundReason;
+
+    @Column(name = "refund_method", length = 20)
+    private String refundMethod;
+
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "refund_reference", length = 120)
+    private String refundReference;
+
+    @Column(name = "refunded_by")
+    private Integer refundedBy;
+
+    @Column(name = "refund_requested_at")
+    private LocalDateTime refundRequestedAt;
+
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "refund_request_reason", length = 500)
+    private String refundRequestReason;
+
+    @Column(name = "refund_requested_amount", precision = 18, scale = 2)
+    private BigDecimal refundRequestedAmount;
+
+    @Column(name = "refund_requested_percent")
+    private Integer refundRequestedPercent;
+
+    @Column(name = "refunded_amount", precision = 18, scale = 2)
+    private BigDecimal refundedAmount;
+
+    // Hai mã định danh tạo thành cùng một mã thanh toán cho đơn, thông báo và bước đối chiếu khi hoàn.
+    public String paymentReference() {
+        return "HD" + id + " TV" + memberId;
+    }
+
     @Column(name = "refunded_at")
     private LocalDateTime refundedAt;
 }

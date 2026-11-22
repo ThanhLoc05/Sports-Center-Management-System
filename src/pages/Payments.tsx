@@ -26,6 +26,8 @@ import { useAuth } from "../lib/auth";
 import { useUsers } from "../lib/hooks";
 import { api } from "../lib/api";
 
+import { RefundRequestQueue } from "../components/RefundRequests";
+import { RefundForm, RefundReceipt } from "../components/RefundForm";
 import { PaymentQr } from "../components/PaymentQr";
 import { useDemoData } from "../lib/hooks";
 import { usePermissions } from "../lib/hooks";
@@ -70,7 +72,7 @@ export default function Payments() {
   const db = useDemoData();
   const [params] = useSearchParams();
   const member = session!.user.roleName === "MEMBER",
-    manager = can("payments.refund"),
+    canRefund = can("payments.refund"),
     demo = session!.mode === "demo";
   // Tải tên thành viên cho lễ tân để tìm hóa đơn và in đúng họ tên trên phiếu thu.
   const users = useUsers(true);
@@ -94,8 +96,10 @@ export default function Payments() {
    */
   const query = useQuery({
     queryKey: ["invoices", memberId],
+    // [FLOW 3] LẤY API: có mã Member thì GET /payments/members/{memberId}/invoices, không có thì GET /payments/invoices/pending (hóa đơn chờ thu).
     queryFn: () => api.invoices(Number(memberId) || undefined),
   });
+  // Tìm theo tên/mã thành viên/mã hóa đơn rồi lọc phương thức và trạng thái trên danh sách đã tải.
   const rows = (query.data || []).filter(
     (i) =>
       matches(
@@ -109,8 +113,9 @@ export default function Payments() {
       (method === "all" || i.paymentMethod === method),
   );
   const all = query.data || [];
+  // Các ô tổng ở trang này tính trong danh sách đang tải; báo cáo toàn kỳ lấy ở trang Reports qua API riêng.
   const sum = (s: string) =>
-    all.filter((i) => i.paymentStatus === s).reduce((a, i) => a + i.amount, 0);
+    all.filter((i) => i.paymentStatus === s).reduce((a, i) => a + (s === "REFUNDED" ? i.refundedAmount ?? i.amount : i.amount), 0);
   return (
     <>
       <PageHeader
@@ -150,6 +155,8 @@ export default function Payments() {
           </>
         }
       />
+      {/* [FLOW 3] TRANG THANH TOÁN: bảng yêu cầu hoàn tiền chờ xử lý cho Lễ tân/Quản lý. */}
+      {!demo && canRefund && <RefundRequestQueue />}
       {!demo && (
         <MembershipOrders
           memberId={Number(memberId) || undefined}
@@ -379,8 +386,8 @@ export default function Payments() {
                           Thu tiền
                         </button>
                       )}
-                    {manager &&
-                      !i.membershipOrderId &&
+                    {canRefund &&
+                      !!i.membershipOrderId &&
                       i.paymentStatus === "PAID" && (
                         <button
                           className="text-danger"
@@ -409,6 +416,7 @@ export default function Payments() {
              * Tạo hóa đơn PENDING, gửi amount dạng số và người thu từ session. subscriptionId
              * là tùy chọn. Mở phiếu vừa tạo để xem, nhưng chưa xác nhận trung tâm đã thu tiền.
              */
+            // [FLOW 3] GỌI API TẠO HÓA ĐƠN TẠI QUẦY: POST /payments/invoices.
             const invoice = await api.invoice({
               memberId: Number(d.get("memberId")),
               subscriptionId: d.get("subscriptionId")
@@ -481,38 +489,25 @@ export default function Payments() {
           onClose={() => setDetail(null)}
         />
       )}
-      {change &&
-        can(change.refund ? "payments.refund" : "payments.collect") && (
-          <Confirm
-            className={change.refund ? "" : "payment-collection-dialog status-unpaid"}
-            title={
-              change.refund
-                ? "Xác nhận hoàn tiền?"
-                : "Xác nhận đã nhận thanh toán?"
-            }
-            description={`${idLabel(change.invoice.id, "HD")} · ${money(change.invoice.amount)}. ${change.refund ? "Thao tác này ghi nhận trạng thái hoàn tiền, không tự chuyển tiền về tài khoản ngân hàng." : "Chỉ xác nhận khi bạn đã kiểm tra trung tâm nhận đủ tiền."}`}
-            danger={change.refund}
-            onClose={() => setChange(null)}
-            onConfirm={async () => {
-              /**
-               * Sau hộp thoại xác nhận mới gọi pay/refund. Nếu đang xem chính hóa đơn đó
-               * thì cập nhật detail theo phản hồi server, rồi làm mới bảng và thống kê.
-               */
-              if (change.invoice.membershipOrderId)
-                throw Error(
-                  "Vui lòng xử lý hóa đơn này trong yêu cầu gói để đồng bộ thanh toán và kích hoạt.",
-                );
-              const updated = await api.pay(change.invoice.id, change.refund);
-              if (detail?.id === updated.id) setDetail(updated);
-              await client.invalidateQueries();
-              toast(
-                change.refund
-                  ? "Đã ghi nhận hoàn tiền."
-                  : "Đã xác nhận thanh toán.",
-              );
-            }}
-          />
-        )}
+      {change?.refund && canRefund && (
+        <RefundForm invoice={change.invoice} onClose={() => setChange(null)} onSaved={async (updated) => {
+          if (detail?.id === updated.id) setDetail(updated);
+          await client.invalidateQueries();
+          toast("Đã ghi nhận hoàn tiền.");
+        }} />
+      )}
+      {change && !change.refund && can("payments.collect") && (
+        <Confirm className="payment-collection-dialog status-unpaid" title="Xác nhận đã nhận thanh toán?"
+          description={`${idLabel(change.invoice.id, "HD")} · ${money(change.invoice.amount)}. Chỉ xác nhận khi đã nhận đủ tiền.`}
+          onClose={() => setChange(null)}
+          onConfirm={async () => {
+            // [FLOW 3] GỌI API XÁC NHẬN ĐÃ THU HÓA ĐƠN: POST /payments/invoices/{id}/pay.
+            const updated = await api.pay(change.invoice.id);
+            if (detail?.id === updated.id) setDetail(updated);
+            await client.invalidateQueries();
+            toast("Đã xác nhận thanh toán.");
+          }} />
+      )}
     </>
   );
 }
@@ -533,12 +528,14 @@ function InvoiceDetail({
 }) {
   // Hóa đơn gắn đơn gia hạn phải dùng đúng luồng của đơn, gồm tài khoản nhận tiền và trạng thái đối soát.
   // Không mở QR riêng từ cấu hình máy rồi làm sai thông tin của cùng một đơn trên màn hóa đơn.
+  // Phân biệt hóa đơn thường và hóa đơn của đơn gói để mở đúng nơi xử lý thu tiền/gia hạn.
   if (!demo && i.membershipOrderId)
     return (
       <MembershipOrderDetail orderId={i.membershipOrderId} onClose={onClose} />
     );
   return (
     <Modal className="invoice-detail-dialog" title="Chi tiết hóa đơn" onClose={onClose} wide>
+      {/* [FLOW 3] CHI TIẾT HÓA ĐƠN (trang Thanh toán): khung QR của hóa đơn. */}
       <PaymentQr invoice={i} />
       <div className="invoice-document" id="print-invoice">
         <div className="invoice-document-top">
@@ -593,6 +590,7 @@ function InvoiceDetail({
           <span>Tổng cộng</span>
           <strong>{money(i.amount)}</strong>
         </div>
+        <RefundReceipt invoice={i} />
         <div className="invoice-thanks">
           <strong>Cảm ơn bạn đã đồng hành cùng Sportiva.</strong>
           <p>Chúc bạn một hành trình tập luyện đầy năng lượng.</p>
@@ -628,6 +626,7 @@ function InvoiceDetail({
           <ArrowDownToLine size={16} />
           Xuất CSV
         </Button>
+        {/* [FLOW 3] NÚT "In / Lưu PDF" của chi tiết hóa đơn trên trang Thanh toán. */}
         <Button onClick={() => window.print()}>
           <Printer size={16} />
           In / Lưu PDF

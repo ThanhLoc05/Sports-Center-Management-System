@@ -34,21 +34,17 @@ class PaymentRevenueSqlServerIT extends PaymentSqlServerSupport {
         invoice("CANCELLED","888", "2081-01-12T12:00:00",null);
         assertDelta(initial,summary(firstStart,firstEnd),"750","0","750",3,0);
         sqlMatchesApi(firstStart,firstEnd);
-        status(200,call("POST","payments/invoices/"+same+"/refund",null,managerToken,null));
-        assertEquals("REFUNDED",jdbc.queryForObject("SELECT payment_status FROM invoices WHERE invoice_id=?",String.class,same));
-        assertNotNull(jdbc.queryForObject("SELECT refunded_at FROM invoices WHERE invoice_id=?",java.sql.Timestamp.class,same));
-        // Controlled timestamps are fixture setup, not changes to the application clock.
-        jdbc.update("UPDATE invoices SET refunded_at=? WHERE invoice_id=?",LocalDateTime.parse("2081-01-15T12:00:00"),same);
-        assertDelta(initial,summary(firstStart,firstEnd),"750","250","500",3,1);
-        status(200,call("POST","payments/invoices/"+cross+"/refund",null,managerToken,null));
-        jdbc.update("UPDATE invoices SET refunded_at=? WHERE invoice_id=?",LocalDateTime.parse("2081-02-02T12:00:00"),cross);
-        assertDelta(initial,summary(firstStart,firstEnd),"750","250","500",3,1);
+        // Dữ liệu lịch sử tách ngày thu và ngày hoàn, gồm một lần hoàn 90%.
+        jdbc.update("UPDATE invoices SET payment_status='REFUNDED',refunded_amount=225,refunded_at=? WHERE invoice_id=?",LocalDateTime.parse("2081-01-15T12:00:00"),same);
+        assertDelta(initial,summary(firstStart,firstEnd),"750","225","525",3,1);
+        jdbc.update("UPDATE invoices SET payment_status='REFUNDED',refunded_at=? WHERE invoice_id=?",LocalDateTime.parse("2081-02-02T12:00:00"),cross);
+        assertDelta(initial,summary(firstStart,firstEnd),"750","225","525",3,1);
         assertDelta(initialSecond,summary(secondStart,secondEnd),"0","400","-400",0,1);
         sqlMatchesApi(firstStart,firstEnd);sqlMatchesApi(secondStart,secondEnd);
         // Legacy rows without dates use created_at, including the corresponding refund.
         invoice("PAID","50",null,null);
         invoice("REFUNDED","60",null,null);
-        assertDelta(initial,summary(firstStart,firstEnd),"860","310","550",5,2);
+        assertDelta(initial,summary(firstStart,firstEnd),"860","285","575",5,2);
         sqlMatchesApi(firstStart,firstEnd);
         sqlMatchesApi("2098-01-01T00:00:00","2098-01-31T23:59:59");
     }
@@ -97,7 +93,7 @@ class PaymentRevenueSqlServerIT extends PaymentSqlServerSupport {
         Api api=summary(from,to);
         var a=LocalDateTime.parse(from);var b=LocalDateTime.parse(to);
         var gross=jdbc.queryForObject("SELECT COALESCE(SUM(amount),0) FROM invoices WHERE payment_status IN ('PAID','REFUNDED') AND COALESCE(paid_at,created_at) BETWEEN ? AND ?",BigDecimal.class,a,b);
-        var refund=jdbc.queryForObject("SELECT COALESCE(SUM(amount),0) FROM invoices WHERE payment_status='REFUNDED' AND COALESCE(refunded_at,created_at) BETWEEN ? AND ?",BigDecimal.class,a,b);
+        var refund=jdbc.queryForObject("SELECT COALESCE(SUM(COALESCE(refunded_amount,amount)),0) FROM invoices WHERE payment_status='REFUNDED' AND COALESCE(refunded_at,created_at) BETWEEN ? AND ?",BigDecimal.class,a,b);
         money(gross.toPlainString(),decimal(api,"$.totalGrossRevenue"));
         money(refund.toPlainString(),decimal(api,"$.totalRefunded"));
         money(gross.subtract(refund).toPlainString(),decimal(api,"$.netRevenue"));

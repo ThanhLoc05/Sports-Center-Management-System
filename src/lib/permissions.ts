@@ -23,6 +23,7 @@ export const permissionLabels = {
 } as const;
 export type Permission = keyof typeof permissionLabels;
 const all = Object.keys(permissionLabels) as Permission[];
+// Flow 3: Lễ tân và quản lý ghi nhận thu/hoàn tiền. Quản lý xem báo cáo. Member tự xem đơn qua các route tự phục vụ.
 export const defaultPermissions: Record<Role, Permission[]> = {
   CENTER_MANAGER: [...all],
   MANAGER: [...all],
@@ -41,6 +42,7 @@ export const defaultPermissions: Record<Role, Permission[]> = {
     "memberships.assist",
     "attendance.record",
     "payments.collect",
+    "payments.refund",
     "support.manage",
   ],
 };
@@ -63,6 +65,7 @@ export const routePermissions: Record<string, Permission> = {
   "/members": "members.read",
   "/team": "team.manage",
   "/facilities": "facilities.manage",
+  // Chặn trang báo cáo bằng quyền reports.read, cùng nguồn quyền dùng để hiện menu.
   "/reports": "reports.read",
   "/audit": "audit.read",
   "/students": "training.manage",
@@ -80,6 +83,7 @@ export function routeAllowed(
   const own = session?.user.roleName === "MEMBER";
   if (path === "/memberships")
     return own || can(session, "memberships.assist", db);
+  // Member được vào trang thanh toán của mình; nhân viên cần quyền thu/hoàn. BE tiếp tục giới hạn dữ liệu từng đơn.
   if (path === "/payments")
     return (
       own ||

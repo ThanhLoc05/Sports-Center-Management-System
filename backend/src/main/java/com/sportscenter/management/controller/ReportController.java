@@ -28,6 +28,7 @@ public class ReportController {
         return ResponseEntity.ok(totalRevenue);
     }
 
+    // [FLOW 3] ENDPOINT BÁO CÁO TỔNG HỢP: tổng thu, tiền hoàn, doanh thu ròng, số hóa đơn (chỉ CENTER_MANAGER).
     @GetMapping("/summary")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
     public ResponseEntity<RevenueSummaryResponse> getRevenueSummary(

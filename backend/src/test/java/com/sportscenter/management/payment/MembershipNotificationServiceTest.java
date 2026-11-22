@@ -18,7 +18,7 @@ class MembershipNotificationServiceTest {
         var service=new MembershipNotificationService(notifications,users);
         when(users.findById(4)).thenReturn(Optional.of(User.builder().id(4).fullName("Nguyễn Văn An").build()));
         var order=MembershipOrder.builder().id(20).memberId(4).kind("RENEWAL").sourcePackageId(1).packageId(2).packageName("VIP TEST").build();
-        var invoice=Invoice.builder().id(30).amount(new BigDecimal("5000")).build();
+        var invoice=Invoice.builder().id(30).memberId(4).amount(new BigDecimal("5000")).build();
         var period=MemberSubscription.builder().startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(29)).build();
         final MembershipNotification[] stored=new MembershipNotification[1];
         when(notifications.saveAndFlush(any())).thenAnswer(c->{stored[0]=c.getArgument(0);stored[0].setId(42L);return stored[0];});

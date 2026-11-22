@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "../lib/auth";
+import { RefundRequestQueue } from "../components/RefundRequests";
 import { ToastProvider } from "../components/ui";
 import {
   MembershipOrderForm,
@@ -310,7 +311,45 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     expect(JSON.parse(String(post[1]!.body))).toEqual({ version: 0 });
     await waitFor(() => expectMemberRefresh(client));
   });
-  it("manager refund updates the displayed order and refreshes membership data", async () => {
+  it("lets an eligible member send a reason and then shows pending without a second submit", async () => {
+    const order = confirmed();
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/refund-quote")) return json({amount: 720000, percent: 90, registeredOn: "2026-11-20", lastRefundDate: "2026-11-22"});
+      if (url.endsWith("/refund-request")) {
+        expect(JSON.parse(String(init?.body))).toEqual({reason: "Sai gói", expectedAmount: 720000});
+        Object.assign(order.invoice, {refundRequestedAt: "2026-11-21T08:00:00", refundRequestedAmount: 720000,
+          refundRequestedPercent: 90, refundRequestReason: "Sai gói"});
+        return json(order.invoice);
+      }
+      return json(order);
+    });
+    vi.stubGlobal("fetch", fetcher);
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", {name: "Yêu cầu hoàn tiền"}));
+    await user.type(screen.getByLabelText("Lý do yêu cầu hoàn tiền"), "Sai gói");
+    await user.click(screen.getByRole("button", {name: "Gửi yêu cầu"}));
+    expect(await screen.findByText("Yêu cầu hoàn tiền · Chờ xử lý")).toBeVisible();
+    expect(screen.queryByRole("button", {name: "Yêu cầu hoàn tiền"})).toBeNull();
+  });
+
+  it("shows the backend refusal instead of a submit button for an expired invoice", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/refund-quote")
+      ? json({message: "Hết hạn gửi yêu cầu"}, 400) : json(confirmed())));
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    expect(await screen.findByText("Hết hạn gửi yêu cầu")).toBeVisible();
+    expect(screen.queryByRole("button", {name: "Yêu cầu hoàn tiền"})).toBeNull();
+  });
+
+  it.each(["RECEPTIONIST", "CENTER_MANAGER"] as const)("%s can open the pending request from Payments", async role => {
+    vi.stubGlobal("fetch", vi.fn(async () => json([{...confirmed().invoice, refundRequestedAt: "2026-11-21T08:00:00",
+      refundRequestReason: "Sai gói", refundRequestedAmount: 720000}])));
+    wrap(<RefundRequestQueue />, role);
+    expect(await screen.findByText("Sai gói")).toBeVisible();
+    expect(screen.getByRole("link", {name: "Xử lý yêu cầu"})).toHaveAttribute("href", "/payments?orderId=20");
+  });
+
+  it.each(["CENTER_MANAGER", "RECEPTIONIST"] as const)("%s records the quoted refund and refreshes membership data", async (role) => {
     let refunded = false;
     const refundedOrder: MembershipOrder = {
       ...confirmed(),
@@ -327,6 +366,7 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
           email: "an@example.test",
           roleName: "MEMBER",
         });
+      if (url.endsWith("/refund-quote")) return json({ registeredOn: "2026-11-20", lastRefundDate: "2026-11-22", percent: 90, amount: 720000 });
       if (url.endsWith("/refund")) {
         refunded = true;
         return json(refundedOrder.invoice);
@@ -337,15 +377,25 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     const user = userEvent.setup();
     wrap(
       <MembershipOrderDetail orderId={20} onClose={() => {}} />,
-      "CENTER_MANAGER",
+      role,
     );
     const client = accessCache();
 
     await user.click(
       await screen.findByRole("button", { name: "Ghi nhận hoàn tiền" }),
     );
-    await user.click(screen.getByRole("button", { name: "Xác nhận" }));
+    await user.type(await screen.findByLabelText("Lý do hoàn"), "Chọn sai gói");
+    expect(screen.getByLabelText("Phương thức trả tiền")).toHaveValue("Tiền mặt tại quầy");
+    const referenceInput = screen.getByRole("textbox", {name: "Mã thanh toán hóa đơn"});
+    await user.type(referenceInput, "HD31 TV4");
+    await user.click(screen.getByRole("checkbox", {name: /đã trả thành công/i}));
+    await user.click(screen.getByRole("button", { name: "Lưu xác nhận hoàn tiền" }));
 
+    expect(await screen.findByText("Mã thanh toán không khớp với hóa đơn đang hoàn.")).toBeVisible();
+    expect(calls.mock.calls.some(([url]) => url.endsWith("/refund"))).toBe(false);
+    await user.clear(referenceInput);
+    await user.type(referenceInput, "HD30 TV4");
+    await user.click(screen.getByRole("button", { name: "Lưu xác nhận hoàn tiền" }));
     expect(await screen.findByText(/Hóa đơn đã được hoàn tiền/)).toBeVisible();
     expect(calls.mock.calls.some(([url]) => url.endsWith("/refund"))).toBe(true);
     await waitFor(() => expectMemberRefresh(client));

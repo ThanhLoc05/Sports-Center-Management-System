@@ -82,6 +82,7 @@ public class MembershipOrderController {
      * Xác nhận đã nhận đủ tiền mặt. Chuyển khoản QR chỉ được xác nhận qua webhook ngân hàng.
      * Chỉ lễ tân/quản lý gọi được; service cập nhật invoice và subscription cùng transaction.
      */
+    // [FLOW 3] ENDPOINT XÁC NHẬN THU TIỀN MẶT (chỉ RECEPTIONIST/CENTER_MANAGER) -> MembershipOrderService.confirm.
     @PostMapping("/membership-orders/{orderId}/confirm-payment")
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public MembershipOrderResponse confirm(
@@ -92,6 +93,7 @@ public class MembershipOrderController {
     }
 
     /** Hủy đơn lập sai khi chưa thu tiền; giữ lịch sử đơn và hóa đơn để tra cứu. */
+    // [FLOW 3] ENDPOINT HỦY ĐƠN CHỜ (chỉ RECEPTIONIST/CENTER_MANAGER) -> MembershipOrderService.cancel.
     @PostMapping("/membership-orders/{orderId}/cancel")
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public MembershipOrderResponse cancel(

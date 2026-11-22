@@ -130,8 +130,30 @@ export interface Invoice {
   paymentStatus: string;
   createdAt: string;
   paidAt?: string;
+  refundRequestedAt?: string;
+  refundRequestReason?: string;
+  refundRequestedAmount?: number;
+  refundRequestedPercent?: number;
   refundedAt?: string;
+  refundedAmount?: number;
+  refundMethod?: "CASH" | "BANK_TRANSFER";
+  refundReason?: string;
+  refundReference?: string;
+  refundedBy?: number;
   transferReportedAt?: string;
+}
+export interface RefundRequest {
+  reason: string;
+  method: "CASH";
+  reference: string;
+  expectedAmount: number;
+  returned: boolean;
+}
+export interface RefundQuote {
+  registeredOn: string;
+  lastRefundDate: string;
+  percent: number;
+  amount: number;
 }
 export type InvoiceInput = Omit<Invoice, "id" | "createdAt">;
 /**
