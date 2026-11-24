@@ -60,7 +60,8 @@ describe("Đăng ký Member xác minh qua OTP", () => {
       });
     setup();
     await fillForm();
-    expect(screen.getByLabelText("Đường dẫn")).toHaveTextContent("/verify-registration");
+      await screen.findByLabelText("Mã xác minh");
+      expect(screen.getByLabelText("Đường dẫn")).toHaveTextContent("/verify-registration");
     expect(beginRegistration).toHaveBeenCalledWith({
       email: "signup@example.com",
       phone: "0900000098",

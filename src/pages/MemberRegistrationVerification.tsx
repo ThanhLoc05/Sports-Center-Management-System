@@ -9,7 +9,15 @@ export default function MemberRegistrationVerification() {
   const navigate = useNavigate();
   const email = (params.get("email") || "").trim();
   const deadline = location.state?.expiresAtEpochMs;
-  const expiresAt = typeof deadline === "number" && Number.isFinite(deadline) ? deadline : null;
+  const storedDeadlineValue = email ? sessionStorage.getItem(`otp-deadline:${email}`) : null;
+  const storedDeadline =
+    storedDeadlineValue !== null && Number.isFinite(Number(storedDeadlineValue))
+      ? Number(storedDeadlineValue)
+      : null;
+  const expiresAt =
+    typeof deadline === "number" && Number.isFinite(deadline)
+      ? deadline
+      : storedDeadline;
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -17,6 +25,15 @@ export default function MemberRegistrationVerification() {
   const [expiredOnServer, setExpiredOnServer] = useState(false);
   const secondsLeft = expiresAt === null ? null : Math.max(0, Math.ceil((expiresAt - now) / 1000));
   const expired = expiredOnServer || secondsLeft === 0;
+
+  useEffect(() => {
+    if (expiresAt === null) return;
+    if (expiresAt > Date.now()) {
+      sessionStorage.setItem(`otp-deadline:${email}`, String(expiresAt));
+    } else {
+      sessionStorage.removeItem(`otp-deadline:${email}`);
+    }
+  }, [email, expiresAt]);
 
   useEffect(() => {
     if (expiresAt === null || expired) return;
@@ -37,11 +54,14 @@ export default function MemberRegistrationVerification() {
     try {
       if (configuredMode !== "api") throw new Error("Xác minh email cần kết nối backend.");
       await api.verifyMemberRegistration(email, code);
+      sessionStorage.removeItem(`otp-deadline:${email}`);
       navigate("/login", { replace: true, state: { registrationComplete: true } });
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 410) {
         setExpiredOnServer(true);
         setCode("");
+      } else if (cause instanceof ApiError && cause.status === 404) {
+        setError("Yêu cầu đăng ký không còn hiệu lực. Vui lòng quay lại đăng ký.");
       } else {
         setError(cause instanceof Error ? cause.message : "Không thể xác minh mã.");
       }
@@ -59,6 +79,7 @@ export default function MemberRegistrationVerification() {
       setCode("");
       setExpiredOnServer(false);
       setNow(Date.now());
+      sessionStorage.setItem(`otp-deadline:${email}`, String(delivery.expiresAtEpochMs));
       navigate(location.pathname + location.search, {
         replace: true,
         state: { expiresAtEpochMs: delivery.expiresAtEpochMs },
