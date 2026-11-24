@@ -46,6 +46,21 @@ public class MembershipOrder {
     @Column(name = "package_status_snapshot", nullable = false, length = 20)
     private String packageStatus;
 
+    @Column(name = "package_access_level_snapshot", length = 30)
+    private String packageAccessLevel;
+
+    @Column(name = "package_description_snapshot", length = 255)
+    private String packageDescription;
+
+    @Column(name = "sport_limit_snapshot")
+    private Integer packageSportLimit;
+
+    @Column(name = "max_concurrent_classes_snapshot")
+    private Integer packageMaxConcurrentClasses;
+
+    @Column(name = "course_discount_percent_snapshot")
+    private Integer packageCourseDiscountPercent;
+
     @Column(name = "payment_method", nullable = false, length = 30)
     private String paymentMethod;
 

@@ -46,15 +46,7 @@ public class MembershipServiceImpl implements MembershipService {
     @Transactional(readOnly = true)
     public List<MembershipPackageResponse> getAllPackages() {
         return packageRepository.findAll().stream()
-                .map(pkg -> MembershipPackageResponse.builder()
-                        .id(pkg.getId())
-                        .packageName(pkg.getPackageName())
-                        .durationDays(pkg.getDurationDays())
-                        .price(pkg.getPrice())
-                        .accessLevel(pkg.getAccessLevel())
-                        .description(pkg.getDescription())
-                        .status(pkg.getStatus())
-                        .build())
+                .map(this::mapPackage)
                 .collect(Collectors.toList());
     }
 
@@ -64,6 +56,7 @@ public class MembershipServiceImpl implements MembershipService {
             throw new IllegalArgumentException("Tên gói tập và giá tiền là bắt buộc");
         }
         String accessLevel = normalizeAccessLevel(request.getAccessLevel());
+        validateBenefits(request);
         MembershipPackage pkg = MembershipPackage.builder()
                 .packageName(request.getPackageName())
                 .durationDays(request.getDurationDays() != null ? request.getDurationDays() : 30)
@@ -72,16 +65,13 @@ public class MembershipServiceImpl implements MembershipService {
                 .description(request.getDescription())
                 .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
                 .build();
+        applyDefaultBenefits(pkg);
+        applyBenefits(pkg, request);
+        if (pkg.getDescription() == null || pkg.getDescription().isBlank()) {
+            pkg.setDescription(defaultDescription(accessLevel));
+        }
         MembershipPackage saved = packageRepository.save(pkg);
-        return MembershipPackageResponse.builder()
-                .id(saved.getId())
-                .packageName(saved.getPackageName())
-                .durationDays(saved.getDurationDays())
-                .price(saved.getPrice())
-                .accessLevel(saved.getAccessLevel())
-                .description(saved.getDescription())
-                .status(saved.getStatus())
-                .build();
+        return mapPackage(saved);
     }
 
     @Override
@@ -89,6 +79,7 @@ public class MembershipServiceImpl implements MembershipService {
         if (request == null) {
             throw new IllegalArgumentException("Thông tin gói tập không được để trống");
         }
+        validateBenefits(request);
         MembershipPackage pkg = packageRepository.findById(packageId)
                 .orElseThrow(() -> new IllegalArgumentException("Gói thành viên không tồn tại"));
 
@@ -102,8 +93,13 @@ public class MembershipServiceImpl implements MembershipService {
             pkg.setPrice(request.getPrice());
         }
         if (request.getAccessLevel() != null) {
-            pkg.setAccessLevel(normalizeAccessLevel(request.getAccessLevel()));
+            String level = normalizeAccessLevel(request.getAccessLevel());
+            if (!level.equals(pkg.getAccessLevel())) {
+                pkg.setAccessLevel(level);
+                applyDefaultBenefits(pkg);
+            }
         }
+        applyBenefits(pkg, request);
         if (request.getDescription() != null) {
             pkg.setDescription(request.getDescription());
         }
@@ -112,15 +108,55 @@ public class MembershipServiceImpl implements MembershipService {
         }
 
         MembershipPackage updated = packageRepository.save(pkg);
+        return mapPackage(updated);
+    }
+
+    private MembershipPackageResponse mapPackage(MembershipPackage pkg) {
         return MembershipPackageResponse.builder()
-                .id(updated.getId())
-                .packageName(updated.getPackageName())
-                .durationDays(updated.getDurationDays())
-                .price(updated.getPrice())
-                .accessLevel(updated.getAccessLevel())
-                .description(updated.getDescription())
-                .status(updated.getStatus())
-                .build();
+                .id(pkg.getId()).packageName(pkg.getPackageName())
+                .durationDays(pkg.getDurationDays()).price(pkg.getPrice())
+                .accessLevel(pkg.getAccessLevel()).sportLimit(pkg.getSportLimit())
+                .maxConcurrentClasses(pkg.getMaxConcurrentClasses())
+                .courseDiscountPercent(pkg.getCourseDiscountPercent())
+                .description(pkg.getDescription()).status(pkg.getStatus()).build();
+    }
+
+    private void applyDefaultBenefits(MembershipPackage pkg) {
+        boolean vip = "VIP".equals(pkg.getAccessLevel());
+        pkg.setSportLimit(vip ? null : 1);
+        pkg.setMaxConcurrentClasses(vip ? 2 : 1);
+        pkg.setCourseDiscountPercent(vip ? 10 : 0);
+    }
+
+    private void applyBenefits(MembershipPackage pkg, MembershipPackageRequest request) {
+        if (Boolean.TRUE.equals(request.getAllSports())) {
+            pkg.setSportLimit(null);
+        } else if (request.getSportLimit() != null) {
+            pkg.setSportLimit(request.getSportLimit());
+        } else if (Boolean.FALSE.equals(request.getAllSports()) && pkg.getSportLimit() == null) {
+            pkg.setSportLimit(1);
+        }
+        if (request.getMaxConcurrentClasses() != null) {
+            pkg.setMaxConcurrentClasses(request.getMaxConcurrentClasses());
+        }
+        if (request.getCourseDiscountPercent() != null) {
+            pkg.setCourseDiscountPercent(request.getCourseDiscountPercent());
+        }
+    }
+
+    private void validateBenefits(MembershipPackageRequest request) {
+        if ((request.getSportLimit() != null && request.getSportLimit() < 1)
+                || (request.getMaxConcurrentClasses() != null && request.getMaxConcurrentClasses() < 1)
+                || (request.getCourseDiscountPercent() != null
+                    && (request.getCourseDiscountPercent() < 0 || request.getCourseDiscountPercent() > 100))) {
+            throw new IllegalArgumentException("Số bộ môn, số lớp và ưu đãi khóa học không hợp lệ");
+        }
+    }
+
+    private String defaultDescription(String accessLevel) {
+        return "VIP".equals(accessLevel)
+                ? "Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm."
+                : "Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.";
     }
 
     @Override

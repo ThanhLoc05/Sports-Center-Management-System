@@ -5,6 +5,9 @@ import { api } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { money } from "../lib/utils";
 import type { PackageInput } from "../lib/operations-api";
+import { packageBenefitInput } from "../lib/package-benefits";
+import { MembershipBenefits } from "./MembershipBenefits";
+import { PackageBenefitFields } from "./PackageBenefitFields";
 import {
   Button,
   Badge,
@@ -39,7 +42,7 @@ export default function ApiPackages() {
     <>
       <PageHeader
         title="Danh mục gói tập"
-        description="Học phí, thời hạn và cấp truy cập STANDARD/VIP."
+        description="Học phí, thời hạn, số bộ môn, số lớp được đăng ký và ưu đãi của từng gói."
         actions={<Button onClick={() => setCreate(true)}>Thêm gói tập</Button>}
       />
       <Panel>
@@ -71,6 +74,15 @@ export default function ApiPackages() {
                 key: "level",
                 label: "Cấp gói",
                 render: (p) => p.accessLevel || "Chưa xác định",
+              },
+              {
+                key: "benefits",
+                label: "Quyền lợi",
+                render: (p) => (
+                  <div className="package-catalog-benefits">
+                    <MembershipBenefits value={p} />
+                  </div>
+                ),
               },
               {
                 key: "status",
@@ -136,7 +148,10 @@ export default function ApiPackages() {
               packageName: String(d.get("packageName")),
               price: Number(d.get("price")),
               durationDays: Number(d.get("durationDays")),
-              accessLevel: String(d.get("accessLevel")) as PackageInput["accessLevel"],
+              accessLevel: String(
+                d.get("accessLevel"),
+              ) as PackageInput["accessLevel"],
+              ...packageBenefitInput(d),
               description: String(d.get("description")),
               status: String(d.get("status")) as PackageInput["status"],
             });
@@ -151,23 +166,34 @@ export default function ApiPackages() {
           }}
         >
           <Field label="Tên gói">
-            <input name="packageName" required maxLength={150} defaultValue={edit.packageName} />
+            <input
+              name="packageName"
+              required
+              maxLength={150}
+              defaultValue={edit.packageName}
+            />
           </Field>
           <Field label="Học phí (VND)">
-            <input name="price" type="number" min={1} step={1} required defaultValue={edit.price} />
+            <input
+              name="price"
+              type="number"
+              min={1}
+              step={1}
+              required
+              defaultValue={edit.price}
+            />
           </Field>
           <Field label="Thời hạn (ngày)">
-            <input name="durationDays" type="number" min={1} step={1} required defaultValue={edit.durationDays} />
+            <input
+              name="durationDays"
+              type="number"
+              min={1}
+              step={1}
+              required
+              defaultValue={edit.durationDays}
+            />
           </Field>
-          <Field label="Cấp gói">
-            <select name="accessLevel" required defaultValue={edit.accessLevel || "STANDARD"}>
-              <option value="STANDARD">STANDARD</option>
-              <option value="VIP">VIP</option>
-            </select>
-          </Field>
-          <Field label="Mô tả">
-            <textarea name="description" maxLength={255} defaultValue={edit.description || ""} />
-          </Field>
+          <PackageBenefitFields initial={edit} />
           <Field label="Trạng thái bán">
             <select name="status" required defaultValue={edit.status}>
               <option value="ACTIVE">Đang bán</option>
@@ -188,6 +214,7 @@ export default function ApiPackages() {
               accessLevel: String(
                 d.get("accessLevel"),
               ) as PackageInput["accessLevel"],
+              ...packageBenefitInput(d),
               description: String(d.get("description")).trim(),
               status: String(d.get("status")) as PackageInput["status"],
             });
@@ -197,6 +224,7 @@ export default function ApiPackages() {
             await client.invalidateQueries({
               queryKey: ["membership-packages"],
             });
+            setCreate(false);
             toast("Đã tạo gói tập.");
           }}
         >
@@ -215,15 +243,7 @@ export default function ApiPackages() {
               required
             />
           </Field>
-          <Field label="Cấp gói">
-            <select name="accessLevel">
-              <option>STANDARD</option>
-              <option>VIP</option>
-            </select>
-          </Field>
-          <Field label="Mô tả">
-            <textarea name="description" maxLength={255} />
-          </Field>
+          <PackageBenefitFields />
           <Field label="Trạng thái">
             <select name="status">
               <option value="ACTIVE">Đang bán</option>

@@ -77,6 +77,10 @@ export interface PackageInput {
   durationDays: number;
   price: number;
   accessLevel: "STANDARD" | "VIP";
+  allSports?: boolean;
+  sportLimit?: number | null;
+  maxConcurrentClasses?: number;
+  courseDiscountPercent?: number;
   description: string;
   status: "ACTIVE" | "INACTIVE";
 }
@@ -100,13 +104,23 @@ function list<T>(v: T[]): T[] {
 }
 const send = <T>(path: string, method: string, body: unknown) =>
   request<T>(path, { method, body: JSON.stringify(body) });
-function profileResponse(value: MemberProfile, memberId: number): MemberProfile {
-  if (!value || value.memberId !== memberId ||
-      [value.dob, value.gender, value.address, value.fitnessGoals]
-        .some((field) => field !== null && typeof field !== "string") ||
-      [value.fullName, value.email, value.phone]
-        .some((field) => field != null && typeof field !== "string"))
-    throw new ApiError("Dữ liệu hồ sơ không hợp lệ hoặc không thuộc thành viên đang xem.");
+function profileResponse(
+  value: MemberProfile,
+  memberId: number,
+): MemberProfile {
+  if (
+    !value ||
+    value.memberId !== memberId ||
+    [value.dob, value.gender, value.address, value.fitnessGoals].some(
+      (field) => field !== null && typeof field !== "string",
+    ) ||
+    [value.fullName, value.email, value.phone].some(
+      (field) => field != null && typeof field !== "string",
+    )
+  )
+    throw new ApiError(
+      "Dữ liệu hồ sơ không hợp lệ hoặc không thuộc thành viên đang xem.",
+    );
   return value;
 }
 export const operations = {
@@ -290,6 +304,15 @@ function validatePackage(input: PackageInput) {
     input.price < 1 ||
     input.description.length > 255 ||
     !["STANDARD", "VIP"].includes(input.accessLevel) ||
+    (input.sportLimit != null &&
+      (!Number.isSafeInteger(input.sportLimit) || input.sportLimit < 1)) ||
+    (input.maxConcurrentClasses !== undefined &&
+      (!Number.isSafeInteger(input.maxConcurrentClasses) ||
+        input.maxConcurrentClasses < 1)) ||
+    (input.courseDiscountPercent !== undefined &&
+      (!Number.isSafeInteger(input.courseDiscountPercent) ||
+        input.courseDiscountPercent < 0 ||
+        input.courseDiscountPercent > 100)) ||
     !["ACTIVE", "INACTIVE"].includes(input.status)
   )
     throw new ApiError(

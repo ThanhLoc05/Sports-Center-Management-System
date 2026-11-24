@@ -23,6 +23,7 @@ import { usePaymentMember } from "../lib/use-payment-member";
 import { MemberRefundAction } from "./RefundRequests";
 import { RefundForm, RefundReceipt } from "./RefundForm";
 import { PaymentQr } from "./PaymentQr";
+import { MembershipBenefits } from "./MembershipBenefits";
 import {
   Badge,
   Button,
@@ -220,7 +221,7 @@ export function MembershipCheckoutPage() {
       )}
       <Panel
         title="Chọn gói tập"
-        description="Giá và thời hạn lấy từ danh mục do trung tâm cung cấp."
+        description="So sánh bộ môn, số lớp được đăng ký, ưu đãi và thời hạn trước khi chọn gói."
       >
         {packages.isPending ? (
           <Loading />
@@ -230,12 +231,16 @@ export function MembershipCheckoutPage() {
           <div className="pricing-grid">
             {packages.data.map((pkg) => (
               <article className="pricing-card" key={pkg.id}>
-                <h3>{pkg.name}</h3>
+                <div className="membership-package-heading">
+                  <h3>{pkg.name}</h3>
+                  {pkg.accessLevel && <span>{pkg.accessLevel}</span>}
+                </div>
                 <p>{pkg.description}</p>
                 <div className="pricing-price">
                   <strong>{money(pkg.price)}</strong>
                   <span>/ {pkg.durationDays} ngày</span>
                 </div>
+                <MembershipBenefits value={pkg} />
                 {pkg.demoPayment && (
                   <Notice>
                     Demo chuyển khoản: thực trả {money(pkg.payableAmount!)}. Giá
@@ -491,6 +496,8 @@ export function MembershipOrderForm({
                 </div>
               )}
             </dl>
+            <MembershipBenefits value={selected} />
+            {selected.description && <p>{selected.description}</p>}
             <div className="membership-checkout-total">
               <span>Tổng tiền thanh toán</span>
               <strong>
@@ -861,6 +868,8 @@ export function MembershipOrderDetail({
                     : "Đăng ký gói mới"}{" "}
                   · {order.package.durationDays} ngày
                 </p>
+                <MembershipBenefits value={order.package} />
+                {order.package.description && <p>{order.package.description}</p>}
                 {order.package.demoPayment && (
                   <Notice>
                     ĐƠN DEMO CHUYỂN KHOẢN · Giá niêm yết:{" "}

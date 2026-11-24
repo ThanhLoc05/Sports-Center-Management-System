@@ -21,6 +21,12 @@ public class MembershipPackageResponse {
 
     private String accessLevel;
 
+    private Integer sportLimit;
+
+    private Integer maxConcurrentClasses;
+
+    private Integer courseDiscountPercent;
+
     private String description;
 
     private String status;

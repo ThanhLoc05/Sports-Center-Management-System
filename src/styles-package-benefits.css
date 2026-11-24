@@ -1,0 +1,46 @@
+.membership-benefits {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+.membership-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.membership-benefits li svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--primary, #c4a66a);
+}
+.package-benefit-preview {
+  padding: 16px;
+  border: 1px solid var(--border, #dedbd3);
+  border-radius: 12px;
+  background: var(--surface, #faf9f6);
+}
+.package-benefit-preview > p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.package-catalog-benefits {
+  min-width: 240px;
+}
+.membership-package-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.membership-package-heading > span {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface, #f4f1e8);
+  font-size: 0.75rem;
+  font-weight: 700;
+}

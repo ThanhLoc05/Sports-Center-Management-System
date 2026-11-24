@@ -106,6 +106,65 @@ class MembershipOrderServiceTest {
     }
 
     @Test
+    void checkoutCopiesSavedPackageBenefitsIntoTheOrder() {
+        var pkg = com.sportscenter.management.entity.MembershipPackage.builder()
+                .id(1).packageName("VIP 30 ngày").accessLevel("VIP").durationDays(30)
+                .price(new BigDecimal("800000")).status("ACTIVE").sportLimit(null)
+                .maxConcurrentClasses(2).courseDiscountPercent(10)
+                .description("Khăn tập và nước uống miễn phí").build();
+        var member = User.builder().id(4).role(com.sportscenter.management.entity.Role.builder()
+                .roleName("MEMBER").build()).build();
+        when(users.findById(4)).thenReturn(Optional.of(member));
+        when(packages.findById(1)).thenReturn(Optional.of(pkg));
+        when(orders.saveAndFlush(any())).thenAnswer(call -> {
+            MembershipOrder order = call.getArgument(0);
+            order.setId(20);
+            savedOrders.put(20, order);
+            return order;
+        });
+        when(invoices.saveAndFlush(any())).thenAnswer(call -> {
+            Invoice invoice = call.getArgument(0);
+            invoice.setId(120);
+            savedInvoices.put(20, invoice);
+            return invoice;
+        });
+        var request = new com.sportscenter.management.dto.Request.MembershipOrderRequest();
+        request.setMemberId(4);
+        request.setPackageId(1);
+        request.setPaymentMethod("CASH");
+        var response = service.create(request, "package-benefits-create").getPackageInfo();
+        assertEquals("VIP", response.getAccessLevel());
+        assertNull(response.getSportLimit());
+        assertEquals(2, response.getMaxConcurrentClasses());
+        assertEquals(10, response.getCourseDiscountPercent());
+        assertEquals(pkg.getDescription(), savedOrders.get(20).getPackageDescription());
+        assertEquals(10, savedOrders.get(20).getPackageCourseDiscountPercent());
+    }
+
+    @Test
+    void confirmedOrderKeepsPurchasedBenefitsAfterCatalogChanges() {
+        pendingOrder(20);
+        var order = savedOrders.get(20);
+        order.setPackageAccessLevel("VIP");
+        order.setPackageDescription("Khăn tập và nước uống miễn phí");
+        order.setPackageSportLimit(null);
+        order.setPackageMaxConcurrentClasses(2);
+        order.setPackageCourseDiscountPercent(10);
+        var changed = com.sportscenter.management.entity.MembershipPackage.builder()
+                .id(1).accessLevel("STANDARD").sportLimit(1).maxConcurrentClasses(1)
+                .courseDiscountPercent(0).description("Danh mục mới").build();
+        when(packages.findById(1)).thenReturn(Optional.of(changed));
+        ConfirmMembershipOrderRequest request = new ConfirmMembershipOrderRequest();
+        request.setVersion(0);
+        var response = service.confirm(20, request, "benefits-confirm").getPackageInfo();
+        assertEquals("VIP", response.getAccessLevel());
+        assertNull(response.getSportLimit());
+        assertEquals(2, response.getMaxConcurrentClasses());
+        assertEquals(10, response.getCourseDiscountPercent());
+        assertEquals("Khăn tập và nước uống miễn phí", response.getDescription());
+    }
+
+    @Test
     void renewalStartsAtConfirmationAndIncludesUnusedSourceDays() {
         pendingOrder(20);
         assertEquals(1, periods.size());

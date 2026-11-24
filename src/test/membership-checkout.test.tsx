@@ -150,6 +150,21 @@ function wrap(element: React.ReactNode, role: Role = "MEMBER") {
   );
 }
 describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không phải backend thật", () => {
+  it("shows backend benefits and VIP amenities before checkout without changing the order payload", async () => {
+    const vip = { ...pkg, name: "VIP từ API", accessLevel: "VIP", sportLimit: null,
+      maxConcurrentClasses: 3, courseDiscountPercent: 15,
+      description: "Khăn tập và nước uống miễn phí khi tập tại trung tâm." };
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/membership-packages") ? json([vip]) : json([subscription])));
+    wrap(<MembershipCheckoutPage />);
+    expect(await screen.findByText("Tất cả bộ môn trung tâm cung cấp")).toBeVisible();
+    expect(screen.getByText("Đăng ký tối đa 3 lớp cùng lúc, không trùng lịch")).toBeVisible();
+    expect(screen.getByText("Giảm 15% học phí khóa học áp dụng")).toBeVisible();
+    expect(screen.getByText(vip.description)).toBeVisible();
+    expect(screen.queryByText("Giảm 10% học phí khóa học áp dụng")).not.toBeInTheDocument();
+    expect(screen.queryByText(/nhóm nhỏ|8 người|16 người/)).not.toBeInTheDocument();
+  });
+
   it("creates a pending cash order with idempotency then navigates, never calls old renew/pay", async () => {
     const calls = vi.fn(async (url: string, init?: RequestInit) =>
       url.endsWith("/membership-packages")

@@ -31,6 +31,16 @@ public class MembershipPackage {
     @Column(name = "access_level", nullable = false)
     private String accessLevel;
 
+    /** Null means all sports; a positive value limits the sports chosen in a membership period. */
+    @Column(name = "sport_limit")
+    private Integer sportLimit;
+
+    @Column(name = "max_concurrent_classes", nullable = false)
+    private Integer maxConcurrentClasses;
+
+    @Column(name = "course_discount_percent", nullable = false)
+    private Integer courseDiscountPercent;
+
     @Column(name = "description")
     private String description;
 

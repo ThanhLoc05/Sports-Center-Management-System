@@ -139,6 +139,11 @@ public class MembershipOrderService {
                 .packagePrice(pkg.getPrice())
                 .packageDurationDays(pkg.getDurationDays())
                 .packageStatus(pkg.getStatus())
+                .packageAccessLevel(pkg.getAccessLevel())
+                .packageDescription(pkg.getDescription())
+                .packageSportLimit(pkg.getSportLimit())
+                .packageMaxConcurrentClasses(pkg.getMaxConcurrentClasses())
+                .packageCourseDiscountPercent(pkg.getCourseDiscountPercent())
                 .paymentMethod(request.getPaymentMethod())
                 .status("PENDING_PAYMENT")
                 .idempotencyKey(idempotencyKey)
@@ -386,7 +391,11 @@ public class MembershipOrderService {
                         .payableAmount(payable(order)).demoPayment(order.isDemoPayment())
                         .durationDays(order.getPackageDurationDays())
                         .status(order.getPackageStatus())
-                        .description(packageRepository.findById(order.getPackageId()).map(MembershipPackage::getDescription).orElse(null))
+                        .accessLevel(order.getPackageAccessLevel())
+                        .sportLimit(order.getPackageSportLimit())
+                        .maxConcurrentClasses(order.getPackageMaxConcurrentClasses())
+                        .courseDiscountPercent(order.getPackageCourseDiscountPercent())
+                        .description(order.getPackageDescription())
                         .build())
                 .invoice(invoice == null ? null : toInvoiceResponse(invoice))
                 .paymentReference(invoice == null ? null : invoice.paymentReference())
@@ -401,6 +410,8 @@ public class MembershipOrderService {
         return MembershipOfferResponse.builder().id(pkg.getId()).name(pkg.getPackageName())
                 .payableAmount(paymentProperties.qrAmount(pkg.getId(), pkg.getPrice())).demoPayment(paymentProperties.demoFor(pkg.getId()))
                 .price(pkg.getPrice()).durationDays(pkg.getDurationDays()).status(pkg.getStatus())
+                .accessLevel(pkg.getAccessLevel()).sportLimit(pkg.getSportLimit())
+                .maxConcurrentClasses(pkg.getMaxConcurrentClasses()).courseDiscountPercent(pkg.getCourseDiscountPercent())
                 .description(pkg.getDescription()).build();
     }
 

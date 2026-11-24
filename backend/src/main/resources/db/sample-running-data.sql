@@ -56,17 +56,17 @@ IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Hồ bơi')
     INSERT INTO dbo.rooms (room_name, capacity) VALUES (N'Hồ bơi', 12);
 
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 1 tháng')
-    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói STANDARD 1 tháng', 30, 500, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 30 ngày.', N'ACTIVE');
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
+    VALUES (N'Gói STANDARD 1 tháng', 30, 500, N'STANDARD', 1, 1, 0, N'Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 3 tháng')
-    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói STANDARD 3 tháng', 90, 1350, N'STANDARD', N'Tập các lớp tiêu chuẩn trong 90 ngày.', N'ACTIVE');
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
+    VALUES (N'Gói STANDARD 3 tháng', 90, 1350, N'STANDARD', 1, 1, 0, N'Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 1 tháng')
-    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói VIP 1 tháng', 30, 800, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 30 ngày.', N'ACTIVE');
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
+    VALUES (N'Gói VIP 1 tháng', 30, 800, N'VIP', NULL, 2, 10, N'Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
-    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, description, status)
-    VALUES (N'Gói VIP 3 tháng', 90, 2100, N'VIP', N'Tập lớp tiêu chuẩn và lớp đặc biệt VIP trong 90 ngày.', N'ACTIVE');
+    INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
+    VALUES (N'Gói VIP 3 tháng', 90, 2100, N'VIP', NULL, 2, 10, N'Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm.', N'ACTIVE');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'VNPAY')
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'VNPAY', N'VNPay', 0);
@@ -256,13 +256,16 @@ DECLARE @CreatedOrders TABLE (member_id INT PRIMARY KEY, order_id INT NOT NULL);
 INSERT INTO dbo.membership_orders (
     member_id, package_id, order_kind, source_subscription_id, source_package_id,
     package_name_snapshot, package_price_snapshot, package_duration_days_snapshot,
+    package_access_level_snapshot, package_description_snapshot, sport_limit_snapshot,
+    max_concurrent_classes_snapshot, course_discount_percent_snapshot,
     package_status_snapshot, payment_method, status, idempotency_key, request_fingerprint,
     created_by, confirmed_by, bank_transaction_id, confirmation_key, confirmation_fingerprint,
     version, created_at, confirmed_at
 )
 OUTPUT inserted.member_id, inserted.membership_order_id INTO @CreatedOrders (member_id, order_id)
 SELECT a.user_id, pkg.package_id, N'NEW', NULL, NULL,
-       pkg.package_name, pkg.price, pkg.duration_days, pkg.status, seed_plan.payment_method,
+       pkg.package_name, pkg.price, pkg.duration_days, pkg.access_level, pkg.description,
+       pkg.sport_limit, pkg.max_concurrent_classes, pkg.course_discount_percent, pkg.status, seed_plan.payment_method,
        N'CONFIRMED', seed_plan.seed_key, REPLICATE(N'A', 64), a.user_id, receptionist.user_id,
        CASE WHEN seed_plan.payment_method = N'BANK_TRANSFER' THEN CONCAT(N'DEMO-BANK-', a.user_id) END,
        CONCAT(N'SEED-CONFIRM-', a.user_id), REPLICATE(N'B', 64), 1,
@@ -297,12 +300,15 @@ DECLARE @CreatedPendingOrders TABLE (member_id INT PRIMARY KEY, order_id INT NOT
 INSERT INTO dbo.membership_orders (
     member_id, package_id, order_kind, source_subscription_id, source_package_id,
     package_name_snapshot, package_price_snapshot, package_duration_days_snapshot,
+    package_access_level_snapshot, package_description_snapshot, sport_limit_snapshot,
+    max_concurrent_classes_snapshot, course_discount_percent_snapshot,
     package_status_snapshot, payment_method, status, idempotency_key, request_fingerprint,
     created_by, version, created_at
 )
 OUTPUT inserted.member_id, inserted.membership_order_id INTO @CreatedPendingOrders (member_id, order_id)
 SELECT a.user_id, pkg.package_id, N'NEW', NULL, NULL, pkg.package_name, pkg.price,
-       pkg.duration_days, pkg.status, seed_plan.payment_method, N'PENDING_PAYMENT', seed_plan.seed_key,
+       pkg.duration_days, pkg.access_level, pkg.description, pkg.sport_limit,
+       pkg.max_concurrent_classes, pkg.course_discount_percent, pkg.status, seed_plan.payment_method, N'PENDING_PAYMENT', seed_plan.seed_key,
        REPLICATE(N'C', 64), a.user_id, 0, DATEADD(MINUTE, -20, SYSDATETIME())
 FROM @PendingPlans AS seed_plan
 JOIN @Accounts AS a ON a.email = seed_plan.email

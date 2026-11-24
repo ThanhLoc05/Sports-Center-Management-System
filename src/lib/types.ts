@@ -104,8 +104,16 @@ export interface Subscription {
   endDate: string;
   status: string;
 }
+/** Quyền lợi được lưu ở backend; thiếu trường nghĩa là API chưa cung cấp. */
+export interface MembershipBenefits {
+  accessLevel?: string | null;
+  /** null: tất cả bộ môn; số dương: số môn được chọn trong kỳ gói. */
+  sportLimit?: number | null;
+  maxConcurrentClasses?: number | null;
+  courseDiscountPercent?: number | null;
+}
 /** Danh mục gói từ /memberships/packages, khác dữ liệu Package của demo. */
-export interface MembershipPackage {
+export interface MembershipPackage extends MembershipBenefits {
   id: number;
   packageName: string;
   durationDays: number;

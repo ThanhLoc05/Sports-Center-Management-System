@@ -17,6 +17,9 @@ const catalog: MembershipPackage[] = [
     price: 570000,
     durationDays: 31,
     accessLevel: "STANDARD",
+    sportLimit: 1,
+    maxConcurrentClasses: 1,
+    courseDiscountPercent: 0,
     description: "Quyền học lớp tiêu chuẩn.",
     status: "ACTIVE",
   },
@@ -26,6 +29,9 @@ const catalog: MembershipPackage[] = [
     price: 1700000,
     durationDays: 92,
     accessLevel: "VIP",
+    sportLimit: null,
+    maxConcurrentClasses: 2,
+    courseDiscountPercent: 10,
     description: "Quyền học lớp STANDARD và VIP.",
     status: "INACTIVE",
   },
@@ -232,9 +238,59 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     client.clear();
   });
 
+  it("shows saved benefits and lets the manager create VIP with the agreed defaults", async () => {
+    vi.mocked(fetch).mockImplementation(async (_url, init) =>
+      json(init?.method === "POST" ? { id: 88, ...JSON.parse(String(init.body)) } : catalog),
+    );
+    const client = page();
+    const standardName = await screen.findByText(catalog[0].packageName);
+    const standard = within(standardName.closest("tr")!);
+    expect(standard.getByText("Chọn 1 bộ môn trong kỳ gói")).toBeVisible();
+    const vip = within(screen.getByText(catalog[1].packageName).closest("tr")!);
+    expect(vip.getByText("Tất cả bộ môn trung tâm cung cấp")).toBeVisible();
+    expect(vip.getByText("Giảm 10% học phí khóa học áp dụng")).toBeVisible();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Thêm gói tập" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Thêm gói tập" }));
+    await user.selectOptions(dialog.getByLabelText("Cấp gói"), "VIP");
+    expect(dialog.getByLabelText("Phạm vi bộ môn")).toHaveValue("ALL");
+    expect(dialog.getByLabelText("Số lớp đang đăng ký tối đa")).toHaveValue(2);
+    expect(dialog.getByLabelText("Ưu đãi học phí khóa học (%)")).toHaveValue(
+      10,
+    );
+    expect((dialog.getByLabelText("Mô tả") as HTMLTextAreaElement).value).toContain(
+      "Khăn tập và nước uống miễn phí",
+    );
+    expect(
+      dialog.queryByText(/nhóm nhỏ|16 người|8 người/),
+    ).not.toBeInTheDocument();
+    await user.type(dialog.getByLabelText("Tên gói"), "VIP 90 ngày");
+    await user.type(dialog.getByLabelText("Học phí (VND)"), "2100000");
+    await user.type(dialog.getByLabelText("Thời hạn (ngày)"), "90");
+    await user.click(dialog.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(await screen.findByText("Đã tạo gói tập.")).toBeVisible();
+    const post = vi
+      .mocked(fetch)
+      .mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(JSON.parse(String(post[1]?.body))).toMatchObject({
+      accessLevel: "VIP",
+      allSports: true,
+      sportLimit: null,
+      maxConcurrentClasses: 2,
+      courseDiscountPercent: 10,
+      durationDays: 90,
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    client.clear();
+  });
+
   it("updates a package through the backend PUT endpoint and refreshes the catalog", async () => {
     vi.mocked(fetch).mockImplementation(async (url, init) => {
-      if (String(url) === "/api/v1/memberships/packages/87" && init?.method === "PUT") {
+      if (
+        String(url) === "/api/v1/memberships/packages/87" &&
+        init?.method === "PUT"
+      ) {
         return json({
           ...catalog[0],
           ...JSON.parse(String(init.body)),
@@ -246,7 +302,9 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
     const row = within(screen.getByText(catalog[0].packageName).closest("tr")!);
     await userEvent.click(row.getByRole("button", { name: "Chỉnh sửa gói" }));
-    const dialog = within(screen.getByRole("dialog", { name: "Chỉnh sửa gói tập" }));
+    const dialog = within(
+      screen.getByRole("dialog", { name: "Chỉnh sửa gói tập" }),
+    );
     await userEvent.clear(dialog.getByLabelText("Tên gói"));
     await userEvent.type(dialog.getByLabelText("Tên gói"), "Gói đã cập nhật");
     await userEvent.clear(dialog.getByLabelText("Học phí (VND)"));
@@ -254,21 +312,30 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     await userEvent.click(dialog.getByRole("button", { name: "Lưu thay đổi" }));
 
     expect(await screen.findByText("Đã cập nhật gói tập.")).toBeVisible();
-    const [url, init] = vi.mocked(fetch).mock.calls.find(([, call]) => call?.method === "PUT")!;
+    const [url, init] = vi
+      .mocked(fetch)
+      .mock.calls.find(([, call]) => call?.method === "PUT")!;
     expect(url).toBe("/api/v1/memberships/packages/87");
     expect(JSON.parse(String(init?.body))).toEqual({
       packageName: "Gói đã cập nhật",
       price: 680000,
       durationDays: 31,
       accessLevel: "STANDARD",
+      allSports: false,
+      sportLimit: 1,
+      maxConcurrentClasses: 1,
+      courseDiscountPercent: 0,
       description: "Quyền học lớp tiêu chuẩn.",
       status: "ACTIVE",
     });
     expect(
-      vi.mocked(fetch).mock.calls.some(([requestUrl, requestInit]) =>
-        requestUrl === "/api/v1/memberships/packages" &&
-        (!requestInit?.method || requestInit.method === "GET"),
-      ),
+      vi
+        .mocked(fetch)
+        .mock.calls.some(
+          ([requestUrl, requestInit]) =>
+            requestUrl === "/api/v1/memberships/packages" &&
+            (!requestInit?.method || requestInit.method === "GET"),
+        ),
     ).toBe(true);
     client.clear();
   });
@@ -276,7 +343,10 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
   it("deletes an unused package only after confirmation and refreshes the catalog", async () => {
     let remaining = [...catalog];
     vi.mocked(fetch).mockImplementation(async (url, init) => {
-      if (String(url) === "/api/v1/memberships/packages/87" && init?.method === "DELETE") {
+      if (
+        String(url) === "/api/v1/memberships/packages/87" &&
+        init?.method === "DELETE"
+      ) {
         remaining = remaining.filter((pkg) => pkg.id !== 87);
         return new Response(null, { status: 204 });
       }
@@ -285,9 +355,13 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     const client = page();
     expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
     const row = within(screen.getByText(catalog[0].packageName).closest("tr")!);
-    await userEvent.click(row.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }));
+    await userEvent.click(
+      row.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }),
+    );
     const dialog = within(screen.getByRole("dialog", { name: "Xóa gói tập?" }));
-    expect(dialog.getByText(/chưa có đơn hàng hoặc kỳ đăng ký liên quan/)).toBeVisible();
+    expect(
+      dialog.getByText(/chưa có đơn hàng hoặc kỳ đăng ký liên quan/),
+    ).toBeVisible();
     await userEvent.click(dialog.getByRole("button", { name: "Xác nhận" }));
     expect(await screen.findByText("Đã xóa gói tập.")).toBeVisible();
     expect(screen.queryByText(catalog[0].packageName)).not.toBeInTheDocument();
@@ -307,9 +381,17 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     page();
     expect(await screen.findByText(catalog[0].packageName)).toBeVisible();
     const row = within(screen.getByText(catalog[0].packageName).closest("tr")!);
-    await userEvent.click(row.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }));
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xác nhận" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Gói đã có kỳ đăng ký liên quan");
+    await userEvent.click(
+      row.getByRole("button", { name: `Xóa gói ${catalog[0].packageName}` }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Xác nhận",
+      }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Gói đã có kỳ đăng ký liên quan",
+    );
     expect(screen.getByText(catalog[0].packageName)).toBeVisible();
     expect(screen.queryByText("Đã xóa gói tập.")).not.toBeInTheDocument();
   });

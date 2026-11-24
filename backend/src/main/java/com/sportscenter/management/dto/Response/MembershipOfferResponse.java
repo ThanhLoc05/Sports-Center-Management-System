@@ -16,6 +16,10 @@ public class MembershipOfferResponse {
     private BigDecimal payableAmount;
     private boolean demoPayment;
     private Integer durationDays;
+    private String accessLevel;
+    private Integer sportLimit;
+    private Integer maxConcurrentClasses;
+    private Integer courseDiscountPercent;
     private String status;
     private String description;
 }
