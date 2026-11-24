@@ -25,6 +25,8 @@ const Members = lazy(() => import("./pages/Members"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Bookings = lazy(() => import("./pages/Bookings"));
+const TrainingPrograms = lazy(() => import("./pages/TrainingPrograms"));
+const ClassRegistrations = lazy(() => import("./pages/ClassRegistrations"));
 // Ba màn chính để theo Flow 3: Memberships mở checkout, Payments theo dõi hóa đơn, Reports xem số thu.
 const Memberships = lazy(() => import("./pages/Memberships"));
 const Attendance = lazy(() => import("./pages/Attendance"));
@@ -93,9 +95,13 @@ export default function App() {
           <Route element={<Protected />}>
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
-              <Route path="classes" element={<Classes />} />
+              <Route path="classes" element={<ClassesRoute />} />
+              <Route path="courses" element={<TrainingPrograms key="course" kind="COURSE" />} />
+              <Route path="sessions" element={<Classes />} />
               <Route path="schedule" element={<Schedule />} />
-              <Route path="bookings" element={<Bookings />} />
+              <Route path="bookings" element={<BookingsRoute />} />
+              <Route path="course-orders" element={<ClassRegistrations courses />} />
+              <Route path="session-bookings" element={<Bookings />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="assistant" element={<Assistant />} />
               <Route path="support" element={<Support />} />
@@ -165,6 +171,15 @@ export default function App() {
  * Lỗi gọi API bất đồng bộ được xử lý ở request, form hoặc query; ErrorBoundary
  * không thay thế việc xử lý các lỗi mạng đó.
  */
+// Legacy fixtures remain isolated inside Vitest's demo mode.
+function ClassesRoute() {
+  const { session } = useAuth();
+  return session?.mode === "demo" ? <Classes /> : <TrainingPrograms key="regular" />;
+}
+function BookingsRoute() {
+  const { session } = useAuth();
+  return session?.mode === "demo" || session?.user.roleName === "COACH" ? <Bookings /> : <ClassRegistrations />;
+}
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }

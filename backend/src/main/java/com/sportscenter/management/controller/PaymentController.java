@@ -36,6 +36,11 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final SecurityUtils securityUtils;
+    private final com.sportscenter.management.training.CourseOrderService courseOrders;
+
+    private boolean isCourseInvoice(int id) {
+        return paymentService.getInvoiceById(id).map(i->i.getCourseOrderId()!=null).orElse(false);
+    }
 
     /**
      * LẬP HÓA ĐƠN MỚI TẠI QUẦY
@@ -113,6 +118,7 @@ public class PaymentController {
     @PostMapping("/invoices/{invoiceId}/refund-request")
     @PreAuthorize("hasRole('MEMBER')")
     public InvoiceResponse requestRefund(@PathVariable Integer invoiceId, @Valid @RequestBody MemberRefundRequest request) {
+        if(isCourseInvoice(invoiceId)) return courseOrders.requestRefund(invoiceId,request);
         return paymentService.requestRefund(invoiceId, request);
     }
 
@@ -120,6 +126,7 @@ public class PaymentController {
     @GetMapping("/invoices/{invoiceId}/refund-quote")
     @PreAuthorize("hasAnyRole('MEMBER','RECEPTIONIST','CENTER_MANAGER')")
     public RefundQuote quoteRefund(@PathVariable Integer invoiceId) {
+        if(isCourseInvoice(invoiceId)) return courseOrders.quoteRefund(invoiceId);
         return paymentService.quoteRefund(invoiceId);
     }
 
@@ -127,6 +134,7 @@ public class PaymentController {
     @PostMapping("/invoices/{invoiceId}/refund")
     @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
     public InvoiceResponse refund(@PathVariable Integer invoiceId, @Valid @RequestBody RefundRequest request) {
+        if(isCourseInvoice(invoiceId)) return courseOrders.refund(invoiceId,request);
         return paymentService.refundInvoice(invoiceId, request);
     }
 

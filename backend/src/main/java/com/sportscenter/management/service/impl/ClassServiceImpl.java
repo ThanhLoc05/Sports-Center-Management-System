@@ -35,12 +35,14 @@ public class ClassServiceImpl implements ClassService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final MemberClassNotifications memberNotifications;
+    private final com.sportscenter.management.training.TrainingProgramService trainingPrograms;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     @Override
     public ClassResponse createClass(ClassRequest request) {
+        trainingPrograms.lock();
         if (request == null || request.getScheduleTime() == null || request.getSportId() == null
                 || request.getCoachId() == null || request.getRoomId() == null
                 || request.getClassName() == null || request.getClassName().isBlank()) {
@@ -74,6 +76,7 @@ public class ClassServiceImpl implements ClassService {
         }
 
         int duration = request.getDurationMinutes() != null ? request.getDurationMinutes() : 60;
+        trainingPrograms.requireResourceFree(request.getScheduleTime(),request.getScheduleTime().plusMinutes(duration),request.getCoachId(),request.getRoomId(),null,null,null);
 
         // Không xếp trùng thời gian của cùng huấn luyện viên hoặc cùng phòng.
         validateNoScheduleConflict(null, request.getCoachId(), request.getRoomId(), request.getScheduleTime(), duration);
@@ -151,6 +154,7 @@ public class ClassServiceImpl implements ClassService {
 
     @Override
     public ClassResponse updateClass(Integer classId, ClassRequest request) {
+        trainingPrograms.lock();
         if (request == null) {
             throw new IllegalArgumentException("Thông tin cập nhật lớp học không được để trống");
         }
@@ -222,6 +226,7 @@ public class ClassServiceImpl implements ClassService {
         }
 
         // Kiểm tra xung đột lịch lần nữa sau khi áp dụng các thay đổi.
+        trainingPrograms.validateSessionChange(clazz,start,duration,clazz.getCoachId(),clazz.getRoomId());
         if (clazz.getMaxCapacity() > effectiveRoom.getCapacity()) {
             throw new IllegalArgumentException("Sức chứa lớp học không thể vượt quá sức chứa phòng");
         }
@@ -229,15 +234,19 @@ public class ClassServiceImpl implements ClassService {
         validateNoScheduleConflict(classId, clazz.getCoachId(), clazz.getRoomId(), start, duration);
 
         Classes updatedClass = classRepository.save(clazz);
+        classRepository.flush();
+        trainingPrograms.refreshCourseDates(updatedClass.getCourseId());
         memberNotifications.changed(before,updatedClass);
         return mapToResponse(updatedClass);
     }
 
     @Override
     public ClassResponse cancelClass(Integer classId) {
+        trainingPrograms.lock();
         Classes clazz = classRepository.findByIdForUpdate(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
         entityManager.refresh(clazz,LockModeType.PESSIMISTIC_WRITE);
+        if(clazz.getCourseId()!=null) throw new IllegalArgumentException("Khóa học cần đủ số buổi. Hãy đổi lịch buổi này hoặc hủy toàn khóa.");
         if("CANCELLED".equals(clazz.getStatus()))return mapToResponse(clazz);
         memberNotifications.cancelled(clazz);
         clazz.setStatus("CANCELLED");
@@ -321,6 +330,8 @@ public class ClassServiceImpl implements ClassService {
                 .durationMinutes(clazz.getDurationMinutes())
                 .requiredAccessLevel(clazz.getRequiredAccessLevel())
                 .status(clazz.getStatus())
+                .regularClassId(clazz.getRegularClassId())
+                .courseId(clazz.getCourseId())
                 .build();
     }
 

@@ -45,4 +45,11 @@ public class Classes {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    /** This row is an actual session; its optional parent defines the enrollment model. */
+    @Column(name = "regular_class_id")
+    private Integer regularClassId;
+
+    @Column(name = "course_id")
+    private Integer courseId;
 }

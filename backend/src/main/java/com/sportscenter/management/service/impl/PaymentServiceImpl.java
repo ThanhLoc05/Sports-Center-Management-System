@@ -147,6 +147,9 @@ public class PaymentServiceImpl implements PaymentService {
     public InvoiceResponse markAsPaid(Integer invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Hóa đơn không tồn tại"));
+        if (invoice.getCourseOrderId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Hãy xác nhận thanh toán trong đơn khóa học.");
+        }
         if (invoice.getMembershipOrderId() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Hóa đơn thuộc yêu cầu đăng ký/gia hạn; hãy xác nhận thanh toán trong luồng đơn hàng.");
@@ -432,6 +435,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .id(invoice.getId())
                 .subscriptionId(invoice.getSubscriptionId())
                 .membershipOrderId(invoice.getMembershipOrderId())
+                .courseOrderId(invoice.getCourseOrderId())
                 .memberId(invoice.getMemberId())
                 .receptionistId(invoice.getReceptionistId())
                 .amount(invoice.getAmount())

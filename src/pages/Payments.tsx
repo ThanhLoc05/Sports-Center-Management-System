@@ -29,6 +29,7 @@ import { api } from "../lib/api";
 import { RefundRequestQueue } from "../components/RefundRequests";
 import { RefundForm, RefundReceipt } from "../components/RefundForm";
 import { PaymentQr } from "../components/PaymentQr";
+import { CourseOrderDetail } from "../components/CourseCheckout";
 import { useDemoData } from "../lib/hooks";
 import { usePermissions } from "../lib/hooks";
 import type { Invoice } from "../lib/types";
@@ -374,8 +375,10 @@ export default function Payments() {
                         Xử lý yêu cầu gói
                       </Link>
                     )}
+                    {i.courseOrderId && <Link to={`/courses?orderId=${i.courseOrderId}`}>Xử lý đơn khóa học</Link>}
                     {can("payments.collect") &&
                       !i.membershipOrderId &&
+                      !i.courseOrderId &&
                       i.paymentStatus === "PENDING" && (
                         <button
                           className="text-link"
@@ -387,7 +390,7 @@ export default function Payments() {
                         </button>
                       )}
                     {canRefund &&
-                      !!i.membershipOrderId &&
+                      (!!i.membershipOrderId || !!i.courseOrderId) &&
                       i.paymentStatus === "PAID" && (
                         <button
                           className="text-danger"
@@ -533,6 +536,7 @@ function InvoiceDetail({
     return (
       <MembershipOrderDetail orderId={i.membershipOrderId} onClose={onClose} />
     );
+  if (!demo && i.courseOrderId) return <CourseOrderDetail orderId={i.courseOrderId} onClose={onClose} />;
   return (
     <Modal className="invoice-detail-dialog" title="Chi tiết hóa đơn" onClose={onClose} wide>
       {/* [FLOW 3] CHI TIẾT HÓA ĐƠN (trang Thanh toán): khung QR của hóa đơn. */}

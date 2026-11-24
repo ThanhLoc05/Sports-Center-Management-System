@@ -960,7 +960,9 @@ function ClassDetailContent({
               </div>
             ))}
           <div className="detail-actions">
+            {(c.regularClassId || c.courseId) && <Link className="btn btn-secondary" to={c.courseId ? "/courses" : "/classes"}>{c.courseId ? "Đăng ký theo khóa học" : "Đăng ký theo lịch lớp"}</Link>}
             {isMember &&
+              !c.regularClassId && !c.courseId &&
               c.status === "SCHEDULED" &&
               parseDate(c.scheduleTime) > new Date() && (
                 ownBookings.isPending ? (
@@ -995,6 +997,7 @@ function ClassDetailContent({
                 )
               )}
             {session!.user.roleName !== "MEMBER" &&
+              !c.regularClassId && !c.courseId &&
               can("bookings.assist") &&
               c.status === "SCHEDULED" &&
               parseDate(c.scheduleTime) > new Date() && (

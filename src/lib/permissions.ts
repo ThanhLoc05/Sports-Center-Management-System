@@ -81,6 +81,9 @@ export function routeAllowed(
   const permission = routePermissions[path];
   if (permission) return can(session, permission, db);
   const own = session?.user.roleName === "MEMBER";
+  if ((path === "/bookings" || path === "/session-bookings") && session?.user.roleName === "COACH") return true;
+  if (path === "/course-orders" || path === "/bookings" || path === "/session-bookings")
+    return own || can(session, "bookings.assist", db);
   if (path === "/memberships")
     return own || can(session, "memberships.assist", db);
   // Member được vào trang thanh toán của mình; nhân viên cần quyền thu/hoàn. BE tiếp tục giới hạn dữ liệu từng đơn.

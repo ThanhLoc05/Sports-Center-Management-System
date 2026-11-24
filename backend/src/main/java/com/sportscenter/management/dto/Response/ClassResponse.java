@@ -30,4 +30,8 @@ public class ClassResponse {
     private String requiredAccessLevel;
 
     private String status;
+
+    private Integer regularClassId;
+
+    private Integer courseId;
 }

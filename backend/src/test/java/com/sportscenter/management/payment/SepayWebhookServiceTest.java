@@ -23,7 +23,7 @@ class SepayWebhookServiceTest {
     private final InvoiceRepository invoices = mock(InvoiceRepository.class);
     private final MembershipOrderRepository orders = mock(MembershipOrderRepository.class);
     private final MembershipOrderService memberships = mock(MembershipOrderService.class);
-    private final SepayWebhookService service = new SepayWebhookService(config, events, invoices, orders, memberships);
+    private final SepayWebhookService service = new SepayWebhookService(config, events, invoices, orders, memberships, mock(com.sportscenter.management.training.CourseOrderService.class));
     private final LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).withNano(0);
     private MembershipOrder order;
     private static final String KEY = "test-only-32-character-webhook-secret";

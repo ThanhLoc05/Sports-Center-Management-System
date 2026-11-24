@@ -1,0 +1,119 @@
+package com.sportscenter.management.training;
+
+import com.sportscenter.SportsCenterApplication;
+import com.sportscenter.auth.SecurityUtils;
+import com.sportscenter.management.dto.Request.RefundRequest;
+import com.sportscenter.management.payment.*;
+import com.sportscenter.management.repository.InvoiceRepository;
+import com.sportscenter.management.service.ClassCompletionJobs;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
+import java.time.*;
+import java.time.temporal.TemporalAdjusters;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static com.sportscenter.management.training.TrainingModels.*;
+
+/** Opt-in local SQL Server tests. Every fixture, invoice and bank event rolls back. No money is transferred. */
+@EnabledIfSystemProperty(named="sportiva.training-sqlserver",matches="true")
+@SpringBootTest(classes=SportsCenterApplication.class,properties={"app.training.scheduling-enabled=false","app.me09.scheduling-enabled=false","spring.jpa.open-in-view=false"})
+@Transactional
+class TrainingSqlServerIT {
+    @Autowired JdbcTemplate jdbc;
+    @Autowired TrainingProgramService programs;
+    @Autowired TrainingAccessService access;
+    @Autowired CourseOrderService orders;
+    @Autowired InvoiceRepository invoices;
+    @Autowired BankPaymentEventRepository events;
+    @MockitoBean SecurityUtils security;
+    @MockitoBean JavaMailSender mail;
+    @MockitoBean ClassCompletionJobs completion;
+    @MockitoBean BankAccountService bank;
+    int manager,coach,member,sport,otherSport,room,subscription;
+    LocalDate first;
+    @BeforeEach void fixtures() {
+        String key="training-it-"+UUID.randomUUID();
+        manager=user(key+"m","CENTER_MANAGER");coach=user(key+"c","COACH");member=user(key+"u","MEMBER");
+        sport=jdbc.queryForObject("INSERT sports(sport_name) OUTPUT INSERTED.sport_id VALUES(?)",Integer.class,key);
+        otherSport=jdbc.queryForObject("INSERT sports(sport_name) OUTPUT INSERTED.sport_id VALUES(?)",Integer.class,key+"other");
+        room=jdbc.queryForObject("INSERT rooms(room_name,capacity) OUTPUT INSERTED.room_id VALUES(?,30)",Integer.class,key);
+        int pack=jdbc.queryForObject("INSERT membership_packages(package_name,duration_days,price,access_level,sport_limit,max_concurrent_classes,course_discount_percent,status) OUTPUT INSERTED.package_id VALUES(?,90,100000,'STANDARD',1,1,0,'ACTIVE')",Integer.class,key);
+        subscription=jdbc.queryForObject("INSERT member_subscriptions(member_id,package_id,start_date,end_date,status) OUTPUT INSERTED.subscription_id VALUES(?,?,?,?,'ACTIVE')",Integer.class,member,pack,access.today(),access.today().plusDays(90));
+        jdbc.update("INSERT invoices(subscription_id,member_id,amount,payment_method,payment_status,paid_at) VALUES(?,?,100000,'CASH','PAID',?)",subscription,member,access.now());
+        first=access.today().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+        asManager();
+        when(bank.requireAccount()).thenReturn(new BankAccountData("970422","MB","123456789","SPORTIVA TEST","MBBank"));
+    }
+    int user(String key,String role) {
+        return jdbc.queryForObject("INSERT users(email,password_hash,full_name,phone,role_id,status,email_verified) OUTPUT INSERTED.user_id SELECT ?,'not-a-login',?,?,role_id,'ACTIVE',1 FROM roles WHERE role_name=?",Integer.class,key+"@example.test",key,key,role);
+    }
+    void asManager() {
+        when(security.getCurrentUserId()).thenReturn(manager); when(security.isCenterManager()).thenReturn(true); when(security.hasRole("MEMBER")).thenReturn(false);
+        when(security.isOwnerOrAuthorized(anyInt())).thenReturn(true);
+    }
+    void asMember() {
+        when(security.getCurrentUserId()).thenReturn(member); when(security.isCenterManager()).thenReturn(false);when(security.hasRole("MEMBER")).thenReturn(true);
+    }
+    ProgramInput input(String name,int sportId,boolean course,int hour,int...days) {
+        var slots=Arrays.stream(days).mapToObj(d->new SlotInput(d,LocalTime.of(hour,0),LocalTime.of(hour+1,0),coach,room)).toList();
+        return new ProgramInput(name,sportId,"Mục tiêu rõ ràng","Cơ bản",10,"STANDARD",slots,course?12:null,course?first:null,course?BigDecimal.valueOf(1000000):null,course?true:null);
+    }
+    Program regular(String name,int sportId,int hour,int...days) {return programs.save("REGULAR",null,input(name,sportId,false,hour,days));}
+    Program course(String name,int hour) {return programs.save("COURSE",null,input(name,sport,true,hour,1,3,5));}
+    void vip() {jdbc.update("UPDATE p SET access_level='VIP',sport_limit=NULL,max_concurrent_classes=2,course_discount_percent=10 FROM membership_packages p JOIN member_subscriptions s ON s.package_id=p.package_id WHERE s.subscription_id=?",subscription);}
+    @Test void regularClassBindsSportOnlyOnRegistrationAndRespectsQuotaAndExpiry() {
+        var one=regular("Three days",sport,7,1,3,5);var two=regular("Two days",sport,8,2,4);var other=regular("Other sport",otherSport,9,2,4);
+        assertNull(one.endDate());assertEquals(3,one.slots().size());
+        asMember();
+        assertTrue(programs.search("REGULAR",new SearchInput(sport,null,null,null)).stream().anyMatch(p->p.id()==one.id()));
+        assertTrue(access.selectedSports(access.requireAccess(member)).isEmpty());
+        var reg=programs.register(one.id(),null);
+        assertEquals(access.requireAccess(member).endDate(),reg.validUntil());assertEquals(List.of(sport),access.selectedSports(access.requireAccess(member)));
+        assertFalse(programs.detail("REGULAR",two.id(),null).eligible());
+        assertFalse(programs.detail("REGULAR",other.id(),null).eligible());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE b.member_id=? AND c.regular_class_id=? AND CONVERT(date,c.schedule_time)>?",Integer.class,member,one.id(),reg.validUntil()));
+        programs.cancelRegistration(reg.id());assertEquals(0,access.activeClassCount(access.requireAccess(member),null));
+        programs.register(two.id(),null);assertEquals(1,access.activeClassCount(access.requireAccess(member),null));
+    }
+    @Test void vipCanHoldTwoRegularClassesAndDifferentSports() {
+        vip();var one=regular("One",sport,7,1,3,5);var two=regular("Two",otherSport,8,2,4);var three=regular("Three",sport,9,1,3,5);
+        asMember();programs.register(one.id(),null);programs.register(two.id(),null);
+        assertEquals(2,access.activeClassCount(access.requireAccess(member),null));assertFalse(programs.detail("REGULAR",three.id(),null).eligible());
+    }
+    @Test void courseNeedsWholeMembershipCoverageAndDoesNotConsumeRegularQuota() {
+        vip();var regular=regular("Regular",sport,7,1,3,5);var course=course("Course",8);
+        asMember();programs.register(regular.id(),null);var key=UUID.randomUUID().toString();
+        var order=orders.create(new CourseOrderInput(course.id(),null,"CASH"),key);
+        assertEquals(900000,order.amount().intValueExact());assertEquals(order.id(),orders.create(new CourseOrderInput(course.id(),null,"CASH"),key).id());
+        asManager();var confirmed=orders.confirmCash(order.id(),order.version());
+        assertEquals("CONFIRMED",confirmed.status());assertEquals(12,jdbc.queryForObject("SELECT COUNT(*) FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE c.course_id=? AND b.member_id=? AND b.status='BOOKED'",Integer.class,course.id(),member));
+        assertEquals(1,access.activeClassCount(access.requireAccess(member),null));assertEquals("PAID",confirmed.invoice().getPaymentStatus());
+        assertEquals(confirmed.id(),orders.confirmCash(order.id(),order.version()).id());
+        var refunded=orders.refund(confirmed.invoice().getId(),new RefundRequest("Test","CASH",confirmed.paymentReference(),BigDecimal.valueOf(900000),true));
+        assertEquals("REFUNDED",refunded.getPaymentStatus());assertEquals("ACTIVE",jdbc.queryForObject("SELECT status FROM member_subscriptions WHERE subscription_id=?",String.class,subscription));
+        jdbc.update("UPDATE member_subscriptions SET end_date=? WHERE subscription_id=?",first.plusDays(3),subscription);
+        assertFalse(programs.detail("COURSE",course.id(),member).eligible());
+    }
+    @Test void verifiedSplitBankTransfersConfirmOnceAndCashRouteCannotApproveThem() {
+        vip();var course=course("Bank course",10);asMember();var order=orders.create(new CourseOrderInput(course.id(),null,"BANK_TRANSFER"),UUID.randomUUID().toString());
+        var invoice=invoices.findById(order.invoice().getId()).orElseThrow();
+        long base=1_000_000_000L+new Random().nextInt(100_000_000);
+        var firstEvent=transfer(base,order,400000);orders.acceptBankTransfer(invoice,firstEvent);
+        assertEquals("PENDING_PAYMENT",orders.detail(order.id()).status());
+        var second=transfer(base+1,order,500000);orders.acceptBankTransfer(invoice,second);orders.acceptBankTransfer(invoice,second);
+        assertEquals("CONFIRMED",orders.detail(order.id()).status());assertEquals(2,events.findAll().stream().filter(e->Objects.equals(e.getInvoiceId(),invoice.getId())).count());
+        assertEquals(12,jdbc.queryForObject("SELECT COUNT(*) FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE c.course_id=? AND b.member_id=?",Integer.class,course.id(),member));
+    }
+    SepayWebhookRequest transfer(long id,CourseOrder order,int amount) {
+        return new SepayWebhookRequest(id,"MBBank",access.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),"123456789",order.paymentReference(),"in",BigDecimal.valueOf(amount),"TEST-"+id);
+    }
+}

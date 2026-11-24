@@ -107,6 +107,8 @@ const navigation: { label: string; items: NavItem[] }[] = [
         roles: ["CENTER_MANAGER", "MANAGER"],
       },
       { to: "/classes", label: "Lớp học", icon: Dumbbell, roles: all },
+      { to: "/courses", label: "Khóa học", icon: CalendarDays, roles: all },
+      { to: "/course-orders", label: "Đơn khóa học", icon: Ticket, roles: staff.concat("MEMBER") },
       {
         to: "/schedule",
         label: "Lịch hoạt động",

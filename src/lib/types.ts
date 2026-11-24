@@ -65,6 +65,8 @@ export interface RegisterInput {
 export type AccessLevel = "STANDARD" | "VIP";
 
 export interface SportClass {
+  regularClassId?: number;
+  courseId?: number;
   id: number;
   className: string;
   sportId: number;
@@ -129,6 +131,7 @@ export interface MembershipPackage extends MembershipBenefits {
 export interface Invoice {
   /** Hóa đơn yêu cầu gói phải xác nhận qua API order để thu tiền và kích hoạt cùng giao dịch. */
   membershipOrderId?: number;
+  courseOrderId?: number;
   id: number;
   subscriptionId?: number;
   memberId: number;

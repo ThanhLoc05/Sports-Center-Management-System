@@ -38,9 +38,11 @@ public class BookingServiceImpl implements BookingService {
 
     private final MemberClassNotifications classNotifications;
     private final EntityManager entityManager;
+    private final com.sportscenter.management.training.TrainingAccessService trainingAccess;
 
     @Override
     public BookingResponse bookClass(Integer classId, Integer memberId) {
+        trainingAccess.lock();
         if (classId == null || memberId == null) {
             throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
@@ -63,6 +65,7 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalArgumentException("Học viên chưa có gói tập hợp lệ hoặc gói tập đã hết hạn. Vui lòng thanh toán gói tập trước khi đặt lịch.");
         }
         var subscription = activeSubscription.get();
+        trainingAccess.validateSessionBooking(clazz,memberId);
         if (clazz.getScheduleTime().toLocalDate().isAfter(subscription.getEndDate())) {
             throw new IllegalArgumentException("Ngày học nằm sau ngày hết hạn gói tập. Vui lòng gia hạn gói.");
         }
@@ -187,12 +190,16 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingResponse cancelBooking(Integer bookingId) {
+        trainingAccess.lock();
         ClassBooking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Lượt đặt chỗ không tồn tại"));
 
         // Serialize with booking, rescheduling and Manager cancellation on the same class.
         Classes clazz = classRepository.findByIdForUpdate(booking.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
+        if (clazz.getRegularClassId()!=null || clazz.getCourseId()!=null) {
+            throw new IllegalArgumentException("Hãy hủy đăng ký lịch lớp hoặc xử lý đơn khóa học; không hủy riêng từng buổi của ghi danh.");
+        }
         // The controller's ownership check may have already loaded the booking in this request.
         entityManager.refresh(booking);
         if (!"BOOKED".equals(booking.getStatus())) {

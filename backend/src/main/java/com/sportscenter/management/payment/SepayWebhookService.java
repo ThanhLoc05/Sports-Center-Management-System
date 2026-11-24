@@ -33,6 +33,7 @@ public class SepayWebhookService {
     private final InvoiceRepository invoices;
     private final MembershipOrderRepository orders;
     private final MembershipOrderService membershipOrders;
+    private final com.sportscenter.management.training.CourseOrderService courseOrders;
     private static final Pattern REFERENCE = Pattern.compile("(?<![A-Z0-9])HD([1-9][0-9]{0,9})\\s+TV([1-9][0-9]{0,9})(?![A-Z0-9])");
 
     /** So sánh hằng thời gian; bí mật trống/ngắn hoặc chưa bật kết nối đều từ chối trước khi xử lý body. */
@@ -59,7 +60,9 @@ public class SepayWebhookService {
         if (matcher.find()) return; // Nội dung có nhiều mã đơn: không tự chọn một đơn để thu.
         // [FLOW 3] BƯỚC 2: đối chiếu hóa đơn, Member, đơn BANK_TRANSFER, tài khoản/ngân hàng nhận và thời gian giao dịch.
         Invoice invoice = invoices.findById(invoiceId).orElse(null);
-        if (invoice == null || invoice.getMembershipOrderId() == null || !Integer.valueOf(memberId).equals(invoice.getMemberId())) return;
+        if (invoice == null || !Integer.valueOf(memberId).equals(invoice.getMemberId())) return;
+        if (invoice.getCourseOrderId()!=null) { courseOrders.acceptBankTransfer(invoice,input); return; }
+        if (invoice.getMembershipOrderId() == null) return;
         MembershipOrder order = orders.findByIdForUpdate(invoice.getMembershipOrderId()).orElse(null);
         if (order == null || !"BANK_TRANSFER".equals(order.getPaymentMethod()) || !Integer.valueOf(memberId).equals(order.getMemberId())) return;
         if (order.getBankAccountNoSnapshot() == null || !order.getBankAccountNoSnapshot().equals(input.accountNumber())

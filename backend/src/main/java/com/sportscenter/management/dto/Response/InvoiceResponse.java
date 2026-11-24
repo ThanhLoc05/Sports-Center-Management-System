@@ -18,6 +18,8 @@ public class InvoiceResponse {
 
     private Integer membershipOrderId;
 
+    private Integer courseOrderId;
+
     private Integer memberId;
 
     private Integer receptionistId;

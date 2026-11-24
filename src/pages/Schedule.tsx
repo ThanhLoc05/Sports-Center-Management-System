@@ -14,6 +14,7 @@ import { api } from "../lib/api";
 import type { SportClass } from "../lib/types";
 import { addDays, dateLabel, localDate, timeLabel } from "../lib/utils";
 import { ClassDetail, ClassForm, ClassCoachName } from "./Classes";
+import { TrainingProgramForm } from "../components/TrainingProgramForm";
 import {
   Button,
   Empty,
@@ -74,6 +75,7 @@ export default function Schedule() {
   const [view, setView] = useState("week");
   const [selected, setSelected] = useState<SportClass | null>(null);
   const [create, setCreate] = useState(false);
+  const [editing, setEditing] = useState<SportClass | null>(null);
   /**
    * Chỉ thành viên cần tải booking của mình để lọc lịch cá nhân. HLV đã nhận
    * danh sách lớp riêng qua useClasses nên không cần query booking cá nhân này.
@@ -350,11 +352,12 @@ export default function Schedule() {
         </div>
       </Panel>
       {selected && (
-        <ClassDetail item={selected} onClose={() => setSelected(null)} />
+        <ClassDetail item={selected} onClose={() => setSelected(null)} onEdit={can("classes.manage") ? item => { setEditing(item); setSelected(null); } : undefined} />
       )}
       {create && can("classes.manage") && (
-        <ClassForm onClose={() => setCreate(false)} />
+        <TrainingProgramForm kind="REGULAR" onClose={() => setCreate(false)} />
       )}
+      {editing && <ClassForm item={editing} onClose={() => setEditing(null)} />}
     </>
   );
 }

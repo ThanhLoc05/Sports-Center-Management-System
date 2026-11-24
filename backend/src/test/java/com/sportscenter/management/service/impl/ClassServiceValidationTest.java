@@ -32,7 +32,7 @@ class ClassServiceValidationTest {
     private final RoomRepository rooms = mock(RoomRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final MemberClassNotifications notifications = mock(MemberClassNotifications.class);
-    private final ClassServiceImpl service = new ClassServiceImpl(classes, bookings, sports, rooms, users, notifications);
+    private final ClassServiceImpl service = new ClassServiceImpl(classes, bookings, sports, rooms, users, notifications, mock(com.sportscenter.management.training.TrainingProgramService.class));
 
     @BeforeEach
     void injectPersistenceContext() {
