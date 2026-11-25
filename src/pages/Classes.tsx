@@ -1,5 +1,6 @@
 import { parseDate } from "../lib/utils";
 import BookingForm from "../components/BookingForm";
+import { FlexibleBooking } from "../components/FlexibleBooking";
 import { CoachProfileDialog } from "../components/CoachProfile";
 import { useDemoData, usePermissions } from "../lib/hooks";
 import {
@@ -36,7 +37,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
-import { api } from "../lib/api";
+import { api, request } from "../lib/api";
 import { operations } from "../lib/operations-api";
 
 import type { AccessLevel, SportClass } from "../lib/types";
@@ -52,6 +53,7 @@ import {
   Avatar,
   Badge,
   Button,
+  Notice,
   Confirm,
   DataTable,
   Empty,
@@ -72,13 +74,16 @@ import {
  */
 export function ClassForm({
   item,
+  allowRecurring = false,
   onClose,
 }: {
   item?: SportClass;
+  allowRecurring?: boolean;
   onClose: () => void;
 }) {
   const catalog = useCatalog();
   const { sports, rooms } = catalog;
+  const [recurring, setRecurring] = useState(false);
   const users = useUsers();
 
   const client = useQueryClient();
@@ -90,14 +95,13 @@ export function ClassForm({
       wide
       submitDisabled={catalog.loading || !!catalog.error}
       onClose={onClose}
-      submitLabel={item ? "Lưu lớp học" : "Tạo lớp học"}
+      submitLabel={item ? "Lưu lớp học" : recurring ? "Công bố chuỗi buổi" : "Tạo lớp học"}
       onSubmit={async (data) => {
         /**
          * Gửi dữ liệu form cùng item?.id; API chọn POST/PUT. Chỉ sau khi chờ lưu thành công
          * mới invalidate cache và báo hoàn tất. FormModal sẽ giữ form nếu có lỗi.
          */
-        await api.saveClass(
-          {
+        const input = {
             className: String(data.get("className")).trim(),
             sportId: Number(data.get("sportId")),
             coachId: Number(data.get("coachId")),
@@ -107,11 +111,20 @@ export function ClassForm({
             durationMinutes: Number(data.get("durationMinutes")),
             requiredAccessLevel: data.get("requiredAccessLevel") as AccessLevel,
             status: item?.status || "SCHEDULED",
-          },
-          item?.id,
-        );
+        };
+        if (recurring && !item) {
+          const weekdays = data.getAll("weekday");
+          if (!weekdays.length) throw new Error("Chọn ít nhất một ngày trong tuần.");
+          const created = await request<SportClass[]>("/classes/recurring", {
+            method: "POST",
+            body: JSON.stringify({ session: input, through: data.get("through"), weekdays }),
+          });
+          toast(`Đã công bố ${created.length} buổi.`);
+        } else {
+          await api.saveClass(input, item?.id);
+          toast(item ? "Đã cập nhật lớp học." : "Đã tạo lớp học mới.");
+        }
         await client.invalidateQueries();
-        toast(item ? "Đã cập nhật lớp học." : "Đã tạo lớp học mới.");
       }}
     >
       {catalog.loading && <Loading />}
@@ -223,16 +236,39 @@ export function ClassForm({
           />
         </Field>
       </div>
+      {!item && allowRecurring && (
+        <label className="check-option">
+          <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+          Lặp theo ngày trong tuần
+        </label>
+      )}
+      {recurring && (
+        <>
+          <Field label="Lặp đến hết ngày"><input name="through" type="date" required /></Field>
+          <fieldset>
+            <legend>Ngày trong tuần</legend>
+            {["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map((day, index) =>
+              <label className="check-option" key={day}>
+                <input name="weekday" type="checkbox" value={day} />
+                {index === 6 ? "Chủ Nhật" : `Thứ ${index + 2}`}
+              </label>
+            )}
+          </fieldset>
+          <Notice>Mỗi buổi được công bố riêng. Sau khi công bố, sửa hoặc hủy từng buổi để kiểm tra các đăng ký liên quan.</Notice>
+        </>
+      )}
     </FormModal>
   );
 }
 export default function Classes() {
-  const { sports } = useCatalog();
+  const { sports, rooms } = useCatalog();
   const { session } = useAuth();
   const can = usePermissions();
   const db = useDemoData();
   const member = session!.user.roleName === "MEMBER";
   const [eligibleOnly, setEligibleOnly] = useState(member);
+  const [flexible, setFlexible] = useState(false);
+  const [showSeries, setShowSeries] = useState(false);
   const access = db && member ? membershipAccess(db, session!.user.id) : null;
   const apiMember = member && session!.mode === "api";
   const activeMembership = useQuery({
@@ -276,6 +312,11 @@ export default function Classes() {
   const [selectedCoachId, setSelectedCoachId] = useState<number | null>(null);
   const [cancel, setCancel] = useState<SportClass | null>(null);
   const classes = useClasses();
+  const series = useQuery({
+    queryKey: ["recurring-classes", session!.user.id],
+    queryFn: () => request<{ seriesKey: string; plannedDate: string; classId: number }[]>("/classes/recurring"),
+    enabled: manager && !demo && showSeries,
+  });
   const coaches = useQuery({
     queryKey: ["coach-directory"],
     queryFn: api.coaches,
@@ -314,6 +355,10 @@ export default function Classes() {
               <CalendarDays size={16} />
               Xem lịch hoạt động
             </Link>
+            {apiMember && <Button onClick={() => setFlexible(true)}>Chọn nhiều buổi</Button>}
+            {manager && !demo && <Button variant="secondary" onClick={() => setShowSeries(!showSeries)}>
+              {showSeries ? "Ẩn lịch định kỳ" : "Lịch định kỳ"}
+            </Button>}
             {manager && (
               <Button onClick={() => setEdit(true)}>
                 <Plus size={17} />
@@ -323,6 +368,34 @@ export default function Classes() {
           </>
         }
       />
+      {showSeries && <Panel title="Các buổi đã công bố theo lịch định kỳ">
+        {series.isPending ? <Loading /> : series.error ? <ErrorState error={series.error} retry={series.refetch} /> :
+          !series.data?.length ? <Notice>Chưa công bố lịch định kỳ.</Notice> :
+          [...new Set(series.data.map((item) => item.seriesKey))].map((key) => {
+            const items = series.data!.filter((item) => item.seriesKey === key);
+            const firstSession = classes.data?.find((clazz) => clazz.id === items[0].classId);
+            return <details key={key}>
+              <summary>
+                {firstSession?.className ?? `Chuỗi buổi #${items[0].classId}`}
+                {" · "}{dateLabel(items[0].plannedDate)} · {items.length} buổi
+              </summary>
+              <ul>{items.map((item) => {
+                const clazz = classes.data?.find((c) => c.id === item.classId);
+                return <li key={item.classId}>{clazz?.className ?? `Buổi #${item.classId}`} · {" "}
+                  {clazz ? `${dateLabel(clazz.scheduleTime)} ${timeLabel(clazz.scheduleTime)}` : dateLabel(item.plannedDate)}
+                  {clazz && <> · <Badge status={clazz.status} />{" "}
+                    <Button variant="secondary" onClick={() => setSelected(clazz)}>Xem buổi</Button></>}
+                </li>;
+              })}</ul>
+            </details>;
+          })}
+      </Panel>}
+      {flexible && <FlexibleBooking classes={classes.data ?? []} sports={sports} rooms={rooms}
+        coaches={coaches.data ?? []} subscription={activeMembership.data ?? null}
+        level={activeMembership.data?.entitlementLevel ?? membershipPackages.data?.find(
+          (p) => p.id === activeMembership.data?.packageId,
+        )?.accessLevel ?? "STANDARD"}
+        onClose={() => setFlexible(false)} />}
       {member && (
         <Panel className="panel-spaced" title="Huấn luyện viên">
           {coaches.isPending ? (
@@ -557,6 +630,7 @@ export default function Classes() {
       {edit && (
         <ClassForm
           item={edit === true ? undefined : edit}
+          allowRecurring={manager && !demo}
           onClose={() => setEdit(null)}
         />
       )}

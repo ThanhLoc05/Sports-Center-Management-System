@@ -30,6 +30,16 @@ public class BookingController {
     private final ClassService classService;
     private final SecurityUtils securityUtils;
 
+    @PostMapping("/bookings/batch")
+    @PreAuthorize("hasRole('MEMBER')")
+    public ResponseEntity<List<BookingResponse>> bookClasses(@RequestBody BatchBooking request) {
+        Integer memberId = securityUtils.getCurrentUserId();
+        if (memberId == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.status(201).body(bookingService.bookClasses(request.classIds(), memberId));
+    }
+
+    public record BatchBooking(List<Integer> classIds) {}
+
     /**
      * ĐẶT CHỖ LỚP HỌC (BOOK A CLASS)
      * - Luồng xử lý:
@@ -39,7 +49,7 @@ public class BookingController {
      *   4. Gọi BookingService kiểm tra: lớp còn chỗ không, học viên có gói tập hợp lệ không, đã book chưa.
      */
     @PostMapping("/classes/{classId}/book")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('MEMBER', 'RECEPTIONIST', 'CENTER_MANAGER')")
     public ResponseEntity<BookingResponse> bookClass(
             @PathVariable Integer classId, @RequestParam(required = false) Integer memberId) {
         Integer currentUserId = securityUtils.getCurrentUserId();

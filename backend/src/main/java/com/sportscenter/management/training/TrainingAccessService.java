@@ -49,8 +49,8 @@ public class TrainingAccessService {
     public Optional<Access> findAccess(int member) {
         var rows=jdbc.query("""
                 SELECT TOP(1) ms.subscription_id,ms.start_date,ms.end_date,
-                    COALESCE(o.package_access_level_snapshot,p.access_level) AS access_level,
-                    CASE WHEN o.package_access_level_snapshot IS NOT NULL THEN o.sport_limit_snapshot ELSE p.sport_limit END AS sport_limit,
+                    COALESCE(ms.entitlement_level,o.package_access_level_snapshot,p.access_level) AS access_level,
+                    CASE WHEN COALESCE(ms.entitlement_level,o.package_access_level_snapshot,p.access_level)='VIP' THEN NULL ELSE 1 END AS sport_limit,
                     COALESCE(o.max_concurrent_classes_snapshot,p.max_concurrent_classes) AS max_classes,
                     COALESCE(o.course_discount_percent_snapshot,p.course_discount_percent) AS discount_percent
                 FROM member_subscriptions ms JOIN users u ON u.user_id=ms.member_id
@@ -72,7 +72,7 @@ public class TrainingAccessService {
     }
 
     public List<Integer> selectedSports(Access access) {
-        return jdbc.queryForList("SELECT sport_id FROM membership_sports WHERE subscription_id=? ORDER BY sport_id",Integer.class,access.subscriptionId());
+        return jdbc.queryForList("SELECT selected_sport_id FROM member_subscriptions WHERE subscription_id=? AND selected_sport_id IS NOT NULL",Integer.class,access.subscriptionId());
     }
 
     public boolean sportAllowed(Access access,int sport) {
@@ -84,6 +84,8 @@ public class TrainingAccessService {
     public void chooseSport(Access access,int sport) {
         if(!sportAllowed(access,sport)) throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Gói đã chốt đủ số bộ môn trong kỳ. Bạn có thể chọn lại khi gia hạn.");
+        if (access.sportLimit() == null) return;
+        jdbc.update("UPDATE member_subscriptions SET selected_sport_id=?, entitlement_level=COALESCE(entitlement_level, 'STANDARD') WHERE subscription_id=? AND selected_sport_id IS NULL", sport, access.subscriptionId());
         jdbc.update("INSERT membership_sports(subscription_id,sport_id) SELECT ?,? WHERE NOT EXISTS(SELECT 1 FROM membership_sports WHERE subscription_id=? AND sport_id=?)",
                 access.subscriptionId(),sport,access.subscriptionId(),sport);
     }
@@ -96,12 +98,7 @@ public class TrainingAccessService {
                     AND reg.valid_until>=? AND s.end_date>=? AND reg.valid_from<=? AND s.start_date<=?
                     AND (? IS NULL OR reg.regular_class_id<>?)
                 """,Integer.class,access.memberId(),today(),today(),access.endDate(),access.endDate(),excludeClass,excludeClass);
-        int legacy=jdbc.queryForObject("""
-                SELECT COUNT(*) FROM class_bookings b JOIN classes c ON c.class_id=b.class_id
-                WHERE b.member_id=? AND b.status='BOOKED' AND c.status='SCHEDULED' AND c.schedule_time>?
-                    AND c.regular_class_id IS NULL AND c.course_id IS NULL
-                """,Integer.class,access.memberId(),now());
-        return regular+legacy;
+        return regular;
     }
 
     public void requireClassQuota(Access access,Integer excludeClass) {
@@ -151,8 +148,8 @@ public class TrainingAccessService {
                     session.getCourseId(),member,access.startDate(),access.endDate());
             if(paid==0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Khóa học cần đơn đã thanh toán và gói bao phủ toàn khóa");
         } else {
-            requireClassQuota(access,null);
-            chooseSport(access,session.getSportId());
+            if (access.sportLimit() != null && !selectedSports(access).contains(session.getSportId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Chọn bộ môn của kỳ STANDARD trước khi đặt buổi lẻ.");
         }
     }
 

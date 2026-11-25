@@ -17,7 +17,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 
 import { useClasses, useUsers, usePermissions } from "../lib/hooks";
-import { api } from "../lib/api";
+import { api, request } from "../lib/api";
+import type { Attendance as AttendanceRecord } from "../lib/types";
 import { operations } from "../lib/operations-api";
 import {
   addDays,
@@ -27,6 +28,7 @@ import {
   isAttendanceWindowOpen,
   localDate,
   matches,
+  parseDate,
   timeLabel,
 } from "../lib/utils";
 import {
@@ -457,6 +459,17 @@ export default function Attendance() {
                 label: "Trạng thái",
                 render: (a) => <Badge status={a.status} />,
               },
+              ...(!member && session!.mode === "api" ? [{
+                key: "booking-policy",
+                label: "Xác nhận",
+                render: (record: AttendanceRecord) => {
+                  const clazz = classes.data?.find((item) => item.id === record.classId);
+                  if (!clazz || clazz.status === "CANCELLED") return null;
+                  const ended = parseDate(clazz.scheduleTime).getTime() + clazz.durationMinutes * 60_000 <= Date.now();
+                  return <AttendanceBenefits record={record} role={session!.user.roleName}
+                    ended={ended} windowOpen={isAttendanceWindowOpen(clazz)} />;
+                },
+              }] : []),
             ]}
           />
         )}
@@ -507,4 +520,62 @@ export default function Attendance() {
       )}
     </>
   );
+}
+
+function AttendanceBenefits({ record, role, ended, windowOpen }: {
+  record: AttendanceRecord;
+  role: string;
+  ended: boolean;
+  windowOpen: boolean;
+}) {
+  const client = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState("");
+  const supplies = role === "RECEPTIONIST" && record.status === "PRESENT" && windowOpen;
+  const membership = useQuery({
+    queryKey: ["activeSubscription", record.memberId],
+    queryFn: () => api.activeSubscription(record.memberId),
+    enabled: supplies,
+  });
+  const packages = useQuery({
+    queryKey: ["membershipPackages"],
+    queryFn: api.membershipPackages,
+    enabled: supplies && !!membership.data && !membership.data.entitlementLevel,
+  });
+  const vip = (membership.data?.entitlementLevel ?? packages.data?.find(
+    (item) => item.id === membership.data?.packageId,
+  )?.accessLevel) === "VIP";
+  const canConfirm = ended && record.status === "ABSENT" && ["COACH", "RECEPTIONIST"].includes(role);
+  async function submit(action: string, body?: { towel: boolean; water: boolean }) {
+    setPending(true);
+    setMessage("");
+    try {
+      await request(`/classes/${record.classId}/members/${record.memberId}/${action}`, {
+        method: body ? "PUT" : "POST",
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      setMessage(body ? "Đã ghi nhận cấp quyền lợi." : "Đã ghi nhận xác nhận.");
+      await client.invalidateQueries({ queryKey: ["attendance"] });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể xác nhận.");
+    } finally {
+      setPending(false);
+    }
+  }
+  return <>
+    {canConfirm && <Button variant="secondary" disabled={pending}
+      onClick={() => void submit("no-show")}>Xác nhận No-show</Button>}
+    {role === "CENTER_MANAGER" && record.status === "ABSENT" &&
+      <Button variant="secondary" disabled={pending}
+        onClick={() => void submit("excuse-booking-violation")}>Duyệt ngoại lệ</Button>}
+    {supplies && vip && <>
+      {!record.vipTowelAt && <Button variant="secondary" disabled={pending}
+        onClick={() => void submit("vip-supplies", { towel: true, water: false })}>Đã cấp khăn</Button>}
+      {!record.vipWaterAt && <Button variant="secondary" disabled={pending}
+        onClick={() => void submit("vip-supplies", { towel: false, water: true })}>Đã cấp nước</Button>}
+    </>}
+    {(record.vipTowelAt || record.vipWaterAt) &&
+      <small>Đã cấp {record.vipTowelAt && "khăn"}{record.vipTowelAt && record.vipWaterAt && " và "}{record.vipWaterAt && "nước"}.</small>}
+    {message && <p role="status">{message}</p>}
+  </>;
 }

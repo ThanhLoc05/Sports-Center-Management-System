@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class MembershipOrderResponse {
     private Integer id;
     private Integer memberId;
+    private Integer selectedSportId;
     private String kind;
     private Integer sourceSubscriptionId;
     private Integer sourcePackageId;

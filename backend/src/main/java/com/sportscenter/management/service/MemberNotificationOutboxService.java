@@ -23,7 +23,7 @@ public class MemberNotificationOutboxService {
     public long enqueue(String key,int sender,int recipient,String title,String content,String link) {
         if(key==null || !key.matches("[A-Za-z0-9:._-]{1,200}"))throw new IllegalArgumentException("Invalid ME09 event key");
         if(title==null || title.isBlank() || title.length()>150 || content==null || content.isBlank() || content.length()>4000
-                || !("/schedule".equals(link)||"/memberships".equals(link)))throw new IllegalArgumentException("Invalid ME09 content");
+                || !("/schedule".equals(link)||"/memberships".equals(link)||"/classes".equals(link)))throw new IllegalArgumentException("Invalid ME09 content");
         String resource;
         try{resource="ME09:"+HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((key+":"+recipient).getBytes(StandardCharsets.UTF_8)));}
         catch(java.security.NoSuchAlgorithmException error){throw new IllegalStateException(error);}

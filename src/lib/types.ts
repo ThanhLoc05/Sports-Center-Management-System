@@ -102,6 +102,8 @@ export interface Subscription {
   id: number;
   memberId: number;
   packageId: number;
+  selectedSportId?: number | null;
+  entitlementLevel?: "STANDARD" | "VIP" | null;
   startDate: string;
   endDate: string;
   status: string;
@@ -177,6 +179,8 @@ export interface Attendance {
   memberId: number;
   checkedInBy?: number;
   checkedInAt: string;
+  vipTowelAt?: string | null;
+  vipWaterAt?: string | null;
   status: string;
 }
 export type AttendanceInput = Omit<Attendance, "id" | "checkedInAt">;

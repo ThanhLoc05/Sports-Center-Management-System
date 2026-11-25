@@ -28,7 +28,7 @@ export function packageBenefitItems(value: MembershipBenefits): string[] {
     items.push("Tham gia các lớp STANDARD và VIP");
   if (value.maxConcurrentClasses != null && value.maxConcurrentClasses > 0)
     items.push(
-      `Đăng ký tối đa ${value.maxConcurrentClasses} lớp cùng lúc, không trùng lịch`,
+      `Đăng ký tối đa ${value.maxConcurrentClasses} lớp theo lịch cố định cùng lúc, không trùng lịch`,
     );
   if (value.courseDiscountPercent === 0)
     items.push("Khóa học theo học phí niêm yết");

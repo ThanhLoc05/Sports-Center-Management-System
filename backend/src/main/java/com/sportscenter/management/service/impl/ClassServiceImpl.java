@@ -148,7 +148,9 @@ public class ClassServiceImpl implements ClassService {
         Classes clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
-        long currentBookings = getCurrentBookingCount(classId);
+        long currentBookings = getCurrentBookingCount(classId)
+                + bookingRepository.countReservedInvitations(classId,
+                LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));
         return Math.max(0, (int) (clazz.getMaxCapacity() - currentBookings));
     }
 
@@ -204,8 +206,10 @@ public class ClassServiceImpl implements ClassService {
             if (request.getMaxCapacity() <= 0) {
                 throw new IllegalArgumentException("Sức chứa lớp học phải lớn hơn 0");
             }
-            if (request.getMaxCapacity() < getCurrentBookingCount(classId)) {
-                throw new IllegalArgumentException("Sức chứa không thể nhỏ hơn số học viên đã đăng ký");
+            if (request.getMaxCapacity() < getCurrentBookingCount(classId)
+                    + bookingRepository.countReservedInvitations(classId,
+                        LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))) {
+                throw new IllegalArgumentException("Sức chứa không thể nhỏ hơn số chỗ đã đăng ký hoặc đang được mời");
             }
             clazz.setMaxCapacity(request.getMaxCapacity());
         }

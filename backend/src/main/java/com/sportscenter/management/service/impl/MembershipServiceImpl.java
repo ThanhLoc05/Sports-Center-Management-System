@@ -39,6 +39,34 @@ public class MembershipServiceImpl implements MembershipService {
     private final InvoiceRepository invoiceRepository;
     private final MembershipOrderRepository orderRepository;
 
+    @Override
+    @Transactional
+    public MemberSubscriptionResponse chooseSport(Integer memberId, Integer subscriptionId, Integer sportId) {
+        userRepository.findByIdForUpdate(memberId).orElseThrow();
+        MemberSubscription subscription = subscriptionRepository.findByIdForUpdate(subscriptionId)
+                .filter(row -> memberId.equals(row.getMemberId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ gói."));
+        var today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        String level = subscription.getEntitlementLevel();
+        if (level == null) {
+            level = packageRepository.findById(subscription.getPackageId()).orElseThrow().getAccessLevel();
+        }
+        if (!"ACTIVE".equals(subscription.getStatus()) || subscription.getStartDate().isAfter(today)
+                || subscription.getEndDate().isBefore(today) || "VIP".equals(level)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ được chọn môn cho kỳ STANDARD đang hiệu lực.");
+        }
+        if (subscription.getSelectedSportId() != null) {
+            if (subscription.getSelectedSportId().equals(sportId)) return mapToResponse(subscription);
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Môn đã chọn được giữ đến hết kỳ.");
+        }
+        if (sportId == null || entityManager.find(com.sportscenter.management.entity.Sport.class, sportId) == null) {
+            throw new IllegalArgumentException("Vui lòng chọn bộ môn hợp lệ.");
+        }
+        subscription.setSelectedSportId(sportId);
+        subscription.setEntitlementLevel("STANDARD");
+        return mapToResponse(subscriptionRepository.save(subscription));
+    }
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -129,13 +157,13 @@ public class MembershipServiceImpl implements MembershipService {
     }
 
     private void applyBenefits(MembershipPackage pkg, MembershipPackageRequest request) {
-        if (Boolean.TRUE.equals(request.getAllSports())) {
-            pkg.setSportLimit(null);
-        } else if (request.getSportLimit() != null) {
-            pkg.setSportLimit(request.getSportLimit());
-        } else if (Boolean.FALSE.equals(request.getAllSports()) && pkg.getSportLimit() == null) {
-            pkg.setSportLimit(1);
+        boolean vip = "VIP".equals(pkg.getAccessLevel());
+        Integer requested = request.getSportLimit();
+        if ((request.getAllSports() != null && request.getAllSports() != vip)
+                || (requested != null && (vip || requested != 1))) {
+            throw new IllegalArgumentException("STANDARD chọn một môn; VIP tập tất cả môn.");
         }
+        pkg.setSportLimit(vip ? null : 1);
         if (request.getMaxConcurrentClasses() != null) {
             pkg.setMaxConcurrentClasses(request.getMaxConcurrentClasses());
         }
@@ -339,6 +367,8 @@ public class MembershipServiceImpl implements MembershipService {
                 .id(subscription.getId())
                 .memberId(subscription.getMemberId())
                 .packageId(subscription.getPackageId())
+                .selectedSportId(subscription.getSelectedSportId())
+                .entitlementLevel(subscription.getEntitlementLevel())
                 .startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate())
                 .status(subscription.getStatus())

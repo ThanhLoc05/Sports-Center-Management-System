@@ -254,7 +254,8 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     await user.click(screen.getByRole("button", { name: "Thêm gói tập" }));
     const dialog = within(screen.getByRole("dialog", { name: "Thêm gói tập" }));
     await user.selectOptions(dialog.getByLabelText("Cấp gói"), "VIP");
-    expect(dialog.getByLabelText("Phạm vi bộ môn")).toHaveValue("ALL");
+    expect(dialog.getByLabelText("Phạm vi bộ môn")).toHaveValue("Tất cả bộ môn");
+    expect(dialog.getByLabelText("Phạm vi bộ môn")).toHaveAttribute("readonly");
     expect(dialog.getByLabelText("Số lớp đang đăng ký tối đa")).toHaveValue(2);
     expect(dialog.getByLabelText("Ưu đãi học phí khóa học (%)")).toHaveValue(
       10,

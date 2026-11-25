@@ -73,6 +73,9 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
      */
     long countByClassIdAndStatus(Integer classId, String status);
 
+    @Query(value = "SELECT COUNT(*) FROM dbo.class_waitlist WHERE class_id=:classId AND status='INVITED' AND invite_until>:now", nativeQuery = true)
+    long countReservedInvitations(@Param("classId") Integer classId, @Param("now") java.time.LocalDateTime now);
+
     /**
      * Count total bookings for a member
      * @param memberId Member ID

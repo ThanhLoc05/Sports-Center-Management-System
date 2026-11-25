@@ -12,9 +12,7 @@ export function PackageBenefitFields({
   const initialLevel = initial?.accessLevel === "VIP" ? "VIP" : "STANDARD";
   const preset = packageBenefitPresets[initialLevel];
   const [level, setLevel] = useState<"STANDARD" | "VIP">(initialLevel);
-  const [sportLimit, setSportLimit] = useState<number | null>(
-    initial?.sportLimit !== undefined ? initial.sportLimit : preset.sportLimit,
-  );
+  const sportLimit = level === "VIP" ? null : 1;
   const [maxClasses, setMaxClasses] = useState(
     String(initial?.maxConcurrentClasses ?? preset.maxConcurrentClasses),
   );
@@ -34,7 +32,6 @@ export function PackageBenefitFields({
           onChange={(event) => {
             const next = event.target.value as "STANDARD" | "VIP";
             const defaults = packageBenefitPresets[next];
-            setSportLimit(defaults.sportLimit);
             setMaxClasses(String(defaults.maxConcurrentClasses));
             setDiscount(String(defaults.courseDiscountPercent));
             if (
@@ -51,33 +48,13 @@ export function PackageBenefitFields({
       </Field>
       <div className="form-grid">
         <Field label="Phạm vi bộ môn">
-          <select
-            name="sportScope"
-            value={sportLimit === null ? "ALL" : "LIMITED"}
-            onChange={(event) =>
-              setSportLimit(event.target.value === "ALL" ? null : 1)
-            }
-          >
-            <option value="LIMITED">Chọn số bộ môn trong kỳ gói</option>
-            <option value="ALL">Tất cả bộ môn</option>
-          </select>
+          <input value={sportLimit === null ? "Tất cả bộ môn" : "Một bộ môn mỗi kỳ"} readOnly />
+          <input name="sportScope" type="hidden" value={sportLimit === null ? "ALL" : "LIMITED"} />
+          {sportLimit !== null && <input name="sportLimit" type="hidden" value={sportLimit} />}
         </Field>
-        {sportLimit !== null && (
-          <Field label="Số bộ môn được chọn">
-            <input
-              name="sportLimit"
-              type="number"
-              min={1}
-              step={1}
-              required
-              value={sportLimit || ""}
-              onChange={(event) => setSportLimit(Number(event.target.value))}
-            />
-          </Field>
-        )}
         <Field
           label="Số lớp đang đăng ký tối đa"
-          hint="Một lớp có nhiều buổi mỗi tuần vẫn tính là một lớp."
+          hint="Áp dụng khi ghi danh lớp theo lịch cố định."
         >
           <input
             name="maxConcurrentClasses"

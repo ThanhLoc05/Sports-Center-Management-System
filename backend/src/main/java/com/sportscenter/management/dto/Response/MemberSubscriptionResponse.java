@@ -16,6 +16,8 @@ public class MemberSubscriptionResponse {
     private Integer memberId;
 
     private Integer packageId;
+    private Integer selectedSportId;
+    private String entitlementLevel;
 
     private LocalDate startDate;
 

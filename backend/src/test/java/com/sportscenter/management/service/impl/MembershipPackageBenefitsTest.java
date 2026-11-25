@@ -50,31 +50,30 @@ class MembershipPackageBenefitsTest {
     @Test
     void createsAndReturnsExplicitBenefitSettingsAndKeepsManagerDescription() {
         var input = request("VIP");
-        input.setAllSports(false);
-        input.setSportLimit(2);
+        input.setAllSports(true);
         input.setMaxConcurrentClasses(3);
         input.setCourseDiscountPercent(15);
         input.setDescription("Mô tả riêng của quản lý");
         var response = service.createPackage(input);
-        assertEquals(2, response.getSportLimit());
+        assertNull(response.getSportLimit());
         assertEquals(3, response.getMaxConcurrentClasses());
         assertEquals(15, response.getCourseDiscountPercent());
         assertEquals("Mô tả riêng của quản lý", response.getDescription());
     }
 
     @Test
-    void editingDescriptionPreservesBenefitsAndAllSportsCanBeExplicitlySelected() {
+    void editingDescriptionPreservesClassAndDiscountBenefitsAndRejectsAllSportsForStandard() {
         var stored = MembershipPackage.builder().id(7).accessLevel("STANDARD")
                 .sportLimit(2).maxConcurrentClasses(3).courseDiscountPercent(5).build();
         when(packages.findById(7)).thenReturn(Optional.of(stored));
         var input = request("STANDARD");
         input.setDescription("Nội dung đã chỉnh sửa");
         var response = service.updatePackage(7, input);
-        assertEquals(2, response.getSportLimit());
+        assertEquals(1, response.getSportLimit());
         assertEquals(3, response.getMaxConcurrentClasses());
         assertEquals(5, response.getCourseDiscountPercent());
         input.setAllSports(true);
-        assertNull(service.updatePackage(7, input).getSportLimit());
+        assertThrows(IllegalArgumentException.class, () -> service.updatePackage(7, input));
     }
 
     @Test

@@ -9,6 +9,7 @@ import type { Invoice, Subscription, MembershipBenefits } from "./types";
 /** Giá niêm yết là price; payableAmount chỉ là mức QR demo nếu server trả demoPayment=true. */
 export interface MembershipOffer extends MembershipBenefits {
   id: number;
+  accessLevel?: "STANDARD" | "VIP";
   name: string;
   price: number;
   payableAmount?: number;
@@ -49,6 +50,7 @@ export interface MembershipOrder {
 export interface MembershipOrderInput {
   memberId: number;
   packageId: number;
+  selectedSportId?: number;
   sourceSubscriptionId?: number;
   paymentMethod: PaymentMethod;
 }

@@ -22,4 +22,6 @@ public class AttendanceResponse {
     private LocalDateTime checkedInAt;
 
     private String status;
+    private LocalDateTime vipTowelAt;
+    private LocalDateTime vipWaterAt;
 }

@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface BookingService {
 
     BookingResponse bookClass(Integer classId, Integer memberId);
+    List<BookingResponse> bookClasses(List<Integer> classIds, Integer memberId);
+    BookingResponse acceptWaitlist(Integer classId, Integer memberId);
 
     Optional<BookingResponse> getBookingById(Integer bookingId);
 

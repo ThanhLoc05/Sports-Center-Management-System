@@ -5,7 +5,10 @@ import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.dto.Request.RefundRequest;
 import com.sportscenter.management.payment.*;
 import com.sportscenter.management.repository.InvoiceRepository;
+import com.sportscenter.management.service.BookingService;
 import com.sportscenter.management.service.ClassCompletionJobs;
+import com.sportscenter.management.service.FlexibleBookingPolicy;
+import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +35,8 @@ class TrainingSqlServerIT {
     @Autowired TrainingProgramService programs;
     @Autowired TrainingAccessService access;
     @Autowired CourseOrderService orders;
+    @Autowired BookingService bookings;
+    @Autowired FlexibleBookingPolicy flexiblePolicy;
     @Autowired InvoiceRepository invoices;
     @Autowired BankPaymentEventRepository events;
     @MockitoBean SecurityUtils security;
@@ -103,6 +108,20 @@ class TrainingSqlServerIT {
         jdbc.update("UPDATE member_subscriptions SET end_date=? WHERE subscription_id=?",first.plusDays(3),subscription);
         assertFalse(programs.detail("COURSE",course.id(),member).eligible());
     }
+    @Test void flexibleBatchAndWaitlistDoNotEnrollCourseSessions() {
+        var course = course("Course uses its own enrollment", 8);
+        int session = jdbc.queryForObject(
+                "SELECT MIN(class_id) FROM classes WHERE course_id=?", Integer.class, course.id());
+        asMember();
+        var batch = assertThrows(ResponseStatusException.class,
+                () -> bookings.bookClasses(List.of(session), member));
+        assertEquals(409, batch.getStatusCode().value());
+        assertTrue(batch.getReason().contains("chương trình"));
+        var waitlist = assertThrows(ResponseStatusException.class, () -> flexiblePolicy.join(session, member));
+        assertEquals(409, waitlist.getStatusCode().value());
+        assertTrue(waitlist.getReason().contains("linh hoạt"));
+    }
+
     @Test void verifiedSplitBankTransfersConfirmOnceAndCashRouteCannotApproveThem() {
         vip();var course=course("Bank course",10);asMember();var order=orders.create(new CourseOrderInput(course.id(),null,"BANK_TRANSFER"),UUID.randomUUID().toString());
         var invoice=invoices.findById(order.invoice().getId()).orElseThrow();

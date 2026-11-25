@@ -378,6 +378,9 @@ export function MembershipOrderForm({
   );
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const selected = packages.data?.find((p) => p.id === packageId);
+  const standard = selected?.accessLevel === "STANDARD";
+  const [sportId, setSportId] = useState(source?.selectedSportId ?? 0);
+  const sports = useQuery({ queryKey: ["sports"], queryFn: api.sports, enabled: standard });
   // Cùng nội dung + thử lại sau lỗi mạng dùng lại key; thay lựa chọn tạo key mới.
   const attempt = useRef({ fingerprint: "", key: "" });
   return (
@@ -388,6 +391,7 @@ export function MembershipOrderForm({
       submitLabel="Tiếp tục đến thanh toán"
       submitDisabled={
         !selected ||
+        (standard && (!sportId || !sports.isSuccess)) ||
         packages.isPending ||
         !!packages.error ||
         (!!source &&
@@ -414,6 +418,7 @@ export function MembershipOrderForm({
           memberId: target,
           packageId: selected.id,
           paymentMethod: method,
+          ...(standard ? { selectedSportId: sportId } : {}),
           ...(source ? { sourceSubscriptionId: source.id } : {}),
         };
         const fingerprint = JSON.stringify(input);
@@ -460,6 +465,17 @@ export function MembershipOrderForm({
             ))}
           </select>
         </Field>
+        {standard && (
+          <Field label="Bộ môn của kỳ STANDARD">
+            <select required value={sportId || ""} onChange={(e) => setSportId(Number(e.target.value))}>
+              <option value="">Chọn một bộ môn</option>
+              {sports.data?.map((sport) => <option key={sport.id} value={sport.id}>{sport.name}</option>)}
+            </select>
+          </Field>
+        )}
+        {standard && sports.error && <ErrorState error={sports.error} retry={sports.refetch} />}
+        {standard && <Notice>Tập không giới hạn ở bộ môn đã chọn. Gói không bao gồm khăn và nước.</Notice>}
+        {selected?.accessLevel === "VIP" && <Notice>Tập không giới hạn ở mọi bộ môn. Bao gồm khăn và nước.</Notice>}
         <Field label="Phương thức thanh toán">
           <select
             value={method}

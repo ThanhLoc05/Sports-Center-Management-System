@@ -304,7 +304,7 @@ export default function Bookings() {
       {cancel && (
         <Confirm
           title="Hủy đăng ký lớp?"
-          description="Chỗ của thành viên sẽ được trả lại. Bạn có thể đăng ký lại nếu lớp vẫn còn chỗ và chưa bắt đầu."
+          description="Hủy sẽ trả lại chỗ cho lớp. Hủy sát giờ có thể tính một vi phạm giữ chỗ."
           onClose={() => setCancel(null)}
           onConfirm={async () => {
             /**

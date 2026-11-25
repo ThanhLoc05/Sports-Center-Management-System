@@ -35,6 +35,14 @@ public class MembershipController {
     private final MembershipService membershipService;
     private final SecurityUtils securityUtils;
 
+    @PatchMapping("/{subscriptionId}/sport")
+    @PreAuthorize("hasRole('MEMBER')")
+    public MemberSubscriptionResponse chooseSport(@PathVariable Integer subscriptionId, @RequestBody SportChoice choice) {
+        return membershipService.chooseSport(securityUtils.getCurrentUserId(), subscriptionId, choice.sportId());
+    }
+
+    public record SportChoice(Integer sportId) {}
+
     /**
      * Lấy danh mục tất cả các gói tập.
      */

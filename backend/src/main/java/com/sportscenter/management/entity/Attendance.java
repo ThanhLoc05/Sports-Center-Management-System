@@ -33,4 +33,10 @@ public class Attendance {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "vip_towel_at")
+    private LocalDateTime vipTowelAt;
+
+    @Column(name = "vip_water_at")
+    private LocalDateTime vipWaterAt;
 }

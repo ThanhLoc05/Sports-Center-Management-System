@@ -31,6 +31,9 @@ public interface MemberSubscriptionRepository extends JpaRepository<MemberSubscr
             "AND ms.status = 'ACTIVE' AND ms.startDate <= CURRENT_DATE AND ms.endDate >= CURRENT_DATE")
     Optional<MemberSubscription> findActiveMembership(@Param("memberId") Integer memberId);
 
+    Optional<MemberSubscription> findFirstByMemberIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateDescIdDesc(
+            Integer memberId, String status, LocalDate start, LocalDate end);
+
     /**
      * Find all subscriptions for a member
      * @param memberId Member ID

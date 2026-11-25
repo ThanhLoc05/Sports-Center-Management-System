@@ -25,6 +25,13 @@ public class MemberSubscription {
     @Column(name = "package_id", nullable = false)
     private Integer packageId;
 
+    @Column(name = "selected_sport_id")
+    private Integer selectedSportId;
+
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "entitlement_level", length = 30)
+    private String entitlementLevel;
+
     @Column(name = "rolled_into_id")
     private Integer rolledIntoId;
 

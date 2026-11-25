@@ -13,6 +13,7 @@ public class MembershipOrderRequest {
     private Integer memberId;
     @NotNull @Positive
     private Integer packageId;
+    private Integer selectedSportId;
     @Positive
     private Integer sourceSubscriptionId;
     @NotNull @Pattern(regexp = "CASH|BANK_TRANSFER")

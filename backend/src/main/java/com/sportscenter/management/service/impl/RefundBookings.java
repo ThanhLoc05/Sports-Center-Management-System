@@ -25,7 +25,9 @@ class RefundBookings {
                     JOIN membership_packages p ON p.package_id=s.package_id
                     WHERE s.member_id=b.member_id AND s.status='ACTIVE'
                       AND CAST(c.schedule_time AS date) BETWEEN s.start_date AND s.end_date
-                      AND (c.required_access_level='STANDARD' OR p.access_level='VIP'))
+                      AND (COALESCE(s.entitlement_level,p.access_level)='VIP'
+                        OR (c.required_access_level='STANDARD'
+                            AND (c.course_id IS NOT NULL OR s.selected_sport_id IS NULL OR s.selected_sport_id=c.sport_id))))
                 """, (rs, i) -> new Booking(rs.getInt(1), rs.getString(2)), member, now);
     }
 

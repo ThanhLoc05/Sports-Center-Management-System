@@ -253,6 +253,8 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .checkedInBy(attendance.getCheckedInBy())
                 .checkedInAt(attendance.getCheckedInAt())
                 .status(attendance.getStatus())
+                .vipTowelAt(attendance.getVipTowelAt())
+                .vipWaterAt(attendance.getVipWaterAt())
                 .build();
     }
 

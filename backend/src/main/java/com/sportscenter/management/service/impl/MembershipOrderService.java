@@ -72,7 +72,8 @@ public class MembershipOrderService {
         validateIdempotencyKey(idempotencyKey);
         Integer actorId = currentActorId();
         String fingerprint = hash(request.getMemberId() + "|" + request.getPackageId() + "|"
-                + request.getSourceSubscriptionId() + "|" + request.getPaymentMethod());
+                + request.getSourceSubscriptionId() + "|" + request.getPaymentMethod()
+                + (request.getSelectedSportId() == null ? "" : "|sport:" + request.getSelectedSportId()));
 
         Optional<MembershipOrder> retry = orderRepository.findByCreatedByAndIdempotencyKey(actorId, idempotencyKey);
         if (retry.isPresent()) {
@@ -99,6 +100,15 @@ public class MembershipOrderService {
         }
         if (!"CASH".equals(request.getPaymentMethod()) && !"BANK_TRANSFER".equals(request.getPaymentMethod())) {
             throw new IllegalArgumentException("Chỉ hỗ trợ tiền mặt hoặc chuyển khoản ngân hàng");
+        }
+        String level = pkg.getAccessLevel() == null ? "STANDARD" : pkg.getAccessLevel();
+        Integer sport = request.getSelectedSportId();
+        if ("STANDARD".equals(level) && (sport == null || entityManager.find(
+                com.sportscenter.management.entity.Sport.class, sport) == null)) {
+            throw new IllegalArgumentException("Gói STANDARD cần chọn một bộ môn hợp lệ.");
+        }
+        if ("VIP".equals(level) && sport != null) {
+            throw new IllegalArgumentException("Gói VIP áp dụng cho tất cả bộ môn.");
         }
 
         Integer sourceId = request.getSourceSubscriptionId();
@@ -129,9 +139,18 @@ public class MembershipOrderService {
         }
 
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        if (sourceId != null) {
+            var remaining = remainingPeriods(request.getMemberId(), now.toLocalDate());
+            if (deferEntitlements(level, sport, remaining)) {
+                LocalDate start = nextPeriodStart(remaining);
+                validateBookingsForNextSport(request.getMemberId(), sport, start, start.plusDays(pkg.getDurationDays()));
+            }
+        }
         MembershipOrder order = MembershipOrder.builder()
                 .memberId(request.getMemberId())
                 .packageId(pkg.getId())
+                .selectedSportId(sport)
+                .entitlementLevel(level)
                 .kind(kind)
                 .sourceSubscriptionId(sourceId)
                 .sourcePackageId(sourcePackageId)
@@ -321,21 +340,29 @@ public class MembershipOrderService {
             }
         }
         // [FLOW 3] BƯỚC CẬP NHẬT GÓI: tạo gói mới ACTIVE, cộng dồn số ngày còn lại của gói cũ, gói cũ chuyển EXPIRED.
-        var periods = subscriptionRepository.findByMemberId(order.getMemberId());
-        var remaining = periods.stream().filter(s -> "ACTIVE".equals(s.getStatus()) && !s.getEndDate().isBefore(today)).toList();
-        LocalDate endDate = today.plusDays(order.getPackageDurationDays() - 1L + SubscriptionRollover.remainingDays(remaining, today));
+        var remaining = remainingPeriods(order.getMemberId(), today);
+        Integer selectedSport = order.getSelectedSportId();
+        boolean defer = deferEntitlements(order.getEntitlementLevel(), selectedSport, remaining);
+        LocalDate startDate = defer ? nextPeriodStart(remaining) : today;
+        LocalDate endDate = startDate.plusDays(order.getPackageDurationDays() - 1L
+                + (defer ? 0 : SubscriptionRollover.remainingDays(remaining, today)));
+        if (defer) validateBookingsForNextSport(order.getMemberId(), selectedSport, startDate, endDate.plusDays(1));
         MemberSubscription subscription = MemberSubscription.builder()
                 .memberId(order.getMemberId())
                 .packageId(order.getPackageId())
-                .startDate(today)
+                .selectedSportId(order.getSelectedSportId())
+                .entitlementLevel(order.getEntitlementLevel())
+                .startDate(startDate)
                 .purchasedDays(order.getPackageDurationDays())
                 .endDate(endDate)
                 .status("ACTIVE")
                 .build();
         subscription = subscriptionRepository.saveAndFlush(subscription);
-        for (MemberSubscription previous : remaining) {
-            previous.setRolledIntoId(subscription.getId());
-            previous.setStatus("EXPIRED");
+        if (!defer) {
+            for (MemberSubscription previous : remaining) {
+                previous.setRolledIntoId(subscription.getId());
+                previous.setStatus("EXPIRED");
+            }
         }
         if (source != null && "ACTIVE".equals(source.getStatus()) && source.getEndDate().isBefore(today)) {
             source.setStatus("EXPIRED");
@@ -380,6 +407,7 @@ public class MembershipOrderService {
                 .delivery(notifications.status(order.getId()))
                 .id(order.getId())
                 .memberId(order.getMemberId())
+                .selectedSportId(order.getSelectedSportId())
                 .kind(order.getKind())
                 .sourceSubscriptionId(order.getSourceSubscriptionId())
                 .sourcePackageId(order.getSourcePackageId())
@@ -391,7 +419,7 @@ public class MembershipOrderService {
                         .payableAmount(payable(order)).demoPayment(order.isDemoPayment())
                         .durationDays(order.getPackageDurationDays())
                         .status(order.getPackageStatus())
-                        .accessLevel(order.getPackageAccessLevel())
+                        .accessLevel(order.getEntitlementLevel() != null ? order.getEntitlementLevel() : order.getPackageAccessLevel())
                         .sportLimit(order.getPackageSportLimit())
                         .maxConcurrentClasses(order.getPackageMaxConcurrentClasses())
                         .courseDiscountPercent(order.getPackageCourseDiscountPercent())
@@ -406,11 +434,41 @@ public class MembershipOrderService {
                 .build();
     }
 
+    private List<MemberSubscription> remainingPeriods(Integer memberId, LocalDate today) {
+        return subscriptionRepository.findByMemberId(memberId).stream()
+                .filter(period -> "ACTIVE".equals(period.getStatus()) && !period.getEndDate().isBefore(today))
+                .toList();
+    }
+
+    private boolean deferEntitlements(String level, Integer sport, List<MemberSubscription> remaining) {
+        return "STANDARD".equals(level) && remaining.stream().anyMatch(previous ->
+                !Objects.equals(previous.getSelectedSportId(), sport) || "VIP".equals(previous.getEntitlementLevel()));
+    }
+
+    private LocalDate nextPeriodStart(List<MemberSubscription> remaining) {
+        return remaining.stream().map(MemberSubscription::getEndDate)
+                .max(LocalDate::compareTo).orElseThrow().plusDays(1);
+    }
+
+    private void validateBookingsForNextSport(Integer memberId, Integer sport, LocalDate start, LocalDate exclusiveEnd) {
+        long conflicts = entityManager.createQuery("""
+                select count(b) from ClassBooking b, Classes c
+                where b.classId = c.id and b.memberId = :member and b.status = 'BOOKED'
+                  and c.status = 'SCHEDULED' and c.scheduleTime >= :start
+                  and (c.scheduleTime >= :end or c.sportId <> :sport or c.requiredAccessLevel = 'VIP')
+                """, Long.class)
+                .setParameter("member", memberId)
+                .setParameter("start", start.atStartOfDay())
+                .setParameter("end", exclusiveEnd.atStartOfDay())
+                .setParameter("sport", sport).getSingleResult();
+        if (conflicts > 0) throw conflict("Lịch đã đặt không phù hợp với kỳ mới. Vui lòng xử lý lịch trước khi chuyển gói.");
+    }
+
     private MembershipOfferResponse toOffer(MembershipPackage pkg) {
         return MembershipOfferResponse.builder().id(pkg.getId()).name(pkg.getPackageName())
                 .payableAmount(paymentProperties.qrAmount(pkg.getId(), pkg.getPrice())).demoPayment(paymentProperties.demoFor(pkg.getId()))
                 .price(pkg.getPrice()).durationDays(pkg.getDurationDays()).status(pkg.getStatus())
-                .accessLevel(pkg.getAccessLevel()).sportLimit(pkg.getSportLimit())
+                .accessLevel(pkg.getAccessLevel()).sportLimit("VIP".equals(pkg.getAccessLevel()) ? null : 1)
                 .maxConcurrentClasses(pkg.getMaxConcurrentClasses()).courseDiscountPercent(pkg.getCourseDiscountPercent())
                 .description(pkg.getDescription()).build();
     }
@@ -440,6 +498,7 @@ public class MembershipOrderService {
     private MemberSubscriptionResponse toSubscriptionResponse(MemberSubscription subscription) {
         if (subscription == null) return null;
         return MemberSubscriptionResponse.builder().id(subscription.getId()).memberId(subscription.getMemberId())
+                .selectedSportId(subscription.getSelectedSportId()).entitlementLevel(subscription.getEntitlementLevel())
                 .packageId(subscription.getPackageId()).startDate(subscription.getStartDate())
                 .endDate(subscription.getEndDate()).status(subscription.getStatus()).build();
     }

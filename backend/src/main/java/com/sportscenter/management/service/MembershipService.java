@@ -12,6 +12,7 @@ import java.util.Optional;
  * Service interface for managing membership packages and subscriptions
  */
 public interface MembershipService {
+    MemberSubscriptionResponse chooseSport(Integer memberId, Integer subscriptionId, Integer sportId);
 
     /**
      * Lấy danh sách tất cả các gói tập hiện có tại trung tâm
