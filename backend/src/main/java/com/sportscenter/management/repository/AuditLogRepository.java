@@ -10,6 +10,12 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Integer> {
+    java.util.Optional<AuditLog> findFirstByActionAndEntityTypeAndEntityIdOrderByIdDesc(
+            String action, String entityType, Integer entityId);
+
+
+    java.util.List<AuditLog> findByActionAndEntityTypeAndEntityIdInOrderByIdDesc(
+            String action, String entityType, java.util.Collection<Integer> entityIds);
 
     @Query("SELECT log FROM AuditLog log JOIN FETCH log.actor WHERE log.id = :id")
     java.util.Optional<AuditLog> findWithActorById(@Param("id") Integer id);

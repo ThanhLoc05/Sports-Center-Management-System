@@ -173,6 +173,7 @@ export default function Dashboard() {
     member = user.roleName === "MEMBER",
     coach = user.roleName === "COACH",
     demo = session!.mode === "demo";
+  const classCatalog = member && !demo ? "/sessions" : "/classes";
   const users = useUsers();
   const classes = useClasses();
   const [period, setPeriod] = useState("month");
@@ -339,7 +340,7 @@ export default function Dashboard() {
             ) : (
               <Link
                 className="btn btn-primary"
-                to={coach ? "/training?new=1" : "/classes"}
+                to={coach ? "/training?new=1" : classCatalog}
               >
                 <Plus size={17} />
                 {coach ? "Tạo kế hoạch" : "Khám phá lớp học"}
@@ -813,7 +814,7 @@ export default function Dashboard() {
                 return (
                   <Link
                     className="today-class"
-                    to={`/classes?q=${encodeURIComponent(c.className)}`}
+                    to={`${classCatalog}?q=${encodeURIComponent(c.className)}`}
                     key={c.id}
                   >
                     <div className="class-time">
@@ -915,7 +916,7 @@ export default function Dashboard() {
                 thật nhiều năng lượng.
               </h3>
               <p>Khám phá lớp học mới và tìm nhịp tập phù hợp với bạn.</p>
-              <Link to="/classes" className="btn btn-secondary">
+              <Link to={classCatalog} className="btn btn-secondary">
                 Tìm lớp học
                 <ArrowRight size={15} />
               </Link>

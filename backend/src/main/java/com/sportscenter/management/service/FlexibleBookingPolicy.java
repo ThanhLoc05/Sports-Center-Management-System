@@ -23,6 +23,7 @@ public class FlexibleBookingPolicy {
     private final UserRepository users;
     private final MemberNotificationOutboxService outbox;
     private final Clock clock;
+    private final SessionMembershipAccess membershipAccess;
     private final com.sportscenter.management.training.TrainingAccessService trainingAccess;
 
     @Value("${app.booking.cancel-notice-hours:12}")
@@ -187,6 +188,8 @@ public class FlexibleBookingPolicy {
             throw conflict("Danh sách chờ chỉ áp dụng cho buổi tập linh hoạt.");
         }
         if (!open(clazz)) throw conflict("Buổi này đã đóng đăng ký.");
+        trainingAccess.lockMember(member);
+        membershipAccess.require(clazz, member, true);
         if (count("SELECT COUNT(*) FROM dbo.class_bookings WHERE class_id=? AND member_id=? AND status='BOOKED'",
                 classId, member) > 0) throw conflict("Bạn đã đăng ký buổi này.");
         advance(clazz);
@@ -201,6 +204,23 @@ public class FlexibleBookingPolicy {
                     now(), classId, member);
         }
         return entry(classId, member);
+    }
+
+    @Transactional
+    public WaitlistEntry decline(int classId, int member) {
+        trainingAccess.lock();
+        Classes clazz = lockClass(classId);
+        if (!open(clazz)) throw conflict("Buổi này đã đóng đăng ký.");
+        int changed = jdbc.update("""
+                UPDATE dbo.class_waitlist SET status='CANCELLED'
+                WHERE class_id=? AND member_id=? AND status='INVITED' AND invite_until>?
+                """, classId, member, now());
+        if (changed != 1) throw conflict("Lời mời không còn hiệu lực.");
+        WaitlistEntry declined = entry(classId, member);
+        notify(clazz, member, "WAITLIST_DECLINED:" + classId + ":" + declined.inviteUntil(),
+                "Đã từ chối lời mời giữ chỗ", "Bạn đã từ chối lời mời cho lớp " + clazz.getClassName() + ".");
+        advance(clazz);
+        return declined;
     }
 
     public List<WaitlistEntry> entries(int member) {

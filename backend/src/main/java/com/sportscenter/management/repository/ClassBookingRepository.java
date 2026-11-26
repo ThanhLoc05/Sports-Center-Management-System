@@ -73,6 +73,15 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
      */
     long countByClassIdAndStatus(Integer classId, String status);
 
+    interface BookedCount {
+        Integer getClassId();
+        long getBookedCount();
+    }
+
+    @Query("SELECT b.classId AS classId, COUNT(b) AS bookedCount FROM ClassBooking b " +
+            "WHERE b.classId IN :classIds AND b.status = 'BOOKED' GROUP BY b.classId")
+    List<BookedCount> countBookedByClasses(@Param("classIds") List<Integer> classIds);
+
     @Query(value = "SELECT COUNT(*) FROM dbo.class_waitlist WHERE class_id=:classId AND status='INVITED' AND invite_until>:now", nativeQuery = true)
     long countReservedInvitations(@Param("classId") Integer classId, @Param("now") java.time.LocalDateTime now);
 
@@ -100,6 +109,10 @@ public interface ClassBookingRepository extends JpaRepository<ClassBooking, Inte
     @Transactional
     @Query("UPDATE ClassBooking cb SET cb.status = :status WHERE cb.classId = :classId")
     void updateBookingStatusByClass(@Param("classId") Integer classId, @Param("status") String status);
+
+    @Modifying
+    @Query("UPDATE ClassBooking cb SET cb.status = 'CANCELLED' WHERE cb.classId = :classId AND cb.status = 'BOOKED'")
+    void cancelConfirmedBookings(@Param("classId") Integer classId);
 
     /**
      * Delete all bookings for a class

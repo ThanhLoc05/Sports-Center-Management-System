@@ -9,12 +9,11 @@ import com.sportscenter.management.entity.User;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.MemberProfileRepository;
-import com.sportscenter.management.repository.MembershipPackageRepository;
-import com.sportscenter.management.repository.MemberSubscriptionRepository;
 import com.sportscenter.management.repository.UserRepository;
 import com.sportscenter.management.service.BookingService;
 import com.sportscenter.management.service.MemberClassNotifications;
 import com.sportscenter.management.service.FlexibleBookingPolicy;
+import com.sportscenter.management.service.SessionMembershipAccess;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,8 +35,7 @@ public class BookingServiceImpl implements BookingService {
     private final ClassBookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final MemberProfileRepository profileRepository;
-    private final MemberSubscriptionRepository subscriptionRepository;
-    private final MembershipPackageRepository packageRepository;
+    private final SessionMembershipAccess membershipAccess;
     private final com.sportscenter.management.service.MemberReminderService reminders;
 
     private final MemberClassNotifications classNotifications;
@@ -118,29 +116,8 @@ public class BookingServiceImpl implements BookingService {
                         && "MEMBER".equals(user.getRole().getRoleName()))
                 .orElseThrow(() -> new IllegalArgumentException("Thành viên không tồn tại hoặc không hoạt động"));
 
-        // RÀNG BUỘC 1: Học viên BẮT BUỘC phải có gói tập ACTIVE và còn hạn
-        var classDate = clazz.getScheduleTime().toLocalDate();
-        var activeSubscription = subscriptionRepository
-                .findFirstByMemberIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateDescIdDesc(
-                        memberId, "ACTIVE", classDate, classDate);
-        if (activeSubscription.isEmpty()) {
-            throw new IllegalArgumentException("Học viên chưa có gói tập hợp lệ hoặc gói tập đã hết hạn. Vui lòng thanh toán gói tập trước khi đặt lịch.");
-        }
-        var subscription = activeSubscription.get();
+        membershipAccess.require(clazz, memberId, flexible);
         if (!flexible) trainingAccess.validateSessionBooking(clazz, memberId);
-        var memberPackage = packageRepository.findById(subscription.getPackageId())
-                .orElseThrow(() -> new IllegalStateException("Gói của hội viên không tồn tại"));
-        String packageLevel = normalizeAccessLevel(subscription.getEntitlementLevel() == null
-                ? memberPackage.getAccessLevel() : subscription.getEntitlementLevel());
-        String requiredLevel = normalizeAccessLevel(clazz.getRequiredAccessLevel());
-        if ("VIP".equals(requiredLevel) && !"VIP".equals(packageLevel)) {
-            throw new IllegalArgumentException("Lớp này chỉ dành cho hội viên gói VIP");
-        }
-        if (flexible && "STANDARD".equals(packageLevel) && !clazz.getSportId().equals(subscription.getSelectedSportId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, subscription.getSelectedSportId() == null
-                    ? "Chọn bộ môn cho kỳ STANDARD trước khi đăng ký buổi mới."
-                    : "Buổi này không thuộc bộ môn của kỳ STANDARD.");
-        }
 
         // RÀNG BUỘC 2: Kiểm tra xem học viên đã đăng ký chính lớp này chưa
         Optional<ClassBooking> existing = bookingRepository.findByClassIdAndMemberId(classId, memberId);
@@ -301,14 +278,5 @@ public class BookingServiceImpl implements BookingService {
                 .bookedAt(booking.getBookedAt())
                 .status(booking.getStatus())
                 .build();
-    }
-
-    private String normalizeAccessLevel(String accessLevel) {
-        if (accessLevel == null || accessLevel.isBlank()) return "STANDARD";
-        String normalized = accessLevel.trim().toUpperCase();
-        if (!"STANDARD".equals(normalized) && !"VIP".equals(normalized)) {
-            throw new IllegalStateException("Cấp độ quyền truy cập không hợp lệ trong database");
-        }
-        return normalized;
     }
 }

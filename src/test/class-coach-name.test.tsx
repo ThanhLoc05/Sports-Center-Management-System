@@ -1,3 +1,4 @@
+import { addDays, localDate } from "../lib/utils";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -38,7 +39,7 @@ function show(roleName = "MEMBER", coachId = 9) {
   );
 }
 describe("public coach name mapping", () => {
-  it("shows the public name on Member card, table and detail without reading users", async () => {
+  it("shows the public name on Member session results and detail without reading users", async () => {
     sessionStorage.setItem(
       "sportiva-session",
       JSON.stringify({
@@ -71,25 +72,32 @@ describe("public coach name mapping", () => {
         sportId: 1,
         roomId: 1,
         maxCapacity: 10,
-        scheduleTime: "2030-01-01T10:00:00",
+        scheduleTime: `${localDate(addDays(1))}T10:00:00`,
         durationMinutes: 60,
         requiredAccessLevel: "STANDARD",
         status: "SCHEDULED",
       },
     ]);
-    vi.spyOn(api, "sports").mockResolvedValue([]);
+    vi.spyOn(api, "sports").mockResolvedValue([{ id: 1, name: "Yoga", description: "" }]);
     vi.spyOn(api, "classDetail").mockImplementation(async () => (await api.classes())[0]);
     vi.spyOn(api, "rooms").mockResolvedValue([]);
-    vi.spyOn(api, "activeSubscription").mockResolvedValue(null);
-    vi.spyOn(api, "membershipPackages").mockResolvedValue([]);
+    vi.spyOn(api, "activeSubscription").mockResolvedValue({
+      id: 10, memberId: 6, packageId: 1, status: "ACTIVE",
+      startDate: "2020-01-01", endDate: "2099-01-01", selectedSportId: 1,
+    });
+    vi.spyOn(api, "membershipPackages").mockResolvedValue([{
+      id: 1, packageName: "STANDARD", price: 500000, durationDays: 30, status: "ACTIVE", accessLevel: "STANDARD",
+    }]);
+    vi.spyOn(api, "bookings").mockResolvedValue([]);
+    vi.spyOn(api, "capacity").mockResolvedValue(10);
     vi.stubGlobal(
       "fetch",
       vi.fn(
-        async () =>
-          new Response(JSON.stringify({ remaining: 10 }), { status: 200 }),
+        async (path) =>
+          new Response(JSON.stringify(String(path).endsWith("my-conduct") ? { held: 0, limit: 5, violations: 0 } : []), { status: 200 }),
       ),
     );
-    const view = render(
+    render(
       <QueryClientProvider
         client={
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -104,23 +112,8 @@ describe("public coach name mapping", () => {
         </AuthProvider>
       </QueryClientProvider>,
     );
-    await userEvent.click(
-      screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-    );
-    expect(
-      await within(
-        view.container.querySelector(".class-card-grid") as HTMLElement,
-      ).findByText("Public Coach Name"),
-    ).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Xem dạng bảng" }),
-    );
-    expect(
-      await within(screen.getByRole("table")).findByText("Public Coach Name"),
-    ).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Mapping Test Class" }),
-    );
+    expect(await screen.findByText(/Public Coach Name ·/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Xem chi tiết" }));
     expect(
       await within(screen.getByRole("dialog")).findByText("Public Coach Name"),
     ).toBeVisible();

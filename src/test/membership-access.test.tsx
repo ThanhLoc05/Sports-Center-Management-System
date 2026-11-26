@@ -1,3 +1,4 @@
+import { addDays, localDate } from "../lib/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "../lib/api";
 import {
@@ -265,6 +266,7 @@ describe("Ánh xạ quyền gói theo Backend", () => {
 describe("Classes lọc cấp gói từ API", () => {
   const currentSubscription = {
     ...subscription,
+    selectedSportId: 1,
     startDate: "2020-01-01",
     endDate: "2099-12-31",
   };
@@ -291,7 +293,7 @@ describe("Classes lọc cấp gói từ API", () => {
         coachId: 3,
         roomId: 1,
         maxCapacity: 20,
-        scheduleTime: "2099-01-01T08:00:00",
+        scheduleTime: `${localDate(addDays(1))}T08:00:00`,
         durationMinutes: 60,
         requiredAccessLevel: "STANDARD",
         status: "SCHEDULED",
@@ -303,7 +305,7 @@ describe("Classes lọc cấp gói từ API", () => {
         coachId: 3,
         roomId: 1,
         maxCapacity: 20,
-        scheduleTime: "2099-01-02T08:00:00",
+        scheduleTime: `${localDate(addDays(2))}T08:00:00`,
         durationMinutes: 60,
         requiredAccessLevel: "VIP",
         status: "SCHEDULED",
@@ -318,6 +320,7 @@ describe("Classes lọc cấp gói từ API", () => {
     vi.spyOn(api, "users").mockResolvedValue([]);
     vi.spyOn(api, "coaches").mockResolvedValue([]);
     vi.spyOn(api, "capacity").mockResolvedValue(10);
+    vi.spyOn(api, "bookings").mockResolvedValue([]);
     vi.spyOn(api, "activeSubscription").mockResolvedValue(currentSubscription);
     vi.spyOn(api, "membershipPackages").mockResolvedValue([pkg]);
   });
@@ -341,7 +344,7 @@ describe("Classes lọc cấp gói từ API", () => {
   }
 
   it.each(["STANDARD", "VIP"])(
-    "filters classes for %s and can turn filtering off",
+    "filters eligible sessions for %s",
     async (level) => {
       vi.mocked(api.membershipPackages).mockResolvedValue([
         { ...pkg, accessLevel: level, status: "INACTIVE" },
@@ -352,27 +355,19 @@ describe("Classes lọc cấp gói từ API", () => {
           `Tên gói không biểu thị cấp · Gói ${level} còn hiệu lực.`,
         ),
       ).toBeVisible();
+      if (level === "VIP") {
+      await userEvent.setup().selectOptions(await screen.findByLabelText("Bộ môn"), "1");
+      }
       expect(
-        screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-      ).toBeChecked();
-      expect(
-        await screen.findByRole("heading", { name: "STANDARD API" }),
+        await screen.findByText("STANDARD API", { selector: "strong" }),
       ).toBeVisible();
       if (level === "VIP")
-        expect(screen.getByRole("heading", { name: "VIP API" })).toBeVisible();
+        expect(screen.getByText("VIP API", { selector: "strong" })).toBeVisible();
       else
         expect(
-          screen.queryByRole("heading", { name: "VIP API" }),
+          screen.queryByText("VIP API", { selector: "strong" }),
         ).not.toBeInTheDocument();
       expect(api.activeSubscription).toHaveBeenCalledWith(42);
-      await userEvent
-        .setup()
-        .click(
-          screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-        );
-      expect(
-        await screen.findByRole("heading", { name: "VIP API" }),
-      ).toBeVisible();
       client.clear();
     },
   );
@@ -416,27 +411,19 @@ describe("Classes lọc cấp gói từ API", () => {
       "Gói tập không thuộc thành viên đang chọn.",
     ],
   ] as const)(
-    "does not grant access for %s but still allows browsing",
+    "does not enable the booking form for %s",
     async (_name, active, packages, reason) => {
       vi.mocked(api.activeSubscription).mockResolvedValue(active);
       vi.mocked(api.membershipPackages).mockResolvedValue([...packages]);
       const client = page();
       expect(await screen.findByText(reason)).toBeVisible();
       expect(
-        screen.queryByRole("heading", { name: "STANDARD API" }),
+        screen.queryByText("STANDARD API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { name: "VIP API" }),
+        screen.queryByText("VIP API", { selector: "strong" }),
       ).not.toBeInTheDocument();
-      await userEvent
-        .setup()
-        .click(
-          screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-        );
-      expect(
-        await screen.findByRole("heading", { name: "STANDARD API" }),
-      ).toBeVisible();
-      expect(screen.getByRole("heading", { name: "VIP API" })).toBeVisible();
+      expect(screen.queryByRole("button", { name: /^Xác nhận \d+ buổi$/ })).not.toBeInTheDocument();
       client.clear();
     },
   );
@@ -457,16 +444,9 @@ describe("Classes lọc cấp gói từ API", () => {
         await screen.findByText("Đang kiểm tra quyền lợi gói tập…"),
       ).toBeVisible();
       expect(
-        screen.queryByRole("heading", { name: "STANDARD API" }),
+        screen.queryByText("STANDARD API", { selector: "strong" }),
       ).not.toBeInTheDocument();
-      await userEvent
-        .setup()
-        .click(
-          screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-        );
-      expect(
-        await screen.findByRole("heading", { name: "VIP API" }),
-      ).toBeVisible();
+      expect(screen.queryByRole("checkbox", { name: /VIP API/ })).not.toBeInTheDocument();
       client.clear();
     },
   );
@@ -484,7 +464,7 @@ describe("Classes lọc cấp gói từ API", () => {
       const client = page();
       expect(await screen.findByText("Không tải được quyền gói")).toBeVisible();
       expect(
-        screen.queryByRole("heading", { name: "STANDARD API" }),
+        screen.queryByText("STANDARD API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       const error = screen.getByRole("alert");
       expect(error).toHaveTextContent("Không tải được quyền gói");
@@ -492,10 +472,10 @@ describe("Classes lọc cấp gói từ API", () => {
         .setup()
         .click(within(error).getByRole("button", { name: /Thử lại/i }));
       expect(
-        await screen.findByRole("heading", { name: "STANDARD API" }),
+        await screen.findByText("STANDARD API", { selector: "strong" }),
       ).toBeVisible();
       expect(
-        screen.queryByRole("heading", { name: "VIP API" }),
+        screen.queryByText("VIP API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       client.clear();
     },
@@ -504,7 +484,7 @@ describe("Classes lọc cấp gói từ API", () => {
   it("does not use cached rights after a refetch error", async () => {
     const client = page();
     expect(
-      await screen.findByRole("heading", { name: "STANDARD API" }),
+      await screen.findByText("STANDARD API", { selector: "strong" }),
     ).toBeVisible();
     vi.mocked(api.activeSubscription).mockRejectedValue(
       new ApiError("Quyền gói đã lỗi", 500),
@@ -512,7 +492,7 @@ describe("Classes lọc cấp gói từ API", () => {
     await client.invalidateQueries({ queryKey: ["activeSubscription", 42] });
     expect(await screen.findByText("Quyền gói đã lỗi")).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "STANDARD API" }),
+      screen.queryByText("STANDARD API", { selector: "strong" }),
     ).not.toBeInTheDocument();
     client.clear();
   });
@@ -567,27 +547,12 @@ describe("Classes lọc cấp gói từ API", () => {
         ),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { name: "STANDARD API" }),
+        screen.queryByText("STANDARD API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { name: "VIP API" }),
+        screen.queryByText("VIP API", { selector: "strong" }),
       ).not.toBeInTheDocument();
-      await userEvent
-        .setup()
-        .click(
-          screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-        );
-      expect(
-        await screen.findByRole("heading", { name: "VIP API" }),
-      ).toBeVisible();
-      await userEvent
-        .setup()
-        .click(
-          screen.getByRole("checkbox", { name: "Chỉ xem lớp phù hợp gói" }),
-        );
-      expect(
-        screen.queryByRole("heading", { name: "VIP API" }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Xác nhận \d+ buổi$/ })).not.toBeInTheDocument();
       if (source === "catalog") resolveCatalog([{ ...pkg, accessLevel: next }]);
       else resolveSubscription({ ...currentSubscription, packageId: 8 });
       await refetch;
@@ -596,14 +561,17 @@ describe("Classes lọc cấp gói từ API", () => {
           `Tên gói không biểu thị cấp · Gói ${next} còn hiệu lực.`,
         ),
       ).toBeVisible();
+      if (next === "VIP") {
+      await userEvent.setup().selectOptions(await screen.findByLabelText("Bộ môn"), "1");
+      }
       expect(
-        await screen.findByRole("heading", { name: "STANDARD API" }),
+        await screen.findByText("STANDARD API", { selector: "strong" }),
       ).toBeVisible();
       if (next === "VIP")
-        expect(screen.getByRole("heading", { name: "VIP API" })).toBeVisible();
+        expect(screen.getByText("VIP API", { selector: "strong" })).toBeVisible();
       else
         expect(
-          screen.queryByRole("heading", { name: "VIP API" }),
+          screen.queryByText("VIP API", { selector: "strong" }),
         ).not.toBeInTheDocument();
       client.clear();
     },
@@ -616,8 +584,9 @@ describe("Classes lọc cấp gói từ API", () => {
         { ...pkg, accessLevel: "VIP" },
       ]);
       const client = page();
+      await userEvent.setup().selectOptions(await screen.findByLabelText("Bộ môn"), "1");
       expect(
-        await screen.findByRole("heading", { name: "VIP API" }),
+        await screen.findByText("VIP API", { selector: "strong" }),
       ).toBeVisible();
       let reject!: (reason: Error) => void;
       if (source === "catalog")
@@ -644,7 +613,7 @@ describe("Classes lọc cấp gói từ API", () => {
         await screen.findByText("Đang kiểm tra quyền lợi gói tập…"),
       ).toBeVisible();
       expect(
-        screen.queryByRole("heading", { name: "VIP API" }),
+        screen.queryByText("VIP API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       reject(new ApiError("Không xác minh được quyền mới", 500));
       await refetch;
@@ -652,10 +621,10 @@ describe("Classes lọc cấp gói từ API", () => {
         await screen.findByText("Không xác minh được quyền mới"),
       ).toBeVisible();
       expect(
-        screen.queryByRole("heading", { name: "STANDARD API" }),
+        screen.queryByText("STANDARD API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { name: "VIP API" }),
+        screen.queryByText("VIP API", { selector: "strong" }),
       ).not.toBeInTheDocument();
       client.clear();
     },
@@ -666,8 +635,9 @@ describe("Classes lọc cấp gói từ API", () => {
       { ...pkg, accessLevel: "VIP" },
     ]);
     const client = page();
+      await userEvent.setup().selectOptions(await screen.findByLabelText("Bộ môn"), "1");
     expect(
-      await screen.findByRole("heading", { name: "VIP API" }),
+      await screen.findByText("VIP API", { selector: "strong" }),
     ).toBeVisible();
     let resolve!: (value: Subscription | null) => void;
     vi.mocked(api.activeSubscription).mockImplementation(
@@ -683,7 +653,7 @@ describe("Classes lọc cấp gói từ API", () => {
       await screen.findByText("Đang kiểm tra quyền lợi gói tập…"),
     ).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "VIP API" }),
+      screen.queryByText("VIP API", { selector: "strong" }),
     ).not.toBeInTheDocument();
     resolve(null);
     await refetch;
@@ -691,10 +661,10 @@ describe("Classes lọc cấp gói từ API", () => {
       await screen.findByText("Chưa có gói tập còn hiệu lực."),
     ).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "STANDARD API" }),
+      screen.queryByText("STANDARD API", { selector: "strong" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "VIP API" }),
+      screen.queryByText("VIP API", { selector: "strong" }),
     ).not.toBeInTheDocument();
     client.clear();
   });
@@ -703,14 +673,25 @@ describe("Classes lọc cấp gói từ API", () => {
     const session = JSON.parse(sessionStorage.getItem("sportiva-session")!);
     session.user.roleName = "CENTER_MANAGER";
     sessionStorage.setItem("sportiva-session", JSON.stringify(session));
+    const sessionRows = await api.classes();
+    vi.mocked(api.classes).mockClear();
+    vi.spyOn(api, "managedClasses").mockResolvedValue({
+      items: sessionRows.map(session => ({ session, cancellationReason: null })),
+      total: sessionRows.length, pageCount: 1,
+    });
     const client = page();
-    expect(
-      await screen.findByRole("heading", { name: "VIP API" }),
-    ).toBeVisible();
-    await waitFor(() => expect(api.classes).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: "VIP API" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Xem dạng bảng" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("link", { name: "Lịch tuần mẫu" })).toHaveAttribute("href", "/classes/weekly-template");
+    expect(api.managedClasses).toHaveBeenCalledWith("SCHEDULED", "all", "", 0);
+    expect(api.classes).not.toHaveBeenCalled();
     expect(api.activeSubscription).not.toHaveBeenCalled();
     expect(api.membershipPackages).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Tạo lớp học" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Tạo buổi lẻ" })).toBeVisible();
+    await userEvent.setup().selectOptions(screen.getByRole("combobox", { name: "Lọc theo ca" }), "SLOT_05");
+    await waitFor(() => expect(api.managedClasses).toHaveBeenLastCalledWith(
+      "SCHEDULED", "all", "", 0, expect.objectContaining({ slot: "SLOT_05" }),
+    ));
     client.clear();
   });
 });

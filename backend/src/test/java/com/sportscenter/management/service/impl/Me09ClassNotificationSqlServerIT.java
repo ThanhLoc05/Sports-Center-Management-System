@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import com.sportscenter.management.dto.Request.ClassRequest;
+import com.sportscenter.management.dto.Request.ClassCancellationRequest;
 import com.sportscenter.management.entity.*;
 import com.sportscenter.management.repository.*;
 import org.junit.jupiter.api.*;
@@ -60,31 +61,31 @@ class Me09ClassNotificationSqlServerIT {
         assertEquals("DESKTOP-IKVPEK1\\SQLEXPRESS|" + isolatedCatalog(),jdbc.queryForObject("SELECT CONVERT(varchar(128),@@SERVERNAME)+'|'+DB_NAME()",String.class));
         actor("CENTER_MANAGER");member=actor("MEMBER");cancelledMember=actor("MEMBER");coach=actor("COACH");otherCoach=actor("COACH");
         String key=UUID.randomUUID().toString();room=rooms.saveAndFlush(Room.builder().roomName("old-"+key).capacity(5).build()).getId();otherRoom=rooms.saveAndFlush(Room.builder().roomName("new-"+key).capacity(5).build()).getId();
-        sport=sports.saveAndFlush(Sport.builder().sportName("sport-"+key).build()).getId();oldTime=LocalDateTime.now().plusDays(5).withHour(10).withMinute(0).withSecond(0).withNano(0);
+        sport=sports.saveAndFlush(Sport.builder().sportName("sport-"+key).build()).getId();oldTime=LocalDateTime.now().plusDays(5).toLocalDate().atTime(15, 0);
         classId=classes.saveAndFlush(Classes.builder().className("ME09 Class "+key).coachId(coach).sportId(sport).roomId(room).maxCapacity(3).scheduleTime(oldTime).durationMinutes(60).requiredAccessLevel("STANDARD").status("SCHEDULED").build()).getId();
         bookings.saveAndFlush(ClassBooking.builder().classId(classId).memberId(member).status("BOOKED").bookedAt(LocalDateTime.now()).build());
         bookings.saveAndFlush(ClassBooking.builder().classId(classId).memberId(cancelledMember).status("CANCELLED").bookedAt(LocalDateTime.now()).build());auth("CENTER_MANAGER");
     }
     void auth(String role){SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(managerEmail,"unused","ROLE_"+role));}
     @AfterEach void logout(){SecurityContextHolder.clearContext();}
-    ClassRequest change(){return ClassRequest.builder().roomId(otherRoom).coachId(otherCoach).scheduleTime(oldTime.plusHours(2)).build();}
+    ClassRequest change(){return ClassRequest.builder().roomId(otherRoom).coachId(otherCoach).scheduleTime(oldTime.plusHours(3)).durationMinutes(90).build();}
     int count(){return jdbc.queryForObject("SELECT COUNT(*) FROM general_notifications WHERE recipient_id=?",Integer.class,member);}
     @Test void updateReportsOldAndNewValuesAndNoopDoesNotDuplicate(){
         controller.updateClass(classId,change());assertEquals(1,count());
         String content=jdbc.queryForObject("SELECT content FROM general_notifications WHERE recipient_id=?",String.class,member);
-        assertTrue(content.contains(oldTime.toString()));assertTrue(content.contains(oldTime.plusHours(2).toString()));
+        assertTrue(content.contains(oldTime.toString()));assertTrue(content.contains(oldTime.plusHours(3).toString()));
         assertTrue(content.contains(rooms.findById(room).orElseThrow().getRoomName()));assertTrue(content.contains(rooms.findById(otherRoom).orElseThrow().getRoomName()));
         assertTrue(content.contains(users.findById(coach).orElseThrow().getFullName()));assertTrue(content.contains(users.findById(otherCoach).orElseThrow().getFullName()));
         controller.updateClass(classId,change());assertEquals(1,count());
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM general_notifications WHERE recipient_id=?",Integer.class,cancelledMember));
     }
     @Test void cancellationSnapshotsBookedRosterAndDoesNotRefundOrDuplicate(){
-        controller.cancelClass(classId);assertEquals(1,count());
+        controller.cancelClass(classId, new ClassCancellationRequest(ClassCancellationRequest.Reason.SCHEDULE_CHANGE, null, null));assertEquals(1,count());
         assertEquals("CANCELLED",classes.findById(classId).orElseThrow().getStatus());
         assertEquals(0,bookings.countByClassIdAndStatus(classId,"BOOKED"));
         String content=jdbc.queryForObject("SELECT content FROM general_notifications WHERE recipient_id=?",String.class,member);
         assertTrue(content.contains(oldTime.toString()));assertTrue(content.contains("HỦY"));
-        controller.cancelClass(classId);assertEquals(1,count());
+        controller.cancelClass(classId, new ClassCancellationRequest(ClassCancellationRequest.Reason.SCHEDULE_CHANGE, null, null));assertEquals(1,count());
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM general_notifications WHERE recipient_id=?",Integer.class,cancelledMember));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM invoices WHERE member_id=?",Integer.class,member));
     }
@@ -95,9 +96,13 @@ class Me09ClassNotificationSqlServerIT {
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM member_notification_outbox WHERE recipient_id=?",Integer.class,member));
     }
     private int otherClass(LocalDateTime time, String status) {
+        return otherClass(time, status, 60);
+    }
+
+    private int otherClass(LocalDateTime time, String status, int duration) {
         return classes.saveAndFlush(Classes.builder().className("Other " + UUID.randomUUID())
                 .coachId(otherCoach).roomId(otherRoom).sportId(sport).scheduleTime(time)
-                .durationMinutes(60).maxCapacity(5).requiredAccessLevel("STANDARD").status(status).build()).getId();
+                .durationMinutes(duration).maxCapacity(5).requiredAccessLevel("STANDARD").status(status).build()).getId();
     }
 
     private void book(int targetClass, int memberId, String status) {
@@ -106,7 +111,7 @@ class Me09ClassNotificationSqlServerIT {
     }
 
     @Test void overlappingMoveReturns409AndPreservesClassRosterAndNotifications() throws Exception {
-        int other = otherClass(oldTime.plusHours(2), "SCHEDULED");
+        int other = otherClass(oldTime.plusHours(3).plusMinutes(15), "SCHEDULED");
         int secondMember = actor("MEMBER");
         book(classId, secondMember, "BOOKED");
         book(other, secondMember, "BOOKED");
@@ -118,8 +123,8 @@ class Me09ClassNotificationSqlServerIT {
 
         mvc.perform(put("/api/v1/classes/{id}", classId).contentType("application/json")
                         .content("""
-                                {"className":"Requested name","scheduleTime":"%s","durationMinutes":60,"coachId":%d,"roomId":%d}
-                                """.formatted(oldTime.plusMinutes(90), thirdCoach, thirdRoom)))
+                                {"className":"Requested name","scheduleTime":"%s","durationMinutes":90,"coachId":%d,"roomId":%d}
+                                """.formatted(oldTime.plusHours(3), thirdCoach, thirdRoom)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message", containsString("học viên")));
 
@@ -137,28 +142,28 @@ class Me09ClassNotificationSqlServerIT {
     }
 
     @Test void extendingDurationConflictsButTouchingEndpointsAndInactiveBookingsDoNot() {
-        book(otherClass(oldTime.plusHours(2), "SCHEDULED"), member, "BOOKED");
+        book(otherClass(oldTime.plusMinutes(75), "SCHEDULED", 15), member, "BOOKED");
         book(otherClass(oldTime.plusMinutes(70), "CANCELLED"), member, "BOOKED");
         book(otherClass(oldTime.plusMinutes(70), "COMPLETED"), member, "BOOKED");
-        int adjacentClass = otherClass(oldTime.plusHours(1), "SCHEDULED");
+        int adjacentClass = otherClass(oldTime.plusHours(3), "SCHEDULED");
         book(adjacentClass, member, "CANCELLED");
         book(adjacentClass, cancelledMember, "BOOKED");
 
         var conflict = assertThrows(ResponseStatusException.class, () ->
-                controller.updateClass(classId, ClassRequest.builder().durationMinutes(121).build()));
+                controller.updateClass(classId, ClassRequest.builder().durationMinutes(90).build()));
         assertEquals(409, conflict.getStatusCode().value());
         assertEquals(60, classes.findById(classId).orElseThrow().getDurationMinutes());
         assertEquals(0, count());
 
-        var moved = controller.updateClass(classId, ClassRequest.builder().scheduleTime(oldTime.plusHours(1)).build());
-        assertEquals(oldTime.plusHours(1), moved.getScheduleTime());
+        var moved = controller.updateClass(classId, ClassRequest.builder().scheduleTime(oldTime.plusMinutes(90)).durationMinutes(90).build());
+        assertEquals(oldTime.plusMinutes(90), moved.getScheduleTime());
         assertEquals(1, count());
     }
 
     private int move(int target, LocalDateTime time) {
         auth("CENTER_MANAGER");
         try {
-            controller.updateClass(target, ClassRequest.builder().scheduleTime(time).build());
+            controller.updateClass(target, ClassRequest.builder().scheduleTime(time).durationMinutes(90).build());
             return 200;
         } catch (ResponseStatusException e) {
             assertEquals(409, e.getStatusCode().value());
@@ -179,11 +184,11 @@ class Me09ClassNotificationSqlServerIT {
     }
 
     @Test void twoMovesSharingAMemberCannotBothCommitOverlappingIntervals() throws Exception {
-        int other = otherClass(oldTime.plusHours(2), "SCHEDULED");
+        int other = otherClass(oldTime.plusHours(1).plusMinutes(30), "SCHEDULED");
         book(other, member, "BOOKED");
 
-        var results = concurrently(() -> move(classId, oldTime.plusHours(4)),
-                () -> move(other, oldTime.plusHours(4).plusMinutes(15)));
+        var results = concurrently(() -> move(classId, oldTime.plusHours(3)),
+                () -> move(other, oldTime.plusHours(3)));
 
         assertTrue(results.containsAll(List.of(200, 409)), results.toString());
         assertEquals(1, count());
@@ -194,7 +199,7 @@ class Me09ClassNotificationSqlServerIT {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void bookingAndMoveCannotBothCommitOverlappingIntervals(boolean joiningMovingClass) throws Exception {
-        int other = otherClass(oldTime.plusHours(2), "SCHEDULED");
+        int other = otherClass(oldTime.plusHours(3).plusMinutes(15), "SCHEDULED");
         int joiningMember = joiningMovingClass ? cancelledMember : member;
         int bookingTarget = joiningMovingClass ? classId : other;
         if (joiningMovingClass) book(other, joiningMember, "BOOKED");
@@ -204,7 +209,7 @@ class Me09ClassNotificationSqlServerIT {
                 FROM membership_packages WHERE access_level='STANDARD' AND status='ACTIVE' ORDER BY package_id
                 """, joiningMember);
 
-        var results = concurrently(() -> move(classId, oldTime.plusMinutes(90)), () -> {
+        var results = concurrently(() -> move(classId, oldTime.plusHours(3)), () -> {
             try {
                 bookingService.bookClass(bookingTarget, joiningMember);
                 return 201;
@@ -216,7 +221,7 @@ class Me09ClassNotificationSqlServerIT {
 
         assertTrue(results.equals(List.of(200, 400)) || results.equals(List.of(409, 201)), results.toString());
         boolean moved = results.getFirst() == 200;
-        assertEquals(moved ? oldTime.plusMinutes(90) : oldTime, classes.findById(classId).orElseThrow().getScheduleTime());
+        assertEquals(moved ? oldTime.plusHours(3) : oldTime, classes.findById(classId).orElseThrow().getScheduleTime());
         assertEquals(moved ? 1 : 2, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM class_bookings WHERE member_id=? AND status='BOOKED'", Integer.class, joiningMember));
         assertEquals(moved ? 1 : 0, jdbc.queryForObject(

@@ -5,7 +5,6 @@ import { CoachProfileDialog } from "../components/CoachProfile";
 import { useDemoData, usePermissions } from "../lib/hooks";
 import {
   apiMembershipAccess,
-  classAccessAllowed,
   classEligibility,
   membershipAccess,
 } from "../lib/entitlements";
@@ -16,6 +15,7 @@ import {
  * và xem sức chứa. Cùng dữ liệu lớp được tái sử dụng trong lịch hoạt động.
  */
 import { useCatalog } from "../lib/catalog";
+import ClassCancellationDialog from "../components/ClassCancellationDialog";
 import { sportVisual, sportImage } from "../lib/sport-visuals";
 import "../styles-sports.css";
 import { useState } from "react";
@@ -37,8 +37,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
-import { api, request } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import { operations } from "../lib/operations-api";
+import { SCHEDULING_SLOTS, slotForSession, vietnamScheduleParts } from "../lib/scheduling-slots";
+import { matchesSchedulingSport } from "../lib/scheduling-resources";
 
 import type { AccessLevel, SportClass } from "../lib/types";
 import {
@@ -74,17 +76,31 @@ import {
  */
 export function ClassForm({
   item,
-  allowRecurring = false,
+  fixedSlots = true,
   onClose,
 }: {
   item?: SportClass;
-  allowRecurring?: boolean;
+  fixedSlots?: boolean;
   onClose: () => void;
 }) {
   const catalog = useCatalog();
   const { sports, rooms } = catalog;
-  const [recurring, setRecurring] = useState(false);
+  const originalSlot = item && slotForSession(item);
+  const [slotCode, setSlotCode] = useState(item ? originalSlot?.code ?? "legacy" : "");
+  const currentDate = localDate();
+  const original = item && vietnamScheduleParts(item.scheduleTime);
+  const legacySlot = fixedSlots && slotCode === "legacy";
+  const selectedSlot = SCHEDULING_SLOTS.find(slot => slot.code === slotCode);
   const users = useUsers();
+  const checkResources = fixedSlots && !item?.courseId && !item?.regularClassId;
+  const [sportId, setSportId] = useState(item?.sportId ?? 0);
+  const [roomId, setRoomId] = useState(item?.roomId ?? 0);
+  const [coachId, setCoachId] = useState(item?.coachId ?? 0);
+  const profiles = useQuery({ queryKey: ["coaches"], queryFn: api.coaches, enabled: checkResources });
+  const eligibleCoaches = sportId ? (profiles.data ?? []).filter(({ specialties }) =>
+    matchesSchedulingSport(specialties, sportId, sports)) : [];
+  const eligibleRooms = Object.entries(rooms).filter(([, name]) =>
+    !checkResources || (sportId > 0 && matchesSchedulingSport(name, sportId, sports)));
 
   const client = useQueryClient();
   const toast = useToast();
@@ -93,44 +109,41 @@ export function ClassForm({
       title={item ? "Chỉnh sửa lớp học" : "Tạo lớp học mới"}
       description="Lịch học, không gian và người đồng hành cho mỗi buổi tập."
       wide
-      submitDisabled={catalog.loading || !!catalog.error}
+      submitDisabled={catalog.loading || !!catalog.error || (checkResources && (profiles.isPending || profiles.isError))}
       onClose={onClose}
-      submitLabel={item ? "Lưu lớp học" : recurring ? "Công bố chuỗi buổi" : "Tạo lớp học"}
+      submitLabel={item ? "Lưu lớp học" : "Tạo lớp học"}
       onSubmit={async (data) => {
         /**
          * Gửi dữ liệu form cùng item?.id; API chọn POST/PUT. Chỉ sau khi chờ lưu thành công
          * mới invalidate cache và báo hoàn tất. FormModal sẽ giữ form nếu có lỗi.
          */
+        const slotSchedule = fixedSlots && selectedSlot ? `${String(data.get("scheduleDate"))}T${selectedSlot.start}:00` : undefined;
+        if (fixedSlots && !legacySlot && !slotSchedule) throw new Error("Chọn một ca học.");
         const input = {
             className: String(data.get("className")).trim(),
             sportId: Number(data.get("sportId")),
             coachId: Number(data.get("coachId")),
             roomId: Number(data.get("roomId")),
             maxCapacity: Number(data.get("maxCapacity")),
-            scheduleTime: String(data.get("scheduleTime")),
-            durationMinutes: Number(data.get("durationMinutes")),
+            scheduleTime: legacySlot && item
+              ? item.scheduleTime
+              : slotSchedule ?? String(data.get("scheduleTime")),
+            durationMinutes: legacySlot && item
+              ? item.durationMinutes
+              : slotSchedule ? selectedSlot!.durationMinutes : Number(data.get("durationMinutes")),
             requiredAccessLevel: data.get("requiredAccessLevel") as AccessLevel,
             status: item?.status || "SCHEDULED",
         };
-        if (recurring && !item) {
-          const weekdays = data.getAll("weekday");
-          if (!weekdays.length) throw new Error("Chọn ít nhất một ngày trong tuần.");
-          const created = await request<SportClass[]>("/classes/recurring", {
-            method: "POST",
-            body: JSON.stringify({ session: input, through: data.get("through"), weekdays }),
-          });
-          toast(`Đã công bố ${created.length} buổi.`);
-        } else {
-          await api.saveClass(input, item?.id);
-          toast(item ? "Đã cập nhật lớp học." : "Đã tạo lớp học mới.");
-        }
+        await api.saveClass(input, item?.id);
+        toast(item ? "Đã cập nhật lớp học." : "Đã tạo lớp học mới.");
         await client.invalidateQueries();
       }}
     >
-      {catalog.loading && <Loading />}
+      {(catalog.loading || (checkResources && profiles.isPending)) && <Loading />}
       {catalog.error && (
         <ErrorState error={catalog.error} retry={catalog.retry} />
       )}
+      {checkResources && profiles.error && <ErrorState error={profiles.error} retry={profiles.refetch} />}
       <Field label="Tên lớp học">
         <input
           name="className"
@@ -153,7 +166,7 @@ export function ClassForm({
           </select>
         </Field>
         <Field label="Bộ môn">
-          <select name="sportId" required defaultValue={item?.sportId || ""}>
+          <select name="sportId" required value={sportId || ""} onChange={(event) => setSportId(Number(event.target.value))}>
             <option value="" disabled>
               Chọn bộ môn
             </option>
@@ -165,11 +178,13 @@ export function ClassForm({
           </select>
         </Field>
         <Field label="Phòng tập">
-          <select name="roomId" required defaultValue={item?.roomId || ""}>
+          <select name="roomId" required disabled={checkResources && !sportId}
+            value={eligibleRooms.some(([id]) => Number(id) === roomId) ? roomId : ""}
+            onChange={(event) => setRoomId(Number(event.target.value))}>
             <option value="" disabled>
               Chọn phòng tập
             </option>
-            {Object.entries(rooms).map(([id, name]) => (
+            {eligibleRooms.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
               </option>
@@ -177,7 +192,16 @@ export function ClassForm({
           </select>
         </Field>
         <Field label="Huấn luyện viên">
-          {users.data?.some((u) => u.roleName === "COACH") ? (
+          {checkResources ? (
+            <select name="coachId" required disabled={!sportId || profiles.isPending}
+              value={eligibleCoaches.some((coach) => coach.coachId === coachId) ? coachId : ""}
+              onChange={(event) => setCoachId(Number(event.target.value))}>
+              <option value="" disabled>Chọn huấn luyện viên</option>
+              {eligibleCoaches.map((coach) => (
+                <option key={coach.coachId} value={coach.coachId}>{coach.fullName}</option>
+              ))}
+            </select>
+          ) : users.data?.some((u) => u.roleName === "COACH") ? (
             <select name="coachId" required defaultValue={item?.coachId || ""}>
               <option value="" disabled>
                 Chọn huấn luyện viên
@@ -212,6 +236,32 @@ export function ClassForm({
             defaultValue={item?.maxCapacity || 20}
           />
         </Field>
+        {fixedSlots ? (
+          <>
+            <Field label="Ngày học (giờ Việt Nam)">
+              <input
+                type="date"
+                name="scheduleDate"
+                required
+                disabled={legacySlot}
+                min={original && original.date < currentDate ? original.date : currentDate}
+                defaultValue={original?.date ?? localDate(addDays(1))}
+              />
+            </Field>
+            <Field label="Ca học">
+              <select required value={slotCode} onChange={event => setSlotCode(event.target.value)}>
+                <option value="" disabled>Chọn ca 90 phút</option>
+                {item && !originalSlot && (
+                  <option value="legacy">Giữ giờ cũ ({original?.time}, {item.durationMinutes} phút)</option>
+                )}
+                {SCHEDULING_SLOTS.map(slot => (
+                  <option key={slot.code} value={slot.code}>{slot.label} — {slot.start}–{slot.end}</option>
+                ))}
+              </select>
+            </Field>
+          </>
+        ) : (
+          <>
         <Field label="Ngày và giờ bắt đầu">
           <input
             type="datetime-local"
@@ -235,31 +285,16 @@ export function ClassForm({
             defaultValue={item?.durationMinutes || 60}
           />
         </Field>
+          </>
+        )}
       </div>
-      {!item && allowRecurring && (
-        <label className="check-option">
-          <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-          Lặp theo ngày trong tuần
-        </label>
-      )}
-      {recurring && (
-        <>
-          <Field label="Lặp đến hết ngày"><input name="through" type="date" required /></Field>
-          <fieldset>
-            <legend>Ngày trong tuần</legend>
-            {["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map((day, index) =>
-              <label className="check-option" key={day}>
-                <input name="weekday" type="checkbox" value={day} />
-                {index === 6 ? "Chủ Nhật" : `Thứ ${index + 2}`}
-              </label>
-            )}
-          </fieldset>
-          <Notice>Mỗi buổi được công bố riêng. Sau khi công bố, sửa hoặc hủy từng buổi để kiểm tra các đăng ký liên quan.</Notice>
-        </>
-      )}
     </FormModal>
   );
 }
+function lacksManagementEndpoint(error: unknown) {
+  return error instanceof ApiError && error.status === 400 && error.message === 'For input string: "management"';
+}
+
 export default function Classes() {
   const { sports, rooms } = useCatalog();
   const { session } = useAuth();
@@ -267,8 +302,6 @@ export default function Classes() {
   const db = useDemoData();
   const member = session!.user.roleName === "MEMBER";
   const [eligibleOnly, setEligibleOnly] = useState(member);
-  const [flexible, setFlexible] = useState(false);
-  const [showSeries, setShowSeries] = useState(false);
   const access = db && member ? membershipAccess(db, session!.user.id) : null;
   const apiMember = member && session!.mode === "api";
   const activeMembership = useQuery({
@@ -300,102 +333,161 @@ export default function Classes() {
   const manager = can("classes.manage"),
     demo = session!.mode === "demo",
     coach = session!.user.roleName === "COACH";
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const managed = session!.user.roleName === "CENTER_MANAGER" && !demo;
+  const [page, setPage] = useState(0);
+  const [filters, setFilters] = useState({
+    coachId: "", roomId: "", fromDate: "", throughDate: "", slot: "",
+  });
+  function changeFilter(key: keyof typeof filters, value: string) {
+    setPage(0);
+    setFilters(current => ({ ...current, [key]: value }));
+  }
+  const invalidRange = !!filters.fromDate && !!filters.throughDate && filters.throughDate < filters.fromDate;
+  const anyFilterActive = Object.values(filters).some(Boolean);
   const [search, setSearch] = useState(params.get("q") || "");
   const [sport, setSport] = useState("all");
-  const [status, setStatus] = useState("SCHEDULED");
-  const [view, setView] = useState("grid");
+  const [localStatus, setLocalStatus] = useState("SCHEDULED");
+  const status = managed ? params.get("status") || "SCHEDULED" : localStatus;
+  function changeStatus(nextStatus: string) {
+    setPage(0);
+    if (!managed) {
+      setLocalStatus(nextStatus);
+      return;
+    }
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      if (nextStatus === "SCHEDULED") next.delete("status");
+      else next.set("status", nextStatus);
+      return next;
+    });
+  }
+  const [view, setView] = useState(managed ? "list" : "grid");
   const [edit, setEdit] = useState<SportClass | true | null>(
     params.get("new") === "1" && manager ? true : null,
   );
   const [selected, setSelected] = useState<SportClass | null>(null);
   const [selectedCoachId, setSelectedCoachId] = useState<number | null>(null);
   const [cancel, setCancel] = useState<SportClass | null>(null);
-  const classes = useClasses();
-  const series = useQuery({
-    queryKey: ["recurring-classes", session!.user.id],
-    queryFn: () => request<{ seriesKey: string; plannedDate: string; classId: number }[]>("/classes/recurring"),
-    enabled: manager && !demo && showSeries,
+  const managedClasses = useQuery({
+    queryKey: ["managed-classes", session!.user.id, status, sport, search, page, filters],
+    queryFn: () => anyFilterActive
+      ? api.managedClasses(status, sport, search.slice(0, 150), page, filters)
+      : api.managedClasses(status, sport, search.slice(0, 150), page),
+    enabled: managed && !invalidRange,
+    retry: (count, error) => !lacksManagementEndpoint(error) && count < 2,
   });
+  const legacyManagement = lacksManagementEndpoint(managedClasses.error);
+  const useManagedList = managed && !legacyManagement;
+  const classes = useClasses({ enabled: !useManagedList });
+  const classList = useManagedList ? managedClasses : classes;
+  const linkedId = managed ? Number(params.get("classId")) : 0;
+  const linkedClass = useQuery({
+    queryKey: ["classDetail", linkedId, session!.user.id],
+    queryFn: () => api.classDetail(linkedId),
+    enabled: managed && Number.isSafeInteger(linkedId) && linkedId > 0,
+  });
+  const viewedClass = selected ?? (linkedId > 0 ? linkedClass.data : null);
+  function closeClass() {
+    setSelected(null);
+    if (linkedId > 0) setParams(current => {
+      const next = new URLSearchParams(current);
+      next.delete("classId");
+      return next;
+    });
+  }
   const coaches = useQuery({
     queryKey: ["coach-directory"],
     queryFn: api.coaches,
-    enabled: member,
+    enabled: member || managed,
     retry: false,
   });
   const client = useQueryClient();
   const toast = useToast();
+  if (apiMember) {
+    return (
+      <>
+        <PageHeader
+          title="Buổi tập theo gói"
+          description="Chọn buổi phù hợp với lịch của bạn. Đã bao gồm trong Membership."
+          actions={<Link to="/schedule" className="btn btn-secondary">Xem lịch hoạt động</Link>}
+        />
+        {!apiAccess?.allowed && (
+          <Panel title="Quyền lợi gói tập">
+            {accessError ? (
+              <ErrorState error={accessError} retry={() => {
+                void activeMembership.refetch();
+                void membershipPackages.refetch();
+              }} />
+            ) : accessLoading ? <p>Đang kiểm tra quyền lợi gói tập…</p> : (
+              <>
+                <p>{apiAccess?.reason}</p>
+                <Link to="/memberships">Xem gói thành viên</Link>
+              </>
+            )}
+          </Panel>
+        )}
+        {classes.error && <ErrorState error={classes.error} retry={classes.refetch} />}
+        {classes.isPending && <Loading />}
+        <FlexibleBooking
+          classes={classes.data ?? []}
+          sports={sports}
+          rooms={rooms}
+          coaches={coaches.data ?? []}
+          subscription={apiAccess?.allowed ? apiAccess.subscription : null}
+          level={apiAccess?.allowed ? apiAccess.accessLevel : null}
+          packageName={apiAccess?.allowed ? apiAccess.pkg.packageName : undefined}
+          search={params.get("q") ?? ""}
+          onView={setSelected}
+        />
+        {selected && <ClassDetail item={selected} onClose={() => setSelected(null)} />}
+      </>
+    );
+  }
   /**
    * Lọc danh sách lớp đã tải theo từ khóa, bộ môn và trạng thái; không tạo thêm
    * request tìm kiếm mỗi khi gõ. HLV đã có bộ lọc coachId ở useClasses.
    */
-  const rows = (classes.data || []).filter(
+  const localRows = (classes.data || []).filter(
     (c) =>
+      (demo || (!c.regularClassId && !c.courseId)) &&
       matches(search, c.className) &&
-      (!eligibleOnly ||
-        (db
-          ? classEligibility(db, c.id, session!.user.id).allowed
-          : !!apiAccess?.allowed &&
-            classAccessAllowed(
-              apiAccess.accessLevel,
-              c.requiredAccessLevel,
-            ))) &&
+      (!eligibleOnly || (db && classEligibility(db, c.id, session!.user.id).allowed)) &&
       (sport === "all" || c.sportId === Number(sport)) &&
       (status === "all" || c.status === status),
   );
+  const rows: (SportClass & { cancellationReason?: string | null; bookedCount?: number })[] = useManagedList
+    ? (managedClasses.data?.items ?? []).map(({ session: item, cancellationReason, bookedCount }) => ({ ...item, cancellationReason, bookedCount }))
+    : localRows;
+  const total = useManagedList ? managedClasses.data?.total ?? 0 : rows.length;
   return (
     <>
       <PageHeader
         eyebrow="FIND YOUR MOVEMENT"
-        title={coach ? "Lớp học phụ trách" : "Lớp học"}
-        description="Tìm nhịp tập của bạn. Kết nối cùng những người chung năng lượng."
+        title={demo ? (coach ? "Lớp học phụ trách" : "Lớp học") : "Buổi tập theo gói"}
+        description={managed
+          ? "Lập lịch và quản lý từng buổi tập đã công bố."
+          : demo
+            ? "Tìm nhịp tập của bạn. Kết nối cùng những người chung năng lượng."
+            : "Xem và đăng ký từng buổi theo ngày, giờ và huấn luyện viên."}
         actions={
           <>
             <Link to="/schedule" className="btn btn-secondary">
               <CalendarDays size={16} />
               Xem lịch hoạt động
             </Link>
-            {apiMember && <Button onClick={() => setFlexible(true)}>Chọn nhiều buổi</Button>}
-            {manager && !demo && <Button variant="secondary" onClick={() => setShowSeries(!showSeries)}>
-              {showSeries ? "Ẩn lịch định kỳ" : "Lịch định kỳ"}
-            </Button>}
+            {managed && (
+              <Link to="/classes/weekly-template" className="btn btn-primary">Lịch tuần mẫu</Link>
+            )}
             {manager && (
               <Button onClick={() => setEdit(true)}>
                 <Plus size={17} />
-                Tạo lớp học
+                {demo ? "Tạo lớp học" : "Tạo buổi lẻ"}
               </Button>
             )}
           </>
         }
       />
-      {showSeries && <Panel title="Các buổi đã công bố theo lịch định kỳ">
-        {series.isPending ? <Loading /> : series.error ? <ErrorState error={series.error} retry={series.refetch} /> :
-          !series.data?.length ? <Notice>Chưa công bố lịch định kỳ.</Notice> :
-          [...new Set(series.data.map((item) => item.seriesKey))].map((key) => {
-            const items = series.data!.filter((item) => item.seriesKey === key);
-            const firstSession = classes.data?.find((clazz) => clazz.id === items[0].classId);
-            return <details key={key}>
-              <summary>
-                {firstSession?.className ?? `Chuỗi buổi #${items[0].classId}`}
-                {" · "}{dateLabel(items[0].plannedDate)} · {items.length} buổi
-              </summary>
-              <ul>{items.map((item) => {
-                const clazz = classes.data?.find((c) => c.id === item.classId);
-                return <li key={item.classId}>{clazz?.className ?? `Buổi #${item.classId}`} · {" "}
-                  {clazz ? `${dateLabel(clazz.scheduleTime)} ${timeLabel(clazz.scheduleTime)}` : dateLabel(item.plannedDate)}
-                  {clazz && <> · <Badge status={clazz.status} />{" "}
-                    <Button variant="secondary" onClick={() => setSelected(clazz)}>Xem buổi</Button></>}
-                </li>;
-              })}</ul>
-            </details>;
-          })}
-      </Panel>}
-      {flexible && <FlexibleBooking classes={classes.data ?? []} sports={sports} rooms={rooms}
-        coaches={coaches.data ?? []} subscription={activeMembership.data ?? null}
-        level={activeMembership.data?.entitlementLevel ?? membershipPackages.data?.find(
-          (p) => p.id === activeMembership.data?.packageId,
-        )?.accessLevel ?? "STANDARD"}
-        onClose={() => setFlexible(false)} />}
       {member && (
         <Panel className="panel-spaced" title="Huấn luyện viên">
           {coaches.isPending ? (
@@ -439,25 +531,8 @@ export default function Classes() {
                 <p>
                   {access?.pkg
                     ? `${access.pkg.name} · ${access.reason}`
-                    : demo
-                      ? "Đăng ký gói tập để chọn lớp phù hợp."
-                      : accessError
-                        ? "Chưa xác minh được quyền lợi gói tập."
-                        : accessLoading
-                          ? "Đang kiểm tra quyền lợi gói tập…"
-                          : apiAccess?.allowed
-                            ? `${apiAccess.pkg.packageName} · ${apiAccess.reason}`
-                            : apiAccess?.reason}
+                    : "Đăng ký gói tập để chọn lớp phù hợp."}
                 </p>
-                {apiMember && accessError && (
-                  <ErrorState
-                    error={accessError}
-                    retry={() => {
-                      void activeMembership.refetch();
-                      void membershipPackages.refetch();
-                    }}
-                  />
-                )}
                 <label className="check-option">
                   <input
                     type="checkbox"
@@ -484,7 +559,7 @@ export default function Classes() {
         <div className="sport-tabs">
           <button
             className={sport === "all" ? "selected" : ""}
-            onClick={() => setSport("all")}
+            onClick={() => { setPage(0); setSport("all"); }}
           >
             Tất cả bộ môn
           </button>
@@ -492,7 +567,7 @@ export default function Classes() {
             <button
               key={id}
               className={sport === id ? "selected" : ""}
-              onClick={() => setSport(String(id))}
+              onClick={() => { setPage(0); setSport(String(id)); }}
             >
               {name}
             </button>
@@ -501,7 +576,7 @@ export default function Classes() {
       </div>
       <div className="list-toolbar">
         <div>
-          <strong>{rows.length} lớp học</strong>
+          <strong>{total} lớp học</strong>
           <span className="muted">
             {coach
               ? "Được phân công cho bạn"
@@ -511,10 +586,10 @@ export default function Classes() {
         <div className="table-filters">
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(value) => { setPage(0); setSearch(value); }}
             placeholder="Tìm lớp học..."
           />
-          <Select label="Trạng thái lớp" value={status} onChange={setStatus}>
+          <Select label="Trạng thái lớp" value={status} onChange={changeStatus}>
             <option value="SCHEDULED">Đang mở</option>
             <option value="COMPLETED">Hoàn thành</option>
             <option value="CANCELLED">Đã hủy</option>
@@ -540,10 +615,43 @@ export default function Classes() {
           </div>
         </div>
       </div>
-      {classes.isPending || (eligibleOnly && accessLoading && !accessError) ? (
+      {useManagedList && (
+        <div className="class-management-filters">
+          <Field label="Từ ngày">
+            <input type="date" value={filters.fromDate} onChange={event => changeFilter("fromDate", event.target.value)} />
+          </Field>
+          <Field label="Đến ngày">
+            <input type="date" value={filters.throughDate} min={filters.fromDate || undefined} onChange={event => changeFilter("throughDate", event.target.value)} />
+          </Field>
+          <Field label="Lọc theo ca">
+            <select value={filters.slot} onChange={event => changeFilter("slot", event.target.value)}>
+              <option value="">Tất cả ca</option>
+              {SCHEDULING_SLOTS.map(slot => <option value={slot.code} key={slot.code}>{slot.label} — {slot.start}–{slot.end}</option>)}
+            </select>
+          </Field>
+          <Field label="Lọc theo HLV">
+            <select value={filters.coachId} onChange={event => changeFilter("coachId", event.target.value)}>
+              <option value="">Tất cả HLV</option>
+              {(coaches.data ?? []).map(coach => <option key={coach.coachId} value={coach.coachId}>{coach.fullName}</option>)}
+            </select>
+          </Field>
+          <Field label="Lọc theo sân/phòng">
+            <select value={filters.roomId} onChange={event => changeFilter("roomId", event.target.value)}>
+              <option value="">Tất cả sân/phòng</option>
+              {Object.entries(rooms).map(([id, room]) => <option key={id} value={id}>{room}</option>)}
+            </select>
+          </Field>
+        </div>
+      )}
+      {legacyManagement && status === "CANCELLED" && (
+        <Notice>Backend hiện tại chưa hỗ trợ phân trang lịch sử hoặc hiển thị lý do trên danh sách. Mở chi tiết để xem lý do nếu có.</Notice>
+      )}
+      {invalidRange ? (
+        <Notice>Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.</Notice>
+      ) : classList.isPending ? (
         <Loading />
-      ) : classes.error ? (
-        <ErrorState error={classes.error} retry={classes.refetch} />
+      ) : classList.error ? (
+        <ErrorState error={classList.error} retry={classList.refetch} />
       ) : !rows.length ? (
         <Panel>
           <Empty
@@ -559,8 +667,9 @@ export default function Classes() {
               item={c}
               coachName={<ClassCoachName coachId={c.coachId} />}
               demo={demo}
+              cancellationReason={c.cancellationReason}
               onView={() => setSelected(c)}
-              onEdit={manager ? () => setEdit(c) : undefined}
+              onEdit={manager && (!managed || c.status !== "CANCELLED") ? () => setEdit(c) : undefined}
             />
           ))}
         </div>
@@ -568,6 +677,7 @@ export default function Classes() {
         <Panel>
           <DataTable
             rows={rows}
+            showPagination={!useManagedList}
             columns={[
               {
                 key: "name",
@@ -581,29 +691,49 @@ export default function Classes() {
               {
                 key: "time",
                 label: "Lịch học",
-                render: (c) => (
-                  <div className="contact-cell">
-                    <span>{dateLabel(c.scheduleTime)}</span>
-                    <small>
-                      {timeLabel(c.scheduleTime)} · {c.durationMinutes} phút
-                    </small>
-                  </div>
-                ),
+                render: (c) => {
+                  const slot = slotForSession(c);
+                  return (
+                    <div className="contact-cell">
+                      <span>{dateLabel(c.scheduleTime)}</span>
+                      <small>{managed && slot
+                        ? `${slot.label} · ${slot.start}–${slot.end}`
+                        : `${timeLabel(c.scheduleTime)} · ${c.durationMinutes} phút${managed ? " · Ngoài khung ca" : ""}`}</small>
+                    </div>
+                  );
+                },
               },
+              ...(managed ? [{
+                key: "sport",
+                label: "Bộ môn",
+                render: (c: (typeof rows)[number]) => sports[c.sportId] || `Môn #${c.sportId}`,
+              }] : []),
               {
                 key: "coach",
                 label: "Huấn luyện viên",
                 render: (c) => <ClassCoachName coachId={c.coachId} />,
               },
-              {
+              ...(managed ? [{
+                key: "room",
+                label: "Sân/phòng",
+                render: (c: (typeof rows)[number]) => (
+                  <div className="contact-cell">
+                    <span>{rooms[c.roomId] || `Phòng #${c.roomId}`}</span>
+                    {c.cancellationReason && <small>Lý do hủy: {c.cancellationReason}</small>}
+                  </div>
+                ),
+              }] : []),
+              ...(!managed ? [{
                 key: "accessLevel",
                 label: "Cấp độ yêu cầu",
-                render: (c) => c.requiredAccessLevel,
-              },
+                render: (c: (typeof rows)[number]) => c.requiredAccessLevel,
+              }] : []),
               {
                 key: "capacity",
-                label: "Sức chứa",
-                render: (c) => `${c.maxCapacity} người`,
+                label: managed ? "Đăng ký" : "Sức chứa",
+                render: (c) => c.bookedCount === undefined
+                  ? `${c.maxCapacity} chỗ`
+                  : `${c.bookedCount}/${c.maxCapacity} học viên`,
               },
               {
                 key: "status",
@@ -616,9 +746,9 @@ export default function Classes() {
                 render: (c) => (
                   <button
                     className="subtle-link"
-                    onClick={() => (manager ? setEdit(c) : setSelected(c))}
+                    onClick={() => manager && (!managed || c.status !== "CANCELLED") ? setEdit(c) : setSelected(c)}
                   >
-                    {manager ? "Chỉnh sửa" : "Chi tiết"}
+                    {manager && (!managed || c.status !== "CANCELLED") ? "Chỉnh sửa" : "Chi tiết"}
                     <ArrowUpRight size={14} />
                   </button>
                 ),
@@ -627,21 +757,32 @@ export default function Classes() {
           />
         </Panel>
       )}
+      {useManagedList && managedClasses.data && (managedClasses.data.pageCount > 1 || page > 0) && (
+        <div className="table-footer" aria-label="Phân trang buổi học">
+          <span>Trang {page + 1} / {Math.max(managedClasses.data.pageCount, page + 1)}</span>
+          <div className="pagination">
+            <Button disabled={page === 0} onClick={() => setPage(page - 1)}>Trang trước</Button>
+            <Button disabled={page + 1 >= managedClasses.data.pageCount} onClick={() => setPage(page + 1)}>Trang sau</Button>
+          </div>
+        </div>
+      )}
       {edit && (
         <ClassForm
           item={edit === true ? undefined : edit}
-          allowRecurring={manager && !demo}
+          fixedSlots={!demo}
           onClose={() => setEdit(null)}
         />
       )}
-      {selected && (
+      {linkedId > 0 && linkedClass.isPending && <Loading />}
+      {linkedClass.error && <ErrorState error={linkedClass.error} retry={linkedClass.refetch} />}
+      {viewedClass && (
         <ClassDetail
-          item={selected}
-          onClose={() => setSelected(null)}
+          item={viewedClass}
+          onClose={closeClass}
           onEdit={
-            manager
+            manager && (!managed || viewedClass.status !== "CANCELLED")
               ? (current) => {
-                  setSelected(null);
+                  closeClass();
                   setEdit(current);
                 }
               : undefined
@@ -649,7 +790,7 @@ export default function Classes() {
           onCancel={
             manager
               ? (current) => {
-                  setSelected(null);
+                  closeClass();
                   setCancel(current);
                 }
               : undefined
@@ -662,7 +803,13 @@ export default function Classes() {
           onClose={() => setSelectedCoachId(null)}
         />
       )}
-      {cancel && (
+      {cancel && !demo && (
+        <ClassCancellationDialog item={cancel} onClose={() => setCancel(null)} onSaved={async () => {
+          await client.invalidateQueries();
+          toast("Đã hủy buổi học.");
+        }} />
+      )}
+      {cancel && demo && (
         <Confirm
           title="Hủy lớp học?"
           description={`Lớp ${cancel.className} sẽ bị hủy cùng toàn bộ đăng ký liên quan.`}
@@ -689,12 +836,14 @@ function ClassCard({
   item: c,
   coachName,
   demo,
+  cancellationReason,
   onView,
   onEdit,
 }: {
   item: SportClass;
   coachName: React.ReactNode;
   demo: boolean;
+  cancellationReason?: string | null;
   onView: () => void;
   onEdit?: () => void;
 }) {
@@ -798,6 +947,7 @@ function ClassCard({
             {rooms[c.roomId] || `Phòng #${c.roomId}`}
           </span>
         </div>
+        {cancellationReason && <p className="muted">Lý do hủy: {cancellationReason}</p>}
         <div className="capacity-bar">
           <span
             style={{
@@ -907,6 +1057,12 @@ function ClassDetailContent({
   const capacity = useQuery({
     queryKey: ["capacity", c.id],
     queryFn: () => api.capacity(c.id),
+  });
+  const cancellation = useQuery({
+    queryKey: ["classCancellation", session?.user.id, c.id],
+    queryFn: () => api.classCancellation(c.id),
+    enabled: !!onCancel && session?.mode === "api",
+    retry: false,
   });
   const isMember = session!.user.roleName === "MEMBER";
   const ownBookings = useQuery({
@@ -1034,7 +1190,7 @@ function ClassDetailContent({
               </div>
             ))}
           <div className="detail-actions">
-            {(c.regularClassId || c.courseId) && <Link className="btn btn-secondary" to={c.courseId ? "/courses" : "/classes"}>{c.courseId ? "Đăng ký theo khóa học" : "Đăng ký theo lịch lớp"}</Link>}
+            {c.courseId && <Link className="btn btn-secondary" to="/courses">Đăng ký theo khóa học</Link>}
             {isMember &&
               !c.regularClassId && !c.courseId &&
               c.status === "SCHEDULED" &&
@@ -1094,15 +1250,16 @@ function ClassDetailContent({
                 Điểm danh lớp
               </Link>
             )}
+            {cancellation.data?.reason && <Notice>Lý do trung tâm hủy: {cancellation.data.reason}</Notice>}
             {onEdit && (
               <Button variant="secondary" onClick={() => onEdit(c)}>
                 <Pencil size={16} />
                 Chỉnh sửa
               </Button>
             )}
-            {onCancel && c.status !== "CANCELLED" && (
+            {onCancel && c.status !== "CANCELLED" && (session?.mode === "demo" || cancellation.data?.canCancel) && (
               <Button variant="danger" onClick={() => onCancel(c)}>
-                Hủy lớp
+                Hủy buổi học
               </Button>
             )}
           </div>

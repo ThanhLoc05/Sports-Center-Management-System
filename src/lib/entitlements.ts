@@ -65,7 +65,7 @@ export function apiMembershipAccess(
   const pkg = packages.find((p) => p.id === subscription.packageId);
   if (!pkg)
     return { allowed: false, reason: "Không tìm thấy quyền lợi của gói tập." };
-  const accessLevel = normalizeAccessLevel(pkg.accessLevel);
+  const accessLevel = normalizeAccessLevel(subscription.entitlementLevel ?? pkg.accessLevel);
   if (!accessLevel)
     return { allowed: false, reason: "Cấp quyền của gói tập không hợp lệ." };
   return {

@@ -8,7 +8,7 @@ import { AuthProvider } from "../lib/auth";
 import { api } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { demoSession, readDemo } from "../lib/demo";
-import { localDate } from "../lib/utils";
+import { addDays, localDate } from "../lib/utils";
 import { ToastProvider } from "../components/ui";
 import type { Role } from "../lib/types";
 
@@ -183,7 +183,7 @@ it("keeps other staff rosters visible when a class fails and retries only that c
   expect(screen.queryByText(b.className, { selector: "strong" })).toBeNull();
 });
 
-it.each(["CENTER_MANAGER", "RECEPTIONIST"] as Role[])("keeps simultaneous classes separately clickable for %s", async role => {
+it("keeps simultaneous classes separately clickable for Receptionist", async () => {
   const [first, second] = readDemo().classes;
   const items = [
     { ...first, scheduleTime: localDate() + "T10:00:00", durationMinutes: 60, status: "SCHEDULED" },
@@ -191,7 +191,7 @@ it.each(["CENTER_MANAGER", "RECEPTIONIST"] as Role[])("keeps simultaneous classe
     { ...first, id: 99, className: "Buổi chiều", scheduleTime: localDate() + "T12:00:00", durationMinutes: 60, status: "SCHEDULED" },
   ];
   vi.spyOn(api, "classes").mockResolvedValue(items);
-  page("/schedule", role);
+  page("/schedule", "RECEPTIONIST");
   const [a, b, later] = await Promise.all(items.map(c => screen.findByRole("button", { name: new RegExp(c.className) })));
   expect(a.style.left).not.toEqual(b.style.left);
   expect(later.style.left).toEqual(later.style.right);
@@ -201,4 +201,53 @@ it.each(["CENTER_MANAGER", "RECEPTIONIST"] as Role[])("keeps simultaneous classe
   await user.keyboard("{Escape}");
   await user.click(b);
   expect(within(await screen.findByRole("dialog")).getByText(second.className)).toBeVisible();
+});
+
+it("groups the Manager week by Vietnam date and official slots while keeping legacy sessions and cancellations", async () => {
+  const [first, second] = readDemo().classes;
+  const today = new Date(`${localDate()}T12:00:00+07:00`);
+  const monday = addDays(-((today.getUTCDay() + 6) % 7), today);
+  const date = localDate(monday);
+  const nextDate = localDate(addDays(7, monday));
+  const sessions = [
+    { ...first, className: "Confirmed first", scheduleTime: `${date}T06:00:00`, durationMinutes: 90, status: "SCHEDULED" },
+    // At 23:00 UTC on Sunday it is already Monday, 06:00, in Vietnam.
+    { ...second, className: "Confirmed second", scheduleTime: `${localDate(addDays(-1, monday))}T23:00:00Z`, durationMinutes: 90, status: "SCHEDULED" },
+    { ...first, id: 91, className: "Cancelled legacy", scheduleTime: `${date}T06:00:00`, durationMinutes: 60, status: "CANCELLED" },
+    { ...second, id: 92, className: "Next week", scheduleTime: `${nextDate}T08:00:00`, durationMinutes: 90, status: "SCHEDULED" },
+  ];
+  vi.spyOn(api, "classes").mockResolvedValue(sessions);
+  const booked = vi.spyOn(api, "bookings").mockImplementation(async (_, classId) =>
+    classId === first.id
+      ? [{ id: 500, classId, memberId: 10, status: "BOOKED", bookedAt: date }]
+      : [],
+  );
+  page("/schedule", "CENTER_MANAGER");
+  const grid = await screen.findByRole("table", { name: "Sáu ca học trong tuần" });
+  expect(grid.querySelectorAll("tbody tr")).toHaveLength(6);
+  expect(grid.querySelectorAll("tbody td")).toHaveLength(42);
+  expect(within(grid).getByText("19:30–21:00")).toBeVisible();
+  expect(booked).not.toHaveBeenCalled();
+  const user = userEvent.setup();
+  const firstSlot = within(grid).getByRole("button", { name: /Ca 01.*2 buổi/ });
+  await user.click(firstSlot);
+  const group = screen.getByRole("dialog");
+  expect(await within(group).findByText(`1/${first.maxCapacity} đã đăng ký`)).toBeVisible();
+  expect(within(group).getByRole("button", { name: "Confirmed second" })).toBeVisible();
+  await user.click(within(group).getByRole("button", { name: "Confirmed first" }));
+  expect(await screen.findByRole("dialog", { name: "Confirmed first" })).toBeVisible();
+  await user.keyboard("{Escape}");
+
+  await user.click(within(grid).getByRole("button", { name: /Ngoài khung ca.*1 buổi.*1 đã hủy/ }));
+  expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancelled legacy" })).toBeVisible();
+  await user.keyboard("{Escape}");
+  await user.selectOptions(screen.getByLabelText("Trạng thái buổi học"), "CANCELLED");
+  expect(within(grid).queryByRole("button", { name: /Ca 01/ })).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Trạng thái buổi học"), "all");
+  await user.click(screen.getByRole("button", { name: "Tuần sau" }));
+  await user.click(within(grid).getByRole("button", { name: /Ca 02.*1 buổi/ }));
+  expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Next week" })).toBeVisible();
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", { name: "Hôm nay" }));
+  expect(within(grid).getByRole("button", { name: /Ca 01.*2 buổi/ })).toBeVisible();
 });

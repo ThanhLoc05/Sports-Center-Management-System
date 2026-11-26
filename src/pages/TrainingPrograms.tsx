@@ -98,11 +98,15 @@ export default function TrainingPrograms({
     <>
       <PageHeader
         eyebrow={course ? "HỌC THEO LỘ TRÌNH" : "LỊCH CỐ ĐỊNH HẰNG TUẦN"}
-        title={course ? "Khóa học" : "Lớp học"}
+        title={member ? (course ? "Khóa học chuyên sâu" : "Lớp theo lịch cố định") : (course ? "Khóa học" : "Lớp thường")}
         description={
           course
-            ? "Có khai giảng, đủ số buổi và mục tiêu rõ ràng. Gói thành viên cần bao phủ toàn khóa."
-            : "Chọn môn yêu thích, tìm lịch phù hợp và giữ chỗ theo thời hạn gói của bạn."
+            ? member
+              ? "Khóa học thu học phí riêng, có ngày khai giảng, lịch cố định và số buổi cụ thể. Gói thành viên cần bao phủ toàn khóa."
+              : "Có khai giảng, đủ số buổi và mục tiêu rõ ràng. Gói thành viên cần bao phủ toàn khóa."
+            : member
+              ? "Ghi danh lớp có lịch tập cố định hằng tuần trong thời hạn gói."
+              : "Ghi danh theo lịch cố định hằng tuần đến hết hạn gói."
         }
         actions={
           <>
@@ -121,15 +125,6 @@ export default function TrainingPrograms({
           </>
         }
       />
-      <div className="training-tabs">
-        <Link className={!course ? "active" : ""} to="/classes">
-          Lớp thường
-        </Link>
-        <Link className={course ? "active" : ""} to="/courses">
-          Khóa học
-        </Link>
-        <Link to="/schedule">Lịch hoạt động</Link>
-      </div>
       {!member && !coach && (
         <Panel
           title="Hỗ trợ học viên"
@@ -169,10 +164,12 @@ export default function TrainingPrograms({
                 Gói {rights.data.accessLevel} · đến{" "}
                 {dateLabel(rights.data.endDate!)}
               </strong>
-              <span>
-                {rights.data.activeClassCount}/
-                {rights.data.maxConcurrentClasses} lớp thường đang đăng ký
-              </span>
+              {!course && (
+                <span>
+                  {rights.data.activeClassCount}/
+                  {rights.data.maxConcurrentClasses} lớp thường đang đăng ký
+                </span>
+              )}
               <span>
                 {rights.data.sportLimit == null
                   ? "Tất cả bộ môn"
@@ -186,7 +183,7 @@ export default function TrainingPrograms({
               )}
               {course && (
                 <small>
-                  Khóa học tính học phí riêng và không chiếm số lớp thường. Ưu
+                  Khóa học tính học phí riêng. Ưu
                   đãi gói: {rights.data.courseDiscountPercent}% trên khóa được
                   áp dụng.
                 </small>
@@ -322,7 +319,7 @@ export default function TrainingPrograms({
           description={
             selectedMember
               ? "Kiểm tra gói đang dùng, lớp đã đăng ký hoặc nới khoảng giờ rảnh. Bạn có thể chọn môn khác để tìm tiếp."
-              : "Quản lý có thể tạo lớp thường hoặc khóa học mới."
+              : course ? "Quản lý có thể tạo khóa học mới." : "Quản lý có thể tạo lớp thường mới."
           }
         />
       ) : (
@@ -402,7 +399,7 @@ export default function TrainingPrograms({
                   </Button>
                 )}
                 {p.registered && (
-                  <Link to={course ? "/course-orders" : "/bookings"}>
+                  <Link to={course ? (member ? "/my-courses" : "/course-orders") : "/bookings"}>
                     Xem đăng ký
                   </Link>
                 )}

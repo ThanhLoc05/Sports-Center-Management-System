@@ -57,11 +57,11 @@ describe("ClassForm cấp độ yêu cầu trong API mode", () => {
         },
       };
       sessionStorage.setItem("sportiva-session", JSON.stringify(session));
-      const fetch = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(item(selectedLevel)), {
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
+      const fetch = vi.fn(async (url: string, _init: RequestInit) => new Response(JSON.stringify(
+        url === "/api/v1/users/coaches"
+          ? [{ coachId: 3, fullName: "HLV", specialties: "Yoga", professionalLevel: null, bio: null }]
+          : item(selectedLevel),
+      ), { headers: { "Content-Type": "application/json" } }));
       vi.stubGlobal("fetch", fetch);
       const client = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -95,14 +95,19 @@ describe("ClassForm cấp độ yêu cầu trong API mode", () => {
           selectedLevel,
         );
       }
+      if (existingLevel) await screen.findByRole("option", { name: "HLV" });
       if (!existingLevel) {
         await user.type(screen.getByLabelText("Tên lớp học"), "Yoga");
         await user.selectOptions(screen.getByLabelText("Bộ môn"), "1");
         await user.selectOptions(screen.getByLabelText("Phòng tập"), "1");
+        await screen.findByRole("option", { name: "HLV" });
         await user.selectOptions(screen.getByLabelText("Huấn luyện viên"), "3");
-        fireEvent.change(screen.getByLabelText("Ngày và giờ bắt đầu"), {
-          target: { value: "2099-01-01T08:00" },
+        expect(screen.queryByLabelText("Ngày và giờ bắt đầu")).not.toBeInTheDocument();
+        expect(screen.getByLabelText("Ca học").querySelectorAll('option[value^="SLOT_"]')).toHaveLength(6);
+        fireEvent.change(screen.getByLabelText("Ngày học (giờ Việt Nam)"), {
+          target: { value: "2099-01-01" },
         });
+        await user.selectOptions(screen.getByLabelText("Ca học"), "SLOT_02");
       }
       await user.click(
         screen.getByRole("button", {
@@ -110,13 +115,18 @@ describe("ClassForm cấp độ yêu cầu trong API mode", () => {
         }),
       );
       await waitFor(() => expect(onClose).toHaveBeenCalled());
-      expect(fetch).toHaveBeenCalledTimes(1);
-      const [url, init] = fetch.mock.calls[0];
+      const writes = fetch.mock.calls.filter(([, init]) => init.method === "POST" || init.method === "PUT");
+      expect(writes).toHaveLength(1);
+      const [url, init] = writes[0];
       expect(url).toBe(
         existingLevel ? "/api/v1/classes/78" : "/api/v1/classes",
       );
       expect(init.method).toBe(existingLevel ? "PUT" : "POST");
-      expect(JSON.parse(init.body).requiredAccessLevel).toBe(selectedLevel);
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        requiredAccessLevel: selectedLevel,
+        scheduleTime: "2099-01-01T08:00:00",
+        durationMinutes: existingLevel ? 60 : 90,
+      });
       client.clear();
     },
   );

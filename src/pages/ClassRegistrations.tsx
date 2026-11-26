@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useUsers } from "../lib/hooks";
-import { trainingApi } from "../lib/training-api";
-import type { ClassRegistration } from "../lib/training-api";
-import { dateLabel, money } from "../lib/utils";
+import { trainingApi, weekday } from "../lib/training-api";
+import type { ClassRegistration, ProgramKind } from "../lib/training-api";
+import { dateLabel, money, parseDate, timeLabel } from "../lib/utils";
 import {
   Badge,
   Button,
@@ -15,6 +15,7 @@ import {
   ErrorState,
   Field,
   Loading,
+  Modal,
   PageHeader,
   Panel,
 } from "../components/ui";
@@ -23,8 +24,10 @@ import "../styles-training.css";
 
 export default function ClassRegistrations({
   courses = false,
+  enrolledOnly = false,
 }: {
   courses?: boolean;
+  enrolledOnly?: boolean;
 }) {
   const { session } = useAuth(),
     users = useUsers(true),
@@ -34,6 +37,7 @@ export default function ClassRegistrations({
   const selected = member ? session!.user.id : Number(memberId) || undefined;
   const [cancel, setCancel] = useState<ClassRegistration | null>(null),
     [orderId, setOrderId] = useState(0);
+  const [program, setProgram] = useState<{ id: number; kind: ProgramKind; from?: string; until?: string } | null>(null);
   const registrations = useQuery({
     queryKey: ["class-registrations", selected],
     queryFn: () => trainingApi.registrations(selected),
@@ -46,20 +50,21 @@ export default function ClassRegistrations({
     refetchInterval: (q) =>
       q.state.data?.some((o) => o.status === "PENDING_PAYMENT") ? 10000 : false,
   });
+  const visibleOrders = orders.data?.filter((order) => !enrolledOnly || order.status === "CONFIRMED") ?? [];
   return (
     <>
       <PageHeader
-        title={courses ? "Đơn khóa học" : "Lớp đã đăng ký"}
+        title={enrolledOnly ? "Khóa học đã mua" : courses ? "Đơn khóa học" : "Lớp đã đăng ký"}
         description={
-          courses
-            ? "Theo dõi học phí, trạng thái thanh toán và ghi danh khóa học."
+          enrolledOnly ? "Xem lịch học, tiến độ theo lịch và chi tiết đơn đã xác nhận."
+            : courses ? "Theo dõi học phí, trạng thái thanh toán và ghi danh khóa học."
             : "Mỗi dòng là một lịch lớp cố định, có quyền tham gia đến hết hạn gói."
         }
         actions={
           <>
             <Link
               className="btn btn-primary"
-              to={courses ? "/courses" : "/classes"}
+              to={courses ? "/courses" : "/regular-classes"}
             >
               {courses ? "Tìm khóa học" : "Tìm lớp học"}
             </Link>
@@ -97,11 +102,11 @@ export default function ClassRegistrations({
             <Loading />
           ) : orders.error ? (
             <ErrorState error={orders.error} retry={orders.refetch} />
-          ) : !orders.data.length ? (
-            <Empty title="Chưa có đơn khóa học" />
+          ) : !visibleOrders.length ? (
+            <Empty title={enrolledOnly ? "Chưa có khóa học đã mua" : "Chưa có đơn khóa học"} />
           ) : (
             <DataTable
-              rows={orders.data}
+              rows={visibleOrders}
               columns={[
                 {
                   key: "course",
@@ -132,9 +137,16 @@ export default function ClassRegistrations({
                   key: "action",
                   label: "Chi tiết",
                   render: (o) => (
-                    <Button variant="ghost" onClick={() => setOrderId(o.id)}>
-                      Xem đơn
-                    </Button>
+                    <>
+                      {enrolledOnly && (
+                        <Button variant="ghost" onClick={() => setProgram({ id: o.courseId, kind: "COURSE" })}>
+                          Xem lịch học
+                        </Button>
+                      )}
+                      <Button variant="ghost" onClick={() => setOrderId(o.id)}>
+                        Xem đơn
+                      </Button>
+                    </>
                   ),
                 },
               ]}
@@ -183,21 +195,32 @@ export default function ClassRegistrations({
               {
                 key: "action",
                 label: "Thao tác",
-                render: (r) =>
-                  r.status === "ACTIVE" && (
-                    <Button variant="ghost" onClick={() => setCancel(r)}>
-                      Hủy đăng ký
-                    </Button>
-                  ),
+                render: (r) => (
+                  <>
+                    {member && (
+                      <Button variant="ghost" onClick={() => setProgram({
+                        id: r.regularClassId, kind: "REGULAR", from: r.validFrom, until: r.validUntil,
+                      })}>
+                        Xem lịch học
+                      </Button>
+                    )}
+                    {r.status === "ACTIVE" && (
+                      <Button variant="ghost" onClick={() => setCancel(r)}>
+                        Hủy đăng ký
+                      </Button>
+                    )}
+                  </>
+                ),
               },
             ]}
           />
         )}
       </Panel>
+      {program && <RegisteredSchedule program={program} onClose={() => setProgram(null)} />}
       {!courses && (
         <p className="muted">
           Lượt đặt buổi trước khi tách lớp vẫn được giữ trong{" "}
-          <Link to="/session-bookings">lịch sử đặt buổi</Link>.
+          <Link to={member ? "/classes" : "/session-bookings"}>danh sách buổi đã đặt</Link>.
         </p>
       )}
       {cancel && (
@@ -216,5 +239,56 @@ export default function ClassRegistrations({
         <CourseOrderDetail orderId={orderId} onClose={() => setOrderId(0)} />
       )}
     </>
+  );
+}
+
+function RegisteredSchedule({ program, onClose }: {
+  program: { id: number; kind: ProgramKind; from?: string; until?: string };
+  onClose: () => void;
+}) {
+  const details = useQuery({
+    queryKey: ["program-detail", program.kind, program.id],
+    queryFn: () => trainingApi.detail(program.kind, program.id),
+  });
+  const sessions = useQuery({
+    queryKey: ["program-sessions", program.kind, program.id],
+    queryFn: () => trainingApi.sessions(program.kind, program.id),
+  });
+  const memberSessions = (sessions.data ?? []).filter((item) => {
+    const day = item.scheduleTime.slice(0, 10);
+    return (!program.from || day >= program.from) && (!program.until || day <= program.until);
+  });
+  const upcoming = memberSessions
+    .filter((item) => item.status === "SCHEDULED" && parseDate(item.scheduleTime) > new Date())
+    .sort((a, b) => a.scheduleTime.localeCompare(b.scheduleTime))
+    .slice(0, 3);
+  return (
+    <Modal title={details.data?.name ?? "Lịch học"} onClose={onClose}>
+      {details.isPending ? <Loading /> : details.error ? (
+        <ErrorState error={details.error} retry={details.refetch} />
+      ) : (
+        <ul className="training-slot-list">
+          {details.data.slots.map((slot) => (
+            <li key={slot.dayOfWeek}>
+              <strong>{weekday(slot.dayOfWeek)} · {slot.startTime.slice(0, 5)}–{slot.endTime.slice(0, 5)}</strong>
+              <small>{[slot.coachName, slot.roomName].filter(Boolean).join(" · ")}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      {sessions.isPending ? <Loading /> : sessions.error ? (
+        <ErrorState error={sessions.error} retry={sessions.refetch} />
+      ) : (
+        <>
+          <p>Buổi đã hoàn thành theo lịch: {memberSessions.filter((item) => item.status === "COMPLETED").length}</p>
+          {upcoming.length > 0 && (
+            <ul>{upcoming.map((item) => (
+              <li key={item.id}>{dateLabel(item.scheduleTime)} · {timeLabel(item.scheduleTime)}</li>
+            ))}</ul>
+          )}
+        </>
+      )}
+      <Link to="/schedule" onClick={onClose}>Xem lịch hoạt động</Link>
+    </Modal>
   );
 }

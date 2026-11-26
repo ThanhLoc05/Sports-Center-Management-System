@@ -1,8 +1,10 @@
 package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.ClassRequest;
+import com.sportscenter.management.dto.Request.ClassCancellationRequest;
 import com.sportscenter.management.dto.Response.ClassResponse;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -67,7 +69,11 @@ public interface ClassService {
      * @param classId Class ID
      * @return Canceled class response
      */
-    ClassResponse cancelClass(Integer classId);
+    ClassResponse cancelClass(Integer classId, ClassCancellationRequest request, Integer actorId);
+
+    record CancellationDetails(String reason, Long booked, Long waitlisted, boolean canCancel) {}
+
+    CancellationDetails cancellationDetails(Integer classId, Integer actorId, boolean manager);
 
     /**
      * Get current booking count for a class
@@ -75,4 +81,18 @@ public interface ClassService {
      * @return Number of active bookings
      */
     long getCurrentBookingCount(Integer classId);
+
+    record ManagedSession(ClassResponse session, String cancellationReason, long bookedCount) {}
+
+    record ManagedSessions(List<ManagedSession> items, long total, int pageCount) {}
+
+    default ManagedSessions getManagedSessions(String status, Integer sportId, String keyword, int page) {
+        return getManagedSessions(status, sportId, keyword, page, null, null, null, null, null);
+    }
+
+    ManagedSessions getManagedSessions(String status, Integer sportId, String keyword, int page,
+                                       Integer coachId, Integer roomId, LocalDate fromDate,
+                                       LocalDate throughDate, FlexibleClassSlot slot);
+
+    void validatePlanningResources(ClassRequest request);
 }

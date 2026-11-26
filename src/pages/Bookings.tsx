@@ -1,3 +1,4 @@
+import PersonalBookings from "../components/PersonalBookings";
 import BookingForm from "../components/BookingForm";
 import "../styles-bookings.css";
 import { usePermissions } from "../lib/hooks";
@@ -31,7 +32,11 @@ import {
   Select,
   useToast,
 } from "../components/ui";
-export default function Bookings() {
+export default function Bookings({ personal = false }: { personal?: boolean }) {
+  return personal ? <PersonalBookings /> : <BookingTable />;
+}
+
+function BookingTable() {
   const { session } = useAuth();
   const can = usePermissions();
   const member = session!.user.roleName === "MEMBER",
@@ -114,7 +119,7 @@ export default function Bookings() {
         }
         actions={
           <>
-            <Link className="btn btn-secondary" to="/classes">
+            <Link className="btn btn-secondary" to={member && session!.mode === "api" ? "/sessions" : "/classes"}>
               <CalendarDays size={16} />
               Khám phá lớp học
             </Link>
@@ -272,7 +277,9 @@ export default function Bookings() {
               {
                 key: "status",
                 label: "Trạng thái",
-                render: (b) => <Badge status={b.status} />,
+                render: (b) => (
+                  <Badge status={b.status} />
+                ),
               },
               {
                 key: "action",

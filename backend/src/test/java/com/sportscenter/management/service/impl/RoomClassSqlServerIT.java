@@ -104,7 +104,7 @@ class RoomClassSqlServerIT {
     private void shrink() { controller.updateRoom(roomId,RoomRequest.builder().roomName("race-edited-"+roomId).capacity(2).build()); }
     private void changeClass(boolean create) {
         if(create)service.createClass(ClassRequest.builder().className("race-created").sportId(sportId).coachId(coachId)
-                .roomId(roomId).maxCapacity(3).durationMinutes(60).scheduleTime(LocalDateTime.now().plusDays(7)).build());
+                .roomId(roomId).maxCapacity(3).durationMinutes(90).scheduleTime(LocalDateTime.now().plusDays(7).toLocalDate().atTime(15, 0)).build());
         else service.updateClass(classId,ClassRequest.builder().roomId(roomId).maxCapacity(3).build());
     }
     private void invariant() {

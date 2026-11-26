@@ -650,11 +650,13 @@ export function DataTable<T extends { id: number }>({
   columns,
   pageSize = 8,
   label = "Danh sách",
+  showPagination = true,
 }: {
   rows: T[];
   columns: Column<T>[];
   pageSize?: number;
   label?: string;
+  showPagination?: boolean;
 }) {
   const [page, setPage] = useState(1);
   const max = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -693,7 +695,7 @@ export function DataTable<T extends { id: number }>({
           />
         )}
       </div>
-      <div className="table-footer">
+      {showPagination && <div className="table-footer">
         <span>
           {rows.length
             ? `${(current - 1) * pageSize + 1}–${Math.min(current * pageSize, rows.length)}`
@@ -719,7 +721,7 @@ export function DataTable<T extends { id: number }>({
             <ArrowRight size={15} />
           </button>
         </div>
-      </div>
+      </div>}
     </>
   );
 }

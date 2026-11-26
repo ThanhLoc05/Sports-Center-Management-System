@@ -2,6 +2,7 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.management.dto.Request.ClassRequest;
 import com.sportscenter.management.dto.Response.ClassResponse;
+import com.sportscenter.management.training.TrainingProgramService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,6 +26,7 @@ import java.util.Set;
 public class RecurringClassService {
     private final ClassService classes;
     private final JdbcTemplate jdbc;
+    private final TrainingProgramService trainingPrograms;
 
     public record PublishedSession(String seriesKey, LocalDate plannedDate, int classId) {}
 
@@ -44,6 +46,8 @@ public class RecurringClassService {
                 || through.isBefore(start.toLocalDate()) || through.isAfter(start.toLocalDate().plusDays(90))) {
             throw new IllegalArgumentException("Chọn giờ bắt đầu, ngày trong tuần và khoảng lặp tối đa 90 ngày.");
         }
+        FlexibleClassSlot.requireScheduledSlot(start, session.getDurationMinutes());
+        trainingPrograms.lock();
         String key = key(session, through, weekdays);
         // Start the SQL Server transaction before asking for a transaction-owned lock.
         jdbc.queryForObject("SELECT COUNT(*) FROM dbo.recurring_class_sessions WHERE recurrence_key=?", Integer.class, key);

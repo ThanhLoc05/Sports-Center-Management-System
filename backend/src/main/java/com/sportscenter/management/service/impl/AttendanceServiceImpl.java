@@ -41,7 +41,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Lớp học và thành viên là bắt buộc");
         }
         // Kiểm tra lớp cần điểm danh có tồn tại.
-        Classes clazz = classRepository.findById(request.getClassId())
+        Classes clazz = classRepository.findByIdForUpdate(request.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("Lớp học không tồn tại"));
 
         var member = userRepository.findById(request.getMemberId())

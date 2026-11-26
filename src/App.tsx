@@ -24,6 +24,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Members = lazy(() => import("./pages/Members"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Schedule = lazy(() => import("./pages/Schedule"));
+const WeeklySchedule = lazy(() => import("./pages/WeeklySchedule"));
 const Bookings = lazy(() => import("./pages/Bookings"));
 const TrainingPrograms = lazy(() => import("./pages/TrainingPrograms"));
 const ClassRegistrations = lazy(() => import("./pages/ClassRegistrations"));
@@ -96,6 +97,13 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="classes" element={<ClassesRoute />} />
+              <Route element={<Protected roles={["CENTER_MANAGER"]} />}>
+                <Route path="classes/weekly-template" element={<WeeklySchedule />} />
+              </Route>
+              <Route element={<Protected roles={["MEMBER"]} />}>
+                <Route path="my-courses" element={<ClassRegistrations courses enrolledOnly />} />
+              </Route>
+              <Route path="regular-classes" element={<RegularClassesRedirect />} />
               <Route path="courses" element={<TrainingPrograms key="course" kind="COURSE" />} />
               <Route path="sessions" element={<Classes />} />
               <Route path="schedule" element={<Schedule />} />
@@ -174,11 +182,18 @@ export default function App() {
 // Legacy fixtures remain isolated inside Vitest's demo mode.
 function ClassesRoute() {
   const { session } = useAuth();
-  return session?.mode === "demo" ? <Classes /> : <TrainingPrograms key="regular" />;
+  return session?.mode === "api" && session.user.roleName === "MEMBER"
+    ? <Bookings personal />
+    : <Classes />;
+}
+function RegularClassesRedirect() {
+  const { session } = useAuth();
+  return <Navigate to={session?.user.roleName === "MEMBER" ? "/sessions" : "/classes"} replace />;
 }
 function BookingsRoute() {
   const { session } = useAuth();
-  return session?.mode === "demo" || session?.user.roleName === "COACH" ? <Bookings /> : <ClassRegistrations />;
+  if (session?.mode === "demo" || session?.user.roleName === "COACH") return <Bookings />;
+  return <Navigate to={session?.user.roleName === "MEMBER" ? "/sessions" : "/session-bookings"} replace />;
 }
 class ErrorBoundary extends Component<
   { children: ReactNode },

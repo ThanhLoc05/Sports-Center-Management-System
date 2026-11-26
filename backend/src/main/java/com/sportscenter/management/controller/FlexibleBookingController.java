@@ -37,6 +37,15 @@ public class FlexibleBookingController {
         return policy.status(security.getCurrentUserId(), maximumHeld);
     }
 
+    public record HoldingStatus(int held, int limit) {}
+
+    @GetMapping("/members/{memberId}/booking-conduct")
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'CENTER_MANAGER')")
+    public HoldingStatus memberConduct(@PathVariable int memberId) {
+        var status = policy.status(memberId, maximumHeld);
+        return new HoldingStatus(status.held(), status.limit());
+    }
+
     @GetMapping("/bookings/my-waitlist")
     @PreAuthorize("hasRole('MEMBER')")
     public List<FlexibleBookingPolicy.WaitlistEntry> waitlist() {
@@ -54,6 +63,12 @@ public class FlexibleBookingController {
     @ResponseStatus(HttpStatus.CREATED)
     public BookingResponse accept(@PathVariable int classId) {
         return booking.acceptWaitlist(classId, security.getCurrentUserId());
+    }
+
+    @PostMapping("/classes/{classId}/waitlist/decline")
+    @PreAuthorize("hasRole('MEMBER')")
+    public FlexibleBookingPolicy.WaitlistEntry decline(@PathVariable int classId) {
+        return policy.decline(classId, security.getCurrentUserId());
     }
 
     @PostMapping("/classes/{classId}/members/{memberId}/no-show")

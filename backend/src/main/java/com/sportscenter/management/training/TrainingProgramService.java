@@ -254,6 +254,19 @@ public class TrainingProgramService {
         for(var occurrence:dates) requireResourceFree(occurrence.start(),occurrence.end(),occurrence.slot().coachId(),occurrence.slot().roomId(),null,"COURSE".equals(kind)?id:null,null);
     }
 
+    public record RegularReservation(String name, int weekday, LocalTime start, LocalTime end, int coachId, int roomId) {}
+
+    @Transactional(readOnly = true)
+    public List<RegularReservation> activeRegularReservations() {
+        return jdbc.query("""
+                SELECT r.name, t.day_of_week, t.start_time, t.end_time, t.coach_id, t.room_id
+                FROM training_slots t JOIN regular_classes r ON r.id=t.regular_class_id
+                WHERE r.status='ACTIVE'
+                ORDER BY r.id, t.day_of_week, t.start_time
+                """, (row, index) -> new RegularReservation(row.getString(1), row.getInt(2),
+                row.getTime(3).toLocalTime(), row.getTime(4).toLocalTime(), row.getInt(5), row.getInt(6)));
+    }
+
     public void requireResourceFree(LocalDateTime start,LocalDateTime end,int coach,int room,Integer regular,Integer course,Integer session) {
         int count=jdbc.queryForObject("SELECT COUNT(*) FROM classes WHERE status='SCHEDULED' AND schedule_time<? AND DATEADD(minute,duration_minutes,schedule_time)>? AND (coach_id=? OR room_id=?) AND (? IS NULL OR class_id<>?)",Integer.class,
                 end,start,coach,room,session,session);

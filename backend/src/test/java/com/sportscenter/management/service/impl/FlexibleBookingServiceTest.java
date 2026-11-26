@@ -5,6 +5,7 @@ import com.sportscenter.management.repository.*;
 import com.sportscenter.management.service.FlexibleBookingPolicy;
 import com.sportscenter.management.service.MemberClassNotifications;
 import com.sportscenter.management.service.MemberReminderService;
+import com.sportscenter.management.service.SessionMembershipAccess;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,7 @@ class FlexibleBookingServiceTest {
     private final FlexibleBookingPolicy policy = mock(FlexibleBookingPolicy.class);
     private final MemberClassNotifications notifications = mock(MemberClassNotifications.class);
     private final BookingServiceImpl service = new BookingServiceImpl(classes, bookings, users,
-            mock(MemberProfileRepository.class), subscriptions, packages, mock(MemberReminderService.class),
+            mock(MemberProfileRepository.class), new SessionMembershipAccess(subscriptions, packages), mock(MemberReminderService.class),
             notifications, mock(EntityManager.class), policy, mock(com.sportscenter.management.training.TrainingAccessService.class));
 
     @BeforeEach void setup() {

@@ -54,7 +54,7 @@ public class AuditLogInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         String[] parts = path.split("/");
         if (path.startsWith("/api/v1/") && parts.length >= 4 && ENTITY_TYPES.containsKey(parts[3])
-                && !IGNORED_PATHS.contains(path)
+                && !ignored(path)
                 && Set.of("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
@@ -76,7 +76,7 @@ public class AuditLogInterceptor implements HandlerInterceptor {
                                 Object handler, Exception exception) {
         String path = request.getRequestURI();
         if (exception != null || response.getStatus() < 200 || response.getStatus() >= 300
-                || IGNORED_PATHS.contains(path)
+                || ignored(path)
                 || !path.startsWith("/api/v1/")
                 || !Set.of("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
             return;
@@ -129,6 +129,11 @@ public class AuditLogInterceptor implements HandlerInterceptor {
             log.error("Could not persist audit record for {} {} ({})", request.getMethod(), path,
                     auditFailure.getClass().getSimpleName());
         }
+    }
+
+    private static boolean ignored(String path) {
+        // Class cancellations are recorded in the business transaction, including their reason.
+        return IGNORED_PATHS.contains(path) || path.matches("/api/v1/classes/\\d+/cancel");
     }
 
     private static String actionFor(String method, String[] pathParts) {

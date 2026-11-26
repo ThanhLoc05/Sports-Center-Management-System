@@ -33,6 +33,31 @@ public class AuditLogService {
                 .details("Email verification completed").createdAt(LocalDateTime.now()).build());
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordClassCancellation(Integer actorId, Integer classId, String reason, String note) {
+        var actor = userRepository.getReferenceById(actorId);
+        auditLogRepository.save(AuditLog.builder().actor(actor).entityType("CLASS").entityId(classId)
+                .action("CLASS_CANCELLED").details(reason).newValue(note).createdAt(LocalDateTime.now()).build());
+    }
+
+    @Transactional(readOnly = true)
+    public String classCancellationReason(Integer classId) {
+        return auditLogRepository.findFirstByActionAndEntityTypeAndEntityIdOrderByIdDesc("CLASS_CANCELLED", "CLASS", classId)
+                .map(AuditLog::getDetails)
+                .orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<Integer, String> classCancellationReasons(java.util.List<Integer> classIds) {
+        if (classIds.isEmpty()) return java.util.Map.of();
+        var reasons = new java.util.HashMap<Integer, String>();
+        for (var log : auditLogRepository.findByActionAndEntityTypeAndEntityIdInOrderByIdDesc(
+                "CLASS_CANCELLED", "CLASS", classIds)) {
+            reasons.putIfAbsent(log.getEntityId(), log.getDetails());
+        }
+        return reasons;
+    }
+
     @Transactional(readOnly = true)
     public Integer resolveActorId(String authenticatedEmail) {
         return userRepository.findByEmail(authenticatedEmail).map(user -> user.getId()).orElse(null);

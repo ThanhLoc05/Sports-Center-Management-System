@@ -1,0 +1,310 @@
+/* Member enrollment only. Shared controls still use the existing design system. */
+.package-booking,
+.package-booking__form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.package-booking__membership,
+.package-booking__day-heading,
+.package-booking__selection li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+.package-booking__membership {
+  padding: 14px 20px;
+}
+
+.package-booking__filter-panel > :not(.panel-heading),
+.package-booking__results > fieldset {
+  margin-inline: 20px;
+}
+
+.package-booking__filter-panel > :last-child {
+  margin-bottom: 16px;
+}
+
+.package-booking__review {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.package-booking__review :is(h2, h3, dl, dd, .package-booking__selection) {
+  margin: 0;
+}
+
+.package-booking__review h2,
+.package-booking__included {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.package-booking__review h2 {
+  font-size: 1.05rem;
+}
+
+.package-booking__review h3 {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.package-booking__review :is(h2, .package-booking__included) svg {
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+.package-booking__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.package-booking__stats > div {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-subtle);
+}
+
+.package-booking__stats dt,
+.package-booking__projection dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.package-booking__stats dd,
+.package-booking__projection dd {
+  color: var(--green);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.package-booking__review progress {
+  display: block;
+  width: 100%;
+  height: 7px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  overflow: hidden;
+}
+
+.package-booking__review progress::-webkit-progress-bar {
+  background: var(--accent-subtle);
+}
+
+.package-booking__review progress::-webkit-progress-value {
+  background: var(--green);
+}
+
+.package-booking__review progress::-moz-progress-bar {
+  background: var(--green);
+}
+
+.package-booking__projection {
+  display: grid;
+  gap: 4px;
+  padding-block: 8px;
+  border-block: 1px solid var(--line);
+}
+
+.package-booking__projection > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.package-booking__projection dd {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.package-booking__review .muted,
+.package-booking__included {
+  font-size: 0.82rem;
+}
+
+.package-booking__membership p,
+.package-booking__summary p {
+  margin: 0 0 5px;
+}
+
+.package-booking__membership a {
+  display: block;
+}
+
+.package-booking__filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.package-booking__filters .field,
+.package-booking__filters :is(select, input) {
+  min-width: 0;
+  width: 100%;
+}
+
+.package-booking__day-heading {
+  margin-top: 10px;
+}
+
+.package-booking__days,
+.package-booking__week {
+  display: grid;
+  gap: 8px;
+}
+
+.package-booking__days {
+  margin-top: 8px;
+}
+
+.package-booking__days > button {
+  justify-self: start;
+}
+
+.package-booking__week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.package-booking__week-days button {
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-inline: 1px;
+  font-size: clamp(0.625rem, 2.8vw, 0.875rem);
+  white-space: nowrap;
+}
+
+.package-booking__week-days button[aria-current="date"] {
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
+.package-booking__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.42fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.package-booking__workspace > *,
+.package-booking__session-info {
+  min-width: 0;
+}
+
+.package-booking__sessions,
+.package-booking__selection {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.package-booking__session {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  border-bottom: 1px solid var(--border, #e4e7e5);
+  padding: 12px 20px;
+}
+
+.package-booking__session.is-selected {
+  border-bottom-color: currentColor;
+}
+
+.package-booking__time,
+.package-booking__session-info,
+.package-booking__actions {
+  display: grid;
+  gap: 4px;
+}
+
+.package-booking__session-info,
+.package-booking__selection {
+  overflow-wrap: anywhere;
+}
+
+.package-booking__actions {
+  justify-items: end;
+}
+
+.package-booking__summary {
+  position: sticky;
+  top: 76px;
+}
+
+.package-booking__summary button[type="submit"] {
+  width: 100%;
+}
+
+.package-booking__selection {
+  margin-bottom: 12px;
+}
+
+.package-booking__selection li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border, #e4e7e5);
+}
+
+.package-booking__selection small {
+  display: block;
+}
+
+@media (max-width: 1050px) {
+  .package-booking__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .package-booking__session {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .package-booking__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+}
+
+@media (max-width: 720px) {
+  .package-booking__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .package-booking__sessions {
+    display: grid;
+    gap: 8px;
+    padding: 0 10px 10px;
+  }
+
+  .package-booking__session {
+    border: 1px solid var(--border, #e4e7e5);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .package-booking__session.is-selected {
+    border-color: currentColor;
+  }
+
+  .package-booking__summary {
+    top: auto;
+    bottom: 0;
+    z-index: 1;
+    max-height: 44dvh;
+    overflow: auto;
+  }
+}

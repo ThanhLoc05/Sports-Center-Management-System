@@ -44,18 +44,47 @@ public class MemberClassNotifications {
         if(!Objects.equals(before.room(),row.getRoomId()))changes.add("Phòng: "+roomName(before.room())+" → "+roomName(row.getRoomId()));
         if(!Objects.equals(before.coach(),row.getCoachId()))changes.add("HLV: "+coachName(before.coach())+" → "+coachName(row.getCoachId()));
         if(changes.isEmpty())return;
-        send("CLASS_CHANGED:"+row.getId()+":"+UUID.randomUUID(),row,"Lớp học thay đổi lịch",
-                "Thông báo tự động Sportiva. Lớp "+row.getClassName()+".\n"+String.join("\n",changes));
+        String key = "CLASS_CHANGED:" + row.getId() + ":" + UUID.randomUUID();
+        String content = "Thông báo tự động Sportiva. Lớp " + row.getClassName() + ".\n" + String.join("\n", changes);
+        Integer sender = security.getCurrentUserId();
+        if (sender == null) throw new IllegalStateException("Class event requires an authenticated actor");
+        send(key, row, sender, "Lớp học thay đổi lịch", content);
+        if (!Objects.equals(before.coach(), row.getCoachId())) {
+            outbox.enqueue(key, sender, before.coach(), "Lớp đã chuyển cho HLV khác", content, "/schedule");
+            outbox.enqueue(key, sender, row.getCoachId(), "Bạn được phân công lớp", content, "/schedule");
+        } else {
+            outbox.enqueue(key, sender, row.getCoachId(), "Lịch dạy đã thay đổi", content, "/schedule");
+        }
     }
-    public void cancelled(Classes row) {
-        send("CLASS_CANCELLED:"+row.getId(),row,"Lớp học đã hủy",
-                "Thông báo tự động Sportiva. Lớp "+row.getClassName()+", lịch "+row.getScheduleTime().format(CLASS_TIME)+" đã bị hủy. Vui lòng xem lại lịch học.");
+    public void cancelled(Classes row, int sender, String reason) {
+        var recipients = jdbc.queryForList("""
+                SELECT recipient.member_id, MAX(recipient.booked) AS booked FROM (
+                    SELECT member_id, 1 AS booked FROM dbo.class_bookings WHERE class_id=? AND status='BOOKED'
+                    UNION ALL
+                    SELECT member_id, 0 AS booked FROM dbo.class_waitlist WHERE class_id=? AND status IN ('QUEUED','INVITED')
+                ) recipient JOIN dbo.users u ON u.user_id=recipient.member_id
+                JOIN dbo.roles r ON r.role_id=u.role_id
+                WHERE r.role_name='MEMBER'
+                GROUP BY recipient.member_id ORDER BY recipient.member_id
+                """, row.getId(), row.getId());
+        outbox.enqueue("CLASS_CANCELLED:" + row.getId(), sender, row.getCoachId(), "Lớp được phân công đã bị hủy",
+                row.getClassName() + " (" + row.getScheduleTime().format(CLASS_TIME) + "). Lý do: " + reason, "/schedule");
+        if (recipients.isEmpty()) return;
+        String sport = jdbc.queryForObject("SELECT sport_name FROM dbo.sports WHERE sport_id=?", String.class, row.getSportId());
+        String prefix = "Trung tâm đã hủy buổi " + row.getClassName() + " (" + sport + ") lúc "
+                + row.getScheduleTime().format(CLASS_TIME) + ".\nLý do: " + reason + ".\n";
+        for (var recipient : recipients) {
+            int member = ((Number) recipient.get("member_id")).intValue();
+            boolean booked = ((Number) recipient.get("booked")).intValue() == 1;
+            String result = booked ? "Đăng ký của bạn đã được trung tâm hủy."
+                    : "Danh sách chờ và lời mời nhận chỗ của buổi này đã được đóng.";
+            outbox.enqueue("CLASS_CANCELLED:" + row.getId(), sender, member, "Buổi tập của bạn đã bị hủy",
+                    prefix + result + " Bạn không bị tính vi phạm. Bạn có thể chọn buổi khác tại Đăng ký lớp.", "/schedule");
+        }
     }
-    private void send(String key,Classes row,String title,String content) {
+
+    private void send(String key,Classes row,int sender,String title,String content) {
         var recipients=jdbc.queryForList("SELECT b.member_id FROM class_bookings b WITH(UPDLOCK,HOLDLOCK) JOIN users u ON u.user_id=b.member_id JOIN roles r ON r.role_id=u.role_id WHERE b.class_id=? AND b.status='BOOKED' AND r.role_name='MEMBER' ORDER BY b.member_id",Integer.class,row.getId());
-        if(recipients.isEmpty())return;
-        Integer sender=security.getCurrentUserId();
-        if(sender==null)throw new IllegalStateException("ME09 class event requires an authenticated actor");
         for(int recipient:recipients)outbox.enqueue(key,sender,recipient,title,content,"/schedule");
     }
     private String roomName(int id){return jdbc.queryForObject("SELECT room_name FROM rooms WHERE room_id=?",String.class,id);}

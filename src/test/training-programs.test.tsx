@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -9,8 +9,9 @@ import { api } from "../lib/api";
 import { trainingApi } from "../lib/training-api";
 import type { TrainingProgram } from "../lib/training-api";
 import TrainingPrograms from "../pages/TrainingPrograms";
+import App from "../App";
 
-function setup(course = false) {
+function setup(course = false, route?: string, role = "MEMBER") {
   const payload = btoa(
     JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }),
   );
@@ -23,7 +24,7 @@ function setup(course = false) {
         id: 42,
         fullName: "Học viên",
         email: "member@example.test",
-        roleName: "MEMBER",
+        roleName: role,
         status: "ACTIVE",
       },
     }),
@@ -87,16 +88,21 @@ function setup(course = false) {
         }
       : {}),
   };
+  if (route) {
+    vi.spyOn(api, "classes").mockResolvedValue([]);
+    vi.spyOn(api, "bookings").mockResolvedValue([]);
+    vi.spyOn(api, "managedClasses").mockResolvedValue({ items: [], total: 0, pageCount: 0 });
+  }
   const search = vi.spyOn(trainingApi, "search").mockResolvedValue([program]);
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={route ? [route] : undefined}>
         <AuthProvider>
           <ToastProvider>
-            <TrainingPrograms kind={course ? "COURSE" : "REGULAR"} />
+            {route ? <App /> : <TrainingPrograms kind={course ? "COURSE" : "REGULAR"} />}
           </ToastProvider>
         </AuthProvider>
       </MemoryRouter>
@@ -105,6 +111,43 @@ function setup(course = false) {
   return { search, program, user: userEvent.setup() };
 }
 describe("sport-first registration", () => {
+  it("offers two learning paths and keeps the course flow", async () => {
+    const { search, user } = setup(false, "/classes");
+    expect(await screen.findByRole("heading", { name: "Lớp học của tôi" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Chọn nhiều buổi" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Chưa có buổi học đã đặt")).toBeVisible();
+    expect(search).not.toHaveBeenCalled();
+    const sidebar = within(screen.getByRole("navigation", { name: "Điều hướng chính" }));
+    expect(sidebar.getByRole("link", { name: "Lớp học" })).toHaveAttribute("href", "/classes");
+    expect(sidebar.getByRole("link", { name: "Đăng ký lớp" })).toHaveAttribute("href", "/sessions");
+    for (const name of ["Buổi học linh hoạt", "Lớp thường", "Khóa học", "Đơn khóa học", "Đặt buổi", "Ghi danh lớp thường"]) {
+      expect(sidebar.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+    const mine = within(screen.getByRole("navigation", { name: "Các mục lớp học của tôi" }));
+    expect(mine.queryByRole("link", { name: "Lớp thường đã ghi danh" })).not.toBeInTheDocument();
+    expect(mine.getByRole("link", { name: "Khóa học đã mua" })).toHaveAttribute("href", "/my-courses");
+    await user.click(sidebar.getByRole("link", { name: "Đăng ký lớp" }));
+    expect(await screen.findByRole("heading", { name: "Buổi tập theo gói" })).toBeVisible();
+    expect(screen.getByRole("navigation", { name: "Các mục đăng ký lớp" })).toBeVisible();
+    const tabs = () => within(screen.getByRole("navigation", { name: "Các mục đăng ký lớp" }));
+    expect(tabs().getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Buổi tập theo gói", "Khóa học chuyên sâu",
+    ]);
+    await user.click(tabs().getByRole("link", { name: "Khóa học chuyên sâu" }));
+    expect(await screen.findByRole("heading", { name: "Khóa học chuyên sâu" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /^Yoga$/ }));
+    await waitFor(() => expect(search).toHaveBeenLastCalledWith("COURSE", expect.objectContaining({ sportId: 1 })));
+  });
+  it.each(["MEMBER", "CENTER_MANAGER", "COACH", "RECEPTIONIST"])(
+    "redirects the legacy regular-class URL for %s without loading its catalog",
+    async (role) => {
+      const { search } = setup(false, "/regular-classes", role);
+      expect(await screen.findByRole("heading", { name: "Buổi tập theo gói" })).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Tạo lớp thường" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Lớp thường|Lớp theo lịch cố định/ })).not.toBeInTheDocument();
+      expect(search).not.toHaveBeenCalled();
+    },
+  );
   it("waits for sport selection and sends availability as an additional filter", async () => {
     const { search, user } = setup();
     expect(await screen.findByText("Chọn bộ môn bạn muốn học")).toBeVisible();

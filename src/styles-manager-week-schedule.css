@@ -1,0 +1,139 @@
+.manager-week-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.manager-week-table {
+  width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.manager-week-table :is(th, td) {
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.manager-week-table :is(th, td):first-child {
+  width: 7rem;
+  border-left: 0;
+}
+
+.manager-week-table :is(th, td):last-child {
+  border-right: 0;
+}
+
+.manager-week-table :is(thead, tfoot) th,
+.manager-week-table .manager-week-today {
+  background: var(--accent-subtle);
+}
+
+.manager-week-table th small {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.manager-week-table td {
+  height: 5.5rem;
+}
+
+.manager-week-cell {
+  display: grid;
+  grid-template-rows: repeat(3, 1.2rem);
+  align-content: center;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--accent-subtle);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.manager-week-cell:hover {
+  border-color: currentColor;
+}
+
+.manager-week-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manager-week-cell small,
+.manager-week-empty {
+  color: var(--muted);
+}
+
+.manager-week-sessions {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manager-week-session {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.manager-week-session p {
+  margin: 0.25rem 0 0;
+}
+
+.manager-week-session-meta {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 0.25rem;
+}
+
+.manager-week-scroll {
+  max-width: 100%;
+}
+
+.manager-week-cell:disabled {
+  cursor: wait;
+}
+
+.manager-week-sport-markers {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.manager-week-sport-markers > span {
+  background: var(--line);
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  padding-inline: 0.25rem;
+}
+
+.manager-week-sport-markers > [data-sport="badminton"] {
+  color: #17492f;
+  background: #d9f0e2;
+}
+
+.manager-week-sport-markers > [data-sport="yoga"] {
+  color: #523688;
+  background: #eee5fe;
+}
+
+.manager-week-sport-markers > [data-sport="dance"] {
+  color: #793804;
+  background: #fceacf;
+}

@@ -31,7 +31,13 @@ function server(detail: (id: number) => Promise<Response> = async id => json({ .
     const path = String(url), match = path.match(/^\/api\/v1\/classes\/(\d+)$/);
     if (match) return detail(Number(match[1]));
     if (path === "/api/v1/classes") return json(list);
+    if (path.startsWith("/api/v1/classes/management?")) {
+      const status = new URLSearchParams(path.split("?")[1]).get("status");
+      const filtered = list.filter(row => status === "all" || row.status === status);
+      return json({ items: filtered.map(session => ({ session, cancellationReason: null })), total: filtered.length, pageCount: 1 });
+    }
     if (path.endsWith("/capacity")) return json(7);
+    if (path.endsWith("/cancellation")) return json({ canCancel: true, booked: 2, waitlisted: 1 });
     if (path === "/api/v1/sports") return json([{ id: 1, sportName: "Yoga", description: "" }]);
     if (path === "/api/v1/rooms") return json([{ id: 1, roomName: "Phòng thật", capacity: 20 }]);
     return json([]);
@@ -148,12 +154,15 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     session(); const fresh = { ...item(), className: "Dữ liệu sửa mới" }; server(async () => json(fresh)); const edit = vi.fn(), cancel = vi.fn();
     page(<ClassDetail item={item()} onClose={() => {}} onEdit={edit} onCancel={cancel} />);
     await screen.findByRole("heading", { name: fresh.className }); await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa" }));
-    expect(edit).toHaveBeenCalledWith(fresh); await userEvent.click(screen.getByRole("button", { name: "Hủy lớp" })); expect(cancel).toHaveBeenCalledWith(fresh);
+    expect(edit).toHaveBeenCalledWith(fresh); await userEvent.click(screen.getByRole("button", { name: "Hủy buổi học" })); expect(cancel).toHaveBeenCalledWith(fresh);
   });
   it.each(["Classes", "Schedule"])("opens shared detail from %s using GET by ID", async source => {
     session(); const fetch = server(); page(source === "Classes" ? <Classes /> : <Schedule />);
-    if (source === "Classes") await userEvent.click((await screen.findAllByRole("button", { name: "Xem lớp học" }))[0]);
-    else await userEvent.click(await screen.findByText("Danh sách cũ 1"));
+    if (source === "Classes") await userEvent.click(await screen.findByRole("button", { name: "Danh sách cũ 1" }));
+    else {
+      await userEvent.click(screen.getByRole("button", { name: "Danh sách" }));
+      await userEvent.click(await screen.findByText("Danh sách cũ 1"));
+    }
     expect(await screen.findByRole("heading", { name: "Chi tiết mới 1" })).toBeVisible();
     expect(fetch.mock.calls.some(([url]) => url === "/api/v1/classes/1")).toBe(true);
     expect(fetch.mock.calls.every(([, init]) => !(init as RequestInit | undefined)?.method || (init as RequestInit).method === "GET")).toBe(true);
@@ -162,6 +171,7 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     session();
     server();
     page(<Classes />);
+    await userEvent.click(screen.getByRole("button", { name: "Xem dạng thẻ" }));
     const heading = await screen.findByRole("heading", {
       name: "Danh sách cũ 1",
     });
@@ -174,6 +184,7 @@ describe("Chi tiết lớp API và COMPLETED", () => {
   it("filters COMPLETED and labels the card as completed instead of available", async () => {
     session(); const completed = { ...item(2), className: "Lớp đã xong", status: "COMPLETED" as const, scheduleTime: `${localDate(addDays(-1))}T08:00:00` };
     server(undefined, [item(), completed]); page(<Classes />); await screen.findByText("Danh sách cũ 1");
+    await userEvent.click(screen.getByRole("button", { name: "Xem dạng thẻ" }));
     await userEvent.selectOptions(screen.getByText("Hoàn thành").closest("select")!, "COMPLETED");
     const card = (await screen.findByText("Lớp đã xong")).closest("article")!;
     expect(within(card).getByText("Đã hoàn thành")).toBeVisible(); expect(within(card).queryByText(/Còn.*chỗ/)).not.toBeInTheDocument();
@@ -182,6 +193,30 @@ describe("Chi tiết lớp API và COMPLETED", () => {
   it("does not present completed detail as open for booking", async () => {
     session(); server(async () => json({ ...item(), status: "COMPLETED" })); page(detailNode());
     expect(await screen.findByText("Đã hoàn thành")).toBeVisible(); expect(screen.queryByRole("button", { name: "Đăng ký cho thành viên" })).not.toBeInTheDocument();
+  });
+  it("loads Manager cancellation history by page and renders the reason", async () => {
+    session();
+    const cancelled = { ...item(4), className: "Buổi đã hủy", status: "CANCELLED" };
+    const fetch = server(undefined, [item()]);
+    const fallback = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (path, init) => {
+      const url = String(path);
+      if (!url.startsWith("/api/v1/classes/management?")) return fallback(path, init);
+      const params = new URLSearchParams(url.split("?")[1]);
+      if (params.get("status") !== "CANCELLED") return fallback(path, init);
+      const row = params.get("page") === "1" ? { ...cancelled, id: 5, className: "Buổi ở trang hai" } : cancelled;
+      return json({ items: [{ session: row, cancellationReason: "Sân/phòng không thể sử dụng" }], total: 9, pageCount: 2 });
+    });
+    page(<Classes />);
+    expect(await screen.findByText("Danh sách cũ 1")).toBeVisible();
+    expect(screen.queryByText("Buổi đã hủy")).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Trạng thái lớp"), "CANCELLED");
+    expect(await screen.findByText("Buổi đã hủy")).toBeVisible();
+    expect(screen.getByText("Lý do hủy: Sân/phòng không thể sử dụng")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Trang sau" }));
+    expect(await screen.findByText("Buổi ở trang hai")).toBeVisible();
+    expect(fetch.mock.calls.some(([path]) => new URLSearchParams(String(path).split("?")[1]).get("page") === "1")).toBe(true);
+    expect(fetch.mock.calls.some(([path]) => path === "/api/v1/classes")).toBe(false);
   });
   it("preserves demo detail without requesting an API detail", async () => {
     session(true); const detail = vi.spyOn(api, "classDetail"); server(); page(detailNode());

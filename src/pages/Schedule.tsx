@@ -6,15 +6,17 @@
 import { useCatalog } from "../lib/catalog";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3, Plus, Users } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useClasses, usePermissions } from "../lib/hooks";
 import { api } from "../lib/api";
 import type { SportClass } from "../lib/types";
-import { addDays, dateLabel, localDate, timeLabel } from "../lib/utils";
+import { addDays, dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
 import { ClassDetail, ClassForm, ClassCoachName } from "./Classes";
 import { TrainingProgramForm } from "../components/TrainingProgramForm";
+import ClassCancellationDialog from "../components/ClassCancellationDialog";
+import ManagerWeekSchedule from "../components/ManagerWeekSchedule";
 import {
   Button,
   Empty,
@@ -23,6 +25,7 @@ import {
   PageHeader,
   Panel,
   Select,
+  useToast,
 } from "../components/ui";
 const HOUR_HEIGHT = 76;
 
@@ -62,7 +65,10 @@ export default function Schedule() {
   const { sports, rooms } = useCatalog();
   const { session } = useAuth();
   const can = usePermissions();
+  const client = useQueryClient();
+  const toast = useToast();
   const member = session!.user.roleName === "MEMBER";
+  const manager = can("classes.manage");
 
   // A receptionist can book for this member after the dashboard has cached both lists.
   const calendarQueryOptions = member && session?.mode === "api"
@@ -71,11 +77,16 @@ export default function Schedule() {
   const classes = useClasses(calendarQueryOptions);
   const [offset, setOffset] = useState(0);
   const [sport, setSport] = useState("all");
+  const [status, setStatus] = useState("all");
   const [scope, setScope] = useState(member ? "mine" : "all");
   const [view, setView] = useState("week");
-  const [selected, setSelected] = useState<SportClass | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const setSelected = (item: SportClass | null) => setSelectedId(item?.id ?? null);
+  const selected = classes.data?.find((item) =>
+    item.id === selectedId && (session?.user.roleName !== "COACH" || item.status !== "CANCELLED"));
   const [create, setCreate] = useState(false);
   const [editing, setEditing] = useState<SportClass | null>(null);
+  const [cancelling, setCancelling] = useState<SportClass | null>(null);
   /**
    * Chỉ thành viên cần tải booking của mình để lọc lịch cá nhân. HLV đã nhận
    * danh sách lớp riêng qua useClasses nên không cần query booking cá nhân này.
@@ -88,9 +99,9 @@ export default function Schedule() {
   });
   const calendarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (view === "week" && calendarRef.current)
+    if (!manager && view === "week" && calendarRef.current)
       calendarRef.current.scrollTop = 6 * HOUR_HEIGHT;
-  }, [view, classes.isPending]);
+  }, [manager, view, classes.isPending]);
   /**
    * Tạo mốc giữa ngày theo UTC+7, tính thứ Hai đầu tuần và cộng offset theo tuần.
    * Bảy ngày chỉ là cách trình bày; thời gian lớp gốc vẫn đến từ scheduleTime.
@@ -99,12 +110,11 @@ export default function Schedule() {
   const monday = addDays(-((today.getUTCDay() + 6) % 7) + offset * 7, today);
   const days = Array.from({ length: 7 }, (_, i) => addDays(i, monday));
   /**
-   * Bỏ lớp CANCELLED, lọc bộ môn, và nếu chọn lịch cá nhân thì chỉ giữ lớp có
-   * booking BOOKED. Sau đó weekRows giới hạn ngày nằm trong tuần đang xem.
+   * Manager có thể xem cả lịch sử hủy. Lịch cá nhân vẫn chỉ hiện lớp có booking BOOKED.
    */
   const rows = (classes.data || []).filter(
     (c) =>
-      c.status !== "CANCELLED" &&
+      (manager ? status === "all" || c.status === status : c.status !== "CANCELLED") &&
       (sport === "all" || c.sportId === Number(sport)) &&
       (!member ||
         scope === "all" ||
@@ -112,11 +122,14 @@ export default function Schedule() {
           (b) => b.classId === c.id && b.status === "BOOKED",
         )),
   );
-  const weekRows = rows.filter(
-    (c) =>
-      c.scheduleTime.slice(0, 10) >= localDate(days[0]) &&
-      c.scheduleTime.slice(0, 10) <= localDate(days[6]),
-  );
+  const dayOf = (item: SportClass) =>
+    manager ? localDate(parseDate(item.scheduleTime)) : item.scheduleTime.slice(0, 10);
+  const start = localDate(days[0]);
+  const end = localDate(days[6]);
+  const weekRows = rows.filter((item) => {
+    const date = dayOf(item);
+    return date >= start && date <= end;
+  });
   const times = Array.from({ length: 24 }, (_, i) => i);
   return (
     <>
@@ -182,6 +195,14 @@ export default function Schedule() {
                 </option>
               ))}
             </Select>
+            {manager && (
+              <Select label="Trạng thái buổi học" value={status} onChange={setStatus}>
+                <option value="all">Tất cả trạng thái</option>
+                <option value="SCHEDULED">Đã lên lịch</option>
+                <option value="COMPLETED">Đã hoàn thành</option>
+                <option value="CANCELLED">Đã hủy</option>
+              </Select>
+            )}
             <div className="segmented">
               <button
                 className={view === "week" ? "active" : ""}
@@ -206,6 +227,8 @@ export default function Schedule() {
           <Loading />
         ) : member && scope === "mine" && bookings.error ? (
           <ErrorState error={bookings.error} retry={bookings.refetch} />
+        ) : view === "week" && manager ? (
+          <ManagerWeekSchedule days={days} items={weekRows} sports={sports} rooms={rooms} onView={setSelected} />
         ) : view === "week" ? (
           <div className="calendar-scroll" ref={calendarRef}>
             <div className="week-calendar">
@@ -286,7 +309,7 @@ export default function Schedule() {
             {weekRows.length ? (
               days.map((day) => {
                 const items = weekRows
-                  .filter((c) => c.scheduleTime.startsWith(localDate(day)))
+                  .filter((c) => dayOf(c) === localDate(day))
                   .sort((a, b) => a.scheduleTime.localeCompare(b.scheduleTime));
                 if (!items.length) return null;
                 return (
@@ -352,12 +375,29 @@ export default function Schedule() {
         </div>
       </Panel>
       {selected && (
-        <ClassDetail item={selected} onClose={() => setSelected(null)} onEdit={can("classes.manage") ? item => { setEditing(item); setSelected(null); } : undefined} />
+        <ClassDetail
+          item={selected}
+          onClose={() => setSelected(null)}
+          onEdit={manager && selected.status !== "CANCELLED" ? (item) => {
+            setEditing(item);
+            setSelected(null);
+          } : undefined}
+          onCancel={manager && session?.mode === "api" && !selected.regularClassId && !selected.courseId ? (item) => {
+            setCancelling(item);
+            setSelected(null);
+          } : undefined}
+        />
       )}
       {create && can("classes.manage") && (
         <TrainingProgramForm kind="REGULAR" onClose={() => setCreate(false)} />
       )}
-      {editing && <ClassForm item={editing} onClose={() => setEditing(null)} />}
+      {editing && <ClassForm item={editing} fixedSlots={session?.mode === "api"} onClose={() => setEditing(null)} />}
+      {cancelling && (
+        <ClassCancellationDialog item={cancelling} onClose={() => setCancelling(null)} onSaved={async () => {
+          await client.invalidateQueries();
+          toast("Đã hủy buổi học.");
+        }} />
+      )}
     </>
   );
 }

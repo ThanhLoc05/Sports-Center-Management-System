@@ -1,0 +1,88 @@
+.personal-bookings,
+.personal-bookings__day,
+.personal-bookings__day > ul {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.personal-bookings__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.personal-bookings__day > ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.personal-bookings__day h2 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+}
+
+.personal-bookings__card {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 14px 16px;
+  overflow-wrap: anywhere;
+}
+
+.personal-bookings__overview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  align-items: start;
+  width: 100%;
+}
+
+.personal-bookings__overview :is(h3, p) {
+  margin: 0;
+}
+
+.personal-bookings__hours {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.personal-bookings__status {
+  display: grid;
+  gap: 4px;
+}
+
+.personal-bookings__card details {
+  width: 100%;
+}
+
+.personal-bookings__card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.personal-bookings__details {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 12px 0;
+}
+
+.personal-bookings__details dd {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .personal-bookings__overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .personal-bookings__details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .personal-bookings__details dt {
+    font-weight: 600;
+  }
+}

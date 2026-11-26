@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import "../styles-training.css";
 import { useAuth } from "../lib/auth";
 import { isStaff, roleLabels } from "../lib/types";
 import type { Role } from "../lib/types";
@@ -54,6 +55,22 @@ interface NavItem {
   icon: LucideIcon;
   roles: Role[];
 }
+const classTabs = [
+  { to: "/classes", label: "Buổi tập theo gói" },
+  { to: "/courses", label: "Khóa học" },
+];
+const bookingTabs = [
+  { to: "/session-bookings", label: "Buổi đã đặt" },
+  { to: "/course-orders", label: "Đơn khóa học" },
+];
+const myClassTabs = [
+  { to: "/classes", label: "Buổi đã đặt" },
+  { to: "/my-courses", label: "Khóa học đã mua" },
+];
+const enrollmentTabs = [
+  { to: "/sessions", label: "Buổi tập theo gói" },
+  { to: "/courses", label: "Khóa học chuyên sâu" },
+];
 const all: Role[] = [
   "CENTER_MANAGER",
   "MANAGER",
@@ -107,8 +124,6 @@ const navigation: { label: string; items: NavItem[] }[] = [
         roles: ["CENTER_MANAGER", "MANAGER"],
       },
       { to: "/classes", label: "Lớp học", icon: Dumbbell, roles: all },
-      { to: "/courses", label: "Khóa học", icon: CalendarDays, roles: all },
-      { to: "/course-orders", label: "Đơn khóa học", icon: Ticket, roles: staff.concat("MEMBER") },
       {
         to: "/schedule",
         label: "Lịch hoạt động",
@@ -213,12 +228,17 @@ export default function Layout() {
   const [help, setHelp] = useState(false);
   const location = useLocation();
   const users = useUsers();
-  const classes = useClasses();
   const role = session!.user.roleName;
-  const labelFor = (item: NavItem) =>
-    role === "COACH" && item.to === "/bookings"
-      ? "Học viên đăng ký"
-      : item.label;
+  const classes = useClasses({
+    enabled: role !== "CENTER_MANAGER" || session!.mode !== "api" || location.pathname !== "/classes" || search,
+  });
+  const apiMode = session?.mode === "api";
+  const apiMember = apiMode && role === "MEMBER";
+  const navTarget = (item: NavItem) =>
+    apiMode && item.to === "/bookings" ? (apiMember ? "/sessions" : "/session-bookings") : item.to;
+  const navVisible = (item: NavItem) =>
+    (item.to !== "/bookings" || role !== "COACH") &&
+    (routeAllowed(session, item.to, db || undefined) ?? item.roles.includes(role));
   useEffect(() => {
     if (session?.mode !== "api") {
       setNotificationStreamStatus("disconnected");
@@ -230,9 +250,12 @@ export default function Layout() {
     let active = true;
     clearReceivedNotifications();
 
-    const syncMemberSchedule = () => {
-      if (session.user.roleName !== "MEMBER") return;
-      const filters: QueryFilters[] = [
+    const syncSchedule = () => {
+      const { id, roleName } = session.user;
+      if (roleName !== "MEMBER" && roleName !== "COACH") return;
+      const filters: QueryFilters[] = roleName === "COACH"
+        ? [{ queryKey: ["classes", id], exact: true }]
+        : [
         { queryKey: ["classes", undefined], exact: true },
         { queryKey: ["bookings", session.user.id] },
         { queryKey: ["memberBookings", session.user.id] },
@@ -241,6 +264,9 @@ export default function Layout() {
           predicate: (query) => query.queryKey[2] === session.user.id,
         },
         { queryKey: ["capacity"] },
+        { queryKey: ["booking-waitlist", session.user.id] },
+        { queryKey: ["booking-conduct", session.user.id] },
+        { queryKey: ["classCancellation"] },
       ];
       for (const filter of filters) {
         // Lần tải đầu có thể đã đọc dữ liệu trước sự kiện nhưng chưa trả kết quả.
@@ -270,15 +296,19 @@ export default function Layout() {
               if (!active || event.recipientId !== session.user.id) return;
               if (!recordReceivedNotification(event)) return;
               toastRef.current(event.title);
-              if (event.kind === "GENERAL" && event.link === "/schedule")
-                syncMemberSchedule();
+              if (event.kind === "GENERAL" && event.link === "/schedule") {
+                syncSchedule();
+              } else if (event.kind === "GENERAL" && event.link === "/classes" && session.user.roleName === "MEMBER") {
+                void client.invalidateQueries({ queryKey: ["booking-waitlist", session.user.id] });
+                void client.invalidateQueries({ queryKey: ["capacity"] });
+              }
             },
             controller.signal,
             () => {
               if (!active) return;
               setNotificationStreamStatus("connected");
               // SSE không phát lại thay đổi đã xảy ra trước khi kết nối.
-              syncMemberSchedule();
+              syncSchedule();
             },
           );
           if (!active || controller.signal.aborted) return;
@@ -334,10 +364,30 @@ export default function Layout() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-  const currentItem = navigation
-    .flatMap((g) => g.items)
-    .find((i) => i.to === location.pathname);
-  const current = currentItem ? labelFor(currentItem) : "Hồ sơ cá nhân";
+  const onClassPage = classTabs.some((tab) => tab.to === location.pathname) ||
+    location.pathname === "/sessions";
+  const onBookingPage = bookingTabs.some((tab) => tab.to === location.pathname);
+  const inMyClasses = apiMember && myClassTabs.some((tab) => tab.to === location.pathname);
+  const inEnrollment = apiMember && enrollmentTabs.some((tab) => tab.to === location.pathname);
+  const tabGroup = inMyClasses
+    ? { label: "Các mục lớp học của tôi", tabs: myClassTabs }
+    : inEnrollment
+      ? { label: "Các mục đăng ký lớp", tabs: enrollmentTabs }
+      : apiMode && !apiMember && onClassPage
+        ? { label: "Các mục lớp học", tabs: classTabs }
+        : apiMode && onBookingPage && role !== "COACH"
+          ? { label: "Các mục đăng ký lớp", tabs: bookingTabs }
+          : null;
+  const currentPath = inMyClasses ? "/classes"
+    : inEnrollment ? "/bookings"
+    : apiMode && onClassPage ? "/classes"
+    : apiMode && onBookingPage ? "/bookings"
+    : location.pathname;
+  const currentItem = navigation.flatMap((group) => group.items)
+    .find((item) => item.to === currentPath);
+  const current = location.pathname === "/classes/weekly-template" ? "Lịch tuần mẫu"
+    : currentPath === "/bookings" && role === "COACH" ? "Học viên đăng ký"
+    : currentItem?.label ?? "Hồ sơ cá nhân";
   /**
    * Thông báo gói sắp hết hạn được tổng hợp từ dữ liệu DEMO trong 7 ngày tới.
    * Ở API mode chưa có nguồn thông báo này nên không hiển thị dữ liệu minh họa.
@@ -382,11 +432,7 @@ export default function Layout() {
         </div>
         <nav aria-label="Điều hướng chính">
           {navigation.map((group) => {
-            const items = group.items.filter(
-              (i) =>
-                routeAllowed(session, i.to, db || undefined) ??
-                i.roles.includes(role),
-            );
+            const items = group.items.filter(navVisible);
             if (!items.length) return null;
             return (
               <div className="nav-group" key={group.label}>
@@ -394,14 +440,12 @@ export default function Layout() {
                 {items.map((item) => (
                   <NavLink
                     key={item.to}
-                    to={item.to}
+                    to={navTarget(item)}
                     end={item.to === "/"}
-                    className={({ isActive }) =>
-                      `nav-item ${isActive ? "active" : ""}`
-                    }
+                    className={`nav-item ${item.to === currentPath ? "active" : ""}`}
                   >
                     <item.icon size={18} strokeWidth={1.7} />
-                    <span>{labelFor(item)}</span>
+                    <span>{item.label}</span>
                     {item.to === "/assistant" && (
                       <span className="nav-new">BETA</span>
                     )}
@@ -519,6 +563,22 @@ export default function Layout() {
           className="main-content"
           key={location.pathname}
         >
+          {tabGroup && (
+            <nav className="training-tabs" aria-label={tabGroup.label}>
+              {tabGroup.tabs
+                .filter((tab) => routeAllowed(session, tab.to, db || undefined) !== false)
+                .map((tab) => (
+                  <NavLink
+                    key={tab.to}
+                    to={tab.to}
+                    end
+                    className={tab.to === "/classes" && location.pathname === "/sessions" ? "active" : undefined}
+                  >
+                    {tab.label}
+                  </NavLink>
+                ))}
+            </nav>
+          )}
           <Outlet />
         </main>
         <footer className="app-footer">
@@ -545,17 +605,12 @@ export default function Layout() {
             <div className="search-results">
               {navigation
                 .flatMap((g) => g.items)
-                .filter(
-                  (i) =>
-                    (routeAllowed(session, i.to, db || undefined) ??
-                      i.roles.includes(role)) &&
-                    matches(query, labelFor(i)),
-                )
+                .filter((i) => navVisible(i) && matches(query, i.label))
                 .slice(0, 5)
                 .map((i) => (
-                  <Link to={i.to} key={i.to} onClick={() => setSearch(false)}>
+                  <Link to={navTarget(i)} key={i.to} onClick={() => setSearch(false)}>
                     <i.icon size={18} />
-                    <span>{labelFor(i)}</span>
+                    <span>{i.label}</span>
                     <ChevronRight size={16} />
                   </Link>
                 ))}
@@ -579,12 +634,12 @@ export default function Layout() {
                   ))}
               {query &&
                 classes.data
-                  ?.filter((c) => matches(query, c.className))
+                  ?.filter((c) => !c.regularClassId && matches(query, c.className))
                   .slice(0, 4)
                   .map((c) => (
                     <Link
                       key={`c${c.id}`}
-                      to={`/classes?q=${encodeURIComponent(c.className)}`}
+                      to={c.courseId ? "/courses" : `${apiMember ? "/sessions" : "/classes"}?q=${encodeURIComponent(c.className)}`}
                       onClick={() => setSearch(false)}
                     >
                       <Dumbbell size={19} />

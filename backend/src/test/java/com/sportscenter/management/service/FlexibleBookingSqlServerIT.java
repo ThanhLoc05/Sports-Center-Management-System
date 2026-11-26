@@ -64,6 +64,8 @@ class FlexibleBookingSqlServerIT {
     @Autowired BookingService bookings;
     @Autowired FlexibleBookingPolicy policy;
     @Autowired RecurringClassService recurring;
+    @Autowired WeeklyScheduleService weeklySchedule;
+    @Autowired CoachProfileRepository coachProfiles;
     @Autowired MembershipOrderService orders;
     @Autowired MembershipService memberships;
     @Autowired JwtService jwt;
@@ -142,6 +144,22 @@ class FlexibleBookingSqlServerIT {
         }
     }
 
+    @Test void membershipSportAlsoAppliesToWaitlist() {
+        int holder = member("VIP", null);
+        int wrongSport = member("STANDARD", otherSport);
+        int matchingSport = member("STANDARD", sport);
+        int slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+
+        var denied = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> policy.join(slot, wrongSport));
+        assertEquals(409, denied.getStatusCode().value());
+        assertTrue(policy.entries(wrongSport).isEmpty());
+        assertEquals("QUEUED", policy.join(slot, matchingSport).status());
+        bookings.cancelBooking(booking);
+        assertEquals("INVITED", policy.entries(matchingSport).getFirst().status());
+    }
+
     @Test void nextQueuedMemberGetsReservedSeatWhenFirstOfferExpires() {
         int holder = member("STANDARD", sport), first = member("VIP", null), second = member("VIP", null);
         int outsider = member("VIP", null), slot = session(sport,1,start);
@@ -155,11 +173,77 @@ class FlexibleBookingSqlServerIT {
         assertThrows(IllegalArgumentException.class, () -> bookings.bookClass(slot,outsider));
         jdbc.update("UPDATE dbo.class_waitlist SET invite_until=? WHERE class_id=? AND member_id=?",
                 policy.now().minusSeconds(1),slot,first);
+        var expired = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> policy.decline(slot, first));
+        assertEquals(409, expired.getStatusCode().value());
         policy.poll(slot);
         assertEquals("EXPIRED",policy.entries(first).getFirst().status());
         assertEquals("INVITED",policy.entries(second).getFirst().status());
         assertEquals("BOOKED",bookings.acceptWaitlist(slot,second).getStatus());
         assertEquals("ACCEPTED",policy.entries(second).getFirst().status());
+    }
+
+    @Test void onlyOwnerCanDeclineAndNextMemberGetsTheSeat() throws Exception {
+        int holder = member("VIP", null), first = member("VIP", null), next = member("VIP", null);
+        int slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        policy.join(slot, first);
+        policy.join(slot, next);
+        bookings.cancelBooking(booking);
+
+        String path = "/classes/" + slot + "/waitlist/decline";
+        assertEquals(403, post(coach, path, "{}"));
+        assertEquals(409, post(next, path, "{}"));
+        assertEquals("INVITED", policy.entries(first).getFirst().status());
+        assertEquals(200, post(first, path, "{}"));
+        assertEquals(409, post(first, path, "{}"));
+        assertEquals("CANCELLED", policy.entries(first).getFirst().status());
+        assertEquals("INVITED", policy.entries(next).getFirst().status());
+        assertTrue(bookings.getMemberBookings(first).isEmpty());
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.member_notification_outbox
+                WHERE recipient_id=? AND event_key LIKE ?
+                """, Integer.class, first, "WAITLIST_DECLINED:" + slot + ":%"));
+        assertEquals("BOOKED", bookings.acceptWaitlist(slot, next).getStatus());
+        assertEquals(1, bookings.getClassStudents(slot).size());
+    }
+
+    @Test void acceptAndDeclineRaceCanOnlyResolveOneWay() throws Exception {
+        int holder = member("VIP", null), invited = member("VIP", null), next = member("VIP", null);
+        int slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        policy.join(slot, invited);
+        policy.join(slot, next);
+        bookings.cancelBooking(booking);
+        var ready = new CountDownLatch(2);
+        var go = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var accept = executor.submit(() -> {
+                ready.countDown();
+                assertTrue(go.await(10, TimeUnit.SECONDS));
+                return post(invited, "/classes/" + slot + "/waitlist/accept", "{}");
+            });
+            var decline = executor.submit(() -> {
+                ready.countDown();
+                assertTrue(go.await(10, TimeUnit.SECONDS));
+                return post(invited, "/classes/" + slot + "/waitlist/decline", "{}");
+            });
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            go.countDown();
+            if (accept.get(20, TimeUnit.SECONDS) == 201) {
+                assertEquals(409, decline.get(20, TimeUnit.SECONDS));
+                assertEquals("ACCEPTED", policy.entries(invited).getFirst().status());
+                assertEquals("QUEUED", policy.entries(next).getFirst().status());
+            } else {
+                assertEquals(409, accept.get());
+                assertEquals(200, decline.get(20, TimeUnit.SECONDS));
+                assertEquals("CANCELLED", policy.entries(invited).getFirst().status());
+                assertTrue(bookings.getMemberBookings(invited).isEmpty());
+                assertEquals("BOOKED", bookings.acceptWaitlist(slot, next).getStatus());
+            }
+        }
+        policy.poll(slot);
+        assertEquals(1, bookings.getClassStudents(slot).size());
     }
 
     @Test void onlyOneMemberWinsTheLastSeat() throws Exception {
@@ -225,18 +309,38 @@ class FlexibleBookingSqlServerIT {
         assertEquals(first, policy.recordVipSupplies(slot, vip, desk, true, true));
     }
 
+    @Test void previewReportsAnIncompatibleCoachWithoutRollingBackTheRead() {
+        coachProfiles.saveAndFlush(CoachProfile.builder().user(users.findById(coach).orElseThrow())
+                .specialties("Cầu lông – kỹ thuật và di chuyển").build());
+        int yoga = sports.findBySportName("Yoga").orElseThrow().getId();
+        var day = policy.now().toLocalDate().plusDays(20);
+        String name = "Incompatible weekly preview " + UUID.randomUUID();
+        var entry = new WeeklyScheduleService.Entry(name, yoga, coach, room, 6,
+                Set.of(day.getDayOfWeek()), FlexibleClassSlot.SLOT_04, "STANDARD");
+
+        var preview = weeklySchedule.preview(new WeeklyScheduleService.Request(day, 1, List.of(entry), Set.of(), null));
+        assertEquals(WeeklyScheduleService.Status.CONFLICT, preview.occurrences().getFirst().status());
+        assertTrue(preview.occurrences().getFirst().message().contains("Chuyên môn"));
+        var rejected = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> weeklySchedule.confirm(new WeeklyScheduleService.Request(
+                        day, 1, List.of(entry), Set.of(), preview.token())));
+        assertEquals(409, rejected.getStatusCode().value());
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dbo.classes WHERE class_name=?", Integer.class, name));
+    }
+
     @Test void publicationIsIdempotentAndResourceConflictLeavesNoPartialSeries() {
+        var firstSlot = start.toLocalDate().atTime(15, 0);
         var request = ClassRequest.builder().className("Series " + UUID.randomUUID())
                 .coachId(coach).sportId(sport).roomId(room).maxCapacity(1)
-                .scheduleTime(start).durationMinutes(45).requiredAccessLevel("STANDARD").build();
-        var through = start.toLocalDate().plusDays(1);
-        var days = Set.of(start.getDayOfWeek(), start.plusDays(1).getDayOfWeek());
+                .scheduleTime(firstSlot).durationMinutes(90).requiredAccessLevel("STANDARD").build();
+        var through = firstSlot.toLocalDate().plusDays(1);
+        var days = Set.of(firstSlot.getDayOfWeek(), firstSlot.plusDays(1).getDayOfWeek());
         var first = recurring.publish(request, through, days);
         assertEquals(2, first.size());
         assertEquals(first.stream().map(c -> c.getId()).toList(),
                 recurring.publish(request, through, days).stream().map(c -> c.getId()).toList());
         long before = classes.count();
-        request.setScheduleTime(start.minusDays(1));
+        request.setScheduleTime(firstSlot.minusDays(1));
         request.setClassName("Overlapping test series");
         assertThrows(org.springframework.web.server.ResponseStatusException.class,
                 () -> recurring.publish(request, through, Set.of(start.getDayOfWeek(), start.minusDays(1).getDayOfWeek())));

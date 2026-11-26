@@ -109,6 +109,7 @@ class AttendanceServiceWindowTest {
                 .status(existingStatus)
                 .build();
         when(classes.findById(20)).thenReturn(Optional.of(clazz));
+        when(classes.findByIdForUpdate(20)).thenReturn(Optional.of(clazz));
         when(users.findById(4)).thenReturn(Optional.of(user(4, "MEMBER")));
         when(bookings.findByClassIdAndMemberId(20, 4))
                 .thenReturn(Optional.of(ClassBooking.builder().status("BOOKED").build()));

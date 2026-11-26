@@ -1,8 +1,10 @@
 package com.sportscenter.management.controller;
 
 import com.sportscenter.management.dto.Request.ClassRequest;
+import com.sportscenter.management.dto.Request.ClassCancellationRequest;
 import com.sportscenter.management.dto.Response.ClassResponse;
 import com.sportscenter.management.service.ClassService;
+import com.sportscenter.management.service.FlexibleClassSlot;
 import com.sportscenter.auth.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +68,21 @@ public class ClassController {
     /**
      * XEM DANH SÁCH CÁC LỚP CÒN CHỖ TRỐNG (AVAILABLE CLASSES)
      */
+    @GetMapping("/management")
+    @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public ClassService.ManagedSessions getManagedSessions(
+            @RequestParam(defaultValue = "SCHEDULED") String status,
+            @RequestParam(required = false) Integer sportId,
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) Integer coachId,
+            @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) java.time.LocalDate fromDate,
+            @RequestParam(required = false) java.time.LocalDate throughDate,
+            @RequestParam(required = false) FlexibleClassSlot slot) {
+        return classService.getManagedSessions(status, sportId, keyword, page, coachId, roomId, fromDate, throughDate, slot);
+    }
+
     @GetMapping("/available")
     public List<ClassResponse> getAvailableClasses() {
         return classService.getAvailableClasses();
@@ -96,8 +113,15 @@ public class ClassController {
      */
     @PostMapping("/{classId}/cancel")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
-    public ClassResponse cancelClass(@PathVariable Integer classId) {
-        return classService.cancelClass(classId);
+    public ClassResponse cancelClass(@PathVariable Integer classId,
+                                     @Valid @RequestBody ClassCancellationRequest request) {
+        return classService.cancelClass(classId, request, securityUtils.getCurrentUserId());
+    }
+
+    @GetMapping("/{classId}/cancellation")
+    @PreAuthorize("hasAnyRole('CENTER_MANAGER', 'MEMBER')")
+    public ClassService.CancellationDetails getCancellation(@PathVariable Integer classId) {
+        return classService.cancellationDetails(classId, securityUtils.getCurrentUserId(), securityUtils.isCenterManager());
     }
 
     /**

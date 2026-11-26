@@ -1,0 +1,72 @@
+.weekly-schedule {
+  min-width: 0;
+}
+
+.weekly-schedule .panel {
+  margin-block: 16px;
+}
+
+.weekly-schedule-steps,
+.weekly-schedule-summary,
+.weekly-schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+}
+
+.weekly-schedule-steps {
+  padding-inline-start: 22px;
+  margin-block: 16px;
+  column-gap: 30px;
+}
+
+.weekly-schedule-steps [aria-current="step"] {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.weekly-schedule-actions {
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.weekly-schedule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-block: 8px;
+}
+
+.weekly-schedule-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.weekly-schedule-list > li {
+  border-top: 1px solid var(--line);
+  padding-block: 12px;
+  overflow-wrap: anywhere;
+}
+
+.weekly-schedule-list > li p {
+  margin-block: 5px;
+}
+
+.weekly-schedule .weekly-schedule-date {
+  padding-block: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.weekly-schedule-date > summary {
+  cursor: pointer;
+  padding-block: 5px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .weekly-schedule-steps {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

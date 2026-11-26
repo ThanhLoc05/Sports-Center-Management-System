@@ -11,7 +11,7 @@ import {
   membershipAccess,
   subscriptionUsage,
 } from "../lib/entitlements";
-import { api } from "../lib/api";
+import { api, request } from "../lib/api";
 import { dateLabel, timeLabel, parseDate, errorText } from "../lib/utils";
 import {
   Button,
@@ -81,6 +81,18 @@ export default function BookingForm({
     queryFn: () => api.capacity(selectedClass),
     enabled: !db && selectedClass > 0,
   });
+  const staffBookingInfo = !db && !member && selectedMember > 0;
+  const conduct = useQuery({
+    queryKey: ["booking-conduct", selectedMember, "staff"],
+    queryFn: () => request<{ held: number; limit: number }>("/members/" + selectedMember + "/booking-conduct"),
+    enabled: staffBookingInfo,
+  });
+  const sports = useQuery({
+    queryKey: ["sports"],
+    queryFn: api.sports,
+    enabled: staffBookingInfo,
+  });
+  const memberName = users.data?.find((user) => user.id === selectedMember)?.fullName;
   const membershipError = activeMembership.error || membershipPackages.error;
   const membershipLoading =
     activeMembership.isPending ||
@@ -245,11 +257,26 @@ export default function BookingForm({
       )}
 
       <Notice>
+        {staffBookingInfo && <p><strong>{memberName || idLabel(selectedMember)}</strong></p>}
         {subscription
           ? `${pkg?.name || (apiAccess?.allowed ? `${apiAccess.pkg.packageName} · ${apiAccess.accessLevel}` : `Gói #${subscription.packageId}`)} · đến ${dateLabel(subscription.endDate)}`
           : selectedMember
             ? "Chưa có gói đang hoạt động."
             : "Chọn thành viên để xem quyền lợi gói."}
+        {staffBookingInfo && apiAccess?.allowed && subscription && (
+          <p>
+            Đang hoạt động · {apiAccess.accessLevel === "VIP" ? "Tất cả bộ môn"
+              : subscription.selectedSportId
+                ? sports.data?.find((sport) => sport.id === subscription.selectedSportId)?.name
+                  ?? ("Bộ môn #" + subscription.selectedSportId)
+                : "Chưa chọn bộ môn"}
+          </p>
+        )}
+        {staffBookingInfo && (conduct.data
+          ? <p>Đã đăng ký trước: {conduct.data.held}/{conduct.data.limit} lớp · Còn lượt giữ chỗ: {Math.max(0, conduct.data.limit - conduct.data.held)}</p>
+          : conduct.error
+            ? <p role="alert">{errorText(conduct.error)}{" "}<button type="button" className="text-link" onClick={() => void conduct.refetch()}>Tải lại số lượt</button></p>
+            : <p>Đang tải số lượt giữ chỗ…</p>)}
         {pkg && (
           <p>
             {pkg.classLimit

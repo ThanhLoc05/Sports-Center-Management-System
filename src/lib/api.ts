@@ -733,6 +733,21 @@ export const api = {
     demoAudit(db, "Cập nhật trạng thái", `${user.fullName}: ${status}`);
     return user;
   },
+  async managedClasses(
+    status: string, sport: string, keyword: string, page: number,
+    filters?: Partial<Record<"coachId" | "roomId" | "fromDate" | "throughDate" | "slot", string>>,
+  ) {
+    const params = new URLSearchParams({ status, keyword, page: String(page) });
+    if (sport !== "all") params.set("sportId", sport);
+    Object.entries(filters ?? {}).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    return request<{
+      items: { session: SportClass; cancellationReason: string | null; bookedCount?: number }[];
+      total: number;
+      pageCount: number;
+    }>(`/classes/management?${params}`);
+  },
   async classDetail(id: number): Promise<SportClass> {
     if (mode() !== "api") {
       const item = readDemo().classes.find(c => c.id === id);
@@ -862,8 +877,13 @@ export const api = {
    * Hủy chính lớp học khác với hủy một booking. Demo đổi lớp và các booking
    * của lớp sang CANCELLED để thể hiện việc lớp không còn tổ chức.
    */
-  async cancelClass(id: number) {
-    if (mode() === "api") return post(`/classes/${id}/cancel`);
+  async classCancellation(id: number) {
+    return request<{ reason: string | null; booked: number | null; waitlisted: number | null; canCancel: boolean }>(
+      `/classes/${id}/cancellation`,
+    );
+  },
+  async cancelClass(id: number, cancellation?: { reason: string; description?: string; note?: string }) {
+    if (mode() === "api") return post(`/classes/${id}/cancel`, cancellation);
     requirePermission("classes.manage");
     const db = readDemo();
     const c = db.classes.find((x) => x.id === id);
