@@ -55,7 +55,7 @@ public final class WaitlistOnlyLaunch {
                 throw new IllegalStateException("Unexpected scheduled jobs: " + jobs);
             }
             System.out.println("Scheduled jobs: " + jobs);
-        }));
+        });
         application.run(args);
     }
 
