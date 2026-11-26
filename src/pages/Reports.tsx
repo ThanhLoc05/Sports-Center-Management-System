@@ -459,7 +459,7 @@ export default function Reports() {
             <Loading />
           ) : chart.length ? (
             <div className="report-chart">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="88%">
                 {chartType === "area" ? (
                   <AreaChart
                     data={chart}
@@ -504,7 +504,7 @@ export default function Reports() {
                       tick={{ fontSize: 11, fill: "#8a9188" }}
                     />
                     <Tooltip
-                      formatter={(v) => [money(Number(v)), "Doanh thu ròng"]}
+                      formatter={(v, name) => [money(Number(v)), String(name)]}
                     />
                     <Area
                       dataKey="revenue"
@@ -513,6 +513,15 @@ export default function Reports() {
                       stroke="#306c4e"
                       strokeWidth={2.5}
                       fill="url(#reportGradient)"
+                    />
+                    {/* [FLOW 3] ĐƯỜNG MÀU ĐỎ: tiền hoàn theo ngày hoàn tiền, để so với doanh thu ròng. */}
+                    <Area
+                      dataKey="refunded"
+                      name="Tiền hoàn"
+                      type="monotone"
+                      stroke="#c0392b"
+                      strokeWidth={2}
+                      fill="none"
                     />
                   </AreaChart>
                 ) : (
@@ -550,12 +559,23 @@ export default function Reports() {
                     <Bar
                       dataKey="refunded"
                       name="Tiền hoàn"
-                      fill="#dfbd7d"
+                      fill="#c0392b"
                       radius={[5, 5, 0, 0]}
                     />
                   </BarChart>
                 )}
               </ResponsiveContainer>
+              {/* [FLOW 3] Chú thích màu của biểu đồ: xanh = doanh thu (ròng / tổng thu), đỏ = tiền hoàn. */}
+              <div className="report-chart-legend">
+                <span>
+                  <i style={{ background: chartType === "area" ? "#306c4e" : "#527c55" }} />
+                  {chartType === "area" ? "Doanh thu ròng" : "Tổng thu"}
+                </span>
+                <span>
+                  <i style={{ background: "#c0392b" }} />
+                  Tiền hoàn
+                </span>
+              </div>
             </div>
           ) : (
             <div className="report-unavailable">

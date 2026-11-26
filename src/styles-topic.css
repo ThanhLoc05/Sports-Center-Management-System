@@ -1516,3 +1516,22 @@ select:not([multiple]):not([size]) {
   font-size: 12px;
   color: #4d5746;
 }
+/* [FLOW 3] Chú thích màu dưới biểu đồ doanh thu: xanh = doanh thu, đỏ = tiền hoàn. */
+.report-chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding-top: 10px;
+  font-size: 12px;
+  color: #4d5746;
+}
+.report-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.report-chart-legend i {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}

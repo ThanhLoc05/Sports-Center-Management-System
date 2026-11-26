@@ -1,3 +1,4 @@
+// [VAI TRÒ] Khung trang: menu bên trái lọc theo vai trò (Lễ tân/Member), chuông thông báo, menu tài khoản.
 /**
  * KHUNG GIAO DIỆN CHUNG SAU ĐĂNG NHẬP: sidebar, thanh công cụ và vùng trang con.
  * Menu lọc theo vai trò, Outlet hiển thị màn tương ứng URL. Tìm kiếm ở đây dựa trên
@@ -102,8 +103,8 @@ const navigation: { label: string; items: NavItem[] }[] = [
   {
     label: "KHÔNG GIAN LÀM VIỆC",
     items: [
-      { to: "/feedback", label: "Đánh giá", icon: MessageCircle, roles: ["MEMBER", "COACH", "RECEPTIONIST", "CENTER_MANAGER"] },
       { to: "/", label: "Tổng quan", icon: LayoutDashboard, roles: all },
+      { to: "/feedback", label: "Đánh giá", icon: MessageCircle, roles: ["MEMBER", "COACH", "RECEPTIONIST", "CENTER_MANAGER"] },
       { to: "/members", label: "Thành viên", icon: Users, roles: staff },
       {
         to: "/packages",
@@ -227,8 +228,10 @@ export default function Layout() {
   const [notifications, setNotifications] = useState(false);
   const [help, setHelp] = useState(false);
   const location = useLocation();
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
   const role = session!.user.roleName;
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses({
     enabled: role !== "CENTER_MANAGER" || session!.mode !== "api" || location.pathname !== "/classes" || search,
   });
@@ -291,6 +294,7 @@ export default function Layout() {
           reconnecting ? "reconnecting" : "connecting",
         );
         try {
+          // [API] notificationsApi.connect → GET /notifications/stream
           await notificationsApi.connect(
             (event) => {
               if (!active || event.recipientId !== session.user.id) return;
@@ -468,6 +472,7 @@ export default function Layout() {
             </span>
             <h4>Một chút hỗ trợ?</h4>
             <p>Mọi thứ bạn cần cho một ngày vận hành suôn sẻ.</p>
+            {/* [NÚT] NÚT "Khám phá hướng dẫn" → mở/đóng hộp thoại hoặc form (setHelp) */}
             <button onClick={() => setHelp(true)}>
               Khám phá hướng dẫn
               <ArrowUpRight size={15} />
@@ -485,6 +490,7 @@ export default function Layout() {
       <div className="app-body">
         <header className="topbar">
           <div className="breadcrumb">
+            {/* [NÚT] NÚT "Mở điều hướng" → mở/đóng hộp thoại hoặc form (setMobile) */}
             <button
               className="icon-btn mobile-menu"
               aria-label="Mở điều hướng"
@@ -499,6 +505,7 @@ export default function Layout() {
             <strong>{current}</strong>
           </div>
           <div className="topbar-actions">
+            {/* [NÚT] NÚT "Tìm kiếm toàn hệ thống" → mở/đóng hộp thoại hoặc form (setSearch) */}
             <button
               className="global-search"
               onClick={() => setSearch(true)}
@@ -509,6 +516,7 @@ export default function Layout() {
               <kbd>⌘ K</kbd>
             </button>
             <div className="topbar-divider" />
+            {/* [NÚT] NÚT "Hướng dẫn sử dụng" → mở/đóng hộp thoại hoặc form (setHelp) */}
             <button
               className="icon-btn"
               aria-label="Hướng dẫn sử dụng"
@@ -516,6 +524,7 @@ export default function Layout() {
             >
               <CircleHelp size={19} />
             </button>
+            {/* [NÚT] NÚT "Thông báo" → đổi cách hiển thị / bộ lọc trên màn hình (setNotifications) */}
             <button
               className="icon-btn notification-trigger"
               aria-label="Thông báo"
@@ -525,6 +534,7 @@ export default function Layout() {
               {expiring.length + ownNotifications.length > 0 && <span />}
             </button>
             <div className="profile-area">
+              {/* [NÚT] NÚT "Mở menu tài khoản" → đổi cách hiển thị / bộ lọc trên màn hình (setProfile) */}
               <button
                 className="profile-trigger"
                 aria-label="Mở menu tài khoản"
@@ -548,6 +558,7 @@ export default function Layout() {
                       <ArrowUpRight size={15} />
                     </Link>
 
+                    {/* [NÚT] NÚT "Đăng xuất" → chạy hàm signOut() */}
                     <button className="logout" onClick={signOut}>
                       <LogOut size={15} />
                       Đăng xuất
