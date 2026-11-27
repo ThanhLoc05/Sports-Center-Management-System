@@ -7,6 +7,7 @@ import { Component, lazy, Suspense } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./lib/auth";
+import { useCourseFeature } from "./lib/course-feature";
 import type { Role } from "./lib/types";
 import Layout, { Forbidden, NotFound } from "./components/Layout";
 import { Button, Loading } from "./components/ui";
@@ -100,15 +101,17 @@ export default function App() {
               <Route element={<Protected roles={["CENTER_MANAGER"]} />}>
                 <Route path="classes/weekly-template" element={<WeeklySchedule />} />
               </Route>
-              <Route element={<Protected roles={["MEMBER"]} />}>
-                <Route path="my-courses" element={<ClassRegistrations courses enrolledOnly />} />
+              <Route element={<CourseRoute />}>
+                <Route element={<Protected roles={["MEMBER"]} />}>
+                  <Route path="my-courses" element={<ClassRegistrations courses enrolledOnly />} />
+                </Route>
+                <Route path="courses" element={<TrainingPrograms key="course" kind="COURSE" />} />
+                <Route path="course-orders" element={<ClassRegistrations courses />} />
               </Route>
               <Route path="regular-classes" element={<RegularClassesRedirect />} />
-              <Route path="courses" element={<TrainingPrograms key="course" kind="COURSE" />} />
               <Route path="sessions" element={<Classes />} />
               <Route path="schedule" element={<Schedule />} />
               <Route path="bookings" element={<BookingsRoute />} />
-              <Route path="course-orders" element={<ClassRegistrations courses />} />
               <Route path="session-bookings" element={<Bookings />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="assistant" element={<Assistant />} />
@@ -186,6 +189,14 @@ function ClassesRoute() {
     ? <Bookings personal />
     : <Classes />;
 }
+function CourseRoute() {
+  const { session } = useAuth();
+  const feature = useCourseFeature();
+  if (feature.pending) return <Loading />;
+  if (feature.enabled) return <Outlet />;
+  return <Navigate to={session?.user.roleName === "MEMBER" ? "/sessions" : "/classes"} replace />;
+}
+
 function RegularClassesRedirect() {
   const { session } = useAuth();
   return <Navigate to={session?.user.roleName === "MEMBER" ? "/sessions" : "/classes"} replace />;

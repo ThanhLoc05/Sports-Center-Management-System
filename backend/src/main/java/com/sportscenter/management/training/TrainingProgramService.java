@@ -27,6 +27,8 @@ public class TrainingProgramService {
             String trainingLevel,int capacity,String requiredLevel,String status,int createdBy,
             Integer totalSessions,LocalDate startDate,LocalDate endDate,BigDecimal price,boolean discountEligible) {}
 
+    private final CourseFeature courseFeature;
+
     public void lock() { access.lock(); }
     private String table(String kind) {
         if("REGULAR".equals(kind)) return "regular_classes";
@@ -181,6 +183,7 @@ public class TrainingProgramService {
     }
 
     public Program save(String kind,Integer id,ProgramInput input) {
+        if ("COURSE".equals(kind)) courseFeature.requireEnabled();
         lock();
         validateInput(kind,input);
         Data previous=id==null?null:data(kind,id);
@@ -376,13 +379,82 @@ public class TrainingProgramService {
     }
 
     private void cancelFutureSessions(String kind,int id) {
-        jdbc.update("UPDATE b SET status='CANCELLED' FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE c."+parentColumn(kind)+"=? AND c.schedule_time>? AND b.status='BOOKED'",id,access.now());
-        jdbc.update("UPDATE classes SET status='CANCELLED',program_suspended=1 WHERE "+parentColumn(kind)+"=? AND schedule_time>? AND status='SCHEDULED'",id,access.now());
+        cancelFutureSessions(kind,id,access.now());
+    }
+
+    private void cancelFutureSessions(String kind,int id,LocalDateTime cutoff) {
+        jdbc.update("UPDATE b SET status='CANCELLED' FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE c."+parentColumn(kind)+"=? AND c.schedule_time>? AND b.status='BOOKED'",id,cutoff);
+        jdbc.update("UPDATE classes SET status='CANCELLED',program_suspended=1 WHERE "+parentColumn(kind)+"=? AND schedule_time>? AND status='SCHEDULED'",id,cutoff);
     }
 
     public Program setStatus(String kind,int id,String state) {
         lock();
         Data row=data(kind,id);
+        LocalDateTime cutoff=access.now();
+        if ("COURSE".equals(kind) && !courseFeature.isEnabled()) {
+            requireCourseManager();
+            if (!"CANCELLED".equals(state)) courseFeature.requireEnabled();
+            requireUnusedCourse(row,cutoff);
+        }
+        return applyStatus(row,state,cutoff);
+    }
+
+    public List<Program> cancelPausedCourses(CancelCoursesInput request) {
+        requireCourseManager();
+        if (courseFeature.isEnabled()) throw conflict("Chỉ dùng thao tác này khi khóa học đang tạm ngừng.");
+        if (new HashSet<>(request.courseIds()).size()!=request.courseIds().size())
+            throw new IllegalArgumentException("Danh sách khóa học không được trùng.");
+        lock();
+        List<Data> courses=request.courseIds().stream().sorted().map(id->data("COURSE",id)).toList();
+        LocalDateTime cutoff=access.now();
+        int sessions=courses.stream().mapToInt(row->requireUnusedCourse(row,cutoff)).sum();
+        if (sessions!=request.expectedSessions())
+            throw conflict("Số buổi khóa học đã thay đổi. Hãy đối chiếu lại lịch trước khi hủy.");
+        return courses.stream().map(row->applyStatus(row,"CANCELLED",cutoff)).toList();
+    }
+
+    private void requireCourseManager() {
+        if (!security.isCenterManager()) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
+
+    private int requireUnusedCourse(Data row,LocalDateTime cutoff) {
+        if (!"OPEN".equals(row.status()))
+            throw conflict("Khóa #"+row.id()+" phải đang mở và chưa diễn ra.");
+        int sessions=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.classes WITH (UPDLOCK,HOLDLOCK)
+                WHERE course_id=? AND status='SCHEDULED' AND schedule_time>?
+                """,Integer.class,row.id(),cutoff);
+        int otherSessions=jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.classes WITH (UPDLOCK,HOLDLOCK)
+                WHERE course_id=? AND status<>'CANCELLED' AND (status<>'SCHEDULED' OR schedule_time<=?)
+                """,Integer.class,row.id(),cutoff);
+        if (sessions==0 || otherSessions>0)
+            throw conflict("Khóa #"+row.id()+" phải còn buổi tương lai và chưa có buổi đã bắt đầu.");
+
+        int used=jdbc.queryForObject("""
+                SELECT CASE WHEN EXISTS(
+                    SELECT 1 FROM dbo.course_orders WITH (HOLDLOCK) WHERE course_id=?
+                ) OR EXISTS(
+                    SELECT 1 FROM dbo.classes c WHERE c.course_id=? AND (
+                        EXISTS(SELECT 1 FROM dbo.class_bookings WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.attendances WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.workout_logs WITH (HOLDLOCK) WHERE schedule_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.workout_plans WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.class_waitlist WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.booking_violations WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.feedbacks WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                        OR EXISTS(SELECT 1 FROM dbo.recurring_class_sessions WITH (HOLDLOCK) WHERE class_id=c.class_id)
+                    )
+                ) THEN 1 ELSE 0 END
+                """,Integer.class,row.id(),row.id());
+        // Course invoices, bank receipts and payment transactions all require a course order via foreign keys.
+        if (used!=0) throw conflict("Khóa #"+row.id()+" đã có đơn, dữ liệu buổi học hoặc lịch sử liên quan. Không thể hủy khi Course tạm ngừng.");
+        return sessions;
+    }
+
+    private Program applyStatus(Data row,String state,LocalDateTime cutoff) {
+        String kind=row.kind();
+        int id=row.id();
         if("REGULAR".equals(kind)) {
             if(!Set.of("ACTIVE","PAUSED","CANCELLED").contains(state)) throw new IllegalArgumentException("Trạng thái lớp không hợp lệ");
             if("ACTIVE".equals(state)) validateResources(kind,id,slotInputs(kind,id),List.of());
@@ -394,7 +466,7 @@ public class TrainingProgramService {
             }
         } else {
             if(!"CANCELLED".equals(state)) throw new IllegalArgumentException("Chỉ hủy toàn khóa qua thao tác này");
-            cancelFutureSessions(kind,id);
+            cancelFutureSessions(kind,id,cutoff);
             jdbc.update("UPDATE course_orders SET status='CANCELLED',version=version+1 WHERE course_id=? AND status='PENDING_PAYMENT'",id);
             jdbc.update("UPDATE i SET payment_status='CANCELLED' FROM invoices i JOIN course_orders o ON o.id=i.course_order_id WHERE o.course_id=? AND o.status='CANCELLED' AND i.payment_status='PENDING'",id);
             for(int member:jdbc.queryForList("SELECT member_id FROM course_orders WHERE course_id=? AND status='CONFIRMED'",Integer.class,id))
@@ -406,6 +478,7 @@ public class TrainingProgramService {
     }
 
     public void validateSessionChange(Classes session,LocalDateTime start,int duration,int coach,int room) {
+        if (session.getCourseId() != null) courseFeature.requireEnabled();
         requireResourceFree(start,start.plusMinutes(duration),coach,room,session.getRegularClassId(),session.getCourseId(),session.getId());
         if(session.getRegularClassId()==null && session.getCourseId()==null) return;
         Data parent=data(session.getCourseId()!=null?"COURSE":"REGULAR",session.getCourseId()!=null?session.getCourseId():session.getRegularClassId());
@@ -439,6 +512,7 @@ public class TrainingProgramService {
             generateRegular(row,until);
             for(var reg:registrationsForProgram(id)) bookProgramSessions("REGULAR",id,reg.memberId(),access.today(),reg.validUntil());
         }
+        if (!courseFeature.isEnabled()) return;
         jdbc.update("UPDATE courses SET status='ONGOING' WHERE status='OPEN' AND EXISTS(SELECT 1 FROM classes c WHERE c.course_id=courses.id AND c.status<>'CANCELLED' AND c.schedule_time<=?)",access.now());
         jdbc.update("UPDATE courses SET status='COMPLETED' WHERE status IN ('OPEN','ONGOING') AND NOT EXISTS(SELECT 1 FROM classes c WHERE c.course_id=courses.id AND c.status='SCHEDULED')");
     }

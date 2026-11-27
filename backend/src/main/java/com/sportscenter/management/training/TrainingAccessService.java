@@ -16,6 +16,7 @@ public class TrainingAccessService {
     private final SecurityUtils security;
     private final TrainingLock trainingLock;
     private final Clock clock;
+    private final CourseFeature courseFeature;
 
     public record Access(int memberId, int subscriptionId, LocalDate startDate, LocalDate endDate,
             String level, Integer sportLimit, int maxClasses, int discountPercent) {}
@@ -134,6 +135,7 @@ public class TrainingAccessService {
     }
 
     public void validateSessionBooking(Classes session,int member) {
+        if (session.getCourseId() != null) courseFeature.requireEnabled();
         Access access=requireAccess(member);
         if(!TrainingPolicy.levelAllowed(access.level(),session.getRequiredAccessLevel()))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Gói không đủ cấp quyền tham gia buổi này");

@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.*;
@@ -28,7 +29,7 @@ import static com.sportscenter.management.training.TrainingModels.*;
 
 /** Opt-in local SQL Server tests. Every fixture, invoice and bank event rolls back. No money is transferred. */
 @EnabledIfSystemProperty(named="sportiva.training-sqlserver",matches="true")
-@SpringBootTest(classes=SportsCenterApplication.class,properties={"app.training.scheduling-enabled=false","app.me09.scheduling-enabled=false","spring.jpa.open-in-view=false"})
+@SpringBootTest(classes=SportsCenterApplication.class,properties={"app.course.enabled=true","app.training.scheduling-enabled=false","app.me09.scheduling-enabled=false","spring.jpa.open-in-view=false"})
 @Transactional
 class TrainingSqlServerIT {
     @Autowired JdbcTemplate jdbc;
@@ -39,6 +40,7 @@ class TrainingSqlServerIT {
     @Autowired FlexibleBookingPolicy flexiblePolicy;
     @Autowired InvoiceRepository invoices;
     @Autowired BankPaymentEventRepository events;
+    @MockitoSpyBean CourseFeature courseFeature;
     @MockitoBean SecurityUtils security;
     @MockitoBean JavaMailSender mail;
     @MockitoBean ClassCompletionJobs completion;
@@ -132,6 +134,100 @@ class TrainingSqlServerIT {
         assertEquals("CONFIRMED",orders.detail(order.id()).status());assertEquals(2,events.findAll().stream().filter(e->Objects.equals(e.getInvoiceId(),invoice.getId())).count());
         assertEquals(12,jdbc.queryForObject("SELECT COUNT(*) FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE c.course_id=? AND b.member_id=?",Integer.class,course.id(),member));
     }
+    @Test void pausedCourseKeepsInvoicesAndVerifiedReceiptsWithoutEnrolling() {
+        vip();
+        var paidCourse = course("Paid before disabling", 8);
+        var cashCourse = course("Pending cash", 10);
+        var bankCourse = course("Pending transfer", 12);
+        asMember();
+        var paid = orders.create(new CourseOrderInput(paidCourse.id(), null, "CASH"), UUID.randomUUID().toString());
+        var cash = orders.create(new CourseOrderInput(cashCourse.id(), null, "CASH"), UUID.randomUUID().toString());
+        var bankOrder = orders.create(new CourseOrderInput(bankCourse.id(), null, "BANK_TRANSFER"), UUID.randomUUID().toString());
+        asManager();
+        orders.confirmCash(paid.id(), paid.version());
+        int paidSession = jdbc.queryForObject("SELECT MIN(class_id) FROM classes WHERE course_id=?", Integer.class, paidCourse.id());
+
+        doReturn(false).when(courseFeature).isEnabled();
+        assertPaused(() -> programs.save("COURSE", paidCourse.id(), input("Edit", sport, true, 8, 1, 3, 5)));
+        var used = assertThrows(ResponseStatusException.class, () -> programs.setStatus("COURSE", paidCourse.id(), "CANCELLED"));
+        assertEquals(409,used.getStatusCode().value());
+        assertTrue(used.getReason().contains("dữ liệu buổi học hoặc lịch sử"));
+        assertPaused(() -> orders.create(new CourseOrderInput(cashCourse.id(), member, "CASH"), UUID.randomUUID().toString()));
+        assertPaused(() -> bookings.bookClass(paidSession, member));
+        assertPaused(() -> orders.confirmCash(cash.id(), cash.version()));
+        assertEquals("PENDING_PAYMENT", orders.detail(cash.id()).status());
+        assertEquals("CANCELLED", orders.cancel(cash.id()).status());
+
+        var bankInvoice = invoices.findById(bankOrder.invoice().getId()).orElseThrow();
+        long eventId = 1_200_000_000L + new Random().nextInt(100_000_000);
+        var receipt = transfer(eventId, bankOrder, 900000);
+        orders.acceptBankTransfer(bankInvoice, receipt);
+        orders.acceptBankTransfer(bankInvoice, receipt);
+        assertEquals(1, events.findAll().stream().filter(e -> e.getProviderEventId().equals(eventId)).count());
+        assertEquals("RECEIVED", events.findByProviderEventId(eventId).orElseThrow().getStatus());
+        assertEquals("PENDING", orders.detail(bankOrder.id()).invoice().getPaymentStatus());
+        assertPaused(() -> orders.reconcile(bankOrder.id()));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM class_bookings b JOIN classes c ON c.class_id=b.class_id WHERE c.course_id=? AND b.member_id=?",
+                Integer.class, bankCourse.id(), member));
+
+        assertEquals("PAID", orders.detail(paid.id()).invoice().getPaymentStatus());
+        assertEquals("REFUNDED", orders.refund(paid.invoice().getId(),
+                new RefundRequest("Test", "CASH", paid.paymentReference(), BigDecimal.valueOf(900000), true)).getPaymentStatus());
+        assertEquals("ACTIVE", jdbc.queryForObject("SELECT status FROM member_subscriptions WHERE subscription_id=?", String.class, subscription));
+
+        doReturn(true).when(courseFeature).isEnabled();
+        assertEquals("CONFIRMED", orders.reconcile(bankOrder.id()).status());
+        assertEquals("APPLIED", jdbc.queryForObject("SELECT status FROM bank_payment_events WHERE provider_event_id=?", String.class, eventId));
+    }
+
+    @Test void pausedCancellationValidatesWholeBatchAndReleasesResourcesWithoutDeletingHistory() {
+        var first = course("Unused badminton batch", 8);
+        var second = course("Course with workout history", 10);
+        var third = course("Unused final course", 12);
+        int secondSession = jdbc.queryForObject(
+                "SELECT MIN(class_id) FROM classes WHERE course_id=?",Integer.class,second.id());
+        jdbc.update("INSERT dbo.workout_plans(title,coach_id,class_id,description) VALUES(?,?,?,?)",
+                "Existing plan",coach,secondSession,"Keep this training history");
+        doReturn(false).when(courseFeature).isEnabled();
+
+        var blocked = assertThrows(ResponseStatusException.class, () -> programs.cancelPausedCourses(
+                new CancelCoursesInput(List.of(first.id(),second.id(),third.id()),36)));
+        assertEquals(409,blocked.getStatusCode().value());
+        assertEquals("OPEN",programs.data("COURSE",first.id()).status());
+        assertEquals("OPEN",programs.data("COURSE",third.id()).status());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dbo.workout_plans WHERE class_id=?",Integer.class,secondSession));
+
+        var changed = assertThrows(ResponseStatusException.class, () -> programs.cancelPausedCourses(
+                new CancelCoursesInput(List.of(first.id(),third.id()),25)));
+        assertEquals(409,changed.getStatusCode().value());
+        assertEquals("OPEN",programs.data("COURSE",first.id()).status());
+
+        var start = first.startDate().atTime(8,0);
+        assertThrows(ResponseStatusException.class, () ->
+                programs.requireResourceFree(start,start.plusHours(1),coach,room,null,null,null));
+        asMember();
+        var denied = assertThrows(ResponseStatusException.class, () ->
+                programs.cancelPausedCourses(new CancelCoursesInput(List.of(first.id(),third.id()),24)));
+        assertEquals(403,denied.getStatusCode().value());
+
+        asManager();
+        var cancelled = programs.cancelPausedCourses(new CancelCoursesInput(List.of(first.id(),third.id()),24));
+        assertEquals(List.of("CANCELLED","CANCELLED"),cancelled.stream().map(Program::status).toList());
+        assertEquals(24,jdbc.queryForObject(
+                "SELECT COUNT(*) FROM dbo.classes WHERE course_id IN (?,?) AND status='CANCELLED' AND program_suspended=1",
+                Integer.class,first.id(),third.id()));
+        assertEquals(6,jdbc.queryForObject("SELECT COUNT(*) FROM dbo.training_slots WHERE course_id IN (?,?)",
+                Integer.class,first.id(),third.id()));
+        assertDoesNotThrow(() -> programs.requireResourceFree(start,start.plusHours(1),coach,room,null,null,null));
+    }
+
+    private static void assertPaused(org.junit.jupiter.api.function.Executable call) {
+        var rejection = assertThrows(ResponseStatusException.class, call);
+        assertEquals(409, rejection.getStatusCode().value());
+        assertTrue(rejection.getReason().contains("đang tạm ngừng"));
+    }
+
     SepayWebhookRequest transfer(long id,CourseOrder order,int amount) {
         return new SepayWebhookRequest(id,"MBBank",access.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),"123456789",order.paymentReference(),"in",BigDecimal.valueOf(amount),"TEST-"+id);
     }

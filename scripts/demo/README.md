@@ -2,6 +2,8 @@
 
 Run from the repository root with JDK 27 and an existing SQL Server demo or isolated QA database on the current schema. This launcher registers only `WaitlistJobs.advanceWaitlists` as a Spring scheduled job. It uses the existing waitlist expiry and offer logic and keeps the existing SSE heartbeat and immediate notification delivery.
 
+Course is off by default. Leave `APP_COURSE_ENABLED` unset or set it to `false` to keep it off. Set it to `true` before launching only when Course is needed. This setting does not change the scheduled job list.
+
 The first poll can expire outstanding invitations, notify affected members and offer any released seats in queue order. Check the pending waitlist and verify a database backup before launching against shared demo data.
 
 Supply `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` and `JWT_SECRET` in the process environment using your local configuration. Integrated SQL Server authentication can use empty username and password. Set `SPORTIVA_WAITLIST_DATABASE` to the exact catalog named in `DB_URL`. Keep JDBC native authentication on the Java library path if your connection requires it.

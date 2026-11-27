@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { MembershipPackage } from "../lib/types";
 import { packageBenefitPresets } from "../lib/package-benefits";
 import { Field } from "./ui";
+import { useCourseFeature } from "../lib/course-feature";
 import { MembershipBenefits } from "./MembershipBenefits";
 
 export function PackageBenefitFields({
@@ -9,6 +10,7 @@ export function PackageBenefitFields({
 }: {
   initial?: MembershipPackage;
 }) {
+  const { enabled: courseEnabled } = useCourseFeature();
   const initialLevel = initial?.accessLevel === "VIP" ? "VIP" : "STANDARD";
   const preset = packageBenefitPresets[initialLevel];
   const [level, setLevel] = useState<"STANDARD" | "VIP">(initialLevel);
@@ -19,6 +21,7 @@ export function PackageBenefitFields({
   const [discount, setDiscount] = useState(
     String(initial?.courseDiscountPercent ?? preset.courseDiscountPercent),
   );
+  const savedDiscount = initial?.courseDiscountPercent ?? packageBenefitPresets[level].courseDiscountPercent;
   const [description, setDescription] = useState(
     initial ? initial.description || "" : preset.description,
   );
@@ -66,21 +69,25 @@ export function PackageBenefitFields({
             onChange={(event) => setMaxClasses(event.target.value)}
           />
         </Field>
-        <Field
-          label="Ưu đãi học phí khóa học (%)"
-          hint="Áp dụng cho khóa học có ưu đãi."
-        >
-          <input
-            name="courseDiscountPercent"
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            required
-            value={discount}
-            onChange={(event) => setDiscount(event.target.value)}
-          />
-        </Field>
+        {courseEnabled ? (
+          <Field
+            label="Ưu đãi học phí khóa học (%)"
+            hint="Áp dụng cho khóa học có ưu đãi."
+          >
+            <input
+              name="courseDiscountPercent"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              required
+              value={discount}
+              onChange={(event) => setDiscount(event.target.value)}
+            />
+          </Field>
+        ) : (
+          <input name="courseDiscountPercent" type="hidden" value={savedDiscount} />
+        )}
       </div>
       <Field
         label="Mô tả"

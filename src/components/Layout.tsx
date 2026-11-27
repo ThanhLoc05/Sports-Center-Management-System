@@ -36,6 +36,7 @@ import type { LucideIcon } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import "../styles-training.css";
 import { useAuth } from "../lib/auth";
+import { useCourseFeature } from "../lib/course-feature";
 import { isStaff, roleLabels } from "../lib/types";
 import type { Role } from "../lib/types";
 import { readDemo } from "../lib/demo";
@@ -56,6 +57,7 @@ interface NavItem {
   icon: LucideIcon;
   roles: Role[];
 }
+const courseRoutes = new Set(["/courses", "/course-orders", "/my-courses"]);
 const classTabs = [
   { to: "/classes", label: "Buổi tập theo gói" },
   { to: "/courses", label: "Khóa học" },
@@ -213,6 +215,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
 ];
 export default function Layout() {
   const { session, signOut } = useAuth();
+  const { enabled: courseEnabled } = useCourseFeature();
   const client = useQueryClient();
   const toast = useToast();
   const toastRef = useRef(toast);
@@ -577,7 +580,8 @@ export default function Layout() {
           {tabGroup && (
             <nav className="training-tabs" aria-label={tabGroup.label}>
               {tabGroup.tabs
-                .filter((tab) => routeAllowed(session, tab.to, db || undefined) !== false)
+                .filter((tab) => (courseEnabled || !courseRoutes.has(tab.to)) &&
+                  routeAllowed(session, tab.to, db || undefined) !== false)
                 .map((tab) => (
                   <NavLink
                     key={tab.to}
@@ -645,7 +649,7 @@ export default function Layout() {
                   ))}
               {query &&
                 classes.data
-                  ?.filter((c) => !c.regularClassId && matches(query, c.className))
+                  ?.filter((c) => !c.regularClassId && (courseEnabled || !c.courseId) && matches(query, c.className))
                   .slice(0, 4)
                   .map((c) => (
                     <Link

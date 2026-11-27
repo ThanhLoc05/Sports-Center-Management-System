@@ -11,7 +11,8 @@ import type { TrainingProgram } from "../lib/training-api";
 import TrainingPrograms from "../pages/TrainingPrograms";
 import App from "../App";
 
-function setup(course = false, route?: string, role = "MEMBER") {
+function setup(course = false, route?: string, role = "MEMBER", courseEnabled = true) {
+  vi.spyOn(api, "features").mockResolvedValue({ courseEnabled });
   const payload = btoa(
     JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }),
   );
@@ -110,6 +111,21 @@ function setup(course = false, route?: string, role = "MEMBER") {
   );
   return { search, program, user: userEvent.setup() };
 }
+describe("Course feature flag", () => {
+  it.each([
+    ["MEMBER", "/courses?orderId=99", "Buổi tập theo gói"],
+    ["MEMBER", "/my-courses", "Buổi tập theo gói"],
+    ["CENTER_MANAGER", "/courses", "Buổi tập theo gói"],
+    ["COACH", "/courses", "Buổi tập theo gói"],
+    ["RECEPTIONIST", "/course-orders", "Buổi tập theo gói"],
+  ])("blocks the Course route for %s at %s", async (role, path, heading) => {
+    const { search } = setup(false, path, role, false);
+    expect(await screen.findByRole("heading", { name: heading })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Khóa học|Đơn khóa học/ })).not.toBeInTheDocument();
+    expect(search).not.toHaveBeenCalled();
+  });
+});
+
 describe("sport-first registration", () => {
   it("offers two learning paths and keeps the course flow", async () => {
     const { search, user } = setup(false, "/classes");

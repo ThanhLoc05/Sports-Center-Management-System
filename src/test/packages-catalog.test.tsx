@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../lib/auth";
 import { ToastProvider } from "../components/ui";
 import ApiPackages from "../components/ApiPackages";
+import { api } from "../lib/api";
 import * as demo from "../lib/demo";
 import { money } from "../lib/utils";
 import type { MembershipPackage } from "../lib/types";
@@ -248,7 +249,7 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
     expect(standard.getByText("Chọn 1 bộ môn trong kỳ gói")).toBeVisible();
     const vip = within(screen.getByText(catalog[1].packageName).closest("tr")!);
     expect(vip.getByText("Tất cả bộ môn trung tâm cung cấp")).toBeVisible();
-    expect(vip.getByText("Giảm 10% học phí khóa học áp dụng")).toBeVisible();
+    expect(await vip.findByText("Giảm 10% học phí khóa học áp dụng")).toBeVisible();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Thêm gói tập" }));
@@ -283,6 +284,29 @@ describe("Danh mục gói quản lý dùng API thật (fetch được mock)", ()
       durationDays: 90,
     });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    client.clear();
+  });
+
+  it("keeps the stored Course discount when Course is paused and the package level changes", async () => {
+    vi.mocked(api.features).mockResolvedValue({ courseEnabled: false });
+    const existing = { ...catalog[0], courseDiscountPercent: 17 };
+    vi.mocked(fetch).mockImplementation(async (_url, init) =>
+      json(init?.method === "PUT" ? { ...existing, ...JSON.parse(String(init.body)) } : [existing]),
+    );
+    const client = page();
+    await screen.findByText(existing.packageName);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Chỉnh sửa gói" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await user.selectOptions(dialog.getByLabelText("Cấp gói"), "VIP");
+    expect(dialog.queryByLabelText(/Ưu đãi học phí khóa học/)).not.toBeInTheDocument();
+    expect(dialog.queryByText(/học phí khóa học áp dụng/)).not.toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Lưu thay đổi" }));
+    await waitFor(() => {
+      const put = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === "PUT");
+      expect(put).toBeDefined();
+      expect(JSON.parse(String(put?.[1]?.body))).toMatchObject({ accessLevel: "VIP", courseDiscountPercent: 17 });
+    });
     client.clear();
   });
 

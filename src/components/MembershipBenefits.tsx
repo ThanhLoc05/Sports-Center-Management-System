@@ -1,10 +1,12 @@
 import { Check } from "lucide-react";
 import type { MembershipBenefits as Benefits } from "../lib/types";
+import { useCourseFeature } from "../lib/course-feature";
 import { packageBenefitItems } from "../lib/package-benefits";
 import "../styles-package-benefits.css";
 
 export function MembershipBenefits({ value }: { value: Benefits }) {
-  const items = packageBenefitItems(value);
+  const { enabled } = useCourseFeature();
+  const items = packageBenefitItems(enabled ? value : { ...value, courseDiscountPercent: undefined });
   if (!items.length) return null;
   return (
     <ul className="membership-benefits" aria-label="Quyền lợi gói tập">

@@ -399,6 +399,7 @@ interface RegistrationCodeDelivery {
 }
 
 export const api = {
+  features: () => request<{ courseEnabled: boolean }>("/features", { cache: "no-store" }),
   beginMemberRegistration(input: RegisterInput) {
     return post<RegistrationCodeDelivery>("/users/register", input);
   },

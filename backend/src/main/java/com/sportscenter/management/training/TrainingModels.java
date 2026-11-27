@@ -46,6 +46,9 @@ public final class TrainingModels {
     public record CourseOrderInput(@NotNull @Positive Integer courseId, @Positive Integer memberId,
             @NotNull @Pattern(regexp="CASH|BANK_TRANSFER") String paymentMethod) {}
 
+    public record CancelCoursesInput(@NotEmpty List<@NotNull @Positive Integer> courseIds,
+            @NotNull @Positive Integer expectedSessions) {}
+
     public record ConfirmInput(@NotNull @Min(0) Integer version) {}
 
     public record CourseOrder(int id, int courseId, String courseName, int memberId, String memberName,

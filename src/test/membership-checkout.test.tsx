@@ -167,7 +167,7 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     await userEvent.click(choose);
     expect(await screen.findByText("Tất cả bộ môn trung tâm cung cấp")).toBeVisible();
     expect(screen.getByText("Đăng ký tối đa 3 lớp theo lịch cố định cùng lúc, không trùng lịch")).toBeVisible();
-    expect(screen.getByText("Giảm 15% học phí khóa học áp dụng")).toBeVisible();
+    expect(await screen.findByText("Giảm 15% học phí khóa học áp dụng")).toBeVisible();
     expect(screen.getByText(vip.description)).toBeVisible();
     expect(screen.queryByText("Giảm 10% học phí khóa học áp dụng")).not.toBeInTheDocument();
     expect(screen.queryByText(/nhóm nhỏ|8 người|16 người/)).not.toBeInTheDocument();

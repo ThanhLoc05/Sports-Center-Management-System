@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { useCourseFeature } from "../lib/course-feature";
 import { trainingApi } from "../lib/training-api";
 import { dateLabel, money, timeLabel } from "../lib/utils";
 import { PaymentQr } from "./PaymentQr";
@@ -28,6 +29,7 @@ export function CourseOrderDetail({
     client = useQueryClient(),
     toast = useToast();
   const staff = session?.user.roleName !== "MEMBER";
+  const { enabled: courseEnabled } = useCourseFeature();
   const [action, setAction] = useState<"cash" | "cancel" | "refund" | null>(
     null,
   );
@@ -84,27 +86,36 @@ export function CourseOrderDetail({
             </div>
             {order.status === "PENDING_PAYMENT" && (
               <>
-                <Notice>
-                  Giữ chỗ đến {timeLabel(order.expiresAt)} ngày{" "}
-                  {dateLabel(order.expiresAt)}. Lịch khóa được ghi danh sau khi
-                  thanh toán được xác nhận.
-                </Notice>
-                {order.paymentMethod === "BANK_TRANSFER" ? (
-                  order.bankAccount ? (
-                    <PaymentQr
-                      invoice={order.invoice}
-                      bankAccount={order.bankAccount}
-                      memberName={order.memberName}
-                    />
-                  ) : (
+                {courseEnabled ? (
+                  <>
                     <Notice>
-                      Đơn thiếu tài khoản nhận tiền. Vui lòng liên hệ lễ tân.
+                      Giữ chỗ đến {timeLabel(order.expiresAt)} ngày{" "}
+                      {dateLabel(order.expiresAt)}. Lịch khóa được ghi danh sau khi
+                      thanh toán được xác nhận.
                     </Notice>
-                  )
+                    {order.paymentMethod === "BANK_TRANSFER" ? (
+                      order.bankAccount ? (
+                        <PaymentQr
+                          invoice={order.invoice}
+                          bankAccount={order.bankAccount}
+                          memberName={order.memberName}
+                        />
+                      ) : (
+                        <Notice>
+                          Đơn thiếu tài khoản nhận tiền. Vui lòng liên hệ lễ tân.
+                        </Notice>
+                      )
+                    ) : (
+                      <Notice>
+                        Thanh toán tiền mặt tại quầy. Chỉ lễ tân hoặc quản lý được
+                        xác nhận đã thu.
+                      </Notice>
+                    )}
+                  </>
                 ) : (
                   <Notice>
-                    Thanh toán tiền mặt tại quầy. Chỉ lễ tân hoặc quản lý được
-                    xác nhận đã thu.
+                    Đơn được giữ để đối soát. Vui lòng không thanh toán thêm và
+                    liên hệ lễ tân nếu đã chuyển khoản.
                   </Notice>
                 )}
                 <div className="row-actions">
@@ -117,7 +128,7 @@ export function CourseOrderDetail({
                   >
                     Kiểm tra trạng thái
                   </Button>
-                  {staff && order.paymentMethod === "CASH" && (
+                  {courseEnabled && staff && order.paymentMethod === "CASH" && (
                     <Button onClick={() => setAction("cash")}>
                       Xác nhận đã thu tiền mặt
                     </Button>
@@ -158,7 +169,7 @@ export function CourseOrderDetail({
                 onSaved={refresh}
               />
             )}
-            {action && action !== "refund" && (
+            {(action === "cancel" || (courseEnabled && action === "cash")) && (
               <Confirm
                 title={
                   action === "cash"
