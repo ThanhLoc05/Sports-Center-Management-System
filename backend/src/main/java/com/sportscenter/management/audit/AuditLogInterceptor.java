@@ -22,6 +22,7 @@ public class AuditLogInterceptor implements HandlerInterceptor {
     private static final Logger log = LoggerFactory.getLogger(AuditLogInterceptor.class);
     private static final Set<String> IGNORED_PATHS = Set.of(
             "/api/v1/classes/recurring/template/sync-preview",
+            "/api/v1/classes/recurring/template/preview",
             "/api/v1/users/login",
             "/api/v1/users/register",
             "/api/v1/users/verify-email",

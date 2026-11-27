@@ -51,13 +51,15 @@ class AuditLogInterceptorTest {
     }
 
     @Test
-    void skipsWeeklyScheduleSyncPreview() throws Exception {
+    void skipsWeeklySchedulePreviews() throws Exception {
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated("manager@example.test", "n/a", List.of()));
-        var request = request("POST", "/api/v1/classes/recurring/template/sync-preview");
-        var response = response(200);
-        interceptor.preHandle(request, response, null);
-        interceptor.afterCompletion(request, response, null, null);
+        for (String path : List.of("/api/v1/classes/recurring/template/sync-preview", "/api/v1/classes/recurring/template/preview")) {
+            var request = request("POST", path);
+            var response = response(200);
+            interceptor.preHandle(request, response, null);
+            interceptor.afterCompletion(request, response, null, null);
+        }
 
         verifyNoInteractions(auditLogService);
     }
