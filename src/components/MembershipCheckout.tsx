@@ -1,3 +1,4 @@
+// [VAI TRÒ] Đăng ký/gia hạn gói + chi tiết đơn/hóa đơn. MEMBER: chọn gói, xem QR, yêu cầu hoàn. LỄ TÂN: thu tiền mặt, hủy đơn, ghi nhận hoàn tiền.
 /** Luồng mới: yêu cầu + hóa đơn chờ → thu tiền → backend xác nhận → gói có hiệu lực.
  * Quét QR, mở hóa đơn hoặc bấm chuyển trang không được gọi gia hạn hay tự đặt PAID. */
 import { useEffect, useId, useRef, useState } from "react";
@@ -24,6 +25,7 @@ import { MemberRefundAction } from "./RefundRequests";
 import { RefundForm, RefundReceipt } from "./RefundForm";
 import { PaymentQr } from "./PaymentQr";
 import { MembershipBenefits } from "./MembershipBenefits";
+import { MembershipPlanCompare } from "./MembershipPlanCompare";
 import {
   Badge,
   Button,
@@ -60,6 +62,7 @@ const methodName = (method: string) =>
   method === "CASH" ? "Tiền mặt tại quầy" : "Chuyển khoản QR";
 /** Tên chủ đơn lấy theo memberId, không nhầm với nhân viên thu tiền đang đăng nhập. */
 function OrderMemberLabel({ order }: { order: MembershipOrder }) {
+  // [API] usePaymentMember() (hook trong lib/use-payment-member.ts) → api.user → GET /users/{id}
   const member = usePaymentMember(order.memberId, order.memberName);
   return (
     <small>
@@ -114,6 +117,7 @@ export function MembershipCheckoutPage() {
     member ? String(session!.user.id) : params.get("memberId") || "",
   );
   const selected = positiveId(memberId);
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers(true);
   const [memberSearchInput, setMemberSearchInput] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
@@ -155,6 +159,7 @@ export function MembershipCheckoutPage() {
         title="Gói thành viên"
         description="Chọn gói, thanh toán và theo dõi xác nhận. Gói hiện tại chỉ thay đổi khi yêu cầu được duyệt."
         actions={
+          // [NÚT] NÚT "Gia hạn gói tập / Đăng ký gói tập" → mở/đóng hộp thoại hoặc form (setDraft)
           <Button
             disabled={!selected || !historyReady}
             onClick={() => setDraft({ source: active })}
@@ -173,7 +178,9 @@ export function MembershipCheckoutPage() {
               value={memberSearchInput} onChange={(value) => {
                 setMemberSearchInput(value); if (!value) setMemberSearch("");
               }} />
+            {/* [NÚT] NÚT "Tìm kiếm" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <Button type="submit" variant="secondary"><Search size={16} />Tìm kiếm</Button>
+            {/* [NÚT] NÚT "Xem tất cả" → mở/đóng hộp thoại hoặc form (setMemberSearchInput) */}
             {memberSearch && <Button type="button" variant="ghost" onClick={() => {
               setMemberSearchInput(""); setMemberSearch("");
             }}>Xem tất cả</Button>}
@@ -188,6 +195,7 @@ export function MembershipCheckoutPage() {
               ) },
               { key: "status", label: "Trạng thái", render: (user) => <Badge status={user.status} /> },
               { key: "select", label: "Thao tác", render: (user) => (
+                // [NÚT] NÚT "Đang xem / Xem gói" → đổi cách hiển thị / bộ lọc trên màn hình (setMemberId)
                 <Button variant={selected === user.id ? "primary" : "secondary"}
                   aria-label={`Xem gói của ${user.fullName}, ${idLabel(user.id)}`}
                   onClick={() => { setMemberId(String(user.id)); setDraft(null); }}>
@@ -227,6 +235,14 @@ export function MembershipCheckoutPage() {
           <Loading />
         ) : packages.error ? (
           <ErrorState error={packages.error} retry={packages.refetch} />
+        ) : packages.data?.some((p) => p.accessLevel === "STANDARD" || p.accessLevel === "VIP") ? (
+          // [GÓI COMBO] So sánh STANDARD / VIP, mỗi gói chọn combo 1 tháng hoặc 3 tháng.
+          <MembershipPlanCompare
+            offers={packages.data}
+            disabled={!selected || !historyReady}
+            activePackageId={active?.packageId}
+            onChoose={(pkg) => setDraft({ source: active, offer: pkg })}
+          />
         ) : packages.data?.length ? (
           <div className="pricing-grid">
             {packages.data.map((pkg) => (
@@ -247,6 +263,7 @@ export function MembershipCheckoutPage() {
                     gói phía trên là giá niêm yết.
                   </Notice>
                 )}
+                {/* [NÚT] NÚT "Gia hạn gói hiện tại / Gia hạn với gói mới / Chọn gói tập" → mở/đóng hộp thoại hoặc form (setDraft) */}
                 <Button
                   disabled={!selected || !historyReady}
                   onClick={() => setDraft({ source: active, offer: pkg })}
@@ -309,6 +326,7 @@ export function MembershipCheckoutPage() {
                 key: "renew",
                 label: "Thao tác",
                 render: (s) => (
+                  // [NÚT] NÚT "Gia hạn" → mở/đóng hộp thoại hoặc form (setDraft)
                   <Button
                     variant="secondary"
                     disabled={
@@ -384,6 +402,7 @@ export function MembershipOrderForm({
   // Cùng nội dung + thử lại sau lỗi mạng dùng lại key; thay lựa chọn tạo key mới.
   const attempt = useRef({ fingerprint: "", key: "" });
   return (
+    // [NÚT] FORM "Yêu cầu gia hạn gói tập, nút "Tiếp tục đến thanh toán"" → gọi API membershipCheckout.create → POST /membership-orders
     <FormModal
       className="membership-checkout-dialog"
       description="Chọn gói và phương thức thanh toán để tạo hóa đơn."
@@ -633,6 +652,7 @@ export function MembershipOrders({
             Đơn tiền mặt do lễ tân xác nhận sau khi nhận tiền. Đơn QR chờ kết
             quả đối soát từ hệ thống.
           </p>
+          {/* [NÚT] NÚT "Tải lại danh sách đơn" → tải lại dữ liệu từ API */}
           <Button
             variant="secondary"
             loading={query.isFetching}
@@ -757,6 +777,7 @@ export function MembershipOrderDetail({
           : false,
   });
   const order = query.data;
+  // [API] usePaymentMember() (hook trong lib/use-payment-member.ts) → api.user → GET /users/{id}
   const member = usePaymentMember(order?.memberId, order?.memberName);
   useConfirmedMemberships(query.error || !order ? undefined : [order]);
   const owner =
@@ -1079,6 +1100,7 @@ export function MembershipOrderDetail({
                 <Button variant="secondary" onClick={() => window.print()}>
                   In / Lưu PDF
                 </Button>
+                {/* [NÚT] NÚT "Kiểm tra cập nhật" → tải lại dữ liệu từ API */}
                 <Button
                   variant="secondary"
                   disabled={busy}
@@ -1116,6 +1138,7 @@ export function MembershipOrderDetail({
                     Xác nhận thu tiền và kích hoạt gói
                   </Button>
                 )}
+                {/* [NÚT] NÚT "Đóng" → chạy hàm onClose() */}
                 <Button
                   variant={canCollectCash ? "secondary" : "primary"}
                   onClick={onClose}
@@ -1130,6 +1153,7 @@ export function MembershipOrderDetail({
       )}
     </Modal>
     {cancelOpen && order && (
+      // [NÚT] HỘP XÁC NHẬN "Hủy đơn chờ thanh toán?" → gọi API membershipCheckout.cancel → POST /membership-orders/{id}/cancel
       <Confirm title="Hủy đơn chờ thanh toán?"
         description={`Hủy hóa đơn HD${order.invoice.id} của TV${order.memberId}. Chỉ xác nhận khi chưa nhận tiền. Gói hiện tại được giữ nguyên và có thể tạo lại đơn đúng. Sau khi hủy, không chuyển tiền theo QR của đơn này.`}
         onClose={() => setCancelOpen(false)}

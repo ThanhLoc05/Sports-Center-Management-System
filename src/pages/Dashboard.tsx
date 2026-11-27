@@ -1,3 +1,4 @@
+// [VAI TRÒ] Tổng quan. LỄ TÂN: số liệu chung + thao tác nhanh. MEMBER: gói đang dùng, lớp đã đăng ký, buổi tập hôm nay.
 /**
  * TỔNG QUAN THEO VAI TRÒ: ghép dữ liệu thành viên, lớp, gói và doanh thu.
  * Không có database riêng cho dashboard; chỉ đọc các nguồn đã dùng ở module nghiệp vụ.
@@ -163,6 +164,7 @@ function StatCard({
  * cần thiết rồi tính số liệu từ dữ liệu đã nhận; không ghi nghiệp vụ ở dashboard.
  */
 export default function Dashboard() {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { rooms } = useCatalog();
   const { session } = useAuth();
   const can = usePermissions();
@@ -174,7 +176,9 @@ export default function Dashboard() {
     coach = user.roleName === "COACH",
     demo = session!.mode === "demo";
   const classCatalog = member && !demo ? "/sessions" : "/classes";
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   const [period, setPeriod] = useState("month");
   const [dayOffset, setDayOffset] = useState(0);
@@ -189,35 +193,31 @@ export default function Dashboard() {
    */
   const revenue = useQuery({
     queryKey: ["revenue", start, end],
+    // [API] api.revenue → GET /payments/revenue?startDate={encodeURIComponent}&endDate={encodeURIComponent}
     queryFn: () => api.revenue(`${start}T00:00:00`, `${end}T23:59:59`),
     enabled: manager,
   });
   /**
-   * Biểu đồ doanh thu từng ngày với dữ liệu thật từ backend (API mode).
-   * Cách làm: gọi cùng endpoint /payments/revenue cho mỗi ngày trong kỳ (tối đa 31 lần, chạy song song)
-   * rồi ghép thành mảng {date, revenue}; key theo start/end để cache riêng tuần/tháng.
-   * Lý do: backend chưa có endpoint tổng hợp theo ngày; dùng lại đúng endpoint của số tổng
-   * nên cộng các ngày luôn khớp con số "Doanh thu kỳ này", không phải sửa backend.
+   * [FLOW 3] Biểu đồ doanh thu từng ngày với dữ liệu thật từ backend (API mode).
+   * Cách làm: gọi 1 lần GET /reports/summary (cùng API với trang Báo cáo), lấy dailyRevenue
+   * rồi ghép thành mảng {date, revenue = doanh thu ròng, refunded = tiền hoàn}.
+   * Lý do: một request thay cho gọi từng ngày, có thêm tiền hoàn để vẽ đường đỏ;
+   * công thức giống ô "Doanh thu kỳ này" nên cộng các ngày vẫn khớp số tổng.
    */
   const dailyRevenue = useQuery({
     queryKey: ["revenue-daily", start, end],
     queryFn: async () => {
-      const count =
-        Math.round(
-          (parseDate(end).getTime() - parseDate(start).getTime()) / 86400000,
-        ) + 1;
-      const days = Array.from({ length: count }, (_, i) =>
-        addDays(i, parseDate(start)),
+      // [API] api.revenueSummary → GET /reports/summary?startDate=…&endDate=…
+      const summary = await api.revenueSummary(
+        `${start}T00:00:00`,
+        `${end}T23:59:59.9999999`,
       );
-      const amounts = await Promise.all(
-        days.map((day) => {
-          const key = localDate(day);
-          return api.revenue(`${key}T00:00:00`, `${key}T23:59:59`);
-        }),
-      );
-      return days.map((day, i) => ({
-        date: dateLabel(day, { day: "2-digit", month: "2-digit" }),
-        revenue: Number(amounts[i]) || 0,
+      if (!summary.dailyRevenue)
+        throw new Error("Backend chưa trả doanh thu theo ngày.");
+      return summary.dailyRevenue.map((p) => ({
+        date: dateLabel(p.date, { day: "2-digit", month: "2-digit" }),
+        revenue: p.net,
+        refunded: p.refunded,
       }));
     },
     enabled: manager && !demo,
@@ -229,16 +229,19 @@ export default function Dashboard() {
    */
   const bookings = useQuery({
     queryKey: ["bookings", member ? user.id : 0],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
     queryFn: () => api.bookings(member ? user.id : undefined),
     enabled: demo || member,
   });
   const subscriptions = useQuery({
     queryKey: ["subscriptions", user.id],
+    // [API] api.subscriptions → GET /memberships/members/{memberId}
     queryFn: () => api.subscriptions(user.id),
     enabled: member,
   });
   const memberPackages = useQuery({
     queryKey: ["membership-packages"],
+    // [API] membershipCheckout.packages → GET /membership-packages
     queryFn: membershipCheckout.packages,
     enabled: member && !demo,
     retry: false,
@@ -317,6 +320,7 @@ export default function Dashboard() {
         }
         actions={
           <>
+            {/* [NÚT] NÚT "Xuất tổng quan" → tải file CSV */}
             <Button
               variant="secondary"
               onClick={() =>
@@ -569,6 +573,15 @@ export default function Dashboard() {
                       <span className="legend-dot" />
                       Doanh thu đã thanh toán
                     </span>
+                    {!demo && (
+                      <span>
+                        <span
+                          className="legend-dot"
+                          style={{ background: "#c0392b" }}
+                        />
+                        Tiền hoàn
+                      </span>
+                    )}
                   </div>
                   {!demo && dailyRevenue.isPending ? (
                     <div className="revenue-chart">
@@ -621,7 +634,7 @@ export default function Dashboard() {
                             tick={{ fill: "#8b938b", fontSize: 11 }}
                           />
                           <Tooltip
-                            formatter={(v) => [money(Number(v)), "Doanh thu"]}
+                            formatter={(v, name) => [money(Number(v)), String(name)]}
                             contentStyle={{
                               borderRadius: 12,
                               border: "1px solid #e5e9e1",
@@ -631,11 +644,24 @@ export default function Dashboard() {
                           <Area
                             type="monotone"
                             dataKey="revenue"
+                            name="Doanh thu ròng"
                             stroke="#337153"
                             strokeWidth={2.5}
                             fill="url(#revenueGradient)"
                             activeDot={{ r: 5, strokeWidth: 3, stroke: "#fff" }}
                           />
+                          {/* [FLOW 3] ĐƯỜNG MÀU ĐỎ: tiền hoàn theo ngày hoàn tiền (giống trang Báo cáo). */}
+                          {!demo && (
+                            <Area
+                              type="monotone"
+                              dataKey="refunded"
+                              name="Tiền hoàn"
+                              stroke="#c0392b"
+                              strokeWidth={2}
+                              fill="none"
+                              activeDot={{ r: 5, strokeWidth: 3, stroke: "#fff" }}
+                            />
+                          )}
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -789,13 +815,16 @@ export default function Dashboard() {
           description={`${dateLabel(addDays(dayOffset), { weekday: "long", day: "2-digit", month: "2-digit" })} · ${daily.length} lớp học`}
           action={
             <div className="day-nav">
+              {/* [NÚT] NÚT "Ngày trước" → đổi cách hiển thị / bộ lọc trên màn hình (setDayOffset) */}
               <button
                 aria-label="Ngày trước"
                 onClick={() => setDayOffset((n) => n - 1)}
               >
                 <ChevronLeft size={16} />
               </button>
+              {/* [NÚT] NÚT "Hôm nay" → đổi cách hiển thị / bộ lọc trên màn hình (setDayOffset) */}
               <button onClick={() => setDayOffset(0)}>Hôm nay</button>
+              {/* [NÚT] NÚT "Ngày sau" → đổi cách hiển thị / bộ lọc trên màn hình (setDayOffset) */}
               <button
                 aria-label="Ngày sau"
                 onClick={() => setDayOffset((n) => n + 1)}

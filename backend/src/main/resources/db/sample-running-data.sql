@@ -57,16 +57,16 @@ IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_name = N'Hồ bơi')
 
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 1 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
-    VALUES (N'Gói STANDARD 1 tháng', 30, 500, N'STANDARD', 1, 1, 0, N'Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.', N'ACTIVE');
+    VALUES (N'Gói STANDARD 1 tháng', 30, 10000, N'STANDARD', 1, 1, 0, N'Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói STANDARD 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
-    VALUES (N'Gói STANDARD 3 tháng', 90, 1350, N'STANDARD', 1, 1, 0, N'Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.', N'ACTIVE');
+    VALUES (N'Gói STANDARD 3 tháng', 90, 30000, N'STANDARD', 1, 1, 0, N'Duy trì tập luyện với các lớp STANDARD; xem lịch, thông tin HLV và theo dõi kết quả tập luyện.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 1 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
-    VALUES (N'Gói VIP 1 tháng', 30, 800, N'VIP', NULL, 2, 10, N'Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm.', N'ACTIVE');
+    VALUES (N'Gói VIP 1 tháng', 30, 15000, N'VIP', NULL, 2, 10, N'Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm.', N'ACTIVE');
 IF NOT EXISTS (SELECT 1 FROM dbo.membership_packages WHERE package_name = N'Gói VIP 3 tháng')
     INSERT INTO dbo.membership_packages (package_name, duration_days, price, access_level, sport_limit, max_concurrent_classes, course_discount_percent, description, status)
-    VALUES (N'Gói VIP 3 tháng', 90, 2100, N'VIP', NULL, 2, 10, N'Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm.', N'ACTIVE');
+    VALUES (N'Gói VIP 3 tháng', 90, 35000, N'VIP', NULL, 2, 10, N'Tham gia lớp STANDARD và VIP, xem lịch, thông tin HLV và theo dõi kết quả tập luyện. Khăn tập và nước uống miễn phí khi tập tại trung tâm.', N'ACTIVE');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.payment_providers WHERE provider_code = N'VNPAY')
     INSERT INTO dbo.payment_providers (provider_code, display_name, is_enabled) VALUES (N'VNPAY', N'VNPay', 0);

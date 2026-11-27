@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { money } from "../lib/utils";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -157,6 +158,13 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     vi.stubGlobal("fetch", vi.fn(async (url: string) =>
       url.endsWith("/membership-packages") ? json([vip]) : json([subscription])));
     wrap(<MembershipCheckoutPage />);
+    // [GÓI COMBO] Thẻ so sánh STANDARD / VIP hiện quyền lợi tóm tắt + giá combo; quyền lợi chi tiết từ backend hiện trong form khi chọn.
+    const vipCard = await screen.findByRole("article", { name: "Gói VIP" });
+    expect(within(vipCard).getByText("Đăng ký tất cả bộ môn")).toBeVisible();
+    expect(vipCard.textContent).toContain(money(vip.price));
+    const choose = within(vipCard).getByRole("button", { name: "Chọn VIP từ API" });
+    await waitFor(() => expect(choose).toBeEnabled());
+    await userEvent.click(choose);
     expect(await screen.findByText("Tất cả bộ môn trung tâm cung cấp")).toBeVisible();
     expect(screen.getByText("Đăng ký tối đa 3 lớp theo lịch cố định cùng lúc, không trùng lịch")).toBeVisible();
     expect(screen.getByText("Giảm 15% học phí khóa học áp dụng")).toBeVisible();

@@ -13,8 +13,14 @@ class PaymentIntegrationPropertiesTest {
     }
     @Test void demoUsesTheThreeSmallAmountsWithoutChangingTheCatalogPrice() {
         var properties=new PaymentIntegrationProperties();properties.setDemoPaymentsEnabled(true);
+        for(int id=1;id<=3;id++)properties.getDemoAmounts().put(id,BigDecimal.valueOf(4000+id*1000));
         for(int id=1;id<=3;id++)assertEquals(BigDecimal.valueOf(4000+id*1000),properties.qrAmount(id,new BigDecimal("900000")));
         assertEquals(new BigDecimal("900000"),properties.qrAmount(4,new BigDecimal("900000")));
+    }
+    @Test void transferPriceEqualsCatalogPriceWhenNoDemoAmountIsConfigured() {
+        // [GÓI COMBO] Bật demo nhưng không cấu hình số tiền riêng: chuyển khoản trả đúng giá gói.
+        var properties=new PaymentIntegrationProperties();properties.setDemoPaymentsEnabled(true);
+        for(int id=1;id<=4;id++)assertEquals(new BigDecimal("10000"),properties.qrAmount(id,new BigDecimal("10000")));
     }
     @Test void demoCannotAccidentallyChargeAnUnapprovedLargeAmount() {
         var properties=new PaymentIntegrationProperties();properties.setDemoPaymentsEnabled(true);properties.getDemoAmounts().put(1,new BigDecimal("5000000"));

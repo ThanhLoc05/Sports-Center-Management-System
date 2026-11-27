@@ -16,8 +16,9 @@ public class PaymentIntegrationProperties {
     private String sepayApiKey = "";
     /** Chỉ bật ở môi trường demo được phép. Giá gói niêm yết không bị sửa theo số tiền thử chuyển. */
     private boolean demoPaymentsEnabled;
-    private java.util.Map<Integer, java.math.BigDecimal> demoAmounts = new java.util.HashMap<>(java.util.Map.of(
-            1, new java.math.BigDecimal("5000"), 2, new java.math.BigDecimal("6000"), 3, new java.math.BigDecimal("7000")));
+    // [GÓI COMBO] Mặc định KHÔNG đổi giá QR: chuyển khoản trả đúng giá gói như tiền mặt (10.000/30.000/15.000/35.000).
+    // Chỉ khi cấu hình demo-amounts riêng thì gói đó mới dùng số tiền demo.
+    private java.util.Map<Integer, java.math.BigDecimal> demoAmounts = new java.util.HashMap<>();
     public boolean demoFor(Integer packageId) { return demoPaymentsEnabled && demoAmounts.containsKey(packageId); }
     public java.math.BigDecimal qrAmount(Integer packageId, java.math.BigDecimal catalogPrice) {
         if (!demoFor(packageId)) return catalogPrice;
