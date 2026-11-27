@@ -77,14 +77,14 @@ export default function Schedule() {
   const classes = useClasses(calendarQueryOptions);
   const [offset, setOffset] = useState(0);
   const [sport, setSport] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("not-cancelled");
   const [scope, setScope] = useState(member ? "mine" : "all");
   const [view, setView] = useState("week");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const setSelected = (item: SportClass | null) => setSelectedId(item?.id ?? null);
   const selected = classes.data?.find((item) =>
     item.id === selectedId && (session?.user.roleName !== "COACH" || item.status !== "CANCELLED"));
-  const [create, setCreate] = useState(false);
+  const [create, setCreate] = useState<"flexible" | "regular" | null>(null);
   const [editing, setEditing] = useState<SportClass | null>(null);
   const [cancelling, setCancelling] = useState<SportClass | null>(null);
   /**
@@ -114,7 +114,7 @@ export default function Schedule() {
    */
   const rows = (classes.data || []).filter(
     (c) =>
-      (manager ? status === "all" || c.status === status : c.status !== "CANCELLED") &&
+      (manager && status !== "not-cancelled" ? status === "all" || c.status === status : c.status !== "CANCELLED") &&
       (sport === "all" || c.sportId === Number(sport)) &&
       (!member ||
         scope === "all" ||
@@ -143,10 +143,15 @@ export default function Schedule() {
               Danh sách lớp học
             </Link>
             {can("classes.manage") && (
-              <Button onClick={() => setCreate(true)}>
-                <Plus size={17} />
-                Tạo lớp học
-              </Button>
+              <>
+                <Button onClick={() => setCreate("flexible")}>
+                  <Plus size={17} />
+                  Tạo buổi lẻ
+                </Button>
+                <Button variant="secondary" onClick={() => setCreate("regular")}>
+                  Tạo lớp cố định
+                </Button>
+              </>
             )}
           </>
         }
@@ -197,6 +202,7 @@ export default function Schedule() {
             </Select>
             {manager && (
               <Select label="Trạng thái buổi học" value={status} onChange={setStatus}>
+                <option value="not-cancelled">Chưa hủy</option>
                 <option value="all">Tất cả trạng thái</option>
                 <option value="SCHEDULED">Đã lên lịch</option>
                 <option value="COMPLETED">Đã hoàn thành</option>
@@ -388,8 +394,11 @@ export default function Schedule() {
           } : undefined}
         />
       )}
-      {create && can("classes.manage") && (
-        <TrainingProgramForm kind="REGULAR" onClose={() => setCreate(false)} />
+      {create === "flexible" && manager && (
+        <ClassForm fixedSlots={session?.mode === "api"} onClose={() => setCreate(null)} />
+      )}
+      {create === "regular" && manager && (
+        <TrainingProgramForm kind="REGULAR" onClose={() => setCreate(null)} />
       )}
       {editing && <ClassForm item={editing} fixedSlots={session?.mode === "api"} onClose={() => setEditing(null)} />}
       {cancelling && (

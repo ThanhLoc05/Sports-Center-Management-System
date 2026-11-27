@@ -176,6 +176,27 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     ).toBe(true);
     client.clear();
   });
+  it("opens the standalone class form from the Manager activity schedule", async () => {
+    const user = userEvent.setup();
+    const client = page("/schedule", "CENTER_MANAGER");
+    await user.click(await screen.findByRole("button", { name: "Tạo buổi lẻ" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Tên lớp học")).toBeVisible();
+    expect(within(dialog).getByLabelText("Ngày và giờ bắt đầu")).toBeVisible();
+    client.clear();
+  });
+  it("hides cancelled sessions by default and keeps the cancelled filter available", async () => {
+    const user = userEvent.setup();
+    const db = readDemo();
+    db.classes = [{ ...db.classes[0], scheduleTime: `${localDate()}T06:00:00`, durationMinutes: 90, status: "CANCELLED" }];
+    saveDemo(db);
+    const client = page("/schedule", "CENTER_MANAGER");
+    expect(await screen.findByText("0 lớp trong tuần")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /đã hủy/i })).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Trạng thái buổi học"), "CANCELLED");
+    expect(await screen.findByRole("button", { name: /1 buổi · 1 đã hủy/i })).toBeVisible();
+    client.clear();
+  });
   it("member can open booking without querying the private class roster", async () => {
     const bookings = vi.spyOn(api, "bookings");
     const user = userEvent.setup();

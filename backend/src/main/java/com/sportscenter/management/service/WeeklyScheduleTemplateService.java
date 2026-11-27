@@ -5,6 +5,7 @@ import com.sportscenter.management.training.TrainingProgramService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -31,10 +34,13 @@ public class WeeklyScheduleTemplateService {
     private final TrainingProgramService resources;
     private final WeeklyScheduleService scheduling;
     private final WeeklyScheduleSyncService sync;
+    private final NotificationDeliveryService notifications;
 
     public record Template(long version, String name, List<Entry> entries) {}
     public record Save(@Min(0) long version, @NotNull @Size(max = 100) List<@NotNull @Valid Entry> entries,
-                       WeeklyScheduleSyncService.Mode mode, LocalDate weekStart, String token, List<Integer> sourceIndices) {}
+                       WeeklyScheduleSyncService.Mode mode, LocalDate weekStart, String token, List<Integer> sourceIndices,
+                       Boolean includeOrphans, @Size(max = 8400) Set<@NotNull @Positive Integer> orphanIds,
+                       @Size(max = 8400) Set<@NotNull @Size(max = 75) String> missingKeys) {}
     public record Window(@Min(1) long version, @NotNull LocalDate startDate, int weeks,
                          @Size(max = 8400) Set<String> excludedKeys, String token) {}
 
@@ -100,7 +106,8 @@ public class WeeklyScheduleTemplateService {
                         entry.maxCapacity(), entry.accessLevel());
             }
         }
-        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart(), input.sourceIndices());
+        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart(), input.sourceIndices(),
+                Boolean.TRUE.equals(input.includeOrphans()), input.orphanIds(), input.missingKeys(), actor);
         var blocked = changes.stream().filter(c -> c.action() == WeeklyScheduleSyncService.Action.CONFLICT).findFirst();
         if (blocked.isPresent()) {
             var row = blocked.get();
@@ -111,16 +118,30 @@ public class WeeklyScheduleTemplateService {
                 && !WeeklyScheduleSyncService.token(changes).equals(input.token())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Phạm vi thay đổi đã khác bản xem trước. Vui lòng xem trước lại.");
         }
+        if (changes.stream().anyMatch(c -> switch (c.action()) {
+            case CREATE, UPDATE, CANCEL -> true;
+            default -> false;
+        })) {
+            var managers = jdbc.queryForList("""
+                    SELECT u.user_id FROM dbo.users u JOIN dbo.roles r ON r.role_id=u.role_id
+                    WHERE r.role_name='CENTER_MANAGER' AND u.status='ACTIVE'
+                    """, Integer.class);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { managers.forEach(notifications::publishScheduleChanged); }
+            });
+        }
         return get();
     }
 
     @Transactional
-    public WeeklyScheduleSyncService.SyncPreview previewSync(Save input) {
+    public WeeklyScheduleSyncService.SyncPreview previewSync(Save input, Integer actor) {
+        if (actor == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không xác định được người quản lý.");
         resources.lock();
         var current = get();
         requireVersion(input.version(), current);
         validate(input);
-        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart(), input.sourceIndices());
+        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart(), input.sourceIndices(),
+                Boolean.TRUE.equals(input.includeOrphans()), input.orphanIds(), input.missingKeys(), actor);
         TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
         return new WeeklyScheduleSyncService.SyncPreview(input.mode(), changes, WeeklyScheduleSyncService.token(changes));
     }

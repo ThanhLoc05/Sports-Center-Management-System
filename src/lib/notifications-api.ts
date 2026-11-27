@@ -189,7 +189,7 @@ function isSendResult(value: unknown): value is NotificationSendResult {
   );
 }
 
-function parseEvent(block: string): NotificationEvent | null {
+function parseEvent(block: string): NotificationEvent | { scheduleRecipientId: number } | null {
   let eventName = "";
   let eventId = "";
   const data: string[] = [];
@@ -202,6 +202,9 @@ function parseEvent(block: string): NotificationEvent | null {
     if (field === "event") eventName = value;
     if (field === "id") eventId = value;
     if (field === "data") data.push(value);
+  }
+  if (eventName === "schedule-changed" && /^\d+$/.test(data.join(""))) {
+    return { scheduleRecipientId: Number(data[0]) };
   }
   if (eventName !== "notification" || data.length === 0) return null;
 
@@ -220,7 +223,7 @@ function parseEvent(block: string): NotificationEvent | null {
 async function consumeEventStream(
   response: Response,
   signal: AbortSignal,
-  onNotification: (event: NotificationEvent) => void,
+  onEvent: (event: NonNullable<ReturnType<typeof parseEvent>>) => void,
 ) {
   if (!response.body)
     throw new ApiError("Luồng thông báo không có nội dung để đọc.");
@@ -244,7 +247,7 @@ async function consumeEventStream(
       for (const block of blocks) {
         if (signal.aborted) break;
         const event = parseEvent(block);
-        if (event) onNotification(event);
+        if (event) onEvent(event);
       }
     }
     if (!signal.aborted)
@@ -372,6 +375,7 @@ export const notificationsApi = {
     onNotification: (event: NotificationEvent) => void,
     signal: AbortSignal,
     onOpen?: () => void,
+    onScheduleChanged?: () => void,
   ) {
     const session = apiSession();
     const current = () => {
@@ -391,8 +395,10 @@ export const notificationsApi = {
     }
     onOpen?.();
     await consumeEventStream(response, signal, (event) => {
-      if (current() && event.recipientId === session.user.id)
-        onNotification(event);
+      if (!current()) return;
+      if ("scheduleRecipientId" in event) {
+        if (event.scheduleRecipientId === session.user.id) onScheduleChanged?.();
+      } else if (event.recipientId === session.user.id) onNotification(event);
     });
   },
 };

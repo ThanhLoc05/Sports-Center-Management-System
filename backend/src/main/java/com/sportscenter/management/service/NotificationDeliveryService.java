@@ -251,6 +251,18 @@ public class NotificationDeliveryService {
                 .link(row.getLink()).createdAt(row.getCreatedAt()).kind("GENERAL").build());
     }
 
+    public void publishScheduleChanged(Integer userId) {
+        Set<SseEmitter> emitters = subscribers.get(userId);
+        if (emitters == null) return;
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event().name("schedule-changed").data(userId));
+            } catch (IOException | IllegalStateException error) {
+                removeSubscriber(userId, emitter);
+            }
+        }
+    }
+
     private boolean hasSubscribers(Integer userId) {
         Set<SseEmitter> emitters = subscribers.get(userId);
         return emitters != null && !emitters.isEmpty();

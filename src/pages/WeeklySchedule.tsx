@@ -33,6 +33,9 @@ import {
 
 const syncLabels = {
   CREATE: "Tạo mới",
+  CANCEL: "Sẽ hủy",
+  ORPHAN: "Buổi đã công bố không còn trong mẫu",
+  MISSING: "Thiếu buổi theo lịch mẫu",
   UPDATE: "Cập nhật",
   SKIP: "Giữ nguyên",
   CONFLICT: "Xung đột",
@@ -114,10 +117,22 @@ export default function WeeklySchedule() {
     ReturnType<typeof weeklyScheduleApi.confirm>
   > | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [syncMode, setSyncMode] = useState<SyncMode>("TEMPLATE_ONLY");
+  const [syncMode, setSyncMode] = useState<SyncMode>("FUTURE_PUBLISHED");
   const [syncWeek, setSyncWeek] = useState(() => localDate());
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
-  useEffect(() => setSyncPreview(null), [entries, syncMode, syncWeek]);
+  const [includeOrphans, setIncludeOrphans] = useState(false);
+  const [orphanIds, setOrphanIds] = useState<number[]>([]);
+  const [missingKeys, setMissingKeys] = useState<string[]>([]);
+  const [selectionDirty, setSelectionDirty] = useState(false);
+  useEffect(() => {
+    setSyncPreview(null);
+    setOrphanIds([]);
+    setMissingKeys([]);
+    setSelectionDirty(false);
+  }, [entries, syncMode, syncWeek, includeOrphans]);
+  const cancellations = syncPreview?.changes.filter((change) => change.action === "CANCEL") ?? [];
+  const orphanCandidates = syncPreview?.changes.filter((change) => change.action === "ORPHAN" && change.classId != null) ?? [];
+  const missingCandidates = syncPreview?.changes.filter((change) => change.action === "MISSING" && change.placementKey) ?? [];
   const history = useQuery({
     queryKey: ["recurring-classes", session?.user.id],
     queryFn: weeklyScheduleApi.published,
@@ -154,7 +169,7 @@ export default function WeeklySchedule() {
   }
 
   async function saveTemplate() {
-    if (busy || version === null || !dirty) return;
+    if (busy || version === null || (!dirty && (syncMode === "TEMPLATE_ONLY" || !includeOrphans))) return;
     setBusy(true);
     setError("");
     try {
@@ -163,9 +178,13 @@ export default function WeeklySchedule() {
         mode: syncMode,
         weekStart: syncMode === "SELECTED_WEEK" ? syncWeek : undefined,
         sourceIndices: entries.map((entry) => entry.sourceIndex ?? null),
+        includeOrphans,
+        orphanIds,
+        missingKeys,
       };
-      if (syncMode !== "TEMPLATE_ONLY" && !syncPreview) {
+      if (syncMode !== "TEMPLATE_ONLY" && (!syncPreview || selectionDirty)) {
         setSyncPreview(await weeklyScheduleApi.syncPreview(version, rows, sync));
+        setSelectionDirty(false);
         return;
       }
       const next = syncMode === "TEMPLATE_ONLY"
@@ -175,6 +194,7 @@ export default function WeeklySchedule() {
       setEntries(next.entries.map((entry, index) => ({ ...entry, id: index + 1, sourceIndex: index })));
       setDirty(false);
       setSaved(true);
+      setIncludeOrphans(false);
       setSyncPreview(null);
       client.setQueryData(["weekly-schedule-template", session?.user.id], next);
       if (syncMode !== "TEMPLATE_ONLY") {
@@ -185,6 +205,7 @@ export default function WeeklySchedule() {
         ]);
       }
     } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 409) setSyncPreview(null);
       setError(messageFor(failure));
     } finally {
       setBusy(false);
@@ -344,18 +365,49 @@ export default function WeeklySchedule() {
                       onChange={(event) => setSyncWeek(event.target.value)}
                     />
                   )}
+                  {syncMode !== "TEMPLATE_ONLY" && (
+                    <label className="check-option">
+                      <input type="checkbox" checked={includeOrphans} disabled={busy}
+                        onChange={(event) => setIncludeOrphans(event.target.checked)} />
+                      Kiểm tra chênh lệch với lịch đã công bố
+                    </label>
+                  )}
                   <Button
-                    loading={busy && dirty}
-                    disabled={!dirty || version === null || busy || syncPreview?.changes.some((c) => c.action === "CONFLICT")}
+                    loading={busy}
+                    disabled={version === null || busy || (!selectionDirty && syncPreview?.changes.some((c) => c.action === "CONFLICT"))
+                      || (!dirty && (syncMode === "TEMPLATE_ONLY" || !includeOrphans
+                        || (!!syncPreview && !selectionDirty && !orphanIds.length && !missingKeys.length)))}
                     onClick={() => void saveTemplate()}
                   >
-                    {syncMode === "TEMPLATE_ONLY" ? "Lưu mẫu" : syncPreview ? "Lưu và áp dụng" : "Xem trước thay đổi"}
+                    {syncMode === "TEMPLATE_ONLY" ? "Lưu mẫu" : !syncPreview || selectionDirty ? "Xem trước thay đổi"
+                      : cancellations.length ? `Xác nhận hủy ${cancellations.length} buổi và áp dụng` : "Lưu và áp dụng"}
                   </Button>
                   {dirty && <span>Chưa lưu thay đổi</span>}
                   {saved && <span role="status">Đã lưu mẫu lịch.</span>}
                 </div>
                 {syncPreview && (
                   <div className="weekly-schedule-sync" role="status">
+                    {!selectionDirty && cancellations.length > 0 && (
+                      <p>{cancellations.length} buổi sẽ hủy · {cancellations.reduce((n, c) => n + (c.booked ?? 0), 0)} lượt đã đăng ký
+                        {" · "}{cancellations.reduce((n, c) => n + (c.waitlisted ?? 0), 0)} lượt danh sách chờ</p>
+                    )}
+                    {includeOrphans && (orphanCandidates.length > 0 || missingCandidates.length > 0) && (
+                      <div className="weekly-schedule-actions">
+                        {orphanCandidates.length > 0 && (
+                          <Button variant="secondary" disabled={busy} onClick={() => {
+                            setOrphanIds([...new Set([...orphanIds, ...orphanCandidates.map((change) => change.classId!)])]);
+                            setSelectionDirty(true);
+                          }}>Chọn tất cả buổi không còn trong mẫu ({orphanCandidates.length})</Button>
+                        )}
+                        {(orphanIds.length > 0 || missingKeys.length > 0) && (
+                          <Button variant="secondary" disabled={busy} onClick={() => {
+                            setOrphanIds([]);
+                            setMissingKeys([]);
+                            setSelectionDirty(true);
+                          }}>Bỏ chọn tất cả</Button>
+                        )}
+                      </div>
+                    )}
                     {syncPreview.changes.length === 0 ? (
                       <p>Không có lớp thực tế nào thay đổi trong phạm vi đã chọn.</p>
                     ) : (
@@ -365,6 +417,29 @@ export default function WeeklySchedule() {
                             <strong>{syncLabels[change.action]}</strong> · {dateLabel(change.date)}{" "}
                             {SCHEDULING_SLOTS.find((slot) => slot.code === change.slotCode)?.start} · {change.className}
                             {change.message && <p>{change.message}</p>}
+                            {change.booked != null && <p>{change.booked} lượt đã đăng ký · {change.waitlisted ?? 0} lượt danh sách chờ</p>}
+                            {change.classId != null && (change.action === "ORPHAN" || orphanIds.includes(change.classId)) && (
+                              <label className="check-option">
+                                <input type="checkbox" disabled={busy} checked={orphanIds.includes(change.classId)}
+                                  onChange={(event) => {
+                                    setOrphanIds(event.target.checked
+                                      ? [...orphanIds, change.classId!] : orphanIds.filter((id) => id !== change.classId));
+                                    setSelectionDirty(true);
+                                  }} />
+                                Chọn hủy {change.className} ngày {dateLabel(change.date)}
+                              </label>
+                            )}
+                            {change.placementKey && (
+                              <label className="check-option">
+                                <input type="checkbox" disabled={busy} checked={missingKeys.includes(change.placementKey)}
+                                  onChange={(event) => {
+                                    setMissingKeys(event.target.checked
+                                      ? [...missingKeys, change.placementKey!] : missingKeys.filter((key) => key !== change.placementKey));
+                                    setSelectionDirty(true);
+                                  }} />
+                                Chọn bổ sung {change.className} ngày {dateLabel(change.date)}
+                              </label>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -788,7 +863,7 @@ function WeeklyClassForm({
   return (
     <FormModal
       title={entry ? "Chỉnh sửa cấu hình lớp" : "Thêm lớp vào lịch tuần mẫu"}
-      description="Khi sửa hoặc xóa cấu hình trong mẫu, các buổi đã công bố giữ nguyên."
+      description="Sau khi sửa, chọn lưu mẫu hoặc áp dụng thay đổi cho lịch đã công bố. Nếu xóa mục mẫu, xem trước và xác nhận để hủy các buổi liên kết."
       onClose={dismiss}
       wide
       submitLabel="Lưu vào mẫu"

@@ -71,12 +71,15 @@ interface PublishedSession {
 export type SyncMode = "TEMPLATE_ONLY" | "SELECTED_WEEK" | "FUTURE_PUBLISHED";
 
 export interface SyncChange {
-  action: "CREATE" | "UPDATE" | "SKIP" | "CONFLICT";
+  action: "CREATE" | "UPDATE" | "CANCEL" | "ORPHAN" | "MISSING" | "SKIP" | "CONFLICT";
   date: string;
   slotCode: string;
   className: string;
   classId: number | null;
   message: string | null;
+  booked?: number | null;
+  waitlisted?: number | null;
+  placementKey?: string | null;
 }
 
 export interface SyncPreview {
@@ -90,6 +93,9 @@ export interface SyncOptions {
   weekStart?: string;
   token?: string;
   sourceIndices?: (number | null)[];
+  includeOrphans?: boolean;
+  orphanIds?: number[];
+  missingKeys?: string[];
 }
 
 const recurring = "/classes/recurring";

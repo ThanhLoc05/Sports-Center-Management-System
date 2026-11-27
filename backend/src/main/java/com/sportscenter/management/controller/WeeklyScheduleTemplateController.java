@@ -30,7 +30,7 @@ public class WeeklyScheduleTemplateController {
 
     @PostMapping("/sync-preview")
     public WeeklyScheduleSyncService.SyncPreview syncPreview(@Valid @RequestBody WeeklyScheduleTemplateService.Save input) {
-        return templates.previewSync(input);
+        return templates.previewSync(input, security.getCurrentUserId());
     }
 
     @PostMapping("/preview")

@@ -258,6 +258,11 @@ export default function Layout() {
 
     const syncSchedule = () => {
       const { id, roleName } = session.user;
+      if (roleName === "CENTER_MANAGER") {
+        void client.invalidateQueries({ queryKey: ["classes"] });
+        void client.invalidateQueries({ queryKey: ["managed-classes"] });
+        return;
+      }
       if (roleName !== "MEMBER" && roleName !== "COACH") return;
       const filters: QueryFilters[] = roleName === "COACH"
         ? [{ queryKey: ["classes", id], exact: true }]
@@ -317,6 +322,7 @@ export default function Layout() {
               // SSE không phát lại thay đổi đã xảy ra trước khi kết nối.
               syncSchedule();
             },
+            syncSchedule,
           );
           if (!active || controller.signal.aborted) return;
           throw new Error("Kết nối thông báo đã bị đóng.");

@@ -41,7 +41,7 @@ vi.mock("../lib/api", async (original) => {
   };
 });
 vi.mock("../lib/weekly-schedule-api", () => ({
-  weeklyScheduleApi: { template: vi.fn(), save: vi.fn(), preview: vi.fn(), confirm: vi.fn(), published: vi.fn() },
+  weeklyScheduleApi: { template: vi.fn(), save: vi.fn(), syncPreview: vi.fn(), preview: vi.fn(), confirm: vi.fn(), published: vi.fn() },
 }));
 
 beforeEach(() => {
@@ -50,6 +50,31 @@ beforeEach(() => {
   vi.mocked(weeklyScheduleApi.save).mockImplementation(async (version, entries) => ({
     version: version + 1, name: "Lịch chuẩn", entries,
   }));
+});
+
+it("reviews multiple linked sessions before requesting a single cancellation", async () => {
+  const user = setup();
+  expect(screen.getByLabelText("Phạm vi áp dụng khi lưu mẫu")).toHaveValue("FUTURE_PUBLISHED");
+  const orphans = [1, 2].map((classId) => ({
+    action: "ORPHAN" as const, classId, className: `Yoga ${classId}`, date: "2026-12-07",
+    slotCode: "SLOT_01", booked: 1, waitlisted: 1, message: null,
+  }));
+  vi.mocked(weeklyScheduleApi.syncPreview)
+    .mockResolvedValueOnce({ mode: "FUTURE_PUBLISHED", changes: orphans, token: "scan" })
+    .mockResolvedValueOnce({
+      mode: "FUTURE_PUBLISHED",
+      changes: orphans.map((row) => ({ ...row, action: "CANCEL" })),
+      token: "selected",
+    });
+  await user.click(await screen.findByLabelText("Kiểm tra chênh lệch với lịch đã công bố"));
+  await user.click(await screen.findByRole("button", { name: "Xem trước thay đổi" }));
+  await user.click(await screen.findByRole("button", { name: /Chọn tất cả buổi không còn trong mẫu/ }));
+  await user.click(screen.getByRole("button", { name: "Xem trước thay đổi" }));
+  expect(await screen.findByText(/2 buổi sẽ hủy/)).toHaveTextContent(/2 lượt đã đăng ký.*2 lượt danh sách chờ/);
+  expect(weeklyScheduleApi.save).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Xác nhận hủy 2 buổi và áp dụng" }));
+  expect(weeklyScheduleApi.save).toHaveBeenCalledWith(0, [],
+    expect.objectContaining({ orphanIds: [1, 2], token: "selected" }));
 });
 
 function setup() {
@@ -237,6 +262,7 @@ it("giữ loại trừ khi xem trước lại sau 409 và công bố đúng số
   await closeCell(user);
   await user.selectOptions(screen.getByLabelText("Số tuần"), "1");
   expect(screen.getByRole("button", { name: "Xem trước lịch" })).toBeDisabled();
+  await user.selectOptions(screen.getByLabelText("Phạm vi áp dụng khi lưu mẫu"), "TEMPLATE_ONLY");
   await user.click(screen.getByRole("button", { name: /^Lưu mẫu$/ }));
   expect(await screen.findByText("Đã lưu mẫu lịch.")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Xem trước lịch" }));
@@ -310,6 +336,7 @@ it("khóa cấu hình và ngày áp dụng cho đến khi nhận được kết 
   );
   await addClass(user);
   await closeCell(user);
+  await user.selectOptions(screen.getByLabelText("Phạm vi áp dụng khi lưu mẫu"), "TEMPLATE_ONLY");
   await user.click(screen.getByRole("button", { name: /^Lưu mẫu$/ }));
   expect(await screen.findByText("Đã lưu mẫu lịch.")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Xem trước lịch" }));

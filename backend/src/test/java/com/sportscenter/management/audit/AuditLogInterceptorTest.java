@@ -50,6 +50,18 @@ class AuditLogInterceptorTest {
         verifyNoInteractions(auditLogService);
     }
 
+    @Test
+    void skipsWeeklyScheduleSyncPreview() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated("manager@example.test", "n/a", List.of()));
+        var request = request("POST", "/api/v1/classes/recurring/template/sync-preview");
+        var response = response(200);
+        interceptor.preHandle(request, response, null);
+        interceptor.afterCompletion(request, response, null, null);
+
+        verifyNoInteractions(auditLogService);
+    }
+
     private static HttpServletRequest request(String method, String path) {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn(method);

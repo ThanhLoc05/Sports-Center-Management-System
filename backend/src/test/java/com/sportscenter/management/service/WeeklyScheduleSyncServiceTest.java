@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -131,6 +132,48 @@ class WeeklyScheduleSyncServiceTest {
         var changes = sync.run(List.of(), List.of(entry("Pilates", 4, 5)), Mode.SELECTED_WEEK, MONDAY);
         assertEquals(Action.CONFLICT, changes.get(0).action());
         assertEquals("HLV đã có lớp trong khung giờ này", changes.get(0).message());
+    }
+
+    @Test
+    void cancelsOnlyTheUnchangedLinkedClassForTheRemovedPlacement() {
+        var old = entry("Yoga", 2, 3);
+        var second = entry("Yoga nâng cao", 4, 5);
+        var adjusted = classOf(second, 42);
+        adjusted.setClassName("Yoga chỉnh riêng");
+        when(repository.findByIdForUpdate(41)).thenReturn(Optional.of(classOf(old, 41)));
+        when(repository.findByIdForUpdate(42)).thenReturn(Optional.of(adjusted));
+        when(classes.cancellationDetails(41, 9, true)).thenReturn(new ClassService.CancellationDetails(null, 2L, 1L, true));
+        when(jdbc.queryForList(contains("JOIN dbo.classes"), any(Object[].class)))
+                .thenReturn(List.of(
+                        Map.of("session_date", Date.valueOf(MONDAY), "class_id", 41, "recurrence_key", WeeklyScheduleService.seriesKey(old)),
+                        Map.of("session_date", Date.valueOf(MONDAY), "class_id", 42, "recurrence_key", WeeklyScheduleService.seriesKey(second))));
+
+        var changes = sync.run(List.of(old, second), List.of(), Mode.SELECTED_WEEK, MONDAY, List.of(), false, Set.of(), Set.of(), 9);
+        assertEquals(Action.CANCEL, changes.getFirst().action());
+        assertEquals(2L, changes.getFirst().booked());
+        assertEquals(1L, changes.getFirst().waitlisted());
+        assertEquals(Action.SKIP, changes.getLast().action());
+        verify(classes).cancelClass(eq(41), any(), eq(9));
+        verify(classes, never()).cancelClass(eq(42), any(), any());
+    }
+
+    @Test
+    void previouslyRemovedPlacementNeedsAnExplicitSelection() {
+        var old = entry("Yoga", 2, 3);
+        when(repository.findByIdForUpdate(41)).thenReturn(Optional.of(classOf(old, 41)));
+        when(repository.findByIdForUpdate(42)).thenReturn(Optional.of(classOf(old, 42)));
+        when(classes.cancellationDetails(41, 9, true)).thenReturn(new ClassService.CancellationDetails(null, 0L, 0L, true));
+        when(jdbc.queryForList(contains("JOIN dbo.classes"), any(Object[].class)))
+                .thenReturn(List.of(
+                        Map.of("session_date", Date.valueOf(MONDAY), "class_id", 41, "recurrence_key", WeeklyScheduleService.seriesKey(old)),
+                        Map.of("session_date", Date.valueOf(MONDAY), "class_id", 42, "recurrence_key", "different-series")));
+        var preview = sync.run(List.of(), List.of(), Mode.SELECTED_WEEK, MONDAY, List.of(), true, Set.of(), Set.of(), 9);
+        assertEquals(List.of(Action.ORPHAN), preview.stream().map(WeeklyScheduleSyncService.Change::action).toList());
+        verify(classes, never()).cancelClass(any(), any(), any());
+
+        var selected = sync.run(List.of(), List.of(), Mode.SELECTED_WEEK, MONDAY, List.of(), true, Set.of(41), Set.of(), 9);
+        assertEquals(List.of(Action.CANCEL), selected.stream().map(WeeklyScheduleSyncService.Change::action).toList());
+        verify(classes).cancelClass(eq(41), any(), eq(9));
     }
 
     private void published(Entry entry, int classId, Classes actual) {
