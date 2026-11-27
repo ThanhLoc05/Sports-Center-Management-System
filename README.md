@@ -104,6 +104,31 @@ Course tắt theo mặc định. Đặt biến môi trường Backend `APP_COURS
 
 Khi tắt, các buổi đã lên lịch vẫn giữ HLV/phòng, hóa đơn và các luồng hoàn tiền hiện có vẫn truy cập được. Đơn chờ không ghi danh khi thu tiền hoặc đối soát, còn webhook đã xác minh vẫn lưu giao dịch nếu môi trường có bật webhook. Rà soát các khoản đã nhận và thời hạn của đơn trước khi đối soát. Khi Course tắt, quản lý có thể hủy các khóa chưa diễn ra và chưa có dữ liệu nghiệp vụ liên quan. `POST /api/v1/courses/cancel` nhận `courseIds` và `expectedSessions`, kiểm tra cả danh sách trước khi hủy trong một giao dịch. Việc hủy giữ lại ID và lịch sử của khóa.
 
+### Nạp dữ liệu demo chuẩn khi chạy Backend
+
+Sau khi `git pull origin main`, chọn database cá nhân có tên `SportivaDemo_*`. Seed **V28** chỉ chạy khi bật profile `demo` và cờ nạp dữ liệu. Backend giữ Hibernate `validate`. Repository hiện dùng SQL thủ công cho schema và chưa tích hợp Flyway.
+
+- Database mới hoàn toàn: tạo database cá nhân trống bằng SQL Server rồi chạy `scripts/demo/initialize-demo-schema.ps1 -Server '<instance>' -Database '<tên database>'` từ thư mục dự án. Script dùng Windows Authentication, các script schema có sẵn và chỉ khởi tạo danh mục gói V27 trên database trống.
+- Database đã có dữ liệu: đối chiếu schema trước khi chạy. Không chạy lại script tạo schema hoặc V27 chỉ để nạp V28.
+- Thiết lập các biến dưới đây trong cùng shell với lệnh Backend. `DB_URL` phải trỏ tới đúng database cá nhân đã chọn.
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'demo'
+$env:APP_DEMO_STANDARD_DATA_ENABLED = 'true'
+$env:APP_DEMO_STANDARD_DATA_DATABASE = '<tên database SportivaDemo_ cá nhân>'
+$secret = Read-Host 'Mật khẩu demo mới, tối thiểu 12 ký tự ASCII' -AsSecureString
+$env:APP_DEMO_STANDARD_DATA_PASSWORD = [Net.NetworkCredential]::new('', $secret).Password
+$env:APP_DEMO_FLOW4_ENABLED = 'false'
+$env:APP_COURSE_ENABLED = 'false'
+$env:SEPAY_WEBHOOK_ENABLED = 'false'
+Push-Location backend
+try { .\mvnw.cmd spring-boot:run } finally { Pop-Location }
+```
+
+Thiết lập JDK 27, `DB_URL`, tài khoản SQL và `JWT_SECRET` theo mục Chạy backend trước khi thực hiện khối lệnh trên. Sau đó chạy Frontend như bên dưới. Dùng tài khoản mới `manager.demo@sportiva.test` hoặc `standard.demo@sportiva.test` để kiểm tra lịch tuần mẫu và buổi Flexible. Tài khoản đã tồn tại tiếp tục dùng thông tin đăng nhập cũ.
+
+V28 dùng danh mục, chuyên môn và lịch chụp từ DEMO ngày 27/11/2026. Tên hiển thị và số điện thoại của tài khoản mới được giả lập. Kỳ gói demo được thêm cho tài khoản mới nếu gói tương ứng đã có, kỳ còn hiệu lực và môn hợp lệ. Seed bổ sung từng mục lịch mẫu còn thiếu, giữ các mục đã có và ghi lý do bỏ qua mục xung đột trong log Backend. Lần nạp đầu công bố các mục chuẩn hợp lệ trong bốn tuần từ thứ Hai kế tiếp theo giờ Việt Nam qua nghiệp vụ lịch tuần hiện có. Các buổi đã tồn tại hoặc có xung đột được bỏ qua. Tài khoản SQL cần có quyền ghi database demo và tạo thuộc tính mở rộng cấp database để đánh dấu đã nạp V28. Khởi động lại giữ nguyên lịch đã công bố. Không mang theo giao dịch, hóa đơn, booking, tài khoản ngoài danh sách demo hoặc dữ liệu cá nhân từ DEMO.
+
 ## Chạy frontend
 
 Mở terminal thứ hai tại gốc:
