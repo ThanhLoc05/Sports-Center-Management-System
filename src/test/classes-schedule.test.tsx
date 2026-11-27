@@ -218,7 +218,7 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
       memberId === demoSession("MEMBER").user.id && classId === undefined,
     )).toBe(true);
     expect(
-      screen.getByRole("button", { name: "Đăng ký lớp học" }),
+      screen.getByRole("button", { name: "Đăng ký buổi tập" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Tạo lớp học" }),

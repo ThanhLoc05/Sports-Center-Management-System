@@ -16,7 +16,8 @@ import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { useClasses, useUsers } from "../lib/hooks";
-import type { Booking } from "../lib/types";
+import type { Booking, SportClass } from "../lib/types";
+import { ClassDetail } from "./Classes";
 import { dateLabel, idLabel, matches, timeLabel } from "../lib/utils";
 import {
   Avatar,
@@ -49,7 +50,8 @@ function BookingTable() {
   const users = useUsers(true);
   const initialSearch = !member && !coach ? params.get("memberId") || "" : "";
   const [searchInput, setSearchInput] = useState(initialSearch);
-  const [classId, setClassId] = useState("");
+  const [classId, setClassId] = useState(params.get("classId") || "");
+  const [detail, setDetail] = useState<SportClass | null>(null);
   const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState("all");
   const [create, setCreate] = useState(false);
@@ -272,7 +274,8 @@ function BookingTable() {
                   const c = classes.data?.find((c) => c.id === b.classId);
                   return (
                     <div className="contact-cell">
-                      <strong>{c?.className || `Lớp #${b.classId}`}</strong>
+                      {c ? <button type="button" className="text-link" onClick={() => setDetail(c)}>{c.className}</button>
+                        : <strong>{`Lớp #${b.classId}`}</strong>}
                       <small>
                         {c
                           ? `${dateLabel(c.scheduleTime)} · ${timeLabel(c.scheduleTime)}`
@@ -318,6 +321,7 @@ function BookingTable() {
           />
         )}
       </Panel>
+      {detail && <ClassDetail item={detail} onClose={() => setDetail(null)} />}
       {create && (
         <BookingForm
           memberId={searchedMemberId ? Number(searchedMemberId[1]) : undefined}

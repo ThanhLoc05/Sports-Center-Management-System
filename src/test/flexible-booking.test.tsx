@@ -115,7 +115,7 @@ it("filters coaches by sport, date and hour while preserving distinct IDs", asyn
   expect(screen.getByRole("option", { name: "Coach A (#4)" })).toHaveValue("4");
   await user.selectOptions(screen.getByLabelText("Huấn luyện viên"), "4");
   expect(screen.queryByRole("button", { name: "Chọn buổi Cầu lông sáng" })).not.toBeInTheDocument();
-  await user.selectOptions(screen.getByLabelText("Huấn luyện viên"), "0");
+  await user.selectOptions(screen.getByLabelText("Huấn luyện viên"), "");
   await user.click(screen.getByRole("button", { name: dateLabel(tomorrow) }));
   await user.selectOptions(screen.getByLabelText("Từ giờ"), "07:30");
   await user.selectOptions(screen.getByLabelText("Đến giờ"), "09:00");
@@ -125,6 +125,27 @@ it("filters coaches by sport, date and hour while preserving distinct IDs", asyn
   expect(screen.queryByText("Cầu lông ngoài cửa sổ")).not.toBeInTheDocument();
 });
 
+
+it("groups VIP coach options and retains the compatible selection and active day when changing sport", async () => {
+  open();
+  const user = userEvent.setup();
+  const sport = screen.getByLabelText("Bộ môn");
+  const coach = screen.getByLabelText("Huấn luyện viên");
+  expect(sport).toHaveValue("all");
+  const group = within(coach).getByRole("group", { name: "Chưa phân loại" });
+  expect(within(group).getByRole("option", { name: "Coach A (#3)" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: dateLabel(tomorrow) }));
+  await user.selectOptions(coach, "3");
+  await user.selectOptions(sport, "2");
+  expect(coach).toHaveValue("3");
+  expect(screen.getByRole("button", { name: dateLabel(tomorrow) })).toHaveAttribute("aria-pressed", "true");
+  expect(await screen.findByRole("button", { name: "Chọn buổi Yoga sáng" })).toBeEnabled();
+  await user.selectOptions(sport, "all");
+  await user.click(screen.getByRole("button", { name: "Tất cả ngày" }));
+  await user.selectOptions(coach, "4");
+  await user.selectOptions(sport, "2");
+  expect(coach).toHaveValue("");
+});
 
 it("hides full sessions with Chỉ còn chỗ and keeps their waitlist available otherwise", async () => {
   vi.mocked(api.capacity).mockImplementation(async (id) => id === 10 ? 0 : 3);

@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { SportClass } from "../lib/types";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { SCHEDULING_SLOTS, slotForSession } from "../lib/scheduling-slots";
-import { dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
+import { SCHEDULING_SLOTS, slotForSession, sessionTimeRange } from "../lib/scheduling-slots";
+import { dateLabel, localDate, parseDate } from "../lib/utils";
 import { ClassCoachName } from "../pages/Classes";
 import { Badge, Field, Modal } from "./ui";
 import ScheduleSportMarkers from "./ScheduleSportMarkers";
@@ -44,7 +44,7 @@ function SessionRow({
         <button type="button" className="text-link" onClick={() => onView(item)}>
           {item.className}
         </button>
-        <p>{item.courseId ? "Khóa học" : item.regularClassId ? "Lớp đã lưu" : "Buổi tập theo gói"} · {sport} · {timeLabel(item.scheduleTime)} · {item.durationMinutes} phút</p>
+        <p>{item.courseId ? "Khóa học" : item.regularClassId ? "Lớp đã lưu" : "Buổi tập theo gói"} · {sport} · {sessionTimeRange(item)} · {item.durationMinutes} phút</p>
         <p><ClassCoachName coachId={item.coachId} /> · {room}</p>
       </div>
       <div className="manager-week-session-meta">

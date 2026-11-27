@@ -283,22 +283,21 @@ export default function Layout() {
 
     const syncSchedule = () => {
       const { id, roleName } = session.user;
+      const classDetail: QueryFilters = { queryKey: ["classDetail"], predicate: (query) => query.queryKey[2] === id };
       if (roleName === "CENTER_MANAGER") {
         void client.invalidateQueries({ queryKey: ["classes"] });
         void client.invalidateQueries({ queryKey: ["managed-classes"] });
+        void client.invalidateQueries(classDetail);
         return;
       }
       if (roleName !== "MEMBER" && roleName !== "COACH") return;
       const filters: QueryFilters[] = roleName === "COACH"
-        ? [{ queryKey: ["classes", id], exact: true }]
+        ? [{ queryKey: ["classes", id], exact: true }, classDetail, { queryKey: ["capacity"] }]
         : [
         { queryKey: ["classes", undefined], exact: true },
         { queryKey: ["bookings", session.user.id] },
         { queryKey: ["memberBookings", session.user.id] },
-        {
-          queryKey: ["classDetail"],
-          predicate: (query) => query.queryKey[2] === session.user.id,
-        },
+        classDetail,
         { queryKey: ["capacity"] },
         { queryKey: ["booking-waitlist", session.user.id] },
         { queryKey: ["booking-conduct", session.user.id] },

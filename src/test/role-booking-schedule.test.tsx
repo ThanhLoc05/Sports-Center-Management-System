@@ -65,9 +65,9 @@ describe("Coach/Member booking and navigation scope", () => {
       status: "BOOKED", bookedAt: `${localDate()}T07:00:00`,
     })));
     const { session } = page("/bookings?memberId=999", "MEMBER");
-    await screen.findByText(db.classes[0].className, { selector: "strong" });
+    await screen.findByRole("button", { name: db.classes[0].className });
     await userEvent.setup().selectOptions(screen.getByLabelText("Lọc theo lớp học"), String(db.classes[0].id));
-    expect(screen.queryByText(db.classes[1].className, { selector: "strong" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: db.classes[1].className })).not.toBeInTheDocument();
     expect(booking.mock.calls.every(args => args.length === 1 && args[0] === session.user.id)).toBe(true);
   });
 
@@ -173,15 +173,15 @@ it("keeps other staff rosters visible when a class fails and retries only that c
     return [{ id: classId!, classId: classId!, memberId: 10, status: "BOOKED", bookedAt: localDate() }];
   });
   page("/bookings", "RECEPTIONIST");
-  expect(await screen.findByText(a.className, { selector: "strong" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: a.className })).toBeVisible();
   expect(await screen.findByText(/Không tải được đăng ký của:/)).toHaveTextContent(b.className);
   const user = userEvent.setup();
   failure = false;
   await user.click(screen.getByRole("button", { name: "Thử tải lại lớp bị lỗi" }));
-  expect(await screen.findByText(b.className, { selector: "strong" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: b.className })).toBeVisible();
   expect(bookings.mock.calls.filter(([, id]) => id === a.id)).toHaveLength(1);
   await user.selectOptions(screen.getByLabelText("Lọc theo lớp học"), String(a.id));
-  expect(screen.queryByText(b.className, { selector: "strong" })).toBeNull();
+  expect(screen.queryByRole("button", { name: b.className })).toBeNull();
 });
 
 it("keeps simultaneous classes separately clickable for Receptionist", async () => {
@@ -193,9 +193,13 @@ it("keeps simultaneous classes separately clickable for Receptionist", async () 
   ];
   vi.spyOn(api, "classes").mockResolvedValue(items);
   page("/schedule", "RECEPTIONIST");
-  const [a, b, later] = await Promise.all(items.map(c => screen.findByRole("button", { name: new RegExp(c.className) })));
-  expect(a.style.left).not.toEqual(b.style.left);
-  expect(later.style.left).toEqual(later.style.right);
+  const [a, b] = await Promise.all(items.map(c => screen.findByRole("button", { name: c.className })));
+  const grid = await screen.findByRole("table", { name: "Sáu ca tập trong tuần" });
+  expect(within(grid).getByRole("row", { name: /Ngoài khung ca/ })).toContainElement(a);
+  expect(a.closest("td")).toBe(b.closest("td"));
+  expect(a).not.toBe(b);
+  expect(a).toHaveTextContent("10:00–11:00");
+  expect(b).toHaveTextContent("10:00–10:30");
   const user = userEvent.setup();
   await user.click(a);
   expect(within(await screen.findByRole("dialog")).getByText(first.className)).toBeVisible();
@@ -236,7 +240,9 @@ it("groups the Manager week by Vietnam date and official slots while keeping leg
   expect(await within(group).findByText(`1/${first.maxCapacity} đã đăng ký`)).toBeVisible();
   expect(within(group).getByRole("button", { name: "Confirmed second" })).toBeVisible();
   await user.click(within(group).getByRole("button", { name: "Confirmed first" }));
-  expect(await screen.findByRole("dialog", { name: "Confirmed first" })).toBeVisible();
+  const detail = within(await screen.findByRole("dialog", { name: "Chi tiết buổi tập" }));
+  expect(detail.getByRole("heading", { name: "Confirmed first" })).toBeVisible();
+  expect(detail.getByText("06:00 – 07:30")).toBeVisible();
   await user.keyboard("{Escape}");
 
   expect(within(grid).queryByRole("button", { name: /Ngoài khung ca/ })).not.toBeInTheDocument();

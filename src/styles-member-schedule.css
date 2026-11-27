@@ -81,7 +81,7 @@
 .member-schedule-card + .member-schedule-card { margin-top: 5px; }
 .member-schedule-card:hover { box-shadow: inset 0 0 0 1px var(--member-sport-edge); }
 .member-schedule-card:focus-visible { outline: 2px solid var(--member-sport-text); outline-offset: 1px; }
-.member-schedule-card[data-status="BOOKED"] { border-width: 2px 2px 2px 4px; }
+.member-schedule-card:is([data-status="BOOKED"], [data-status="ASSIGNED"]) { border-width: 2px 2px 2px 4px; }
 .member-schedule-card:is([data-status="CANCELLED"], [data-status="COMPLETED"]) {
   --member-sport-bg: #f1f3f0;
   --member-sport-edge: #92988f;

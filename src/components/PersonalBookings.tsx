@@ -9,6 +9,7 @@ import type { Booking, SportClass } from "../lib/types";
 import { addDays, dateLabel, errorText, idLabel, localDate, parseDate, timeLabel } from "../lib/utils";
 import { Button, Empty, ErrorState, Loading, PageHeader, useToast } from "./ui";
 import MemberBookingCancellation, { bookingCancellationBlocker, type MemberCancellationAction } from "./MemberBookingCancellation";
+import { ClassDetail } from "../pages/Classes";
 import "../styles-personal-bookings.css";
 
 type Filter = "upcoming" | "past" | "cancelled" | "waitlist";
@@ -34,6 +35,7 @@ export default function PersonalBookings() {
     else change.set("tab", next);
     return change;
   }, { replace: true });
+  const [detail, setDetail] = useState<SportClass | null>(null);
   const [openCancelled, setOpenCancelled] = useState<number | null>(null);
   const cancellation = useQuery({
     queryKey: ["classCancellation", memberId, openCancelled],
@@ -186,6 +188,7 @@ export default function PersonalBookings() {
                         {canCancel && <><dt>Chính sách hủy</dt><dd>Hủy trước ít nhất 12 giờ để tránh vi phạm.</dd></>}
                         {booking?.status === "BOOKED" && blocker && <><dt>Hủy đăng ký</dt><dd>{blocker}</dd></>}
                       </dl>
+                      {session && <Button variant="secondary" onClick={() => setDetail(session)}>Chi tiết buổi tập</Button>}
                       {canCancel && session && <Button variant="danger" onClick={() => setMemberAction({ kind: "booking", item: session, bookingId: booking.id })}>Hủy đăng ký</Button>}
                     </details>
                     {invitationLive && <>
@@ -200,6 +203,7 @@ export default function PersonalBookings() {
             </ul>
           </section>
         ))}
+      {detail && <ClassDetail item={detail} onClose={() => setDetail(null)} />}
       {memberAction && <MemberBookingCancellation action={memberAction} memberId={memberId} onClose={() => setMemberAction(null)} />}
     </div>
   );

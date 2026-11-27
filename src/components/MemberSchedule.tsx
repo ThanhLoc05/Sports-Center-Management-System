@@ -1,8 +1,8 @@
-import { CheckCircle2, CircleCheck, Clock3, XCircle } from "lucide-react";
+import { CheckCircle2, CircleCheck, Clock3, PlayCircle, UserCheck, XCircle } from "lucide-react";
 import { ClassCoachName } from "../pages/Classes";
-import { SCHEDULING_SLOTS, slotForSession } from "../lib/scheduling-slots";
+import { SCHEDULING_SLOTS, slotForSession, sessionTimeRange } from "../lib/scheduling-slots";
 import type { SportClass } from "../lib/types";
-import { dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
+import { dateLabel, localDate, parseDate } from "../lib/utils";
 import { Empty } from "./ui";
 import "../styles-member-schedule.css";
 
@@ -20,10 +20,20 @@ const states = {
   QUEUED: { label: "Đang chờ", Icon: Clock3 },
   INVITED: { label: "Có lời mời giữ chỗ", Icon: Clock3 },
   COMPLETED: { label: "Đã hoàn thành", Icon: CircleCheck },
-  CANCELLED: { label: "Buổi đã hủy", Icon: XCircle },
+  CANCELLED: { label: "Đã hủy", Icon: XCircle },
+  ASSIGNED: { label: "Được phân công", Icon: UserCheck },
 } as const;
 
 export type MemberScheduleStatus = keyof typeof states;
+const emptyRegistration = new Map<number, MemberScheduleStatus>();
+
+export function scheduleSessionState(item: SportClass, now = new Date()) {
+  if (item.status === "CANCELLED" || item.status === "COMPLETED") return states[item.status];
+  const start = parseDate(item.scheduleTime).getTime();
+  if (start > now.getTime()) return { label: "Sắp diễn ra", Icon: Clock3 };
+  if (start + item.durationMinutes * 60_000 > now.getTime()) return { label: "Đang diễn ra", Icon: PlayCircle };
+  return { label: "Đã kết thúc", Icon: CircleCheck };
+}
 
 function SessionCard({ item, sport, room, status, onOpen }: {
   item: SportClass;
@@ -33,25 +43,28 @@ function SessionCard({ item, sport, room, status, onOpen }: {
   onOpen: () => void;
 }) {
   const state = status && states[status];
-  const end = new Date(parseDate(item.scheduleTime).getTime() + item.durationMinutes * 60_000);
+  const sessionState = scheduleSessionState(item);
+  const [start, end] = sessionTimeRange(item).split(" – ");
   return (
     <button type="button" className="member-schedule-card schedule-list-item"
-      data-sport={memberScheduleSport(sport)} data-status={status} aria-label={item.className} onClick={onOpen}>
-      <strong className="member-schedule-time">{timeLabel(item.scheduleTime)}<span>–{timeLabel(end.toISOString())}</span></strong>
+      data-sport={memberScheduleSport(sport)} data-status={status ?? item.status} aria-label={item.className} onClick={onOpen}>
+      <strong className="member-schedule-time">{start}<span>–{end}</span></strong>
       <span className="member-schedule-title">{item.className}</span>
       <span className="member-schedule-sport">{sport}</span>
       <span className="member-schedule-resources"><ClassCoachName coachId={item.coachId} /> · {room}</span>
+      <span className="member-schedule-status"><sessionState.Icon size={14} aria-hidden="true" />{sessionState.label}</span>
       {state && <span className="member-schedule-status"><state.Icon size={14} aria-hidden="true" />{state.label}</span>}
     </button>
   );
 }
 
-export default function MemberSchedule({ days, items, sports, rooms, registration, week, onView }: {
+export default function MemberSchedule({ days, items, sports, rooms, registration = emptyRegistration, assigned, week, onView }: {
   days: Date[];
   items: SportClass[];
   sports: Record<number, string>;
   rooms: Record<number, string>;
-  registration: ReadonlyMap<number, MemberScheduleStatus>;
+  registration?: ReadonlyMap<number, MemberScheduleStatus>;
+  assigned?: boolean;
   week: boolean;
   onView: (item: SportClass) => void;
 }) {
@@ -69,7 +82,7 @@ export default function MemberSchedule({ days, items, sports, rooms, registratio
   const card = (item: SportClass) => (
     <SessionCard key={item.id} item={item} sport={sports[item.sportId] ?? `Bộ môn #${item.sportId}`}
       room={rooms[item.roomId] ?? `Phòng #${item.roomId}`} onOpen={() => onView(item)}
-      status={item.status === "CANCELLED" || item.status === "COMPLETED" ? item.status : registration.get(item.id)} />
+      status={item.status === "CANCELLED" || item.status === "COMPLETED" ? undefined : assigned ? "ASSIGNED" : registration.get(item.id)} />
   );
   const empty = <Empty title="Lịch tuần này đang trống" description="Chọn tuần khác hoặc khám phá thêm các lớp học." />;
 

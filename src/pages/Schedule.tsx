@@ -5,16 +5,16 @@
  * qua useClasses. Hộp thoại lớp/form tái sử dụng từ Classes.tsx.
  */
 import { useCatalog } from "../lib/catalog";
-import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Clock3, Plus, Users } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useClasses, usePermissions } from "../lib/hooks";
 import { api, request } from "../lib/api";
 import type { SportClass } from "../lib/types";
-import { addDays, dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
-import { ClassDetail, ClassForm, ClassCoachName } from "./Classes";
+import { addDays, dateLabel, localDate, parseDate } from "../lib/utils";
+import { ClassDetail, ClassForm } from "./Classes";
 import { TrainingProgramForm } from "../components/TrainingProgramForm";
 import ClassCancellationDialog from "../components/ClassCancellationDialog";
 import ManagerWeekSchedule from "../components/ManagerWeekSchedule";
@@ -23,7 +23,6 @@ import ScheduleSportMarkers from "../components/ScheduleSportMarkers";
 import "../styles-weekly-schedule.css";
 import {
   Button,
-  Empty,
   ErrorState,
   Loading,
   PageHeader,
@@ -31,40 +30,6 @@ import {
   Select,
   useToast,
 } from "../components/ui";
-const HOUR_HEIGHT = 76;
-
-function layoutDay(items: SportClass[]) {
-  const entries = items.map((item) => {
-    const [hour, minute] = timeLabel(item.scheduleTime).split(":").map(Number);
-    const top = (hour + minute / 60) * HOUR_HEIGHT;
-    const height = Math.max(58, item.durationMinutes / 60 * HOUR_HEIGHT - 4);
-    return { item, top, height, column: 0, columns: 1 };
-  }).sort((a, b) => a.top - b.top || a.item.id - b.item.id);
-
-  let groupStart = 0;
-  let groupEnd = 0;
-  let columnEnds: number[] = [];
-  const setGroupWidth = (end: number) => {
-    for (let i = groupStart; i < end; i++) entries[i].columns = columnEnds.length;
-  };
-
-  // Use the actual rendered height so even very short, adjacent classes stay clickable.
-  entries.forEach((entry, index) => {
-    if (entry.top >= groupEnd) {
-      setGroupWidth(index);
-      groupStart = index;
-      columnEnds = [];
-    }
-    const free = columnEnds.findIndex((end) => end <= entry.top);
-    entry.column = free === -1 ? columnEnds.length : free;
-    const bottom = entry.top + entry.height;
-    columnEnds[entry.column] = bottom;
-    groupEnd = Math.max(groupEnd, bottom);
-  });
-  setGroupWidth(entries.length);
-  return entries;
-}
-
 export default function Schedule() {
   // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
@@ -85,7 +50,7 @@ export default function Schedule() {
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("not-cancelled");
   const [scope, setScope] = useState(member ? "mine" : "all");
-  const [view, setView] = useState(() => member && window.matchMedia?.("(max-width: 768px)").matches ? "list" : "week");
+  const [view, setView] = useState(() => !manager && window.matchMedia?.("(max-width: 768px)").matches ? "list" : "week");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const setSelected = (item: SportClass | null) => setSelectedId(item?.id ?? null);
   const selected = classes.data?.find((item) =>
@@ -122,11 +87,6 @@ export default function Schedule() {
   }
   const personal = (item: SportClass) =>
     registration.has(item.id) || (item.status === "CANCELLED" && cancelledBooking.has(item.id));
-  const calendarRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!manager && view === "week" && calendarRef.current)
-      calendarRef.current.scrollTop = 6 * HOUR_HEIGHT;
-  }, [manager, view, classes.isPending]);
   /**
    * Tạo mốc giữa ngày theo UTC+7, tính thứ Hai đầu tuần và cộng offset theo tuần.
    * Bảy ngày chỉ là cách trình bày; thời gian lớp gốc vẫn đến từ scheduleTime.
@@ -144,14 +104,13 @@ export default function Schedule() {
       (sport === "all" || c.sportId === Number(sport)),
   );
   const dayOf = (item: SportClass) =>
-    manager || member ? localDate(parseDate(item.scheduleTime)) : item.scheduleTime.slice(0, 10);
+    localDate(parseDate(item.scheduleTime));
   const start = localDate(days[0]);
   const end = localDate(days[6]);
   const weekRows = rows.filter((item) => {
     const date = dayOf(item);
     return date >= start && date <= end;
   });
-  const times = Array.from({ length: 24 }, (_, i) => i);
   return (
     <>
       <PageHeader
@@ -261,155 +220,21 @@ export default function Schedule() {
           <ErrorState error={bookings.error} retry={bookings.refetch} />
         ) : member && scope === "mine" && session?.mode === "api" && waitlist.isPending ? (
           <Loading />
-        ) : member ? (
+        ) : view === "week" && manager ? (
+          <ManagerWeekSchedule days={days} items={weekRows} sports={sports} rooms={rooms} onView={setSelected} />
+        ) : (
           <>
             {waitlist.error && <ErrorState error={waitlist.error} retry={waitlist.refetch} />}
             <MemberSchedule days={days} items={weekRows} sports={sports} rooms={rooms}
-              registration={registration} week={view === "week"} onView={setSelected} />
+              registration={registration} assigned={session?.user.roleName === "COACH"}
+              week={view === "week"} onView={setSelected} />
           </>
-        ) : view === "week" && manager ? (
-          <ManagerWeekSchedule days={days} items={weekRows} sports={sports} rooms={rooms} onView={setSelected} />
-        ) : view === "week" ? (
-          <div className="calendar-scroll" ref={calendarRef}>
-            <div className="week-calendar">
-              <div className="week-header">
-                <div className="timezone">GMT+7</div>
-                {days.map((d, i) => (
-                  <div
-                    key={i}
-                    className={localDate(d) === localDate() ? "is-today" : ""}
-                  >
-                    <span>
-                      {
-                        [
-                          "THỨ HAI",
-                          "THỨ BA",
-                          "THỨ TƯ",
-                          "THỨ NĂM",
-                          "THỨ SÁU",
-                          "THỨ BẢY",
-                          "CHỦ NHẬT",
-                        ][i]
-                      }
-                    </span>
-                    <strong>{Number(localDate(d).slice(-2))}</strong>
-                    {localDate(d) === localDate() && <i />}
-                  </div>
-                ))}
-              </div>
-              <div className="calendar-body">
-                <div className="time-gutter">
-                  {times.map((hour) => (
-                    <div key={hour} style={{ top: hour * HOUR_HEIGHT }}>
-                      {String(hour).padStart(2, "0")}:00
-                    </div>
-                  ))}
-                </div>
-                {days.map((d, i) => (
-                  <div
-                    className={`calendar-day ${localDate(d) === localDate() ? "is-today" : ""}`}
-                    key={i}
-                  >
-                    {times.map((hour) => (
-                      <div
-                        key={hour}
-                        className="hour-line"
-                        style={{ top: hour * HOUR_HEIGHT }}
-                      />
-                    ))}
-                    {layoutDay(weekRows.filter((c) => c.scheduleTime.startsWith(localDate(d))))
-                      .map(({ item: c, top, height, column, columns }) => (
-                        // [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setSelected)
-                        <button
-                          key={c.id}
-                          className={`calendar-event sport-${c.sportId}`}
-                          style={{
-                            top,
-                            height,
-                            left: `calc(${column * 100 / columns}% + 4px)`,
-                            right: `calc(${(columns - column - 1) * 100 / columns}% + 4px)`,
-                          }}
-                          onClick={() => setSelected(c)}
-                        >
-                          <strong>{c.className}</strong>
-                          <span>
-                            {timeLabel(c.scheduleTime)} · {c.durationMinutes}′
-                          </span>
-                          <small>
-                            {rooms[c.roomId] || `Phòng #${c.roomId}`}
-                          </small>
-                        </button>
-                      ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="schedule-list">
-            {weekRows.length ? (
-              days.map((day) => {
-                const items = weekRows
-                  .filter((c) => dayOf(c) === localDate(day))
-                  .sort((a, b) => a.scheduleTime.localeCompare(b.scheduleTime));
-                if (!items.length) return null;
-                return (
-                  <section key={localDate(day)}>
-                    <h3>
-                      {dateLabel(day, {
-                        weekday: "long",
-                        day: "2-digit",
-                        month: "2-digit",
-                      })}
-                    </h3>
-                    {items.map((c) => (
-                      <div
-                        key={c.id}
-                        className="schedule-list-item"
-                      >
-                        <span
-                          className={`schedule-list-marker sport-${c.sportId}`}
-                        />
-                        <strong>{timeLabel(c.scheduleTime)}</strong>
-                        <div>
-                          <h4>
-                            {/* [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setSelected) */}
-                            <button className="text-link" onClick={() => setSelected(c)}>
-                              {c.className}
-                            </button>
-                          </h4>
-                          <p>
-                            <ClassCoachName coachId={c.coachId} />{" "}
-                            · {rooms[c.roomId] || `Phòng #${c.roomId}`}
-                          </p>
-                        </div>
-                        <span>
-                          <Clock3 size={14} />
-                          {c.durationMinutes} phút
-                        </span>
-                        <span>
-                          <Users size={14} />
-                          Tối đa {c.maxCapacity}
-                        </span>
-                      </div>
-                    ))}
-                  </section>
-                );
-              })
-            ) : (
-              <Empty
-                title="Lịch tuần này đang trống"
-                description="Chọn tuần khác hoặc khám phá thêm các lớp học."
-              />
-            )}
-          </div>
         )}
         <div className="schedule-legend">
           {Object.entries(sports).map(([id, name]) => (
             <span key={id}>
-              {manager ? <ScheduleSportMarkers names={[name]} /> : member
-                ? <i className="member-schedule-legend" data-sport={memberScheduleSport(name)} />
-                : <i className={`sport-${id}`} />}
+              {manager && view === "week" ? <ScheduleSportMarkers names={[name]} />
+                : <i className="member-schedule-legend" data-sport={memberScheduleSport(name)} />}
               {name}
             </span>
           ))}
@@ -421,8 +246,6 @@ export default function Schedule() {
       {selected && (
         <ClassDetail
           item={selected}
-          memberSchedule={member}
-          dialogClassName={manager ? "schedule-ui-dialog" : undefined}
           onClose={() => setSelected(null)}
           onEdit={manager && selected.status !== "CANCELLED" ? (item) => {
             setEditing(item);

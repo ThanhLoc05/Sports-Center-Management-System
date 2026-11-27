@@ -9,34 +9,26 @@ import { sportImage, sportVisual } from "../lib/sport-visuals";
 import type { Booking, SportClass } from "../lib/types";
 import { dateLabel, errorText, localDate, parseDate, timeLabel } from "../lib/utils";
 import { bookingCancellationBlocker, refreshMemberRegistration, type MemberCancellationAction } from "./MemberBookingCancellation";
-import { memberScheduleSport } from "./MemberSchedule";
+import { memberScheduleSport, scheduleSessionState } from "./MemberSchedule";
 import { Button, Modal, useToast } from "./ui";
 import "../styles-member-session-detail.css";
 
 type WaitlistEntry = { status: string; inviteUntil: string | null };
 
 export default function MemberSessionDetail({
-  item, sport, room, coach, capacity, capacityError, retryCapacity, booking, cancelled, waiting,
+  item, sport, room, coach, capacity, capacityError, retryCapacity, booking, cancelled, waiting, notice,
   registrationLoading, registrationError, retryRegistration, onClose, onCoach, onBook, onAction,
 }: {
-  item: SportClass;
-  sport: string;
-  room: string;
-  coach: ReactNode;
-  capacity?: number;
-  capacityError: boolean;
-  retryCapacity: () => void;
   booking?: Booking;
   cancelled?: boolean;
   waiting?: WaitlistEntry;
   registrationLoading: boolean;
   registrationError: boolean;
   retryRegistration: () => void;
-  onClose: () => void;
-  onCoach: () => void;
   onBook: () => void;
   onAction: (action: MemberCancellationAction) => void;
-}) {
+  notice?: ReactNode;
+} & SessionDetailProps) {
   const { session } = useAuth();
   const memberId = session!.user.id;
   const client = useQueryClient();
@@ -46,7 +38,6 @@ export default function MemberSessionDetail({
   const [error, setError] = useState("");
   const now = new Date();
   const start = parseDate(item.scheduleTime);
-  const end = start.getTime() + item.durationMinutes * 60_000;
   const blocker = bookingCancellationBlocker(item, now);
   const flexible = !item.courseId && !item.regularClassId;
   const invited = waiting?.status === "INVITED" && !!waiting.inviteUntil && parseDate(waiting.inviteUntil) > now;
@@ -76,24 +67,16 @@ export default function MemberSessionDetail({
         : localDate(start) > access.subscription.endDate ? "Buổi tập diễn ra sau ngày hết hạn gói." : null
     : access?.reason;
   const eligible = flexible && !blocker && !registrationLoading && !registrationError && !accessPending && !accessError && !accessBlocker;
-  const palette = memberScheduleSport(sport);
-  const visual = palette === "dance" ? { image: "dance", alt: "Huấn luyện viên hướng dẫn nhóm học viên tập nhảy trong studio." }
-    : sportVisual(sport) ?? (palette === "badminton" ? sportVisual("Cầu lông") : undefined);
-  const state = item.status === "CANCELLED" ? "Đã hủy"
-    : item.status === "COMPLETED" ? "Đã hoàn thành"
-      : start > now ? "Sắp diễn ra" : end > now.getTime() ? "Đang diễn ra" : "Đã kết thúc";
   const registration = registrationError ? "Chưa xác minh được đăng ký"
     : registrationLoading ? "Đang kiểm tra đăng ký"
       : booking ? "Đã đăng ký" : invited ? "Chờ xác nhận chỗ" : queued ? "Đang trong danh sách chờ"
         : waiting?.status === "INVITED" ? "Lời mời đã hết hạn" : cancelled ? "Đã hủy đăng ký" : "Chưa đăng ký";
-  const booked = item.bookedCount;
-  const openCapacity = capacity === undefined ? "Đang tải số chỗ…" : capacity === 0 ? "Đã hết chỗ" : `Còn ${capacity} chỗ trống`;
   const hasBooking = !!booking && !registrationError;
   const canCancel = hasBooking && flexible && !blocker && booking.status === "BOOKED";
   const explain = hasBooking
     ? blocker ?? (!flexible || booking.status !== "BOOKED" ? "Lượt đăng ký này được quản lý ở trang đăng ký tương ứng." : "Buổi tập đã có trong lịch cá nhân.")
     : invited && waiting.inviteUntil ? `Xác nhận trước ${timeLabel(waiting.inviteUntil)} ngày ${dateLabel(waiting.inviteUntil)}.`
-      : queued && !blocker ? "Bạn sẽ nhận thông báo khi tới lượt. Bạn có thể rời danh sách khi có lời mời giữ chỗ."
+      : queued && !blocker ? "Bạn đang chờ chỗ. Bạn sẽ nhận thông báo khi tới lượt và có thể rời danh sách khi có lời mời giữ chỗ."
         : blocker ?? accessBlocker;
   const showNewAction = eligible && !booking && !queued && !invited && capacity !== undefined && !capacityError;
 
@@ -115,6 +98,62 @@ export default function MemberSessionDetail({
   }
 
   return (
+    <SessionDetailDialog item={item} sport={sport} room={room} coach={coach}
+      capacity={capacity} capacityError={capacityError} retryCapacity={retryCapacity}
+      onClose={onClose} onCoach={onCoach} busy={busy}
+      actions={(canCancel || showNewAction || (invited && !blocker)) && <>
+        {canCancel && <Button className="member-session-cancel" variant="secondary"
+          onClick={() => onAction({ kind: "booking", item, bookingId: booking.id })}>
+          <CalendarX size={17} aria-hidden="true" /> Hủy đăng ký
+        </Button>}
+        {showNewAction && (capacity === 0
+          ? session?.mode === "api" && <Button variant="secondary" loading={busy} onClick={() => void updateWaitlist(false)}>Tham gia danh sách chờ</Button>
+          : <Button onClick={onBook}>Đăng ký buổi tập</Button>)}
+        {invited && !blocker && <>
+          <Button variant="secondary" disabled={busy} onClick={() => onAction({ kind: "waitlist", item })}>Rời danh sách chờ</Button>
+          <Button loading={busy} onClick={() => void updateWaitlist(true)}>Xác nhận chỗ</Button>
+        </>}
+      </>}>
+      {notice}
+        <div className="member-session-registration" data-kind={hasBooking ? "booked" : invited || queued ? "waiting" : "neutral"} role="status">
+          {hasBooking ? <CheckCircle2 size={18} aria-hidden="true" /> : invited || queued ? <Clock3 size={18} aria-hidden="true" /> : <Info size={18} aria-hidden="true" />}
+          <div>
+            <strong>{hasBooking ? "Bạn đã đăng ký buổi tập này" : registration}</strong>
+            {explain && <p>{explain}</p>}
+            {registrationError && <button type="button" className="text-link" onClick={retryRegistration}>Tải lại trạng thái đăng ký</button>}
+            {accessPending && <p>Đang kiểm tra quyền lợi gói tập…</p>}
+            {accessError && <button type="button" className="text-link" onClick={() => { void active.refetch(); void packages.refetch(); }}>Kiểm tra lại quyền lợi gói tập</button>}
+          </div>
+        </div>
+        {error && <p className="form-error" role="alert">{error}</p>}
+    </SessionDetailDialog>
+  );
+}
+
+type SessionDetailProps = {
+  item: SportClass;
+  sport: string;
+  room: string;
+  coach: ReactNode;
+  capacity?: number;
+  capacityError: boolean;
+  retryCapacity: () => void;
+  onClose: () => void;
+  onCoach: () => void;
+};
+
+export function SessionDetailDialog({
+  item, sport, room, coach, capacity, capacityError, retryCapacity, onClose, onCoach,
+  busy = false, actions, children,
+}: SessionDetailProps & { busy?: boolean; actions?: ReactNode; children?: ReactNode }) {
+  const start = parseDate(item.scheduleTime);
+  const state = scheduleSessionState(item);
+  const palette = memberScheduleSport(sport);
+  const visual = palette === "dance" ? { image: "dance", alt: "Huấn luyện viên hướng dẫn nhóm học viên tập nhảy trong studio." }
+    : sportVisual(sport) ?? (palette === "badminton" ? sportVisual("Cầu lông") : undefined);
+  const booked = item.bookedCount;
+  const openCapacity = capacity === undefined ? "Đang tải số chỗ…" : capacity === 0 ? "Hết chỗ" : `Còn ${capacity} chỗ trống`;
+  return (
     <Modal title="Chi tiết buổi tập" onClose={onClose} className="member-session-modal" wide dismissible={!busy}>
       <div className="member-session-body" data-sport={palette}>
         <section className="member-session-hero" aria-label="Thông tin buổi tập">
@@ -126,7 +165,7 @@ export default function MemberSessionDetail({
           <div className="member-session-hero-content">
             <div className="member-session-eyebrow">
               <span>{sport}</span>
-              <span className="member-session-chip"><Clock3 size={13} aria-hidden="true" />{state}</span>
+              <span className="member-session-chip"><state.Icon size={13} aria-hidden="true" />{state.label}</span>
             </div>
             <h3>{item.className}</h3>
             <div className="member-session-timing">
@@ -148,38 +187,16 @@ export default function MemberSessionDetail({
           <div><MapPin size={17} aria-hidden="true" /><small>Địa điểm tập</small><strong>{room}</strong></div>
           <div><ShieldCheck size={17} aria-hidden="true" /><small>Cấp độ yêu cầu</small><strong>{item.requiredAccessLevel}</strong></div>
           <div><Users size={17} aria-hidden="true" /><small>Số lượng đăng ký</small>
-            <strong>{booked === undefined ? "Chưa có số lượt đăng ký" : `${booked}/${item.maxCapacity} thành viên`}</strong>
+            <strong>{booked === undefined ? `Tối đa ${item.maxCapacity} thành viên` : `${booked}/${item.maxCapacity} thành viên`}</strong>
             {booked !== undefined && item.maxCapacity > 0 &&
               <progress aria-label="Số lượt đăng ký" max={item.maxCapacity} value={booked} />}
             {capacityError ? <button type="button" className="text-link" onClick={retryCapacity}>Tải lại số chỗ trống</button>
-              : item.status === "SCHEDULED" && !blocker && <small>{openCapacity}</small>}
+              : <small>{openCapacity}</small>}
           </div>
         </div>
-        <div className="member-session-registration" data-kind={hasBooking ? "booked" : invited || queued ? "waiting" : "neutral"} role="status">
-          {hasBooking ? <CheckCircle2 size={18} aria-hidden="true" /> : invited || queued ? <Clock3 size={18} aria-hidden="true" /> : <Info size={18} aria-hidden="true" />}
-          <div>
-            <strong>{hasBooking ? "Bạn đã đăng ký buổi tập này" : registration}</strong>
-            {explain && <p>{explain}</p>}
-            {registrationError && <button type="button" className="text-link" onClick={retryRegistration}>Tải lại trạng thái đăng ký</button>}
-            {accessPending && <p>Đang kiểm tra quyền lợi gói tập…</p>}
-            {accessError && <button type="button" className="text-link" onClick={() => { void active.refetch(); void packages.refetch(); }}>Kiểm tra lại quyền lợi gói tập</button>}
-          </div>
-        </div>
-        {error && <p className="form-error" role="alert">{error}</p>}
+        {children}
       </div>
-      {(canCancel || showNewAction || (invited && !blocker)) && <div className="member-session-footer">
-        {canCancel && <Button className="member-session-cancel" variant="secondary"
-          onClick={() => onAction({ kind: "booking", item, bookingId: booking.id })}>
-          <CalendarX size={17} aria-hidden="true" /> Hủy đăng ký
-        </Button>}
-        {showNewAction && (capacity === 0
-          ? session?.mode === "api" && <Button variant="secondary" loading={busy} onClick={() => void updateWaitlist(false)}>Tham gia danh sách chờ</Button>
-          : <Button onClick={onBook}>Đăng ký buổi tập</Button>)}
-        {invited && !blocker && <>
-          <Button variant="secondary" disabled={busy} onClick={() => onAction({ kind: "waitlist", item })}>Rời danh sách chờ</Button>
-          <Button loading={busy} onClick={() => void updateWaitlist(true)}>Xác nhận chỗ</Button>
-        </>}
-      </div>}
+      {actions && <div className="member-session-footer">{actions}</div>}
     </Modal>
   );
 }

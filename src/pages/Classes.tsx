@@ -1,5 +1,4 @@
 // [VAI TRÒ] Lớp học. MEMBER: xem lớp, xem chi tiết lớp + HLV, đăng ký lớp. LỄ TÂN: xem lớp, đăng ký hộ thành viên.
-import { parseDate } from "../lib/utils";
 import BookingForm from "../components/BookingForm";
 import { FlexibleBooking } from "../components/FlexibleBooking";
 import { CoachProfileDialog } from "../components/CoachProfile";
@@ -18,7 +17,8 @@ import {
 import { useCatalog } from "../lib/catalog";
 import ClassCancellationDialog from "../components/ClassCancellationDialog";
 import MemberBookingCancellation, { bookingCancellationBlocker, type MemberCancellationAction } from "../components/MemberBookingCancellation";
-import MemberSessionDetail from "../components/MemberSessionDetail";
+import MemberSessionDetail, { SessionDetailDialog } from "../components/MemberSessionDetail";
+import { SchedulingFilterOptions, compatibleResourceSelection } from "../components/SchedulingFilterOptions";
 import { sportVisual, sportImage } from "../lib/sport-visuals";
 import "../styles-sports.css";
 import { useState } from "react";
@@ -26,7 +26,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  CheckCircle2,
   Clock3,
   Dumbbell,
   LayoutGrid,
@@ -306,26 +305,6 @@ function lacksManagementEndpoint(error: unknown) {
   return error instanceof ApiError && error.status === 400 && error.message === 'For input string: "management"';
 }
 
-type SchedulingFilterResource = { id: string; name: string; sportIds: number[] };
-
-function SchedulingFilterOptions({ resources, sport, sports }: {
-  resources: SchedulingFilterResource[];
-  sport: string;
-  sports: Record<number, string>;
-}) {
-  const option = ({ id, name }: SchedulingFilterResource) => <option key={id} value={id}>{name}</option>;
-  if (sport !== "all") return resources.filter(item => item.sportIds.includes(Number(sport))).map(option);
-
-  const unclassified = resources.filter(item => item.sportIds.length === 0);
-  return <>
-    {Object.entries(sports).map(([id, name]) => {
-      const group = resources.filter(item => item.sportIds.includes(Number(id)));
-      return group.length > 0 && <optgroup key={id} label={name}>{group.map(option)}</optgroup>;
-    })}
-    {unclassified.length > 0 && <optgroup label="Chưa phân loại">{unclassified.map(option)}</optgroup>}
-  </>;
-}
-
 export default function Classes() {
   // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
@@ -438,7 +417,15 @@ export default function Classes() {
     enabled: member || managed,
     retry: false,
   });
-  const coachOptions = managed ? (coaches.data ?? []).map(({ coachId, fullName, specialties }) => ({
+  const users = useUsers();
+  const coachDirectory = new Map((coaches.data ?? []).map(profile => [profile.coachId, profile]));
+  if (managed) for (const user of users.data ?? []) {
+    if (user.roleName === "COACH" && !coachDirectory.has(user.id)) {
+      coachDirectory.set(user.id, { coachId: user.id, fullName: user.fullName, specialties: user.specialties ?? null,
+        professionalLevel: null, bio: null });
+    }
+  }
+  const coachOptions = managed ? [...coachDirectory.values()].map(({ coachId, fullName, specialties }) => ({
     id: String(coachId), name: fullName, sportIds: schedulingSportIds(specialties, sports),
   })) : [];
   const roomOptions = managed ? Object.entries(rooms).map(([id, name]) => ({
@@ -447,13 +434,11 @@ export default function Classes() {
   function changeSport(nextSport: string) {
     setPage(0);
     setSport(nextSport);
-    if (!managed || nextSport === "all") return;
-    const eligible = (options: SchedulingFilterResource[], id: string) =>
-      options.some(item => item.id === id && item.sportIds.includes(Number(nextSport)));
+    if (!managed) return;
     setFilters(current => ({
       ...current,
-      coachId: eligible(coachOptions, current.coachId) ? current.coachId : "",
-      roomId: eligible(roomOptions, current.roomId) ? current.roomId : "",
+      coachId: compatibleResourceSelection(coachOptions, current.coachId, nextSport),
+      roomId: compatibleResourceSelection(roomOptions, current.roomId, nextSport),
     }));
   }
   const client = useQueryClient();
@@ -1079,11 +1064,9 @@ export function ClassCoachName({ coachId }: { coachId: number }) {
 
 export function ClassDetail(props: {
   item: SportClass;
-  memberSchedule?: boolean;
   onClose: () => void;
   onEdit?: (item: SportClass) => void;
   onCancel?: (item: SportClass) => void;
-  dialogClassName?: string;
 }) {
   const { session } = useAuth();
   const live = session?.mode === "api";
@@ -1098,23 +1081,21 @@ export function ClassDetail(props: {
   });
   // Không dùng object từ danh sách hoặc cache cũ như chi tiết đã được xác nhận.
   const item = live ? detail.data : props.item;
-  const memberSchedule = props.memberSchedule && session?.user.roleName === "MEMBER";
   const confirmation = memberAction?.item.id === props.item.id && session?.user.roleName === "MEMBER"
     ? <MemberBookingCancellation action={item ? { ...memberAction, item } : memberAction} memberId={session.user.id}
-        onClose={() => setMemberAction(null)} scheduleDetail={memberSchedule} />
+        onClose={() => setMemberAction(null)} scheduleDetail />
     : null;
-  if (memberSchedule && confirmation) return confirmation;
+  if (confirmation) return confirmation;
   return (
     <>
       {live && (detail.isPending || detail.isFetching || detail.error || !item) ? (
-        <Modal title={memberSchedule ? "Chi tiết buổi tập" : "Chi tiết lớp học"} onClose={props.onClose}
-          className={memberSchedule ? "member-session-modal" : props.dialogClassName} wide>
+        <Modal title="Chi tiết buổi tập" onClose={props.onClose}
+          className="member-session-modal" wide>
           {detail.error && !detail.isFetching ? (
             <ErrorState error={detail.error} retry={detail.refetch} />
           ) : <Loading />}
         </Modal>
-      ) : item && <ClassDetailContent key={item.id} {...props} item={item} memberSchedule={memberSchedule} onMemberAction={setMemberAction} />}
-      {confirmation}
+      ) : item && <ClassDetailContent key={item.id} {...props} item={item} onMemberAction={setMemberAction} />}
     </>
   );
 }
@@ -1123,21 +1104,16 @@ function ClassDetailContent({
   onClose,
   onEdit,
   onCancel,
-  dialogClassName,
   onMemberAction,
-  memberSchedule,
 }: {
   item: SportClass;
-  memberSchedule?: boolean;
   onClose: () => void;
   onEdit?: (item: SportClass) => void;
   onCancel?: (item: SportClass) => void;
-  dialogClassName?: string;
   onMemberAction: (action: MemberCancellationAction) => void;
 }) {
   // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
-  const visual = sportVisual(sports[c.sportId]);
   // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
 
@@ -1145,6 +1121,7 @@ function ClassDetailContent({
   const [booking, setBooking] = useState(false);
   const { session } = useAuth();
   const can = usePermissions();
+  const isMember = session!.user.roleName === "MEMBER";
 
   const capacity = useQuery({
     queryKey: ["capacity", c.id],
@@ -1154,10 +1131,9 @@ function ClassDetailContent({
   const cancellation = useQuery({
     queryKey: ["classCancellation", session?.user.id, c.id],
     queryFn: () => api.classCancellation(c.id),
-    enabled: !!onCancel && session?.mode === "api",
+    enabled: session?.mode === "api" && (!!onCancel || (isMember && c.status === "CANCELLED")),
     retry: false,
   });
-  const isMember = session!.user.roleName === "MEMBER";
   const { enabled: courseEnabled } = useCourseFeature();
   const ownBookings = useQuery({
     queryKey: ["memberBookings", session!.user.id, c.id],
@@ -1181,7 +1157,6 @@ function ClassDetailContent({
     retry: false,
   });
   const waiting = waitlist.data?.find((entry) => entry.classId === c.id);
-  const invited = waiting?.status === "INVITED" && !!waiting.inviteUntil && parseDate(waiting.inviteUntil) > new Date();
   const bookings = useQuery({
     queryKey: ["classStudents", session!.user.id, session!.user.roleName, c.id],
     // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
@@ -1199,226 +1174,83 @@ function ClassDetailContent({
         })),
     enabled: can("classes.roster"),
   });
-  if (memberSchedule) {
-    if (booking) return <BookingForm classId={c.id} onClose={() => setBooking(false)} />;
-    if (showCoach) return <CoachProfileDialog coachId={c.coachId} onClose={() => setShowCoach(false)} />;
-    const needsWaitlist = session?.mode === "api" && flexible && !blocker && !ownBooking;
+  if (booking) return <BookingForm classId={c.id} onClose={() => setBooking(false)} />;
+  if (showCoach) return <CoachProfileDialog coachId={c.coachId} onClose={() => setShowCoach(false)} />;
+
+  const booked = c.bookedCount ?? cancellation.data?.booked
+    ?? bookings.data?.filter((row) => row.status === "BOOKED").length;
+  const detailProps = {
+    item: booked == null ? c : { ...c, bookedCount: booked },
+    sport: sports[c.sportId] ?? `Bộ môn #${c.sportId}`,
+    room: rooms[c.roomId] ?? `Phòng #${c.roomId}`,
+    coach: <ClassCoachName coachId={c.coachId} />,
+    capacity: capacity.data,
+    capacityError: capacity.isError,
+    retryCapacity: () => { void capacity.refetch(); },
+    onClose,
+    onCoach: () => setShowCoach(true),
+  };
+  const cancellationReason = cancellation.data?.reason && <Notice>Lý do trung tâm hủy: {cancellation.data.reason}</Notice>;
+  if (isMember && flexible) {
+    const needsWaitlist = session?.mode === "api" && !blocker && !ownBooking;
     return (
-      <MemberSessionDetail item={c} sport={sports[c.sportId] ?? `Bộ môn #${c.sportId}`}
-        room={rooms[c.roomId] ?? `Phòng #${c.roomId}`} coach={<ClassCoachName coachId={c.coachId} />}
-        capacity={capacity.data} capacityError={capacity.isError} retryCapacity={() => { void capacity.refetch(); }}
-        booking={ownBooking} cancelled={cancelledBooking} waiting={waiting}
+      <MemberSessionDetail {...detailProps} booking={ownBooking} cancelled={cancelledBooking} waiting={waiting}
+        notice={cancellationReason}
         registrationLoading={ownBookings.isPending || (needsWaitlist && waitlist.isPending)}
         registrationError={ownBookings.isError || (needsWaitlist && waitlist.isError)}
         retryRegistration={() => { void ownBookings.refetch(); if (needsWaitlist) void waitlist.refetch(); }}
-        onClose={onClose} onCoach={() => setShowCoach(true)} onBook={() => setBooking(true)} onAction={onMemberAction} />
+        onBook={() => setBooking(true)} onAction={onMemberAction} />
     );
   }
+
+  const canAssist = flexible && can("bookings.assist") && !isMember;
+  const canBook = canAssist && !blocker;
+  const canRecord = ["COACH", "RECEPTIONIST"].includes(session!.user.roleName) && can("attendance.record");
+  const canEdit = onEdit && (courseEnabled || !c.courseId);
+  const canCancel = onCancel && c.status !== "CANCELLED" && (session?.mode === "demo" || cancellation.data?.canCancel);
+  const canViewCourse = courseEnabled && c.courseId;
+  const viewBookings = canAssist && session?.mode === "api";
   return (
-    <>
-      <Modal
-        title={c.className}
-        className={dialogClassName}
-        description={`${dateLabel(c.scheduleTime)} · ${timeLabel(c.scheduleTime)} · ${c.durationMinutes} phút`}
-        onClose={onClose}
-        wide
-      >
-        <div className="class-detail">
-          <div className={`class-detail-banner sport-${c.sportId}`}>
-            {visual && (
-              <img key={visual.image} className="class-sport-image" src={sportImage(visual.image)} alt={visual.alt}
-                width={840} height={560} decoding="async"
-                onError={(event) => { event.currentTarget.hidden = true; }} />
-            )}
-            <Dumbbell size={50} strokeWidth={1} />
-            <div>
-              <span>{sports[c.sportId] || `Bộ môn #${c.sportId}`}</span>
-              <h3>
-                Find your balance.
-                <br />
-                Build your strength.
-              </h3>
-            </div>
-            <Badge status={c.status} />
-          </div>
-          <div className="detail-grid">
-            <div>
-              <span>Cấp độ yêu cầu</span>
-              <strong>{c.requiredAccessLevel}</strong>
-            </div>
-            <div>
-              <span>Huấn luyện viên</span>
-              <strong>
-                <ClassCoachName coachId={c.coachId} />
-              </strong>
-              {/* [NÚT] NÚT "Xem thông tin HLV" → đổi cách hiển thị / bộ lọc trên màn hình (setShowCoach) */}
-              <button
-                className="text-link"
-                disabled={!c.coachId || c.coachId < 1}
-                onClick={() => setShowCoach(true)}
-              >
-                Xem thông tin HLV
-              </button>
-            </div>
-            <div>
-              <span>Địa điểm</span>
-              <strong>{rooms[c.roomId] || `Phòng #${c.roomId}`}</strong>
-            </div>
-            <div>
-              <span>Sức chứa</span>
-              <strong>{c.maxCapacity} thành viên</strong>
-            </div>
-            <div>
-              <span>
-                {c.status === "COMPLETED" ? "Trạng thái" : "Chỗ trống"}
-              </span>
-              <strong>
-                {c.status === "COMPLETED"
-                  ? "Đã hoàn thành"
-                  : `${capacity.data ?? "…"} chỗ`}
-              </strong>
-              {capacity.error && (
-                <ErrorState error={capacity.error} retry={capacity.refetch} />
-              )}
-            </div>
-          </div>
-          {can("classes.roster") && <h3>Danh sách đăng ký</h3>}
-          {can("classes.roster") &&
-            (bookings.isPending ? (
-              <Loading />
-            ) : bookings.error ? (
-              <ErrorState error={bookings.error} retry={bookings.refetch} />
-            ) : (
-              <div className="roster-list">
-                {bookings.data
-                  ?.filter((b) => b.status === "BOOKED")
-                  .map((b) => (
-                    <div key={b.id}>
-                      <Avatar
-                        name={
-                          b.fullName || `Thành viên ${b.memberId}`
-                        }
-                        size="small"
-                        index={b.memberId}
-                      />
-                      <strong>
-                        {b.fullName || `Thành viên #${b.memberId}`}
-                      </strong>
-                      <Badge status={b.status} />
-                    </div>
-                  ))}
-                {!bookings.data?.some((b) => b.status === "BOOKED") && (
-                  <p className="muted">Chưa có thành viên đăng ký.</p>
-                )}
+    <SessionDetailDialog {...detailProps} actions={(canViewCourse || canBook || canRecord || canEdit || canCancel || viewBookings) ? <>
+      {canViewCourse ? <Link className="btn btn-secondary" to="/courses">Đăng ký theo khóa học</Link> : null}
+      {canBook && <Button disabled={capacity.isPending || !!capacity.error || (capacity.data ?? 0) <= 0}
+        onClick={() => setBooking(true)}>Đăng ký cho thành viên</Button>}
+      {viewBookings && <Link className="btn btn-secondary" to={`/session-bookings?classId=${c.id}`}>Quản lý đăng ký</Link>}
+      {canRecord && <Link className="btn btn-secondary" to={`/attendance?classId=${c.id}`}>Điểm danh lớp</Link>}
+      {canEdit && <Button variant="secondary" onClick={() => onEdit(c)}><Pencil size={16} /> Chỉnh sửa</Button>}
+      {canCancel && <Button variant="danger" onClick={() => onCancel(c)}>Hủy buổi học</Button>}
+    </> : null}>
+      {cancellationReason}
+    {can("classes.roster") && <h3>Danh sách đăng ký</h3>}
+    {can("classes.roster") &&
+      (bookings.isPending ? (
+        <Loading />
+      ) : bookings.error ? (
+        <ErrorState error={bookings.error} retry={bookings.refetch} />
+      ) : (
+        <div className="roster-list">
+          {bookings.data
+            ?.filter((b) => b.status === "BOOKED")
+            .map((b) => (
+              <div key={b.id}>
+                <Avatar
+                  name={
+                    b.fullName || `Thành viên ${b.memberId}`
+                  }
+                  size="small"
+                  index={b.memberId}
+                />
+                <strong>
+                  {b.fullName || `Thành viên #${b.memberId}`}
+                </strong>
+                <Badge status={b.status} />
               </div>
             ))}
-          <div className="detail-actions">
-            {courseEnabled && c.courseId && <Link className="btn btn-secondary" to="/courses">Đăng ký theo khóa học</Link>}
-            {isMember && flexible && (!blocker || ownBooking || cancelledBooking) && (
-                ownBookings.isPending ? (
-                  // [NÚT] NÚT "Đang kiểm tra đăng ký…"
-                  <Button disabled>Đang kiểm tra đăng ký…</Button>
-                ) : ownBookings.error ? (
-                  <div className="booking-status-error">
-                    <ErrorState
-                      error={ownBookings.error}
-                      retry={ownBookings.refetch}
-                    />
-                  </div>
-                ) : ownBooking ? (
-                  <>
-                    <div className="booking-status-success" role="status">
-                      <CheckCircle2 size={20} />
-                      <div>
-                        <strong>Bạn đã đăng ký lớp học này</strong>
-                        <span>{blocker ?? "Lớp học đã được thêm vào lịch của bạn."}</span>
-                        {!blocker && ownBooking.status !== "BOOKED" && <span>Lượt đăng ký này không thể hủy tại đây.</span>}
-                      </div>
-                    </div>
-                    {!blocker && ownBooking.status === "BOOKED" && (
-                      <Button variant="danger" onClick={() => onMemberAction({ kind: "booking", item: c, bookingId: ownBooking.id })}>
-                        Hủy đăng ký
-                      </Button>
-                    )}
-                  </>
-                ) : blocker ? (
-                  <Notice>{blocker}</Notice>
-                ) : session?.mode === "api" && (waitlist.isPending || waitlist.error) ? (
-                  waitlist.error ? <ErrorState error={waitlist.error} retry={waitlist.refetch} />
-                    : <Button disabled>Đang kiểm tra danh sách chờ…</Button>
-                ) : waiting?.status === "QUEUED" || invited ? (
-                  <>
-                    <Notice>{invited ? "Bạn có lời mời giữ chỗ." : "Bạn đang chờ chỗ. Bạn có thể rời danh sách khi có lời mời giữ chỗ."}</Notice>
-                    {invited && <Button variant="secondary" onClick={() => onMemberAction({ kind: "waitlist", item: c })}>Rời danh sách chờ</Button>}
-                  </>
-                ) : capacity.isPending ? (
-                  // [NÚT] NÚT "Đang kiểm tra chỗ trống…"
-                  <Button disabled>Đang kiểm tra chỗ trống…</Button>
-                ) : capacity.error ? (
-                  <div className="booking-status-error">
-                    <ErrorState error={capacity.error} retry={capacity.refetch} />
-                  </div>
-                ) : (capacity.data ?? 0) <= 0 ? (
-                  // [NÚT] NÚT "Lớp đã đủ chỗ"
-                  <Button disabled>Lớp đã đủ chỗ</Button>
-                ) : (
-                  // [NÚT] NÚT "Đăng ký lớp học" → đổi cách hiển thị / bộ lọc trên màn hình (setBooking)
-                  <Button onClick={() => setBooking(true)}>
-                    Đăng ký lớp học
-                  </Button>
-                )
-              )}
-            {session!.user.roleName !== "MEMBER" &&
-              !c.regularClassId && !c.courseId &&
-              can("bookings.assist") &&
-              c.status === "SCHEDULED" &&
-              parseDate(c.scheduleTime) > new Date() && (
-                // [NÚT] NÚT "Đăng ký cho thành viên" → đổi cách hiển thị / bộ lọc trên màn hình (setBooking)
-                <Button
-                  disabled={
-                    capacity.isPending ||
-                    !!capacity.error ||
-                    (capacity.data ?? 0) <= 0
-                  }
-                  onClick={() => setBooking(true)}
-                >
-                  Đăng ký cho thành viên
-                </Button>
-              )}
-            {session!.user.roleName === "COACH" && can("attendance.record") && (
-              <Link
-                className="btn btn-secondary"
-                to={"/attendance?classId=" + c.id}
-              >
-                Điểm danh lớp
-              </Link>
-            )}
-            {cancellation.data?.reason && <Notice>Lý do trung tâm hủy: {cancellation.data.reason}</Notice>}
-            {onEdit && (courseEnabled || !c.courseId) && (
-              // [NÚT] NÚT "Chỉnh sửa"
-              <Button variant="secondary" onClick={() => onEdit(c)}>
-                <Pencil size={16} />
-                Chỉnh sửa
-              </Button>
-            )}
-            {onCancel && c.status !== "CANCELLED" && (session?.mode === "demo" || cancellation.data?.canCancel) && (
-              // [NÚT] NÚT "Hủy lớp"
-              <Button variant="danger" onClick={() => onCancel(c)}>
-                Hủy buổi học
-              </Button>
-            )}
-          </div>
+          {!bookings.data?.some((b) => b.status === "BOOKED") && (
+            <p className="muted">Chưa có thành viên đăng ký.</p>
+          )}
         </div>
-      </Modal>
-      {booking && (
-        <BookingForm classId={c.id} onClose={() => setBooking(false)} />
-      )}
-      {showCoach && (
-        <CoachProfileDialog
-          coachId={c.coachId}
-          onClose={() => setShowCoach(false)}
-        />
-      )}
-    </>
+      ))}
+    </SessionDetailDialog>
   );
 }

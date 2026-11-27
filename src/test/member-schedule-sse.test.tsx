@@ -15,13 +15,13 @@ import type { SportClass } from "../lib/types";
 vi.mock("../lib/demo", () => import("./fixtures/published-demo-fixture"));
 afterEach(() => vi.unstubAllEnvs());
 
-async function openMemberCalendar(firstRead?: Promise<SportClass[]>) {
+async function openCalendar(firstRead?: Promise<SportClass[]>, role: "MEMBER" | "COACH" = "MEMBER") {
   vi.stubEnv("VITE_DATA_MODE", "api");
   vi.stubGlobal("fetch", vi.fn(async () => Response.json([])));
-  const session = { ...demoSession("MEMBER"), mode: "api", token: "test-session" };
+  const session = { ...demoSession(role), mode: "api", token: "test-session" };
   sessionStorage.setItem("sportiva-session", JSON.stringify(session));
   const date = localDate();
-  let item = { ...readDemo().classes[0], scheduleTime: date + "T10:00:00" };
+  let item = { ...readDemo().classes[0], ...(role === "COACH" && { coachId: session.user.id }), scheduleTime: date + "T10:00:00" };
   const booking = { id: 91, memberId: session.user.id, classId: item.id, status: "BOOKED", bookedAt: date };
   const classes = vi.spyOn(api, "classes").mockImplementation(async () => [item]);
   if (firstRead) classes.mockImplementationOnce(() => firstRead);
@@ -61,7 +61,7 @@ async function openMemberCalendar(firstRead?: Promise<SportClass[]>) {
 }
 
 it("groups personal bookings outside the new slots without changing their time", async () => {
-  const view = await openMemberCalendar();
+  const view = await openCalendar();
   await userEvent.setup().click(screen.getByRole("button", { name: "Tuần" }));
   const table = screen.getByRole("table", { name: "Sáu ca tập trong tuần" });
   expect(within(table).getByText("14:00–15:30")).toBeVisible();
@@ -74,7 +74,7 @@ it("groups personal bookings outside the new slots without changing their time",
 });
 
 it("updates the open list after a schedule change and ignores wrong recipients, unrelated links and replays", async () => {
-  const view = await openMemberCalendar();
+  const view = await openCalendar();
   const before = view.classes.mock.calls.length;
   const ownReads = view.bookings.mock.calls.length;
   view.move();
@@ -93,10 +93,10 @@ it("updates the open list after a schedule change and ignores wrong recipients, 
 });
 
 it("marks a cancelled class in personal history and refreshes bookings on the same page", async () => {
-  const view = await openMemberCalendar();
+  const view = await openCalendar();
   view.cancel();
   view.emit({ title: "Lớp học đã hủy" });
-  expect(await within(screen.getByRole("button", { name: view.name })).findByText("Buổi đã hủy")).toBeVisible();
+  expect(await within(screen.getByRole("button", { name: view.name })).findByText("Đã hủy")).toBeVisible();
   await waitFor(() => expect(view.client.getQueryData(["bookings", view.session.user.id])).toMatchObject([{ status: "CANCELLED" }]));
   expect(view.connect).toHaveBeenCalledTimes(1);
 });
@@ -104,14 +104,14 @@ it("marks a cancelled class in personal history and refreshes bookings on the sa
 it("discards a pending initial read when the stream opens", async () => {
   let finish!: (rows: SportClass[]) => void;
   const firstRead = new Promise<SportClass[]>((resolve) => { finish = resolve; });
-  const view = await openMemberCalendar(firstRead);
+  const view = await openCalendar(firstRead);
   await act(async () => finish([]));
   expect(screen.getByRole("button", { name: view.name })).toBeVisible();
   expect(view.classes).toHaveBeenCalledTimes(2);
 });
 
 it("catches up when the stream reconnects without replaying the missed event", async () => {
-  const view = await openMemberCalendar();
+  const view = await openCalendar();
   view.disconnect();
   view.move();
   await waitFor(() => expect(view.connect).toHaveBeenCalledTimes(2), { timeout: 4000 });
@@ -119,7 +119,7 @@ it("catches up when the stream reconnects without replaying the missed event", a
 });
 
 it("refreshes the open detail modal when the class is moved and then cancelled", async () => {
-  const view = await openMemberCalendar();
+  const view = await openCalendar();
   await userEvent.setup().click(screen.getByRole("button", { name: view.name }));
   const modal = () => within(screen.getByRole("dialog"));
   await waitFor(() => expect(modal().getByText(/10:00/)).toBeVisible());
@@ -132,4 +132,19 @@ it("refreshes the open detail modal when the class is moved and then cancelled",
   await waitFor(() => expect(modal().getByText("Đã hủy")).toBeVisible());
   expect(modal().queryByRole("button", { name: "Đăng ký lớp học" })).toBeNull();
   expect(view.detail).toHaveBeenCalledTimes(3);
+});
+
+it("refreshes the assigned Coach’s open detail on a schedule notification", async () => {
+  const view = await openCalendar(undefined, "COACH");
+  await userEvent.setup().click(screen.getByRole("button", { name: view.name }));
+  const modal = () => within(screen.getByRole("dialog", { name: "Chi tiết buổi tập" }));
+  await waitFor(() => expect(modal().getByText(/10:00/)).toBeVisible());
+  expect(modal().getByRole("link", { name: "Điểm danh lớp" })).toBeVisible();
+  expect(modal().queryByRole("button", { name: "Đăng ký buổi tập" })).toBeNull();
+  view.move();
+  view.emit({ recipientId: view.session.user.id + 1 });
+  expect(view.detail).toHaveBeenCalledTimes(1);
+  view.emit();
+  await waitFor(() => expect(modal().getByText(/16:00/)).toBeVisible());
+  expect(view.detail).toHaveBeenCalledTimes(2);
 });

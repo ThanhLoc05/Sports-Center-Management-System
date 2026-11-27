@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { CalendarCheck, CircleCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, request } from "../lib/api";
+import { schedulingSportIds } from "../lib/scheduling-resources";
 import { classAccessAllowed, normalizeAccessLevel } from "../lib/entitlements";
 import type { Booking, CoachProfessionalProfile, SportClass, Subscription } from "../lib/types";
 import { addDays, dateLabel, errorText, localDate, matches, parseDate, timeLabel } from "../lib/utils";
 import { Button, Confirm, Field, Notice, Panel } from "./ui";
+import { SchedulingFilterOptions, compatibleResourceSelection } from "./SchedulingFilterOptions";
 import "../styles-package-booking.css";
 
 const waitlistStatus: Record<string, string> = {
@@ -33,17 +35,18 @@ export function FlexibleBooking({
   onView: (item: SportClass) => void;
 }) {
   const client = useQueryClient();
-  const [sportFilter, setSport] = useState(0);
+  const [sportFilter, setSport] = useState("");
   const [dates, setDates] = useState<string[]>([]);
   const [from, setFrom] = useState("");
   const [until, setUntil] = useState("");
-  const [coachFilter, setCoach] = useState(0);
+  const [coachFilter, setCoach] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [savingSport, setSavingSport] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const pending = useRef(false);
   const [waitlistAction, setWaitlistAction] = useState(false);
   const [declining, setDeclining] = useState<number | null>(null);
   const memberId = subscription?.memberId;
@@ -66,7 +69,7 @@ export function FlexibleBooking({
   const booked = new Set(bookings.data?.filter((b) => b.status === "BOOKED").map((b) => b.classId));
   const membershipLevel = normalizeAccessLevel(level);
   const selectedSport = membershipLevel === "STANDARD" ? subscription?.selectedSportId : null;
-  const sport = selectedSport ?? sportFilter;
+  const sport = selectedSport ? String(selectedSport) : sportFilter || (membershipLevel === "VIP" ? "all" : "");
   const needsSport = membershipLevel === "STANDARD" && !selectedSport;
   const now = new Date();
   const bookingEnd = addDays(7, now);
@@ -78,7 +81,7 @@ export function FlexibleBooking({
   const activeDates = dates.filter((day) => day >= today && day <= lastDay);
   const upcoming = subscription && membershipLevel ? classes.filter((c) =>
     c.status === "SCHEDULED" && !c.regularClassId && !c.courseId &&
-    c.sportId === sport && matches(search, c.className) &&
+    (sport === "all" || c.sportId === Number(sport)) && matches(search, c.className) &&
     classAccessAllowed(membershipLevel, c.requiredAccessLevel),
   ).map((session) => {
     const start = parseDate(session.scheduleTime);
@@ -91,8 +94,8 @@ export function FlexibleBooking({
   const matchesTime = upcoming.filter(({ day, hour }) =>
     (!activeDates.length || activeDates.includes(day)) &&
     (!from || hour >= from) && (!until || hour <= until));
-  const coachIds = [...new Set([...matchesTime.map(({ session }) => session.coachId), coachFilter].filter((id) => id > 0))];
-  const visible = matchesTime.filter(({ session }) => !coachFilter || session.coachId === coachFilter)
+  const coachIds = [...new Set([...matchesTime.map(({ session }) => session.coachId), Number(coachFilter)].filter((id) => id > 0))];
+  const visible = matchesTime.filter(({ session }) => !coachFilter || session.coachId === Number(coachFilter))
     .sort((a, b) => a.start.getTime() - b.start.getTime() || a.session.id - b.session.id)
     .map(({ session }) => session);
   const capacities = useQueries({
@@ -102,10 +105,24 @@ export function FlexibleBooking({
     .filter(({ capacity }) => !onlyOpen || (capacity.data ?? 0) > 0);
   const coachName = (id: number) =>
     coaches.find((c) => c.coachId === id)?.fullName || (id > 0 ? `HLV #${id}` : "Chưa phân công HLV");
-  const coachOptions = coachIds.map((id) => ({ id, name: coachName(id) }));
+  const knownSports = (coachId: number) => schedulingSportIds(coaches.find(coach => coach.coachId === coachId)?.specialties, sports);
+  const assignedSports = (coachId: number) => [...new Set(classes.filter(item => item.coachId === coachId).map(item => item.sportId))];
+  const supportedSports = (coachId: number) => {
+    const listed = knownSports(coachId);
+    return listed.length ? listed : assignedSports(coachId);
+  };
+  const coachOptions = coachIds.map(id => {
+    const name = coachName(id);
+    return {
+      id: String(id), name: coachIds.some(other => other !== id && coachName(other) === name) ? `${name} (#${id})` : name,
+      sportIds: sport === "all" ? knownSports(id) : supportedSports(id),
+    };
+  });
   const busy = savingSport || submitting || waitlistAction;
 
   async function updateWaitlist(id: number, accept: boolean) {
+    if (pending.current || busy) return;
+    pending.current = true;
     setWaitlistAction(true);
     setError("");
     setNotice("");
@@ -116,13 +133,15 @@ export function FlexibleBooking({
     } catch (failure) {
       setError(errorText(failure));
     } finally {
+      pending.current = false;
       setWaitlistAction(false);
     }
   }
 
   async function confirm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!subscription || !selected.length || needsSport || busy) return;
+    if (!subscription || !selected.length || needsSport || busy || pending.current) return;
+    pending.current = true;
     setSubmitting(true);
     setError("");
     setNotice("");
@@ -137,6 +156,7 @@ export function FlexibleBooking({
     } catch (failure) {
       setError(errorText(failure));
     } finally {
+      pending.current = false;
       setSubmitting(false);
     }
   }
@@ -180,23 +200,24 @@ export function FlexibleBooking({
         <Panel title="Tìm buổi tập" className="package-booking__filter-panel">
           <div className="package-booking__filters">
             <Field label="Bộ môn">
-              <select value={sport || ""} onChange={(e) => {
-                setSport(Number(e.target.value));
-                setDates([]);
-                setCoach(0);
+              <select value={sport} onChange={(event) => {
+                const next = event.target.value;
+                setSport(next);
+                const id = Number(coachFilter);
+                const options = id ? [{ id: coachFilter, name: coachName(id),
+                  sportIds: supportedSports(id) }] : [];
+                setCoach(compatibleResourceSelection(options, coachFilter, next));
               }}>
-                <option value="">Chọn bộ môn</option>
+                {membershipLevel === "VIP" ? <option value="all">Tất cả bộ môn</option> : <option value="">Chọn bộ môn</option>}
                 {Object.entries(sports)
                   .filter(([id]) => selectedSport == null || Number(id) === selectedSport)
                   .map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
             </Field>
             <Field label="Huấn luyện viên">
-              <select value={coachFilter} onChange={(e) => setCoach(Number(e.target.value))}>
-                <option value={0}>Tất cả</option>
-                {coachOptions.map(({ id, name }) => <option key={id} value={id}>
-                  {name}{coachOptions.some((other) => other.id !== id && other.name === name) ? ` (#${id})` : ""}
-                </option>)}
+              <select value={coachFilter} onChange={(e) => setCoach(e.target.value)}>
+                <option value="">Tất cả HLV</option>
+                <SchedulingFilterOptions resources={coachOptions} sport={sport} sports={sports} />
               </select>
             </Field>
             <Field label="Từ giờ">
@@ -220,7 +241,7 @@ export function FlexibleBooking({
                 setError("");
                 try {
                   await request(`/memberships/${subscription.id}/sport`, {
-                    method: "PATCH", body: JSON.stringify({ sportId: sport }),
+                    method: "PATCH", body: JSON.stringify({ sportId: Number(sport) }),
                   });
                   await client.invalidateQueries({ queryKey: ["activeSubscription", memberId] });
                 } catch (failure) {

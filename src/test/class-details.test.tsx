@@ -63,9 +63,9 @@ describe("Chi tiết lớp API và COMPLETED", () => {
       return json([]);
     }));
     page(detailNode());
-    expect(await screen.findByText("Bạn đã đăng ký lớp học này")).toBeVisible();
-    expect(screen.getByText(/Lớp học đã được thêm vào lịch của bạn/)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Đăng ký lớp học" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Bạn đã đăng ký buổi tập này")).toBeVisible();
+    expect(screen.getByText(/Buổi tập đã có trong lịch cá nhân/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Đăng ký buổi tập" })).not.toBeInTheDocument();
   });
   it("retries a failed cancellation without closing and submits only one in-flight request", async () => {
     const member = memberSession().user.id;
@@ -77,6 +77,8 @@ describe("Chi tiết lớp API và COMPLETED", () => {
       const path = String(url);
       if (path === "/api/v1/classes/1") return json(future);
       if (path.endsWith("/capacity")) return json(active ? 5 : 6);
+      if (path.endsWith("/active")) return json({ id: 1, memberId: member, packageId: 9, status: "ACTIVE", startDate: "2020-01-01", endDate: "2099-01-01" });
+      if (path.endsWith("/memberships/packages")) return json([{ id: 9, accessLevel: "VIP" }]);
       if (path === `/api/v1/members/${member}/bookings`) {
         return json([{ id: 71, classId: 1, memberId: member, status: active ? "BOOKED" : "CANCELLED" }]);
       }
@@ -93,17 +95,17 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     await user.click(await screen.findByRole("button", { name: "Hủy đăng ký" }));
     const dialog = within(screen.getByRole("dialog", { name: "Hủy đăng ký lớp?" }));
     expect(dialog.getByText(/Mốc hủy không vi phạm/)).toBeVisible();
-    await user.dblClick(dialog.getByRole("button", { name: "Xác nhận" }));
+    await user.dblClick(dialog.getByRole("button", { name: "Xác nhận hủy" }));
     expect(attempts).toBe(1);
-    expect(dialog.getByRole("button", { name: "Xác nhận" })).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Xác nhận hủy" })).toBeDisabled();
     await act(async () => firstDelete.resolve(json({ message: "Chưa thể hủy." }, 409)));
     expect(await dialog.findByRole("alert")).toHaveTextContent("Chưa thể hủy.");
-    expect(screen.getByText("Bạn đã đăng ký lớp học này")).toBeVisible();
-    await user.click(dialog.getByRole("button", { name: "Xác nhận" }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    await user.click(dialog.getByRole("button", { name: "Xác nhận hủy" }));
     expect(await screen.findByText("Đã hủy đăng ký lớp học.")).toBeVisible();
     expect(screen.queryByRole("dialog", { name: "Hủy đăng ký lớp?" })).toBeNull();
-    expect(await screen.findByRole("button", { name: "Đăng ký lớp học" })).toBeEnabled();
-    expect(screen.getByText("6 chỗ")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Đăng ký buổi tập" })).toBeEnabled();
+    expect(screen.getByText("Còn 6 chỗ trống")).toBeVisible();
     expect(attempts).toBe(2);
   });
 
@@ -155,7 +157,7 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     server(async () => json(future));
     vi.spyOn(api, "bookings").mockResolvedValue([{ id: 71, classId: 1, memberId: member, status: "BOOKED", bookedAt: future.scheduleTime }]);
     vi.spyOn(api, "capacity").mockResolvedValue(6);
-    page(<ClassDetail item={future} memberSchedule onClose={() => {}} />);
+    page(<ClassDetail item={future} onClose={() => {}} />);
     const user = userEvent.setup();
     expect(await screen.findByText("15:45 – 17:15")).toBeVisible();
     const detail = within(screen.getByRole("dialog", { name: "Chi tiết buổi tập" }));
@@ -171,31 +173,37 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     expect(await screen.findByRole("dialog", { name: "Chi tiết buổi tập" })).toBeVisible();
   });
 
-  it("allows booking when the Member has no ACTIVE booking", async () => {
+  it("allows booking when an eligible Member only has a cancelled booking", async () => {
     const s = memberSession();
     vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
       const path = String(url);
       if (/\/api\/v1\/classes\/1$/.test(path)) return json(item());
       if (path.endsWith("/capacity")) return json(5);
+      if (path.endsWith("/active")) return json({ id: 1, memberId: s.user.id, packageId: 9, status: "ACTIVE", startDate: "2020-01-01", endDate: "2099-01-01" });
+      if (path.endsWith("/memberships/packages")) return json([{ id: 9, accessLevel: "VIP" }]);
       if (path === `/api/v1/members/${s.user.id}/bookings`) {
         return json([{ id: 71, classId: 1, memberId: s.user.id, bookedAt: "2026-11-20T10:00:00", status: "CANCELLED" }]);
       }
       return json([]);
     }));
     page(detailNode());
-    expect(await screen.findByRole("button", { name: "Đăng ký lớp học" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Đăng ký buổi tập" })).toBeEnabled();
   });
-  it("does not allow booking when the class is full", async () => {
+  it("offers the waitlist to an eligible Member when the class is full", async () => {
     const s = memberSession();
     vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
       const path = String(url);
       if (/\/api\/v1\/classes\/1$/.test(path)) return json(item());
       if (path.endsWith("/capacity")) return json(0);
+      if (path.endsWith("/active")) return json({ id: 1, memberId: s.user.id, packageId: 9, status: "ACTIVE", startDate: "2020-01-01", endDate: "2099-01-01" });
+      if (path.endsWith("/memberships/packages")) return json([{ id: 9, accessLevel: "VIP" }]);
       if (path === `/api/v1/members/${s.user.id}/bookings`) return json([]);
       return json([]);
     }));
     page(detailNode());
-    expect(await screen.findByRole("button", { name: "Lớp đã đủ chỗ" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Tham gia danh sách chờ" })).toBeEnabled();
+    expect(screen.getByText("Hết chỗ")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Đăng ký buổi tập" })).not.toBeInTheDocument();
   });
   it("GETs by ID with authentication and does not use the list object", async () => {
     session(); const fetch = server(); page(detailNode());
