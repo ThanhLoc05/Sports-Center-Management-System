@@ -29,7 +29,10 @@
   line-height: 1.6;
 }
 .package-catalog-benefits {
-  min-width: 240px;
+  min-width: 12rem;
+}
+.package-catalog-benefits .membership-benefits {
+  margin-block: 0;
 }
 .membership-package-heading {
   display: flex;

@@ -47,7 +47,7 @@ tbody tr:hover > td {
 .th-sort {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   padding: 0;
   font: inherit;
   font-weight: var(--weight-semibold);
@@ -119,10 +119,23 @@ tbody tr:hover > td {
  * để link vẫn giữ tên truy cập; rê chuột vào icon hiện tên mục (thuộc tính title).
  * Tại sao: laptop hẹp cần thêm chỗ cho bảng và lịch tuần.
  */
+/* Logo và nút chia sẻ một hàng có khoảng cách riêng để vùng bấm không đè lên nhau. */
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex: none;
+}
+.sidebar-heading .brand {
+  padding-inline: 0;
+}
+.sidebar-heading .brand-symbol,
 .sidebar-collapse {
-  position: absolute;
-  top: 34px;
-  right: 12px;
+  flex: none;
+}
+.sidebar .nav-group > p {
+  text-wrap: balance;
 }
 @media (max-width: 1000px) {
   .sidebar-collapse {
@@ -137,9 +150,9 @@ tbody tr:hover > td {
     padding-inline: 12px;
     align-items: center;
   }
-  .sidebar-collapsed .sidebar-collapse {
-    position: static;
-    margin: 4px auto 12px;
+  .sidebar-collapsed .sidebar-heading {
+    flex-direction: column;
+    margin-bottom: var(--space-3);
   }
   .sidebar-collapsed .brand {
     font-size: 0;

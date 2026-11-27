@@ -890,8 +890,9 @@ td {
   flex-wrap: wrap;
   gap: 8px 12px;
 }
-.row-actions.package-row-actions {
-  flex-wrap: nowrap;
+/* Bảng nhiều cột dành chỗ cho nội dung và cho phép nhóm nút xuống hàng trong cùng ô. */
+.table-scroll table:has(th:nth-child(8)) :is(th, td) {
+  padding-inline: var(--space-3);
 }
 .package-row-actions .btn,
 .package-duration {

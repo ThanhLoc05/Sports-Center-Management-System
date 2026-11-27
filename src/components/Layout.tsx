@@ -451,21 +451,23 @@ export default function Layout() {
         id="main-sidebar"
         className={`sidebar ${mobile ? "sidebar-open" : ""}`}
       >
-        <Link to="/" className="brand">
-          <span className="brand-symbol">
-            <Activity size={25} />
-          </span>
-          sportiva<span className="brand-dot">.</span>
-        </Link>
-        <button
-          type="button"
-          className="icon-btn sidebar-collapse"
-          aria-label={collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-          aria-pressed={collapsed}
-          onClick={toggleCollapsed}
-        >
-          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </button>
+        <div className="sidebar-heading">
+          <Link to="/" className="brand">
+            <span className="brand-symbol">
+              <Activity size={25} />
+            </span>
+            sportiva<span className="brand-dot">.</span>
+          </Link>
+          <button
+            type="button"
+            className="icon-btn sidebar-collapse"
+            aria-label={collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            aria-pressed={collapsed}
+            onClick={toggleCollapsed}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </div>
         <div className="workspace-card">
           <span className="workspace-icon">
             <Dumbbell size={18} />
