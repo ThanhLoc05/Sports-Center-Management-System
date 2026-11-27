@@ -1,3 +1,4 @@
+// [VAI TRÒ] Hiển thị trạng thái thông báo đã gửi cho Member sau khi thanh toán.
 import { useState } from "react";
 import type { MembershipOrder } from "../lib/membership-checkout";
 import { dateLabel } from "../lib/utils";
@@ -17,6 +18,7 @@ export function MembershipDelivery({
 }) {
   const toast = useToast();
   const [copying, setCopying] = useState(false);
+  // Cần cả xác nhận và kỳ gói từ BE; chỉ thấy PAID trên giao diện chưa đủ để tự tạo thông báo.
   if (order.status !== "CONFIRMED" || !order.subscription) return null;
   const action =
     order.kind === "NEW"
@@ -24,6 +26,7 @@ export function MembershipDelivery({
       : order.sourcePackageId === order.package.id
         ? "gia hạn gói hiện tại"
         : "gia hạn với gói mới";
+  // Nội dung để hiển thị/sao chép; bản ghi thông báo thật đã được BE lưu cùng giao dịch xác nhận.
   const message = `Thành viên ${memberName || "TV" + order.memberId} (TV${order.memberId}) đã ${action} thành công: ${order.package.name}. Thời hạn: ${dateLabel(order.subscription.startDate)} – ${dateLabel(order.subscription.endDate)}. Mã thanh toán: ${order.paymentReference}.`;
   return (
     <Panel title="Thông báo xác nhận gói">
@@ -34,6 +37,7 @@ export function MembershipDelivery({
           : "Chưa có trạng thái thông báo từ hệ thống"}
       </p>
       {staff && (
+        // [NÚT] NÚT "Sao chép nội dung báo thành viên" → đổi cách hiển thị / bộ lọc trên màn hình (setCopying)
         <Button
           variant="secondary"
           loading={copying}
@@ -61,6 +65,7 @@ export function MembershipDelivery({
 
 /** Theo dõi giao dịch ngân hàng, chỉ backend được xác nhận đã nhận tiền cho đơn QR. */
 export function TransferVerification({ order }: { order: MembershipOrder }) {
+  // Chỉ đọc tổng tiền/trạng thái BE đã đối soát; component này không gọi xác nhận thanh toán.
   const verification = order.bankTransfer;
   const labels = {
     WAITING: "Chờ nhận chuyển khoản",

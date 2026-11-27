@@ -21,6 +21,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   MessageCircle,
   Search,
   Settings2,
@@ -225,6 +227,28 @@ export default function Layout() {
     (n) => n.recipientId === session!.user.id && !n.readAt,
   );
   const [mobile, setMobile] = useState(false);
+  /**
+   * Thu gọn thanh điều hướng trên laptop/desktop.
+   * Làm sao: lưu lựa chọn vào localStorage (bọc try/catch vì trình duyệt có thể chặn), CSS ẩn chữ chỉ giữ icon.
+   * Tại sao: màn laptop hẹp cần thêm chỗ cho bảng và lịch; lần sau mở lại vẫn giữ đúng lựa chọn.
+   */
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("sportiva-sidebar-collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((value) => {
+      try {
+        localStorage.setItem("sportiva-sidebar-collapsed", value ? "0" : "1");
+      } catch {
+        /* Không lưu được thì chỉ đổi trong phiên hiện tại. */
+      }
+      return !value;
+    });
+  };
   const [profile, setProfile] = useState(false);
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState("");
@@ -416,7 +440,7 @@ export default function Layout() {
         )
       : [];
   return (
-    <div className="app-shell">
+    <div className={`app-shell${collapsed ? " sidebar-collapsed" : ""}`}>
       <a className="skip-link" href="#main-content">
         Đến nội dung chính
       </a>
@@ -433,6 +457,15 @@ export default function Layout() {
           </span>
           sportiva<span className="brand-dot">.</span>
         </Link>
+        <button
+          type="button"
+          className="icon-btn sidebar-collapse"
+          aria-label={collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+          aria-pressed={collapsed}
+          onClick={toggleCollapsed}
+        >
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
         <div className="workspace-card">
           <span className="workspace-icon">
             <Dumbbell size={18} />
@@ -455,6 +488,7 @@ export default function Layout() {
                     key={item.to}
                     to={navTarget(item)}
                     end={item.to === "/"}
+                    title={collapsed ? item.label : undefined}
                     className={`nav-item ${item.to === currentPath ? "active" : ""}`}
                   >
                     <item.icon size={18} strokeWidth={1.7} />

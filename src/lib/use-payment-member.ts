@@ -1,3 +1,4 @@
+// [VAI TRÒ] Hook chọn thành viên trên trang Thanh toán (Lễ tân) / lấy chính mình (Member).
 /**
  * Lấy đúng danh tính chủ hóa đơn để hiển thị và điền nội dung QR.
  * Ưu tiên thông tin gắn với đơn, tiếp theo là phiên chính chủ, cuối cùng GET /users/:id.
@@ -17,6 +18,7 @@ export function usePaymentMember(
     session && session.user.id === memberId ? session.user : undefined;
   const knownName = name?.trim() || self?.fullName;
   const knownEmail = email?.trim() || self?.email;
+  // Chỉ chủ đơn hoặc nhân viên được phép tra tên; kiểm tra này hỗ trợ UI, BE vẫn kiểm tra quyền API.
   const allowed =
     !!self ||
     ["CENTER_MANAGER", "MANAGER", "RECEPTIONIST"].includes(
@@ -25,6 +27,7 @@ export function usePaymentMember(
   const query = useQuery({
     queryKey: ["payment-member", memberId],
     queryFn: async () => {
+      // [API] api.user → GET /users/{id}
       const user = await api.user(memberId!);
       if (
         user.id !== memberId ||
@@ -36,6 +39,7 @@ export function usePaymentMember(
         );
       return user;
     },
+    // Chỉ gọi API dự phòng khi snapshot/phiên chính chủ chưa có tên, tránh tải thêm không cần thiết.
     enabled: !!memberId && allowed && !knownName,
     retry: false,
     staleTime: 60_000,

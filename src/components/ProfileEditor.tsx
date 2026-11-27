@@ -1,3 +1,4 @@
+// [VAI TRÒ] Form sửa hồ sơ: LỄ TÂN sửa hồ sơ thành viên; người dùng sửa hồ sơ của mình.
 import { ApiProfileEditor } from "./ApiProfileEditor";
 import { useAuth } from "../lib/auth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,6 +32,7 @@ function LegacyProfileEditor({
   const client = useQueryClient();
   const toast = useToast();
   return (
+    // [NÚT] FORM "Cập nhật thông tin tài khoản" → tải lại dữ liệu từ API
     <FormModal
       title={user ? "Cập nhật thông tin tài khoản" : "Thêm nhân viên"}
       onClose={onClose}

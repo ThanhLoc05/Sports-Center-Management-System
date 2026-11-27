@@ -28,6 +28,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  CircleX,
+  Clock3,
   Inbox,
   Info,
   Loader2,
@@ -36,7 +38,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { User } from "../lib/types";
-import { errorText, initials } from "../lib/utils";
+import { errorText, initials, localDate, parseDate } from "../lib/utils";
 /**
  * Nút hỗ trợ trạng thái loading; khi đang xử lý sẽ disabled để hạn chế nhấn
  * nhiều lần trong cùng một thao tác giao diện.
@@ -44,18 +46,22 @@ import { errorText, initials } from "../lib/utils";
 export function Button({
   children,
   variant = "primary",
+  size = "md",
   className = "",
   loading,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  /** Cỡ nút: sm cho thao tác trong bảng, md mặc định, lg cho nút chính của màn. */
+  size?: "sm" | "md" | "lg";
   loading?: boolean;
 }) {
   return (
     <button
       {...props}
       disabled={props.disabled || loading}
-      className={`btn btn-${variant} ${className}`}
+      aria-busy={loading || undefined}
+      className={`btn btn-${variant}${size === "md" ? "" : ` btn-${size}`} ${className}`}
     >
       {loading && <Loader2 size={16} className="spin" />}
       {children}
@@ -94,6 +100,37 @@ export function Badge({
     <span className={`badge badge-${(status || "neutral").toLowerCase()} ${status === "PENDING" ? "status-unpaid" : status === "PAID" ? "status-paid" : ""}`}>
       <span className="badge-dot" />
       {children || labels[status || ""] || status}
+    </span>
+  );
+}
+/**
+ * Chip trạng thái gói tập: Còn hạn / Sắp hết hạn / Hết hạn, có màu và icon.
+ * Làm sao: tính số ngày còn lại từ endDate theo giờ Việt Nam; "sắp hết hạn" khi còn từ 0 đến 7 ngày.
+ * Tại sao: lễ tân và thành viên nhận ra ngay gói nào cần gia hạn mà không phải tự đếm ngày.
+ */
+export function MembershipStatus({ status, endDate }: { status: string; endDate: string }) {
+  if (status !== "ACTIVE" && status !== "EXPIRED") return <Badge status={status} />;
+  const days = Math.round(
+    (parseDate(endDate).getTime() - parseDate(localDate()).getTime()) / 86400000,
+  );
+  if (status === "EXPIRED" || days < 0)
+    return (
+      <span className="membership-status membership-status-expired">
+        <CircleX size={14} aria-hidden="true" />
+        Hết hạn
+      </span>
+    );
+  if (days <= 7)
+    return (
+      <span className="membership-status membership-status-expiring">
+        <Clock3 size={14} aria-hidden="true" />
+        Sắp hết hạn · còn {days} ngày
+      </span>
+    );
+  return (
+    <span className="membership-status membership-status-active">
+      <CheckCircle2 size={14} aria-hidden="true" />
+      Còn hạn · còn {days} ngày
     </span>
   );
 }
@@ -225,13 +262,27 @@ export function Empty({
     </div>
   );
 }
-export function Loading() {
+/**
+ * Khung xương (skeleton) thay cho vòng xoay khi đang tải.
+ * Làm sao: vài thanh xám có vệt sáng chạy ngang (CSS .skeleton-line trong styles-tokens.css).
+ * Tại sao: người dùng thấy trước bố cục sắp hiện, đỡ cảm giác chờ hơn spinner; tôn trọng giảm chuyển động.
+ */
+export function Skeleton({ lines = 4, caption, className = "" }: {
+  lines?: number;
+  caption?: string;
+  className?: string;
+}) {
   return (
-    <div className="loading-state" role="status">
-      <Loader2 className="spin" size={26} />
-      <p>Đang tải dữ liệu...</p>
+    <div className={`skeleton ${className}`} role="status" aria-busy="true">
+      {Array.from({ length: lines }, (_, i) => (
+        <span key={i} className="skeleton-line" />
+      ))}
+      {caption && <p className="skeleton-caption">{caption}</p>}
     </div>
   );
+}
+export function Loading() {
+  return <Skeleton className="loading-state" caption="Đang tải dữ liệu..." />;
 }
 /**
  * Hiện lỗi đọc dữ liệu và cho thử lại khi trang truyền hàm retry.
@@ -312,6 +363,7 @@ export function Modal({
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     const previousOverflow = document.body.style.overflow;
+    // Khóa cuộn nền khi xem hóa đơn; CSS @media print phải mở overflow lại để in đủ nội dung.
     document.body.style.overflow = "hidden";
     const node = ref.current;
     const focusable = () =>
@@ -412,6 +464,7 @@ export function FormModal({
     const data = new FormData(e.currentTarget);
     setBusy(true);
     try {
+      // Trang gọi FormModal truyền hàm tạo đơn/API vào đây; component dùng chung chỉ chờ kết quả và báo lỗi.
       await onSubmit(data);
       onClose();
     } catch (err) {
@@ -478,6 +531,9 @@ export function Field({
         children?: ReactNode;
         id?: string;
         type?: string;
+        placeholder?: string;
+        readOnly?: boolean;
+        disabled?: boolean;
         "aria-describedby"?: string;
       }>;
       if (
@@ -487,8 +543,29 @@ export function Field({
         !assigned
       ) {
         assigned = true;
+        // Gợi ý nhập theo nhãn cho Field còn trống; giữ placeholder riêng và
+        // không áp dụng cho select, ngày giờ hay ô chỉ đọc để đúng loại control.
+        const acceptsPlaceholder =
+          element.type === "textarea" ||
+          (element.type === "input" &&
+            ["text", "email", "tel", "number", "password", "url", "search"].includes(
+              element.props.type || "text",
+            ));
+        const needsPlaceholder =
+          acceptsPlaceholder && !element.props.placeholder &&
+          !element.props.readOnly && !element.props.disabled;
+        const placeholderLabel = /^[A-ZĐ]{2}/.test(label)
+          ? label
+          : `${label.charAt(0).toLocaleLowerCase("vi")}${label.slice(1)}`;
         return cloneElement(element, {
           id,
+          ...(needsPlaceholder
+            ? {
+                placeholder: /^nhập\s/iu.test(label)
+                  ? label
+                  : `Nhập ${placeholderLabel}`,
+              }
+            : {}),
           "aria-describedby": hint ? `${id}-hint` : undefined,
         });
       }
@@ -640,6 +717,8 @@ interface Column<T> {
   label: string;
   render: (row: T) => ReactNode;
   className?: string;
+  /** Giá trị dùng để sắp xếp cột; có giá trị này thì tiêu đề cột bấm được để sắp xếp. */
+  sort?: (row: T) => string | number;
 }
 /**
  * Bảng phân trang trên mảng đã tải ở frontend bằng slice; đây không phải
@@ -659,6 +738,28 @@ export function DataTable<T extends { id: number }>({
   showPagination?: boolean;
 }) {
   const [page, setPage] = useState(1);
+  /**
+   * Sắp xếp theo cột (chỉ cột có hàm sort).
+   * Làm sao: bấm tiêu đề lần 1 tăng dần, lần 2 giảm dần, lần 3 bỏ sắp xếp; sắp xếp bản sao rows trên frontend.
+   * Tại sao: bảng dài cần sắp xếp nhanh mà không gọi thêm API; thứ tự gốc của trang cha vẫn giữ khi bỏ sắp xếp.
+   */
+  const [sortBy, setSortBy] = useState<{ key: string; dir: 1 | -1 } | null>(null);
+  const sortColumn = sortBy && columns.find((c) => c.key === sortBy.key && c.sort);
+  const ordered = sortColumn
+    ? [...rows].sort((a, b) => {
+        const x = sortColumn.sort!(a);
+        const y = sortColumn.sort!(b);
+        return (typeof x === "number" && typeof y === "number"
+          ? x - y
+          : String(x).localeCompare(String(y), "vi")) * sortBy!.dir;
+      })
+    : rows;
+  const toggleSort = (key: string) => {
+    setPage(1);
+    setSortBy((prev) =>
+      prev?.key !== key ? { key, dir: 1 } : prev.dir === 1 ? { key, dir: -1 } : null,
+    );
+  };
   const max = Math.max(1, Math.ceil(rows.length / pageSize));
   const current = Math.min(page, max);
   return (
@@ -668,14 +769,34 @@ export function DataTable<T extends { id: number }>({
           <thead>
             <tr>
               {columns.map((c) => (
-                <th key={c.key} className={c.className}>
-                  {c.label}
+                <th
+                  key={c.key}
+                  className={c.className}
+                  aria-sort={
+                    sortBy?.key === c.key ? (sortBy.dir === 1 ? "ascending" : "descending") : undefined
+                  }
+                >
+                  {c.sort ? (
+                    <button
+                      type="button"
+                      className="th-sort"
+                      aria-label={`Sắp xếp theo ${c.label}`}
+                      onClick={() => toggleSort(c.key)}
+                    >
+                      {c.label}
+                      <span aria-hidden="true">
+                        {sortBy?.key === c.key ? (sortBy.dir === 1 ? " ↑" : " ↓") : " ↕"}
+                      </span>
+                    </button>
+                  ) : (
+                    c.label
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows
+            {ordered
               .slice((current - 1) * pageSize, current * pageSize)
               .map((row) => (
                 <tr key={row.id}>
@@ -769,6 +890,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     </ToastContext.Provider>
   );
 }
+// Toast chỉ phản hồi thao tác trên UI; trạng thái thanh toán vẫn đọc từ đơn/hóa đơn của BE.
 export const useToast = () => useContext(ToastContext);
 export function TextLink({
   to,

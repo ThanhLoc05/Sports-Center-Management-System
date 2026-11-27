@@ -1,3 +1,4 @@
+// [VAI TRÒ] Thanh toán. LỄ TÂN: danh sách hóa đơn, thu tiền, QR, hoàn tiền mặt. MEMBER: hóa đơn của tôi, QR, yêu cầu hoàn.
 /**
  * FLOW 3 — HÓA ĐƠN, XÁC NHẬN THU TIỀN VÀ GHI NHẬN HOÀN TIỀN.
  * Tạo hóa đơn ở PENDING; xác nhận thu tiền mới chuyển PAID. Các lựa chọn phương thức
@@ -78,6 +79,7 @@ export default function Payments() {
     canRefund = can("payments.refund"),
     demo = session!.mode === "demo";
   // Tải tên thành viên cho lễ tân để tìm hóa đơn và in đúng họ tên trên phiếu thu.
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers(true);
   const [memberId, setMemberId] = useState(
     member ? String(session!.user.id) : params.get("memberId") || "",
@@ -127,6 +129,7 @@ export default function Payments() {
         description="Rõ ràng từng giao dịch. Chủ động trong mọi quyết định."
         actions={
           <>
+            {/* [NÚT] NÚT (nút biểu tượng) → tải file CSV */}
             <ExportButton
               onClick={() =>
                 downloadCsv("hoa-don-sportiva.csv", [
@@ -150,6 +153,7 @@ export default function Payments() {
               }
             />
             {can("payments.collect") && (
+              // [NÚT] NÚT "Tạo hóa đơn" → mở/đóng hộp thoại hoặc form (setCreate)
               <Button onClick={() => setCreate(true)}>
                 <Plus size={17} />
                 Tạo hóa đơn
@@ -276,8 +280,10 @@ export default function Payments() {
             columns={[
               {
                 key: "id",
+                sort: (i) => i.id,
                 label: "Hóa đơn",
                 render: (i) => (
+                  // [NÚT] NÚT "HD" → mở/đóng hộp thoại hoặc form (setDetail)
                   <button className="invoice-id" onClick={() => setDetail(i)}>
                     <span>
                       <FileText size={16} />
@@ -288,6 +294,7 @@ export default function Payments() {
               },
               {
                 key: "member",
+                sort: (i) => users.data?.find((u) => u.id === i.memberId)?.fullName || "",
                 label: "Thành viên",
                 render: (i) => {
                   const u = users.data?.find((u) => u.id === i.memberId);
@@ -314,6 +321,7 @@ export default function Payments() {
               },
               {
                 key: "amount",
+                sort: (i) => i.amount,
                 label: "Số tiền",
                 render: (i) => (
                   <strong className="amount">{money(i.amount)}</strong>
@@ -331,11 +339,13 @@ export default function Payments() {
               },
               {
                 key: "date",
+                sort: (i) => i.createdAt,
                 label: "Ngày tạo",
                 render: (i) => dateLabel(i.createdAt),
               },
               {
                 key: "status",
+                sort: (i) => i.paymentStatus,
                 label: "Trạng thái",
                 render: (i) => (
                   <div>
@@ -344,6 +354,7 @@ export default function Payments() {
                       (courseEnabled || !i.courseOrderId) &&
                       i.paymentStatus === "PENDING" &&
                       i.paymentMethod === "BANK_TRANSFER" && (
+                        // [NÚT] NÚT "Thanh toán QR" → mở/đóng hộp thoại hoặc form (setDetail)
                         <button
                           className="btn btn-primary"
                           onClick={() => setDetail(i)}
@@ -364,6 +375,7 @@ export default function Payments() {
                 label: "Thao tác",
                 render: (i) => (
                   <div className="row-actions">
+                    {/* [NÚT] NÚT "Chi tiết" → mở/đóng hộp thoại hoặc form (setDetail) */}
                     <button
                       className="subtle-link"
                       onClick={() => setDetail(i)}
@@ -383,6 +395,7 @@ export default function Payments() {
                       !i.membershipOrderId &&
                       !i.courseOrderId &&
                       i.paymentStatus === "PENDING" && (
+                        // [NÚT] NÚT "Thu tiền" → đổi cách hiển thị / bộ lọc trên màn hình (setChange)
                         <button
                           className="text-link"
                           onClick={() =>
@@ -395,6 +408,7 @@ export default function Payments() {
                     {canRefund &&
                       (!!i.membershipOrderId || !!i.courseOrderId) &&
                       i.paymentStatus === "PAID" && (
+                        // [NÚT] NÚT "Hoàn tiền" → đổi cách hiển thị / bộ lọc trên màn hình (setChange)
                         <button
                           className="text-danger"
                           onClick={() =>
@@ -412,6 +426,7 @@ export default function Payments() {
         )}
       </Panel>
       {create && can("payments.collect") && (
+        // [NÚT] FORM "Tạo hóa đơn mới, nút "Tạo hóa đơn"" → gọi API api.invoice → POST /payments/invoices
         <FormModal
           title="Tạo hóa đơn mới"
           description="Kiểm tra thông tin và ghi nhận khoản thanh toán tại quầy."
@@ -503,6 +518,7 @@ export default function Payments() {
         }} />
       )}
       {change && !change.refund && can("payments.collect") && (
+        // [NÚT] HỘP XÁC NHẬN "Xác nhận đã nhận thanh toán?" → gọi API api.pay → POST /payments/invoices/{id}/pay | /payments
         <Confirm className="payment-collection-dialog status-unpaid" title="Xác nhận đã nhận thanh toán?"
           description={`${idLabel(change.invoice.id, "HD")} · ${money(change.invoice.amount)}. Chỉ xác nhận khi đã nhận đủ tiền.`}
           onClose={() => setChange(null)}
@@ -607,6 +623,7 @@ function InvoiceDetail({
         </div>
       </div>
       <div className="modal-footer">
+        {/* [NÚT] NÚT "Xuất CSV" → tải file CSV */}
         <Button
           variant="secondary"
           onClick={() =>

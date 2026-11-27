@@ -182,10 +182,17 @@ export default function Dashboard() {
   const classes = useClasses();
   const [period, setPeriod] = useState("month");
   const [dayOffset, setDayOffset] = useState(0);
+  // Khoảng doanh thu: hôm nay / 7 ngày qua / tháng này / quý này (đều tính đến hôm nay, giờ Việt Nam).
+  const today = localDate();
+  const quarterStart = `${today.slice(0, 5)}${String(Math.floor((Number(today.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, "0")}-01`;
   const start =
-    period === "week"
-      ? localDate(addDays(-6))
-      : `${localDate().slice(0, 7)}-01`;
+    period === "today"
+      ? today
+      : period === "week"
+        ? localDate(addDays(-6))
+        : period === "quarter"
+          ? quarterStart
+          : `${today.slice(0, 7)}-01`;
   const end = localDate();
   /**
    * Chỉ quản lý tải doanh thu; enabled=false không gửi query cho vai trò khác.
@@ -414,7 +421,8 @@ export default function Dashboard() {
               }
               subtitle={
                 activeSub
-                  ? `Hết hạn ${dateLabel(activeSub.endDate)}`
+                  ? // Thêm "còn N ngày" (tính theo ngày lịch như chip trạng thái gói) để thành viên biết sớm khi nào cần gia hạn.
+                    `Hết hạn ${dateLabel(activeSub.endDate)} · còn ${Math.max(0, Math.round((parseDate(activeSub.endDate).getTime() - parseDate(localDate()).getTime()) / 86400000))} ngày`
                   : "Khám phá gói thành viên"
               }
               icon={CreditCard}
@@ -489,9 +497,12 @@ export default function Dashboard() {
               }
               subtitle={
                 manager
-                  ? period === "month"
-                    ? "Từ đầu tháng đến hôm nay"
-                    : "Trong 7 ngày gần nhất"
+                  ? {
+                      today: "Trong ngày hôm nay",
+                      week: "Trong 7 ngày gần nhất",
+                      month: "Từ đầu tháng đến hôm nay",
+                      quarter: "Từ đầu quý đến hôm nay",
+                    }[period] || "Từ đầu tháng đến hôm nay"
                   : "Các lớp trong phạm vi phụ trách"
               }
               icon={CreditCard}
@@ -547,8 +558,10 @@ export default function Dashboard() {
                 value={period}
                 onChange={setPeriod}
               >
-                <option value="month">Tháng này</option>
+                <option value="today">Hôm nay</option>
                 <option value="week">7 ngày qua</option>
+                <option value="month">Tháng này</option>
+                <option value="quarter">Quý này</option>
               </Select>
             ) : (
               <Link className="subtle-link" to="/attendance">

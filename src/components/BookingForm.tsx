@@ -1,3 +1,4 @@
+// [VAI TRÒ] Form đăng ký lớp: MEMBER tự đăng ký, LỄ TÂN đăng ký hộ thành viên (kiểm tra gói còn hạn).
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,7 +44,9 @@ export default function BookingForm({
 }) {
   const { session } = useAuth();
   const db = useDemoData();
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers(true);
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   const client = useQueryClient();
   const toast = useToast();
@@ -69,16 +72,19 @@ export default function BookingForm({
   const [selectedClass, setClass] = useState(classId || 0);
   const activeMembership = useQuery({
     queryKey: ["activeSubscription", selectedMember],
+    // [API] api.activeSubscription → GET /memberships/members/{memberId}/active
     queryFn: () => api.activeSubscription(selectedMember),
     enabled: !db && selectedMember > 0,
   });
   const membershipPackages = useQuery({
     queryKey: ["membershipPackages"],
+    // [API] api.membershipPackages → GET /memberships/packages
     queryFn: api.membershipPackages,
     enabled: !db && selectedMember > 0,
   });
   const capacity = useQuery({
     queryKey: ["capacity", selectedClass],
+    // [API] api.capacity → GET /classes/{id}/capacity
     queryFn: () => api.capacity(selectedClass),
     enabled: !db && selectedClass > 0,
   });
@@ -157,6 +163,7 @@ export default function BookingForm({
                         : "";
   const allowed = db ? !!eligibility?.allowed : !apiReason;
   return (
+    // [NÚT] FORM "Đăng ký lớp theo gói tập, nút "Xác nhận đăng ký"" → gọi API api.book → POST /classes/{classId}/book?memberId={memberId}
     <FormModal
       title={db ? "Đăng ký lớp theo gói tập" : "Đăng ký lớp học"}
       onClose={onClose}
@@ -169,6 +176,7 @@ export default function BookingForm({
           );
         const recipient = users.data?.find((user) => user.id === selectedMember)?.fullName
           || `thành viên #${selectedMember}`;
+        // [API] api.book → POST /classes/{classId}/book?memberId={memberId}
         await api.book(selectedClass, selectedMember);
         await Promise.all([
           client.invalidateQueries({
@@ -210,6 +218,7 @@ export default function BookingForm({
                 if (!value) setMemberFilter("");
               }}
             />
+            {/* [NÚT] NÚT "Tìm kiếm" → đổi cách hiển thị / bộ lọc trên màn hình (setMemberFilter) */}
             <Button type="button" variant="secondary" onClick={searchMembers}>
               <Search size={16} />
               Tìm kiếm
@@ -310,6 +319,7 @@ export default function BookingForm({
         </Notice>
       )}
       {membershipError && !db && (
+        // [NÚT] NÚT "Thử lại kiểm tra gói" → tải lại dữ liệu từ API
         <button
           type="button"
           className="text-link"
@@ -368,6 +378,7 @@ export default function BookingForm({
       {classes.error && (
         <Notice tone="warning">
           {errorText(classes.error)}{" "}
+          {/* [NÚT] NÚT "Tải lại lớp học" → tải lại dữ liệu từ API */}
           <button
             type="button"
             className="text-link"

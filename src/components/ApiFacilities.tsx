@@ -87,8 +87,8 @@ export default function ApiFacilities() {
           <DataTable
             rows={rooms.data || []}
             columns={[
-              { key: "name", label: "Phòng tập", render: (r) => r.name },
-              { key: "capacity", label: "Sức chứa", render: (r) => r.capacity },
+              { key: "name", sort: (r) => r.name, label: "Phòng tập", render: (r) => r.name },
+              { key: "capacity", sort: (r) => r.capacity, label: "Sức chứa", render: (r) => r.capacity },
               {
                 key: "action",
                 label: "Thao tác",
@@ -117,7 +117,7 @@ export default function ApiFacilities() {
             pageSize={Math.max(sports.data?.length || 0, 8)}
             rows={sports.data || []}
             columns={[
-              { key: "name", label: "Bộ môn", render: (s) => s.name },
+              { key: "name", sort: (s) => s.name, label: "Bộ môn", render: (s) => s.name },
               {
                 key: "description",
                 label: "Mô tả",

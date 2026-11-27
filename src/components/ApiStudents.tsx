@@ -48,6 +48,7 @@ export default function ApiStudents() {
               {
                 key: "name",
                 label: "Học viên",
+                sort: (s) => s.fullName,
                 render: (s) => (
                   <Button
                     variant="ghost"
@@ -57,11 +58,12 @@ export default function ApiStudents() {
                   </Button>
                 ),
               },
-              { key: "email", label: "Email", render: (s) => s.email },
+              { key: "email", label: "Email", sort: (s) => s.email, render: (s) => s.email },
               { key: "phone", label: "Điện thoại", render: (s) => s.phone },
               {
                 key: "goals",
                 label: "Mục tiêu",
+                sort: (s) => s.fitnessGoals || "",
                 render: (s) => s.fitnessGoals || "Chưa cung cấp",
               },
             ]}

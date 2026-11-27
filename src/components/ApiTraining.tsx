@@ -1,3 +1,4 @@
+// [VAI TRÒ] Kế hoạch tập luyện chế độ API: MEMBER xem kế hoạch, ghi kết quả.
 /**
  * HLV quản lý giáo án cá nhân/cả lớp, ghi kết quả và nhận xét sau buổi tập.
  * Thành viên chỉ xem dữ liệu của mình; quản lý có thể chọn HLV để tra cứu.
@@ -49,7 +50,9 @@ function TrainingContent() {
   const actor = session!.user;
   const member = actor.roleName === "MEMBER";
   const coach = actor.roleName === "COACH";
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   const students = useAssignedStudents();
   const [coachChoice, setCoach] = useState("");
@@ -62,11 +65,13 @@ function TrainingContent() {
   const scope = member ? actor.id : coachId;
   const plans = useQuery({
     queryKey: ["workout-plans", member ? "member" : "coach", scope, actor.id, actor.roleName],
+    // [API] operations.plans → GET /workout-plans/{kind}/{target}
     queryFn: () => operations.plans(member ? "member" : "coach", scope),
     enabled: !!scope,
   });
   const bookings = useQuery({
     queryKey: ["bookings", actor.id],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
     queryFn: () => api.bookings(actor.id),
     enabled: member,
     retry: false,
@@ -77,6 +82,7 @@ function TrainingContent() {
     : [];
   const classPlans = useQueries({ queries: classIds.map(classId => ({
     queryKey: ["workout-plans", "class", classId, actor.id, actor.roleName],
+    // [API] operations.plans → GET /workout-plans/{kind}/{target}
     queryFn: () => operations.plans("class", classId),
     retry: false,
   })) });
@@ -90,6 +96,7 @@ function TrainingContent() {
   const planError = !!plans.error || (member && !!bookings.error) || classPlans.some(q => !!q.error);
   const logs = useQuery({
     queryKey: ["workout-logs", member ? "member" : "coach", scope, actor.id, actor.roleName],
+    // [API] operations.logs → GET /workout-logs/{kind}/{target}
     queryFn: () => operations.logs(member ? "member" : "coach", scope),
     enabled: !!scope,
   });
@@ -122,6 +129,7 @@ function TrainingContent() {
   const recordedClasses = useQueries({
     queries: missingClassIds.map((id) => ({
       queryKey: ["classDetail", id, actor.id],
+      // [API] api.classDetail → GET /classes/{id}
       queryFn: () => api.classDetail(id),
       enabled: !classes.isPending,
       retry: false,
@@ -155,12 +163,14 @@ function TrainingContent() {
         actions={
           !member ? (
             <>
+              {/* [NÚT] NÚT "Tạo kế hoạch" → mở/đóng hộp thoại hoặc form (setEdit) */}
               <Button
                 disabled={!canCreatePlan}
                 onClick={() => setEdit(true)}
               >
                 Tạo kế hoạch
               </Button>
+              {/* [NÚT] NÚT "Ghi kết quả buổi tập" → đổi cách hiển thị / bộ lọc trên màn hình (setNewLog) */}
               <Button
                 variant="secondary"
                 disabled={!coachId || !!students.error || students.isPending}
@@ -239,6 +249,7 @@ function TrainingContent() {
                 key: "title",
                 label: "Giáo án",
                 render: (p) => (
+                  // [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setDetailId)
                   <Button variant="ghost" onClick={() => setDetailId(p.id)}>
                     {p.title}
                   </Button>
@@ -264,9 +275,11 @@ function TrainingContent() {
                 render: (p) =>
                   !member && (
                     <div className="row-actions">
+                      {/* [NÚT] NÚT "Sửa giáo án" → mở/đóng hộp thoại hoặc form (setEdit) */}
                       <Button variant="ghost" onClick={() => setEdit(p)}>
                         Sửa giáo án
                       </Button>
+                      {/* [NÚT] NÚT "Xóa giáo án" → mở/đóng hộp thoại hoặc form (setRemove) */}
                       <Button variant="danger" onClick={() => setRemove(p)}>
                         Xóa giáo án
                       </Button>
@@ -343,6 +356,7 @@ function TrainingContent() {
                   label: "Thao tác",
                   render: (l) =>
                     !member && (
+                      // [NÚT] NÚT "Ghi nhận xét" → đổi cách hiển thị / bộ lọc trên màn hình (setFeedback)
                       <Button variant="ghost" onClick={() => setFeedback(l)}>
                         Ghi nhận xét
                       </Button>
@@ -362,6 +376,7 @@ function TrainingContent() {
         </Modal>
       )}
       {edit && (
+        // [NÚT] FORM "Tạo kế hoạch tập luyện" → gọi API operations.savePlan → POST (xem lib/operations-api.ts)
         <FormModal
           title={
             edit === true ? "Tạo kế hoạch tập luyện" : "Sửa kế hoạch tập luyện"
@@ -370,6 +385,7 @@ function TrainingContent() {
           onClose={() => setEdit(null)}
           onSubmit={async (d) => {
             const target = String(d.get("target"));
+            // [API] operations.savePlan → POST (xem lib/operations-api.ts)
             await operations.savePlan(
               {
                 title: String(d.get("title")).trim(),
@@ -401,11 +417,13 @@ function TrainingContent() {
         </FormModal>
       )}
       {remove && (
+        // [NÚT] HỘP XÁC NHẬN "Xóa giáo án?" → gọi API operations.deletePlan → DELETE /workout-plans/{planId}
         <Confirm
           title="Xóa giáo án?"
           description={remove.title}
           onClose={() => setRemove(null)}
           onConfirm={async () => {
+            // [API] operations.deletePlan → DELETE /workout-plans/{planId}
             await operations.deletePlan(remove.id);
             await client.invalidateQueries({ queryKey: ["workout-plans"] });
             toast("Đã xóa giáo án.");
@@ -421,10 +439,12 @@ function TrainingContent() {
         />
       )}
       {feedback && (
+        // [NÚT] FORM "Nhận xét kết quả buổi tập" → gọi API operations.feedback → PATCH /workout-logs/{logId}/feedback?feedback={encodeURIComponent}
         <FormModal
           title="Nhận xét kết quả buổi tập"
           onClose={() => setFeedback(null)}
           onSubmit={async (d) => {
+            // [API] operations.feedback → PATCH /workout-logs/{logId}/feedback?feedback={encodeURIComponent}
             await operations.feedback(feedback.id, String(d.get("feedback")));
             await client.invalidateQueries({ queryKey: ["workout-logs"] });
             toast("Đã lưu nhận xét.");
@@ -599,6 +619,7 @@ function LogForm({
             actor.roleName,
             item.id,
           ],
+          // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
           queryFn: () => api.bookings(undefined, item.id),
           retry: false,
         }))
@@ -623,6 +644,7 @@ function LogForm({
   );
   const sports = useQuery({
     queryKey: ["sports"],
+    // [API] api.sports → GET /sports
     queryFn: api.sports,
     enabled: selectedClass?.sportId != null,
   });
@@ -654,6 +676,7 @@ function LogForm({
     });
   };
   return (
+    // [NÚT] FORM "Ghi kết quả buổi tập" → gọi API operations.saveLog → POST /workout-logs
     <FormModal
       title="Ghi kết quả buổi tập"
       wide
@@ -662,6 +685,7 @@ function LogForm({
       onSubmit={async (d) => {
         if (invalidSchedule)
           throw new Error("Hãy chọn lại buổi tập trước khi lưu.");
+        // [API] operations.saveLog → POST /workout-logs
         await operations.saveLog({
           memberId: Number(memberId),
           coachId,
@@ -804,6 +828,7 @@ function LogForm({
                 )
               )}
             </div>
+            {/* [NÚT] NÚT "Bỏ bài tập này" → đổi cách hiển thị / bộ lọc trên màn hình (setRows) */}
             <Button
               type="button"
               variant="ghost"
@@ -815,6 +840,7 @@ function LogForm({
           </fieldset>
         );
       })}
+      {/* [NÚT] NÚT "Thêm bài tập" → đổi cách hiển thị / bộ lọc trên màn hình (setRows) */}
       <Button
         type="button"
         variant="secondary"

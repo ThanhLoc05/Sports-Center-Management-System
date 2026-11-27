@@ -1,3 +1,4 @@
+// [VAI TRÒ] Form sửa hồ sơ cá nhân (chế độ API) cho Member và Lễ tân.
 import { CoachProfileCard } from "./CoachProfile";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,12 +43,14 @@ export function ApiProfileEditor({
   // Hồ sơ chưa tồn tại (404) được phép nhập mới; lỗi kết nối/quyền phải xử lý trước khi lưu.
   const q = useQuery({
     queryKey: ["member-profile", user?.id],
+    // [API] operations.profile → GET /users/{memberId}/profile
     queryFn: () => operations.profile(user!.id),
     enabled: permitted && user!.roleName === "MEMBER",
     retry: false,
   });
   if (!user && team)
     return (
+      // [NÚT] FORM "Thêm nhân viên, nút "Tạo tài khoản nhân viên"" → gọi API api.createStaff → POST /users/staff
       <FormModal
         title="Thêm nhân viên"
         onClose={onClose}
@@ -61,6 +64,7 @@ export function ApiProfileEditor({
             throw new Error("Chọn vai trò nhân viên hợp lệ.");
           const next =
             created ||
+            // [API] api.createStaff → POST /users/staff
             (await api.createStaff({
               roleName: role,
               fullName: String(d.get("fullName")).trim(),
@@ -120,10 +124,12 @@ export function ApiProfileEditor({
   if (!user) return <Notice>Chọn một tài khoản để cập nhật hồ sơ.</Notice>;
   if (user.roleName !== "MEMBER")
     return (
+      // [NÚT] FORM "Chỉnh sửa thông tin HLV/nhân viên" → gọi API api.updateStaffDetails → PUT /users/{id}/details
       <FormModal
         title="Chỉnh sửa thông tin HLV/nhân viên"
         onClose={onClose}
         onSubmit={async (d) => {
+          // [API] api.updateStaffDetails → PUT /users/{id}/details
           const saved = await api.updateStaffDetails(user.id, {
             fullName: String(d.get("fullName")),
             email: String(d.get("email")),
@@ -172,6 +178,7 @@ export function ApiProfileEditor({
       </FormModal>
     );
   return (
+    // [NÚT] FORM "Cập nhật hồ sơ học viên" → gọi API operations.saveProfile → PUT /users/{memberId}/profile
     <FormModal
       title="Cập nhật hồ sơ học viên"
       onClose={onClose}
@@ -186,6 +193,7 @@ export function ApiProfileEditor({
           const value = String(d.get(name) || "");
           return value === "" && q.data?.[name] === null ? null : value;
         };
+        // [API] operations.saveProfile → PUT /users/{memberId}/profile
         const saved = await operations.saveProfile(user.id, {
           fullName: String(d.get("fullName")).trim(),
           email: String(d.get("email")).trim(),
@@ -261,6 +269,7 @@ export function ApiProfile() {
   const [edit, setEdit] = useState(false);
   const q = useQuery({
     queryKey: ["member-profile", user.id],
+    // [API] operations.profile → GET /users/{memberId}/profile
     queryFn: () => operations.profile(user.id),
     enabled: user.roleName === "MEMBER",
     retry: false,
@@ -271,6 +280,7 @@ export function ApiProfile() {
         title="Hồ sơ cá nhân"
         actions={
           user.roleName === "MEMBER" ? (
+            // [NÚT] NÚT "Cập nhật hồ sơ" → mở/đóng hộp thoại hoặc form (setEdit)
             <Button disabled={!q.isSuccess || q.isFetching} onClick={() => setEdit(true)}>Cập nhật hồ sơ</Button>
           ) : undefined
         }

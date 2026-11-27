@@ -25,7 +25,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 1.4px;
   color: #616c4f;
@@ -38,7 +38,7 @@
 }
 .banner-copy h2 {
   white-space: pre-line;
-  font-size: 25px;
+  font-size: var(--text-2xl);
   font-weight: 500;
   color: #49603c;
   letter-spacing: -0.8px;
@@ -46,7 +46,7 @@
   margin-top: 12px;
 }
 .banner-copy p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626b53;
   margin-top: 10px;
 }
@@ -54,7 +54,7 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5a6e46;
   margin-top: 18px;
@@ -160,7 +160,7 @@
 .spark-two {
   right: 16%;
   bottom: 47px;
-  font-size: 25px;
+  font-size: var(--text-2xl);
 }
 .banner-tag {
   position: absolute;
@@ -169,7 +169,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.4px;
   color: #616e4b;
 }
@@ -195,7 +195,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #656d59;
   line-height: 1.7;
 }
@@ -208,7 +208,7 @@
   justify-content: center;
 }
 .stat-value {
-  font-size: 25px;
+  font-size: var(--text-2xl);
   letter-spacing: -1.1px;
   font-weight: 600;
   display: block;
@@ -223,12 +223,12 @@
   align-items: center;
   gap: 6px;
   line-height: 1.7;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #656b5c;
   white-space: nowrap;
 }
 .stat-trend {
-  font-size: 10px;
+  font-size: var(--text-xs);
   background: var(--status-green-bg);
   color: var(--status-green-text);
   padding: 2px 4px;
@@ -238,7 +238,7 @@
   border-radius: 3px;
 }
 .stat-card > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646b5a;
 }
 .dashboard-middle {
@@ -258,13 +258,13 @@
   margin-top: 3px;
 }
 .chart-summary strong {
-  font-size: 27px;
+  font-size: var(--text-3xl);
   letter-spacing: -1px;
   font-weight: 500;
   color: #385230;
 }
 .chart-summary > span {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #656b5b;
   display: flex;
   align-items: center;
@@ -316,12 +316,12 @@
   margin-bottom: 9px;
 }
 .quick-action > strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5c6e4f;
 }
 .quick-action > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #666c5b;
   margin-top: 4px;
   line-height: 1.7;
@@ -342,7 +342,7 @@
   color: #656d57;
 }
 .quick-note p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636b5a;
 }
 .dashboard-bottom {
@@ -364,7 +364,7 @@
   justify-content: center;
   min-width: 25px;
   height: 28px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646d58;
   padding: 0 8px;
 }
@@ -395,12 +395,12 @@
   flex-shrink: 0;
 }
 .class-time > strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6c4f;
   font-weight: 500;
 }
 .class-time > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646a59;
 }
 .class-icon {
@@ -420,7 +420,7 @@
   min-width: 0;
 }
 .today-class-name strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5a714a;
   white-space: nowrap;
@@ -428,7 +428,7 @@
   text-overflow: ellipsis;
 }
 .today-class-name small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646b5a;
   display: flex;
   gap: 5px;
@@ -441,7 +441,7 @@
   gap: 6px;
 }
 .today-class-occupancy > span:first-child {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c56;
   display: flex;
   align-items: center;
@@ -453,7 +453,7 @@
   margin-left: 0;
 }
 .today-class .badge {
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 3px 5px;
   gap: 3px;
 }
@@ -475,7 +475,7 @@
   min-width: 0;
 }
 .new-members strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5d6e4b;
   display: block;
@@ -484,7 +484,7 @@
   text-overflow: ellipsis;
 }
 .new-members small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636b58;
   display: block;
   margin-top: 5px;
@@ -493,10 +493,10 @@
   width: 31px;
   height: 31px;
   min-width: 31px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .new-members .badge {
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 3px 5px;
 }
 .chart-api-placeholder {
@@ -511,10 +511,10 @@
   padding: 25px;
 }
 .chart-api-placeholder p {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .chart-api-placeholder small {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .journey-panel {
   display: flex;
@@ -545,22 +545,22 @@
   color: #5a7141;
 }
 .journey-circle small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1px;
   color: #626c52;
 }
 .journey-panel h3 {
-  font-size: 16px;
+  font-size: var(--text-lg);
   letter-spacing: -0.5px;
   line-height: 1.8;
 }
 .journey-panel p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626c52;
   margin: 10px 0 15px;
 }
 .journey-panel .text-link {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .personal-discovery {
   text-align: center;
@@ -578,12 +578,12 @@
   margin: 0 auto 16px;
 }
 .personal-discovery h3 {
-  font-size: 17px;
+  font-size: var(--text-lg);
   line-height: 1.8;
   color: #5e704b;
 }
 .personal-discovery p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #656d57;
   margin: 12px 0 20px;
 }
@@ -635,7 +635,7 @@
   padding: 7px 10px;
   border: 1px solid #9fbc6d33;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   letter-spacing: 1.5px;
   color: #b0c598;
 }
@@ -657,7 +657,7 @@
   color: #cee3a1;
 }
 .auth-story-content > p {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #9bb395;
   line-height: 2;
   max-width: 370px;
@@ -737,13 +737,13 @@
   color: #646b56;
 }
 .floating-label strong {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #d0ddbd;
   font-weight: 500;
   display: block;
 }
 .floating-label small {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #92ac7f;
   display: block;
   margin-top: 5px;
@@ -752,7 +752,7 @@
   right: 0;
   top: 51px;
   transform: rotate(6deg);
-  font-size: 11px;
+  font-size: var(--text-sm);
   gap: 8px;
   padding: 12px 15px;
 }
@@ -762,7 +762,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 15px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.6px;
   color: #8ea776;
   position: relative;
@@ -799,7 +799,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.2px;
   color: #686b61;
   gap: 15px;
@@ -808,7 +808,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 0;
   white-space: nowrap;
   color: #636b56;
@@ -827,11 +827,11 @@
   padding: 55px 0 35px;
 }
 .auth-form-content > .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.5px;
 }
 .auth-form-content > h2 {
-  font-size: 25px;
+  font-size: var(--text-2xl);
   letter-spacing: -1px;
   line-height: 1.55;
   margin: 11px 0;
@@ -839,12 +839,12 @@
 }
 .auth-form-content > p {
   color: #646b5c;
-  font-size: 11px;
+  font-size: var(--text-sm);
   margin-bottom: 30px;
 }
 .auth-form-content form .field {
   margin-bottom: 20px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616e51;
   gap: 9px;
 }
@@ -852,7 +852,7 @@
   min-height: 45px;
   border-color: var(--border-card);
   background: #fff;
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 12px 14px;
 }
 .password-field {
@@ -882,13 +882,13 @@
   min-height: 45px;
   justify-content: space-between;
   padding: 12px 17px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .auth-form-content .form-error {
   margin: 0 0 15px;
 }
 .auth-form-content .auth-switch {
-  font-size: 11px;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -920,7 +920,7 @@
   background: var(--line);
 }
 .divider > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1px;
   color: #666c5d;
   white-space: nowrap;
@@ -939,7 +939,7 @@
   background: #f6f8ef;
   border: 1px solid var(--border-card);
   border-radius: 7px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6d4d;
   transition: background 0.2s;
 }
@@ -953,7 +953,7 @@
 .demo-entrance > small {
   display: block;
   text-align: center;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #666b5c;
   line-height: 1.9;
   margin-top: 12px;
@@ -963,7 +963,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #666c5d;
   margin-top: 26px;
 }
@@ -971,7 +971,7 @@
   display: flex;
   justify-content: space-between;
   gap: 15px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #686b62;
   padding-top: 20px;
 }
@@ -991,7 +991,7 @@
   min-width: max-content;
 }
 .sport-tabs > button {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #656c5b;
   padding: 0 0 15px;
   position: relative;
@@ -1043,7 +1043,7 @@
   padding: 18px;
 }
 .class-sport-label {
-  font-size: 11px;
+  font-size: var(--text-sm);
   border: 1px solid currentColor;
   padding: 4px 7px;
   border-radius: 4px;
@@ -1097,7 +1097,7 @@
   position: absolute;
   bottom: 14px;
   right: 17px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.7px;
   opacity: 0.7;
 }
@@ -1127,7 +1127,7 @@
   gap: 6px;
 }
 .class-card-title h2 {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: #4b6839;
   letter-spacing: -0.4px;
   line-height: 1.7;
@@ -1136,7 +1136,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   white-space: nowrap;
   color: #5d6d4d;
   padding-top: 5px;
@@ -1161,10 +1161,10 @@
   width: 24px;
   height: 24px;
   min-width: 24px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-card-coach > span:last-child {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c56;
 }
 .class-card-meta {
@@ -1172,7 +1172,7 @@
   flex-wrap: wrap;
   gap: 10px 13px;
   color: #636c55;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-card-meta > span {
   display: flex;
@@ -1202,7 +1202,7 @@
   gap: 10px;
 }
 .class-card-bottom > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c57;
   display: flex;
   align-items: center;
@@ -1212,7 +1212,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5c6e47;
   padding: 0;
 }
@@ -1230,20 +1230,20 @@
   flex: 1;
 }
 .class-detail-banner > div > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.4px;
   text-transform: uppercase;
   display: block;
   margin-bottom: 7px;
 }
 .class-detail-banner h3 {
-  font-size: 22px;
+  font-size: var(--text-2xl);
   letter-spacing: -0.7px;
   line-height: 1.5;
   font-weight: 400;
 }
 .class-detail > h3 {
-  font-size: 12px;
+  font-size: var(--text-sm);
   border-top: 1px solid var(--line);
   padding-top: 20px;
   margin-bottom: 10px;
@@ -1262,13 +1262,13 @@
 }
 .roster-list > div > strong {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: #626d51;
 }
 .roster-list > p {
   padding: 15px 0;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .schedule-toolbar {
   padding: 21px 23px;
@@ -1284,13 +1284,13 @@
   gap: 14px;
 }
 .calendar-range h2 {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: #5e6f4d;
 }
 .calendar-range .btn {
   min-height: 30px;
   padding: 6px 9px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .schedule-toolbar .select-wrap {
   min-width: 125px;
@@ -1325,12 +1325,12 @@
   position: relative;
 }
 .week-header span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1px;
   color: #646d59;
 }
 .week-header strong {
-  font-size: 21px;
+  font-size: var(--text-xl);
   font-weight: 400;
   color: #606c4f;
   width: 35px;
@@ -1351,7 +1351,7 @@
   color: #587144;
 }
 .week-header > div.timezone {
-  font-size: 11px;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1370,7 +1370,7 @@
 .time-gutter > div {
   position: absolute;
   left: 13px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646b5b;
   padding-top: 8px;
 }
@@ -1408,19 +1408,19 @@
   box-shadow: 0 3px 12px #536d351a;
 }
 .calendar-event strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.6;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
 .calendar-event > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   opacity: 0.85;
   white-space: nowrap;
 }
 .calendar-event > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   opacity: 0.8;
   white-space: nowrap;
 }
@@ -1430,7 +1430,7 @@
   gap: 19px;
   padding: 16px 23px;
   border-top: 1px solid var(--line);
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636d56;
   flex-wrap: wrap;
 }
@@ -1457,7 +1457,7 @@
   border-top: 1px solid var(--line);
 }
 .schedule-list h3 {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606d50;
   margin-bottom: 15px;
 }
@@ -1476,19 +1476,19 @@
   border-radius: 3px;
 }
 .schedule-list-item > strong {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: #626e51;
 }
 .schedule-list-item > div {
   flex: 1;
 }
 .schedule-list-item h4 {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5a6e49;
 }
 .schedule-list-item p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616b57;
   margin-top: 5px;
 }
@@ -1496,7 +1496,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616e54;
 }
 /* Flow 1/3: thẻ gói tập, lịch sử đăng ký và giao diện phiếu thu. */
@@ -1514,14 +1514,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636e56;
   white-space: nowrap;
 }
 .member-picker-bar select,
 .member-picker-bar input {
   max-width: 310px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 9px 12px;
 }
 .active-membership {
@@ -1549,11 +1549,11 @@
   flex: 1;
 }
 .active-membership-copy > .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626c52;
 }
 .active-membership h2 {
-  font-size: 25px;
+  font-size: var(--text-2xl);
   color: #5a6e45;
   font-weight: 500;
 }
@@ -1562,12 +1562,12 @@
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636d54;
   margin-top: 7px;
 }
 .active-membership .badge {
-  font-size: 11px;
+  font-size: var(--text-sm);
   margin-left: 9px;
   border: 1px solid var(--border-card);
   background: var(--status-green-bg);
@@ -1577,18 +1577,18 @@
   margin: 29px 0 27px;
 }
 .section-intro h2 {
-  font-size: 23px;
+  font-size: var(--text-2xl);
   font-weight: 500;
   letter-spacing: -0.8px;
   color: #4c683c;
 }
 .section-intro p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c56;
   margin-top: 9px;
 }
 .section-intro .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626b58;
   letter-spacing: 1.8px;
 }
@@ -1624,7 +1624,7 @@
   border: 1px solid #789459;
   border-radius: 5px;
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 400;
   letter-spacing: 0.7px;
   display: flex;
@@ -1651,14 +1651,14 @@
   color: var(--status-green-text);
 }
 .pricing-card h3 {
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 500;
   color: #5a6f47;
   letter-spacing: -0.5px;
   margin-bottom: 7px;
 }
 .pricing-card > p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c58;
 }
 .pricing-price {
@@ -1671,13 +1671,13 @@
   border-bottom: 1px solid var(--line);
 }
 .pricing-price > strong {
-  font-size: 25px;
+  font-size: var(--text-2xl);
   font-weight: 500;
   color: #51703b;
   letter-spacing: -0.9px;
 }
 .pricing-price > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c58;
 }
 .pricing-card ul {
@@ -1694,7 +1694,7 @@
   align-items: flex-start;
   gap: 8px;
   color: #616c51;
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.8;
 }
 .pricing-card li svg {
@@ -1704,13 +1704,13 @@
 }
 .pricing-card > .btn {
   width: 100%;
-  font-size: 11px;
+  font-size: var(--text-sm);
   justify-content: space-between;
 }
 .pricing-card > small {
   text-align: center;
   color: #656b5a;
-  font-size: 11px;
+  font-size: var(--text-sm);
   margin-top: 14px;
 }
 .payment-method {
@@ -1718,13 +1718,13 @@
   align-items: center;
   gap: 6px;
   color: #636b56;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .invoice-id {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5a6e49;
   font-family: ui-monospace, monospace;
   padding: 0;
@@ -1752,7 +1752,7 @@
   border-bottom: 1px solid var(--line);
 }
 .invoice-brand {
-  font-size: 30px;
+  font-size: var(--text-3xl);
   letter-spacing: -1.8px;
   font-weight: 600;
   color: #44703e;
@@ -1763,7 +1763,7 @@
 }
 .invoice-brand > small {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 2.4px;
   color: #606c50;
   margin-top: 8px;
@@ -1772,13 +1772,13 @@
   text-align: right;
 }
 .invoice-document-top h3 {
-  font-size: 15px;
+  font-size: var(--text-md);
   letter-spacing: 2px;
   color: #596e48;
   font-weight: 400;
 }
 .invoice-document-top p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c57;
   font-family: monospace;
   margin: 8px 0;
@@ -1789,7 +1789,7 @@
   background: #faf6e9;
   border: 1px solid #ede3c5;
   color: #73684f;
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1px;
   margin-top: 20px;
   border-radius: 4px;
@@ -1800,11 +1800,11 @@
 .invoice-document th,
 .invoice-document td {
   padding: 15px 12px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   white-space: normal;
 }
 .invoice-document th {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .invoice-total {
   display: flex;
@@ -1815,11 +1815,11 @@
   border-top: 1px solid var(--line);
 }
 .invoice-total span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616b52;
 }
 .invoice-total strong {
-  font-size: 24px;
+  font-size: var(--text-2xl);
   font-weight: 500;
   letter-spacing: -0.6px;
   color: #596f44;
@@ -1831,17 +1831,17 @@
   margin-top: 20px;
 }
 .invoice-thanks strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5a6e47;
 }
 .invoice-thanks p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626d57;
   margin: 8px 0 20px;
 }
 .invoice-thanks small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646b5a;
 }
 /* Flow 4/3: điểm danh và trình bày báo cáo. */
@@ -1856,17 +1856,17 @@
   margin-bottom: 0;
   flex: 1;
   min-width: 130px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .attendance-class-controls .field:first-child {
   flex: 2;
 }
 .attendance-controls .field > input,
 .attendance-controls .field > select {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .attendance-class-note {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c59;
   display: flex;
   gap: 6px;
@@ -1891,7 +1891,7 @@
   min-width: 0;
 }
 .check-in-person strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5c6f4b;
   font-weight: 500;
   white-space: nowrap;
@@ -1900,7 +1900,7 @@
   display: block;
 }
 .check-in-person small {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636b57;
   display: block;
   margin-top: 4px;
@@ -1908,18 +1908,18 @@
 .check-in-person .btn {
   padding: 5px 7px;
   min-height: 28px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   gap: 4px;
 }
 .check-in-person .text-danger {
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding-left: 3px;
 }
 .check-in-person .avatar {
   width: 29px;
   height: 29px;
   min-width: 29px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .check-in-roster > .empty-state,
 .check-in-roster > .loading-state,
@@ -1948,10 +1948,10 @@
   align-self: center;
 }
 .report-range h2 {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .report-range p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616c53;
   margin-top: 5px;
 }
@@ -1959,11 +1959,11 @@
   margin-bottom: 0;
   width: 155px;
   flex: none;
-  font-size: 11px;
+  font-size: var(--text-sm);
   gap: 6px;
 }
 .report-range .field > input {
-  font-size: 11px;
+  font-size: var(--text-sm);
   min-height: 37px;
   padding: 8px 10px;
 }
@@ -1995,13 +1995,13 @@
   pointer-events: none;
 }
 .donut-chart strong {
-  font-size: 28px;
+  font-size: var(--text-3xl);
   letter-spacing: -1px;
   color: #5b7144;
   font-weight: 500;
 }
 .donut-chart span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.2px;
   color: #626d53;
 }
@@ -2012,7 +2012,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626c55;
   padding: 8px 0;
 }
@@ -2023,7 +2023,7 @@
 }
 .breakdown-legend strong {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #596e47;
 }
@@ -2039,17 +2039,17 @@
   color: #626e54;
 }
 .report-unavailable h3 {
-  font-size: 16px;
+  font-size: var(--text-lg);
 }
 .report-unavailable p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   max-width: 350px;
 }
 .live-method-report {
   padding: 25px;
 }
 .live-method-report pre {
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 2;
   white-space: pre-wrap;
   font-family: inherit;
@@ -2068,19 +2068,19 @@
   gap: 20px;
 }
 .training-hero h2 {
-  font-size: 25px;
+  font-size: var(--text-2xl);
   font-weight: 400;
   letter-spacing: -0.8px;
   color: #6e6b4f;
   line-height: 1.6;
 }
 .training-hero p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #6d6b59;
   margin-top: 13px;
 }
 .training-hero .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.5px;
   color: #6e6a5a;
   margin-bottom: 13px;
@@ -2134,7 +2134,7 @@
   border-radius: 10px;
 }
 .training-card h3 {
-  font-size: 16px;
+  font-size: var(--text-lg);
   letter-spacing: -0.5px;
   color: #5c6e49;
   font-weight: 500;
@@ -2142,17 +2142,17 @@
   line-height: 1.7;
 }
 .training-card > .person-cell {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6d53;
 }
 .training-card > .person-cell .avatar {
   width: 25px;
   height: 25px;
   min-width: 25px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .training-card > p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606b57;
   line-height: 1.9;
   margin: 16px 0;
@@ -2167,7 +2167,7 @@
   border-radius: 7px;
 }
 .training-exercise-preview > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2183,17 +2183,17 @@
   margin-top: 20px;
 }
 .training-card-footer > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636d59;
 }
 .training-card-footer .text-link {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .training-detail {
   padding: 24px;
 }
 .training-detail h3 {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: #5e6e4f;
   margin: 23px 0 17px;
 }
@@ -2208,12 +2208,12 @@
   margin: 9px 0;
 }
 .exercise-list > div > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c58;
   width: 24px;
 }
 .exercise-list strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: #5e6e4f;
 }
@@ -2226,12 +2226,12 @@
 }
 .workout-log > span {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616b55;
   padding-bottom: 10px;
 }
 .workout-log p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6c52;
   line-height: 1.9;
   margin-bottom: 7px;
@@ -2276,14 +2276,14 @@
   flex: 1;
 }
 .chat-heading strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #596e4a;
 }
 .chat-heading small {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626c56;
   margin-top: 5px;
 }
@@ -2292,7 +2292,7 @@
   height: 4px;
 }
 .chat-heading > .subtle-link {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6c51;
 }
 .chat-content {
@@ -2322,12 +2322,12 @@
   margin: 0 auto 24px;
 }
 .chat-welcome .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626c56;
   letter-spacing: 1.5px;
 }
 .chat-welcome h2 {
-  font-size: 27px;
+  font-size: var(--text-3xl);
   font-weight: 400;
   color: #597047;
   line-height: 1.6;
@@ -2335,7 +2335,7 @@
   margin: 12px 0;
 }
 .chat-welcome > p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626e57;
   margin-top: 12px;
 }
@@ -2355,7 +2355,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606f51;
   line-height: 1.8;
 }
@@ -2383,7 +2383,7 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 8px 0;
   color: #606f51;
 }
@@ -2399,7 +2399,7 @@
   justify-content: center;
 }
 .chat-disclaimer {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626b57;
   text-align: center;
   padding: 11px 20px 15px;
@@ -2415,21 +2415,21 @@
   margin-bottom: 23px;
 }
 .assistant-info-card h3 {
-  font-size: 19px;
+  font-size: var(--text-xl);
   font-weight: 400;
   line-height: 1.7;
   letter-spacing: -0.6px;
   color: #596f44;
 }
 .assistant-info-card p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626e53;
   line-height: 2;
   margin-top: 14px;
   margin-bottom: 22px;
 }
 .assistant-info-card > .btn {
-  font-size: 11px;
+  font-size: var(--text-sm);
   width: 100%;
   justify-content: space-between;
   gap: 3px;
@@ -2443,18 +2443,18 @@
   display: block;
 }
 .assistant-scope strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5d6d4e;
   font-weight: 400;
 }
 .assistant-scope p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 2;
   margin-top: 10px;
   margin-bottom: 18px;
 }
 .assistant-scope > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   letter-spacing: 1.1px;
   color: #626b58;
 }
@@ -2472,14 +2472,14 @@
   min-width: 0;
 }
 .chat-message > div > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606e51;
   display: block;
   margin-top: 1px;
   margin-bottom: 8px;
 }
 .chat-message p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 2;
   white-space: pre-wrap;
   color: #5c704b;
@@ -2502,7 +2502,7 @@
 .suggested-workout {
   white-space: pre-wrap;
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6d4f;
   line-height: 2.3;
   background: #f7faf2;
@@ -2534,13 +2534,13 @@
   border-radius: 15px;
 }
 .support-intro h2 {
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 400;
   color: #5a6e46;
   letter-spacing: -0.6px;
 }
 .support-intro p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606c51;
   max-width: 600px;
   margin-top: 9px;
@@ -2549,7 +2549,7 @@
   padding: 25px;
 }
 .support-detail > p {
-  font-size: 12px;
+  font-size: var(--text-sm);
   white-space: pre-wrap;
   color: #5e6c4f;
   line-height: 2;
@@ -2599,13 +2599,13 @@
 }
 .support-ticket-section h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.6;
   color: var(--green-dark);
 }
 .support-ticket-section p {
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.7;
 }
 .support-ticket-content {
@@ -2652,7 +2652,7 @@
   gap: 11px;
   border-radius: 7px;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 13px;
   color: #626c55;
 }
@@ -2678,25 +2678,25 @@
   min-width: 0;
 }
 .settings-account h3 {
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 500;
   color: #5d6e4e;
   letter-spacing: -0.4px;
 }
 .settings-account p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636c56;
   margin: 7px 0 11px;
   overflow-wrap: anywhere;
 }
 .settings-account > .btn {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .settings-account .avatar-large {
   width: 60px;
   height: 60px;
   min-width: 60px;
-  font-size: 17px;
+  font-size: var(--text-lg);
 }
 .settings-row {
   display: flex;
@@ -2710,18 +2710,18 @@
   border-top: 0;
 }
 .settings-row strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: #5f6f4f;
 }
 .settings-row p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #646c58;
   margin-top: 7px;
   max-width: 400px;
 }
 .settings-row > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626c54;
   text-align: right;
   line-height: 1.8;
@@ -2776,12 +2776,12 @@
   flex: 1;
 }
 .connection-status h3 {
-  font-size: 15px;
+  font-size: var(--text-md);
   color: #606f50;
   font-weight: 400;
 }
 .connection-status p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #616b54;
   margin-top: 6px;
   overflow-wrap: anywhere;
@@ -2799,29 +2799,29 @@
 }
 .integration-details > div > span {
   color: #636a57;
-  font-size: 11px;
+  font-size: var(--text-sm);
   flex-shrink: 0;
 }
 .integration-details code {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636e56;
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: right;
 }
 .integration-details strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606e51;
   font-weight: 400;
   text-align: right;
 }
 .settings-content .panel > .notice {
   margin: 0 24px 23px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .settings-content .panel > .btn {
   margin: 0 24px 18px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .documentation-links {
   padding: 0 25px;
@@ -2841,18 +2841,18 @@
   flex: 1;
 }
 .documentation-links strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5f6f4f;
   font-weight: 400;
 }
 .documentation-links p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #636d57;
   margin-top: 5px;
 }
 .settings-content table th,
 .settings-content table td {
-  font-size: 11px;
+  font-size: var(--text-sm);
   padding: 15px 18px;
 }
 .settings-content .table-scroll {
@@ -2865,13 +2865,13 @@
   padding: 30px;
 }
 .profile-page-header h2 {
-  font-size: 23px;
+  font-size: var(--text-2xl);
   color: #5c6f4d;
   font-weight: 400;
   letter-spacing: -0.6px;
 }
 .profile-page-header p {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #606d53;
   margin: 6px 0 12px;
 }
@@ -2888,11 +2888,11 @@
   min-width: 0;
 }
 .profile-details span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #626e56;
 }
 .profile-details strong {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: #5c6f4c;
   font-weight: 400;
   overflow-wrap: anywhere;
@@ -2901,7 +2901,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5d6e50;
 }
 @media (min-width: 1550px) {
@@ -2909,7 +2909,7 @@
     padding: 31px 35px;
   }
   .banner-copy h2 {
-    font-size: 29px;
+    font-size: var(--text-3xl);
   }
   .welcome-banner {
     min-height: 235px;
@@ -2921,13 +2921,13 @@
     padding: 22px 25px;
   }
   .stat-value {
-    font-size: 30px;
+    font-size: var(--text-3xl);
   }
   .stat-top {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .stat-bottom {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .revenue-chart {
     height: 270px;
@@ -2939,10 +2939,10 @@
     gap: 12px;
   }
   .quick-action strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-note {
     padding: 16px 0 18px;
@@ -2951,31 +2951,31 @@
     padding: 18px 0;
   }
   .today-class-name strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .today-class-name small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-occupancy > span:first-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members > a {
     padding: 19px 0;
   }
   .new-members strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .new-members small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-time strong {
-    font-size: 13px;
+    font-size: var(--text-base);
   }
   .class-time span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-art {
     height: 180px;
@@ -2985,19 +2985,19 @@
     top: 48px;
   }
   .class-card-title h2 {
-    font-size: 16px;
+    font-size: var(--text-lg);
   }
   .class-card-coach > span:last-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-meta {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
 }
 @media (max-width: 1250px) {
@@ -3005,7 +3005,7 @@
     padding: 25px;
   }
   .banner-copy h2 {
-    font-size: 24px;
+    font-size: var(--text-2xl);
   }
   .welcome-banner {
     min-height: 213px;
@@ -3020,10 +3020,10 @@
     padding: 15px 16px;
   }
   .stat-value {
-    font-size: 22px;
+    font-size: var(--text-2xl);
   }
   .stat-top {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .stat-icon {
     width: 28px;
@@ -3034,7 +3034,7 @@
     width: 15px;
   }
   .stat-bottom {
-    font-size: 11px;
+    font-size: var(--text-sm);
     white-space: normal;
   }
   .dashboard-middle,
@@ -3043,7 +3043,7 @@
     gap: 18px;
   }
   .chart-summary strong {
-    font-size: 24px;
+    font-size: var(--text-2xl);
   }
   .quick-action-grid {
     padding: 0 17px;
@@ -3053,17 +3053,17 @@
     padding: 10px;
   }
   .quick-action small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-note {
     margin: 13px 17px 0;
     padding-top: 12px;
   }
   .quick-note p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-panel .panel-heading {
     padding-left: 17px;
@@ -3080,13 +3080,13 @@
     gap: 10px;
   }
   .today-class-name small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-name strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-occupancy .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-icon {
     width: 30px;
@@ -3123,7 +3123,7 @@
     gap: 1px;
   }
   .class-card-title h2 {
-    font-size: 13px;
+    font-size: var(--text-base);
     flex-basis: 100%;
   }
   .availability {
@@ -3134,17 +3134,17 @@
   }
   .class-card-meta {
     gap: 9px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-meta > span > svg {
     width: 13px;
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 4px;
   }
   .class-card-bottom > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 5px;
   }
   .class-card-bottom > button svg {
@@ -3157,7 +3157,7 @@
     gap: 17px;
   }
   .pricing-price strong {
-    font-size: 22px;
+    font-size: var(--text-2xl);
   }
   .training-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3170,13 +3170,13 @@
     padding: 23px 18px;
   }
   .assistant-info-card h3 {
-    font-size: 17px;
+    font-size: var(--text-lg);
   }
   .chat-welcome {
     padding: 35px 24px 25px;
   }
   .chat-suggestions > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-suggestions > button > svg:first-child {
     width: 16px;
@@ -3186,7 +3186,7 @@
     gap: 20px;
   }
   .settings-nav > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 12px 9px;
     gap: 8px;
   }
@@ -3198,11 +3198,11 @@
     gap: 13px;
   }
   .settings-account > .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 8px;
   }
   .settings-account h3 {
-    font-size: 14px;
+    font-size: var(--text-base);
   }
   .report-range {
     gap: 14px;
@@ -3211,7 +3211,7 @@
     max-width: 200px;
   }
   .report-range p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .report-range .field {
     width: 140px;
@@ -3229,10 +3229,10 @@
     min-width: 125px;
   }
   .journey-panel h3 {
-    font-size: 14px;
+    font-size: var(--text-base);
   }
   .journey-panel p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-story {
     padding: 40px;
@@ -3259,14 +3259,14 @@
     padding: 17px 20px;
   }
   .stat-top {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .stat-value {
-    font-size: 26px;
+    font-size: var(--text-2xl);
     margin-top: 6px;
   }
   .stat-bottom {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .dashboard-middle,
   .dashboard-bottom {
@@ -3287,45 +3287,45 @@
     padding: 13px;
   }
   .quick-action strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-note {
     margin: 17px 21px 0;
     padding: 12px 0 16px;
   }
   .quick-note p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .revenue-chart {
     height: 245px;
   }
   .chart-summary strong {
-    font-size: 27px;
+    font-size: var(--text-3xl);
   }
   .new-members .badge {
     display: inline-flex;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members > a {
     padding: 15px 0;
   }
   .new-members strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-name strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-name small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-occupancy .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class {
     padding: 15px 0;
@@ -3341,10 +3341,10 @@
     padding: 0 21px 8px;
   }
   .class-time > strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .class-time > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3363,23 +3363,23 @@
     gap: 5px;
   }
   .class-card-title h2 {
-    font-size: 14px;
+    font-size: var(--text-base);
     flex-basis: 100%;
   }
   .class-card-meta {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .sport-tabs {
     gap: 20px;
   }
   .sport-tabs > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-grid {
     grid-template-columns: 1fr;
@@ -3397,25 +3397,25 @@
     gap: 13px 20px;
   }
   .pricing-card li {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-card h3 {
-    font-size: 23px;
+    font-size: var(--text-2xl);
   }
   .pricing-card > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-price {
     margin-top: 18px;
   }
   .pricing-price strong {
-    font-size: 28px;
+    font-size: var(--text-3xl);
   }
   .pricing-card .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .section-intro h2 {
-    font-size: 21px;
+    font-size: var(--text-xl);
   }
   .active-membership {
     padding: 22px;
@@ -3427,16 +3427,16 @@
     min-width: 50px;
   }
   .active-membership h2 {
-    font-size: 23px;
+    font-size: var(--text-2xl);
   }
   .active-membership .eyebrow {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .active-membership p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .active-membership > .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 8px 10px;
     min-height: 35px;
   }
@@ -3467,10 +3467,10 @@
     padding: 26px;
   }
   .training-hero h2 {
-    font-size: 22px;
+    font-size: var(--text-2xl);
   }
   .training-hero p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-hero > div:last-child {
     min-width: 100px;
@@ -3489,10 +3489,10 @@
     gap: 10px;
   }
   .training-card h3 {
-    font-size: 15px;
+    font-size: var(--text-md);
   }
   .training-card .tag {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-card-footer {
     flex-wrap: wrap;
@@ -3508,13 +3508,13 @@
     max-width: 500px;
   }
   .chat-suggestions > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-welcome {
     padding: 45px 30px 30px;
   }
   .chat-heading > .subtle-link {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-panel {
     min-height: 620px;
@@ -3531,15 +3531,15 @@
     gap: 5px;
   }
   .settings-nav > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 10px;
     white-space: nowrap;
   }
   .settings-account h3 {
-    font-size: 17px;
+    font-size: var(--text-lg);
   }
   .settings-account > .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 10px;
   }
   .settings-row > div {
@@ -3556,22 +3556,22 @@
     padding-top: 70px;
   }
   .auth-story-content > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 2;
   }
   .auth-form-section {
     padding: 25px;
   }
   .auth-form-content > h2 {
-    font-size: 23px;
+    font-size: var(--text-2xl);
   }
   .auth-topline {
-    font-size: 11px;
+    font-size: var(--text-sm);
     letter-spacing: 0.7px;
     gap: 10px;
   }
   .online-dot {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .label-one {
     left: -10px;
@@ -3580,24 +3580,24 @@
   }
   .label-two {
     right: -6px;
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 10px;
   }
   .floating-label strong {
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .floating-label small {
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .auth-visual {
     height: 300px;
   }
   .auth-story-footer {
-    font-size: 11px;
+    font-size: var(--text-sm);
     letter-spacing: 1px;
   }
   .auth-footer {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-footer > span {
     display: none;
@@ -3614,22 +3614,22 @@
     width: 78%;
   }
   .banner-eyebrow {
-    font-size: 11px;
+    font-size: var(--text-sm);
     letter-spacing: 1px;
   }
   .banner-copy h2 {
-    font-size: 23px;
+    font-size: var(--text-2xl);
     margin-top: 14px;
     letter-spacing: -0.8px;
   }
   .banner-copy p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.9;
     max-width: 240px;
     margin-top: 11px;
   }
   .banner-copy > a {
-    font-size: 11px;
+    font-size: var(--text-sm);
     margin-top: 16px;
     gap: 7px;
   }
@@ -3662,12 +3662,12 @@
     display: none;
   }
   .spark-one {
-    font-size: 28px;
+    font-size: var(--text-3xl);
     left: 30%;
     top: 33px;
   }
   .spark-two {
-    font-size: 20px;
+    font-size: var(--text-xl);
     right: 5%;
     bottom: 31px;
   }
@@ -3680,11 +3680,11 @@
     border-radius: 10px;
   }
   .stat-top {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 5px;
   }
   .stat-value {
-    font-size: 23px;
+    font-size: var(--text-2xl);
     letter-spacing: -0.9px;
     margin: 10px 0;
   }
@@ -3698,13 +3698,13 @@
     width: 14px;
   }
   .stat-bottom {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.8;
     white-space: normal;
     min-height: 13px;
   }
   .stat-card > small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .stat-trend {
     display: none;
@@ -3717,10 +3717,10 @@
     padding: 0 19px;
   }
   .chart-summary strong {
-    font-size: 24px;
+    font-size: var(--text-2xl);
   }
   .chart-summary > span {
-    font-size: 10px;
+    font-size: var(--text-xs);
     gap: 4px;
   }
   .revenue-panel .select-wrap {
@@ -3728,7 +3728,7 @@
     max-width: 115px;
   }
   .revenue-panel .select-wrap select {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 7px 25px 7px 9px;
     min-height: 30px;
   }
@@ -3747,10 +3747,10 @@
     padding: 13px;
   }
   .quick-action strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-icon {
     width: 31px;
@@ -3760,7 +3760,7 @@
     margin: 16px 18px 0;
   }
   .quick-note p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .dashboard-middle > .panel {
     margin-bottom: 20px;
@@ -3777,10 +3777,10 @@
     gap: 4px;
   }
   .class-time strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-time span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-icon {
     width: 29px;
@@ -3791,20 +3791,20 @@
     width: 16px;
   }
   .today-class-name strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-name small {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 4px;
     line-height: 1.7;
     flex-wrap: wrap;
   }
   .today-class-occupancy .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 3px 4px;
   }
   .today-class-occupancy > span:first-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 3px;
   }
   .today-class-occupancy > span:first-child > svg {
@@ -3815,7 +3815,7 @@
   }
   .day-nav button {
     padding: 0 6px;
-    font-size: 11px;
+    font-size: var(--text-sm);
     min-width: 21px;
     height: 25px;
   }
@@ -3829,19 +3829,19 @@
     padding: 14px 0;
   }
   .new-members strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .panel-bottom-link {
     padding: 13px;
   }
   .panel-bottom-link .text-link {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .journey-panel {
     padding: 20px 18px 27px;
@@ -3853,27 +3853,27 @@
     min-width: 115px;
   }
   .journey-circle strong {
-    font-size: 30px;
+    font-size: var(--text-3xl);
   }
   .journey-circle small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .journey-panel h3 {
-    font-size: 14px;
+    font-size: var(--text-base);
   }
   .journey-panel p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.9;
     margin: 10px 0;
   }
   .journey-panel .eyebrow {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .journey-panel .text-link {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .demo-footnote {
-    font-size: 11px;
+    font-size: var(--text-sm);
     margin-top: 15px;
   }
   .class-card-grid {
@@ -3905,7 +3905,7 @@
     top: -20px;
   }
   .class-sport-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 3px 5px;
   }
   .class-edit {
@@ -3918,18 +3918,18 @@
     width: 12px;
   }
   .class-level {
-    font-size: 11px;
+    font-size: var(--text-sm);
     right: 10px;
     bottom: 10px;
     letter-spacing: 1px;
   }
   .class-card-title h2 {
-    font-size: 12px;
+    font-size: var(--text-sm);
     flex-basis: 100%;
     line-height: 1.7;
   }
   .availability {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding-top: 3px;
   }
   .class-card-coach {
@@ -3940,14 +3940,14 @@
     width: 20px;
     height: 20px;
     min-width: 20px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-coach > span:last-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.7;
   }
   .class-card-meta {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 7px 9px;
   }
   .class-card-meta > span {
@@ -3967,14 +3967,14 @@
     flex-wrap: wrap;
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 4px;
   }
   .class-card-bottom > span > svg {
     width: 10px;
   }
   .class-card-bottom > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 5px;
     margin-left: auto;
   }
@@ -3993,17 +3993,17 @@
     width: 35px;
   }
   .class-detail-banner h3 {
-    font-size: 19px;
+    font-size: var(--text-xl);
   }
   .class-detail-banner > div > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-detail-banner > .badge {
     margin-left: auto;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .roster-list > div > strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .schedule-toolbar {
     padding: 18px;
@@ -4015,7 +4015,7 @@
     justify-content: space-between;
   }
   .calendar-range h2 {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .calendar-range .day-nav button {
     padding: 0 7px;
@@ -4028,22 +4028,22 @@
     min-width: 100px;
   }
   .schedule-toolbar .select-wrap select {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .schedule-toolbar .segmented {
     margin-left: auto;
   }
   .segmented > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 5px 8px;
   }
   .schedule-legend {
     padding: 15px 18px;
     gap: 12px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .schedule-total {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .calendar-scroll {
     max-height: 680px;
@@ -4055,19 +4055,19 @@
     gap: 12px;
   }
   .schedule-list-item > strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .schedule-list-item h4 {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .schedule-list-item p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .schedule-list-item > span:last-child {
     display: none;
   }
   .schedule-list-item > span:not(.schedule-list-marker) {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .member-picker-bar {
     padding: 14px;
@@ -4075,12 +4075,12 @@
     flex-wrap: wrap;
   }
   .member-picker-bar > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .member-picker-bar select,
   .member-picker-bar input {
     max-width: none;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .active-membership {
     padding: 20px 17px;
@@ -4101,113 +4101,113 @@
     min-width: 200px;
   }
   .active-membership h2 {
-    font-size: 21px;
+    font-size: var(--text-xl);
   }
   .active-membership .eyebrow {
-    font-size: 11px;
+    font-size: var(--text-sm);
     letter-spacing: 0.6px;
   }
   .active-membership p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 5px;
     margin-top: 6px;
   }
   .active-membership p > .badge {
     margin-left: 3px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .active-membership > .btn {
     margin-left: auto;
-    font-size: 11px;
+    font-size: var(--text-sm);
     min-height: 31px;
   }
   .section-intro {
     margin: 28px 10px 24px;
   }
   .section-intro h2 {
-    font-size: 21px;
+    font-size: var(--text-xl);
     line-height: 1.7;
   }
   .section-intro p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-card {
     padding: 25px;
   }
   .pricing-card h3 {
-    font-size: 23px;
+    font-size: var(--text-2xl);
   }
   .pricing-card > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-card ul {
     grid-template-columns: 1fr;
     gap: 12px;
   }
   .pricing-card li {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-price > strong {
-    font-size: 28px;
+    font-size: var(--text-3xl);
   }
   .pricing-icon {
     width: 42px;
     height: 42px;
   }
   .pricing-card > .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-card > small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .pricing-ribbon {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-document {
     padding: 24px 21px;
   }
   .invoice-brand {
-    font-size: 27px;
+    font-size: var(--text-3xl);
   }
   .invoice-document-top h3 {
-    font-size: 13px;
+    font-size: var(--text-base);
   }
   .invoice-document-top p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-document-top .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-demo-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
     letter-spacing: 0.5px;
   }
   .invoice-document th,
   .invoice-document td {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 15px 8px;
   }
   .invoice-document th {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-total {
     padding: 22px 7px;
     gap: 25px;
   }
   .invoice-total strong {
-    font-size: 22px;
+    font-size: var(--text-2xl);
   }
   .invoice-total span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-thanks strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-thanks p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .invoice-thanks small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .attendance-controls {
     gap: 12px;
@@ -4215,7 +4215,7 @@
   }
   .attendance-controls .field {
     min-width: 130px;
-    font-size: 11px;
+    font-size: var(--text-sm);
     flex: 1;
     gap: 6px;
   }
@@ -4224,10 +4224,10 @@
   }
   .attendance-controls .field > input,
   .attendance-controls .field > select {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .attendance-class-note {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 0;
     margin-top: 3px;
   }
@@ -4238,10 +4238,10 @@
     gap: 9px;
   }
   .check-in-person strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .check-in-person .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
     min-height: 28px;
     padding: 5px 8px;
   }
@@ -4250,24 +4250,24 @@
     gap: 15px;
   }
   .report-range h2 {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .report-range p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .report-range .field {
     min-width: 130px;
     flex: 1;
     width: auto;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .report-range .field > input {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .report-range > .btn {
     width: 100%;
     min-height: 34px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .report-chart {
     height: 280px;
@@ -4280,10 +4280,10 @@
     gap: 7px;
   }
   .report-chart-grid .panel-heading p {
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .report-chart-grid .segmented > button {
-    font-size: 10px;
+    font-size: var(--text-xs);
     padding: 5px 7px;
   }
   .report-chart-grid .segmented {
@@ -4296,15 +4296,15 @@
     overflow: hidden;
   }
   .training-hero h2 {
-    font-size: 20px;
+    font-size: var(--text-xl);
     letter-spacing: -0.6px;
   }
   .training-hero p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     max-width: 250px;
   }
   .training-hero .eyebrow {
-    font-size: 11px;
+    font-size: var(--text-sm);
     letter-spacing: 1px;
   }
   .training-hero > div:last-child {
@@ -4328,34 +4328,34 @@
     padding: 22px;
   }
   .training-card h3 {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
   .training-card > .person-cell {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-card .tag {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-card > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-exercise-preview > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-card-footer > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-card-footer > .text-link {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-detail {
     padding: 20px;
   }
   .exercise-list strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .workout-log p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-panel {
     min-height: 610px;
@@ -4365,17 +4365,17 @@
     gap: 9px;
   }
   .chat-heading > .subtle-link {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 4px;
   }
   .chat-heading > .subtle-link svg {
     width: 12px;
   }
   .chat-heading strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-heading small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .assistant-avatar {
     width: 30px;
@@ -4387,10 +4387,10 @@
     padding: 36px 20px 20px;
   }
   .chat-welcome h2 {
-    font-size: 25px;
+    font-size: var(--text-2xl);
   }
   .chat-welcome > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.9;
   }
   .chat-suggestions {
@@ -4398,7 +4398,7 @@
     margin-top: 25px;
   }
   .chat-suggestions > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 12px 10px;
     gap: 7px;
     align-items: flex-start;
@@ -4416,7 +4416,7 @@
     gap: 7px;
   }
   .chat-composer > input {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-composer > button {
     width: 31px;
@@ -4427,7 +4427,7 @@
     width: 16px;
   }
   .chat-disclaimer {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.8;
     padding: 10px 17px 13px;
   }
@@ -4443,10 +4443,10 @@
     margin-bottom: 22px;
   }
   .chat-message > div > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-message p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-message .assistant-avatar {
     width: 25px;
@@ -4461,7 +4461,7 @@
     width: 25px;
     height: 25px;
     min-width: 25px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-message.user p {
     padding: 9px 12px;
@@ -4480,17 +4480,17 @@
     width: 26px;
   }
   .support-intro h2 {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
   .support-intro p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.9;
   }
   .support-detail {
     padding: 22px;
   }
   .support-detail > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-layout {
     gap: 20px;
@@ -4500,7 +4500,7 @@
     padding-bottom: 10px;
   }
   .settings-nav > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 10px 9px;
     gap: 6px;
   }
@@ -4516,20 +4516,20 @@
     width: 48px;
     height: 48px;
     min-width: 48px;
-    font-size: 16px;
+    font-size: var(--text-lg);
   }
   .settings-account h3 {
-    font-size: 15px;
+    font-size: var(--text-md);
   }
   .settings-account p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-account .role-chip {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-account > .btn {
     margin-left: auto;
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 8px 10px;
     min-height: 33px;
   }
@@ -4538,18 +4538,18 @@
     gap: 15px;
   }
   .settings-row strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-row p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     max-width: 250px;
   }
   .settings-row > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
     min-width: 80px;
   }
   .settings-row .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 5px;
     white-space: normal;
     text-align: center;
@@ -4564,10 +4564,10 @@
     gap: 12px;
   }
   .connection-status h3 {
-    font-size: 13px;
+    font-size: var(--text-base);
   }
   .connection-status p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.8;
   }
   .connection-icon {
@@ -4580,7 +4580,7 @@
     width: 21px;
   }
   .connection-status > .tag {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 4px 6px;
   }
   .integration-details {
@@ -4591,28 +4591,28 @@
     padding: 13px 0;
   }
   .integration-details > div > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .integration-details code {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.8;
   }
   .integration-details strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.8;
   }
   .settings-content .panel > .notice {
     margin: 0 19px 20px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .documentation-links {
     padding: 0 19px;
   }
   .documentation-links strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .documentation-links p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.9;
   }
   .documentation-links > a {
@@ -4632,13 +4632,13 @@
     width: 58px;
     height: 58px;
     min-width: 58px;
-    font-size: 19px;
+    font-size: var(--text-xl);
   }
   .profile-page-header h2 {
-    font-size: 20px;
+    font-size: var(--text-xl);
   }
   .profile-page-header p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .profile-details {
     padding: 5px 23px 28px;
@@ -4646,10 +4646,10 @@
     gap: 24px;
   }
   .profile-details span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .profile-details strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .auth-page {
     grid-template-columns: 1fr;
@@ -4660,7 +4660,7 @@
     min-height: 260px;
   }
   .brand-light {
-    font-size: 26px;
+    font-size: var(--text-2xl);
   }
   .brand-light .brand-symbol {
     width: 31px;
@@ -4677,13 +4677,13 @@
     display: none;
   }
   .auth-story h1 {
-    font-size: 29px;
+    font-size: var(--text-3xl);
     letter-spacing: -1px;
     line-height: 1.4;
     margin: 0 0 12px;
   }
   .auth-story-content > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.9;
     max-width: 260px;
     color: #abc29e;
@@ -4737,10 +4737,10 @@
     min-height: 600px;
   }
   .auth-topline {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .online-dot {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-form-content {
     max-width: 400px;
@@ -4748,48 +4748,48 @@
     margin: 0 auto;
   }
   .auth-form-content > h2 {
-    font-size: 25px;
+    font-size: var(--text-2xl);
   }
   .auth-form-content > .eyebrow {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-form-content > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     margin-bottom: 25px;
   }
   .auth-form-content form .field {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-form-content .auth-switch {
-    font-size: 11px;
+    font-size: var(--text-sm);
     margin-top: 20px;
   }
   .demo-role-grid > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 13px;
   }
   .demo-entrance > small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-footer {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding-top: 0;
   }
   .auth-footer > span {
     display: block;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-secure {
-    font-size: 11px;
+    font-size: var(--text-sm);
     margin-top: 23px;
   }
 }
 @media (max-width: 400px) {
   .banner-copy h2 {
-    font-size: 21px;
+    font-size: var(--text-xl);
   }
   .stat-value {
-    font-size: 21px;
+    font-size: var(--text-xl);
   }
   .stat-card {
     padding: 13px;
@@ -4810,39 +4810,39 @@
     font-size: 48px;
   }
   .class-card-title h2 {
-    font-size: 16px;
+    font-size: var(--text-lg);
     flex-basis: auto;
   }
   .class-card-body {
     padding: 18px 18px 0;
   }
   .class-card-meta {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 12px;
   }
   .class-card-coach > span:last-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom {
     padding: 15px 0;
   }
   .availability {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-sport-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-level {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-story h1 {
-    font-size: 27px;
+    font-size: var(--text-3xl);
   }
   .auth-visual {
     opacity: 0.25;
@@ -4866,10 +4866,10 @@
 }
 /* Giữ nhãn dữ liệu và chi tiết lớp dễ đọc trên các kích thước màn hình. */
 .stat-top {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .stat-bottom {
-  font-size: 11px;
+  font-size: var(--text-sm);
   white-space: normal;
 }
 .stat-value {
@@ -4877,167 +4877,167 @@
   overflow-wrap: anywhere;
 }
 .stat-card > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .banner-copy p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .banner-copy > a {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .quick-action > strong {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .quick-action > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .quick-action {
   padding: 14px;
 }
 .quick-note p {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .chart-summary > span {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .today-class-name strong,
 .new-members strong {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .today-class-name small,
 .new-members small {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .today-class .badge,
 .new-members .badge {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .today-class-occupancy > span:first-child {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-time > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-card-coach > span:last-child {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-card-meta {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-card-bottom > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-card-bottom > button {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .availability {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-sport-label {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .pricing-card > p,
 .pricing-card li {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .pricing-card > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .chat-message p {
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .chat-suggestions > button {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .chat-composer > input {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .chat-heading strong {
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .chat-heading small {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .chat-heading > .subtle-link {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .assistant-info-card p,
 .assistant-scope p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .chat-welcome > p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .chat-disclaimer {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .settings-row strong {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .settings-row p {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .settings-row > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .settings-nav > button {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .settings-account p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .integration-details > div > span,
 .integration-details strong,
 .integration-details code {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .settings-content .panel > .notice {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .documentation-links strong {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .documentation-links p {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .training-card > p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .training-exercise-preview > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .training-card > .person-cell {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .support-intro p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .auth-form-content > p {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .auth-form-content form .field {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .auth-form-content input {
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .auth-form-content > .eyebrow {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .auth-form-content .auth-switch {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .demo-role-grid > button {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .demo-entrance > small {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .auth-secure {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .auth-form-content .auth-submit {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .stat-icon {
   min-width: 28px;
@@ -5046,77 +5046,77 @@
   flex-wrap: wrap;
 }
 .banner-tag {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 @media (max-width: 1250px) {
   .stat-top {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .stat-value {
-    font-size: 22px;
+    font-size: var(--text-2xl);
   }
   .stat-bottom {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chart-summary > span {
-    font-size: 9px;
+    font-size: var(--text-xs);
   }
   .quick-action > strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action > small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action {
     padding: 12px;
   }
   .today-class-name strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-name small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-occupancy > span:first-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-time > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-meta {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-coach > span:last-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-nav > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-suggestions > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom {
     flex-wrap: wrap;
   }
   .class-card-title h2 {
-    font-size: 15px;
+    font-size: var(--text-md);
   }
 }
 @media (max-width: 760px) {
   .stat-top {
-    font-size: 11px;
+    font-size: var(--text-sm);
     align-items: flex-start;
   }
   .stat-value {
-    font-size: 21px;
+    font-size: var(--text-xl);
     letter-spacing: -0.8px;
   }
   .stat-icon {
@@ -5125,45 +5125,45 @@
     min-width: 26px;
   }
   .stat-bottom {
-    font-size: 11px;
+    font-size: var(--text-sm);
     line-height: 1.8;
   }
   .stat-card {
     padding: 15px 13px;
   }
   .banner-copy p {
-    font-size: 11px;
+    font-size: var(--text-sm);
     max-width: 250px;
   }
   .banner-copy > a {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action > strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .quick-action > small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .quick-action {
     padding: 14px;
   }
   .chart-summary strong {
-    font-size: 23px;
+    font-size: var(--text-2xl);
   }
   .chart-summary > span {
-    font-size: 9px;
+    font-size: var(--text-xs);
     max-width: 110px;
     text-align: right;
     line-height: 1.6;
   }
   .today-class-name strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class-name small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .today-class .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
     white-space: normal;
     text-align: center;
   }
@@ -5171,22 +5171,22 @@
     max-width: 80px;
   }
   .today-class-occupancy > span:first-child {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-time > strong {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-time > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .new-members small {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .new-members .badge {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-grid {
     grid-template-columns: 1fr;
@@ -5213,7 +5213,7 @@
     right: 0;
   }
   .class-level {
-    font-size: 11px;
+    font-size: var(--text-sm);
     bottom: 17px;
     right: 20px;
   }
@@ -5230,27 +5230,27 @@
     padding: 20px 20px 0;
   }
   .class-card-title h2 {
-    font-size: 18px;
+    font-size: var(--text-lg);
     flex-basis: auto;
   }
   .availability {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-coach > span:last-child {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .class-card-coach .avatar {
     width: 27px;
     height: 27px;
     min-width: 27px;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-coach {
     gap: 8px;
     margin: 15px 0;
   }
   .class-card-meta {
-    font-size: 11px;
+    font-size: var(--text-sm);
     gap: 13px;
   }
   .class-card-meta > span > svg {
@@ -5261,10 +5261,10 @@
     padding: 16px 0;
   }
   .class-card-bottom > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > button {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .class-card-bottom > button > svg {
     width: 15px;
@@ -5277,7 +5277,7 @@
     height: 3px;
   }
   .class-sport-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
     padding: 5px 8px;
   }
   .class-card-grid {
@@ -5285,66 +5285,66 @@
   }
   .pricing-card > p,
   .pricing-card li {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .chat-message p {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .chat-suggestions > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-heading strong {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .chat-heading > .subtle-link {
-    font-size: 11px;
+    font-size: var(--text-sm);
     max-width: 95px;
     line-height: 1.8;
     text-align: right;
   }
   .chat-composer > input {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .chat-disclaimer {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-nav > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-row p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-row > span {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-row .btn {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .integration-details > div > span,
   .integration-details strong,
   .integration-details code {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .settings-content .panel > .notice {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-form-content > p {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .auth-story-content > p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .auth-visual {
     opacity: 0.2;
   }
   .auth-form-content .auth-switch {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .demo-role-grid > button {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .training-hero p {
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
 }
 .calendar-body {

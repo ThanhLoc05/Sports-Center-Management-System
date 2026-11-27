@@ -22,6 +22,7 @@ export function CenterBankSettings() {
   const can = usePermissions();
   const toast = useToast();
   const client = useQueryClient();
+  // Cả trung tâm đọc cùng cấu hình API; thay đổi không chỉ lưu riêng trong trình duyệt.
   const q = useQuery({
     queryKey: ["center-bank-account"],
     queryFn: bankAccountApi.get,
@@ -139,10 +140,12 @@ export function CenterBankSettings() {
                 setBusy(true);
                 setError("");
                 try {
+                  // Chỉ gửi sau bước xem lại; version giúp BE phát hiện cấu hình đã bị người khác sửa.
                   const settings =
                     review === "clear"
                       ? await bankAccountApi.clear(reviewVersion)
                       : await bankAccountApi.save(review, reviewVersion);
+                  // Dùng đúng phản hồi đã lưu của BE để các component dùng cache này nhận cấu hình mới.
                   client.setQueryData(["center-bank-account"], settings);
                   setReview(null);
                   toast(

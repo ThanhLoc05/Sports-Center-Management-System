@@ -1,0 +1,165 @@
+/**
+ * DESIGN TOKENS SPORTIVA — hướng "Fresh Court" (sáng, tối giản, xanh rừng + lime).
+ * Cái gì: toàn bộ biến thiết kế dùng chung (màu, chữ, khoảng cách, bo góc, bóng, lớp z, chuyển động).
+ * Làm sao: khai báo một lần ở :root, các file CSS khác chỉ dùng var(--...) thay cho giá trị viết tay.
+ * Tại sao: trước đây có hơn 400 mã màu và nhiều cỡ chữ rời rạc; gom về một nơi để giao diện nhất quán
+ * và đổi phong cách chỉ cần sửa file này.
+ */
+:root {
+  /* Màu chủ đạo (xanh rừng) — 700 là màu nút chính, đạt tương phản AA với chữ trắng. */
+  --color-primary-50: #f1f7f3;
+  --color-primary-100: #dcebe2;
+  --color-primary-300: #8fbfa3;
+  --color-primary-500: #2f7a55;
+  --color-primary-700: #245e45;
+  --color-primary-800: #194b37;
+  --color-primary-900: #12382a;
+  /* Màu nhấn lime — dùng cho chip, nền nổi bật nhẹ; không dùng làm màu chữ. */
+  --color-accent-100: #edf4e2;
+  --color-accent-200: #daeda8;
+  --color-accent-300: #c4e08a;
+  /* Màu trung tính (nền kem → chữ đậm). */
+  --color-bg: #f7f8f4;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f4f6f0;
+  --color-border: #cdd8c3;
+  --color-border-strong: #bccab0;
+  --color-text: #26301f;
+  --color-text-muted: #5f6a59;
+  --color-text-subtle: #6b7563;
+  /* Màu trạng thái — cặp nền/chữ đều đạt AA trên nền của nó. */
+  --color-success-bg: #dcedc8;
+  --color-success-text: #2f5a24;
+  --color-warning-bg: #fbf0d6;
+  --color-warning-text: #7a5410;
+  --color-error-bg: #fbe3df;
+  --color-error-text: #9b2c1f;
+  --color-info-bg: #e3eef6;
+  --color-info-text: #24506e;
+
+  /* Chữ: thân bài 14px, nhỏ nhất 12px để đọc được trên mọi màn hình. */
+  --font-sans: "Be Vietnam Pro", Arial, sans-serif;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --leading-tight: 1.25;
+  --leading-normal: 1.55;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Khoảng cách theo bước 4px. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Bo góc và đổ bóng (bóng rất nhẹ theo hướng tối giản). */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(34, 51, 29, 0.06);
+  --shadow-md: 0 4px 14px rgba(34, 51, 29, 0.08);
+  --shadow-lg: 0 12px 32px rgba(34, 51, 29, 0.12);
+
+  /* Lớp chồng (z-index) theo thứ tự cố định để menu/hộp thoại/toast không đè sai. */
+  --z-dropdown: 40;
+  --z-sticky: 50;
+  --z-overlay: 80;
+  --z-modal: 90;
+  --z-toast: 100;
+
+  /* Breakpoint tham chiếu (media query không đọc được biến, chỉ ghi để thống nhất):
+     mobile 360px · tablet 768px · laptop 1024px · desktop 1280px. */
+
+  /* Chuyển động: 150–320ms, easing tự nhiên; chỉ animate transform và opacity. */
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/**
+ * Bộ chuyển động dùng chung.
+ * Cái gì: các keyframe và class tiện ích (hiện dần, trồi lên, phóng nhẹ, xuất hiện lần lượt, skeleton).
+ * Làm sao: thêm class vào phần tử; danh sách dùng .motion-stagger để các con trễ 40ms nối tiếp.
+ * Tại sao: một bộ preset duy nhất cho cả hệ thống thay vì mỗi trang tự viết animation khác nhau.
+ */
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes motion-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes motion-scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes motion-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.motion-fade-in { animation: motion-fade-in var(--duration-base) var(--ease-out) backwards; }
+.motion-fade-up { animation: motion-fade-up var(--duration-slow) var(--ease-out) backwards; }
+.motion-scale-in { animation: motion-scale-in var(--duration-base) var(--ease-out) backwards; }
+.motion-stagger > * { animation: motion-fade-up var(--duration-slow) var(--ease-out) backwards; }
+.motion-stagger > :nth-child(2) { animation-delay: 40ms; }
+.motion-stagger > :nth-child(3) { animation-delay: 80ms; }
+.motion-stagger > :nth-child(4) { animation-delay: 120ms; }
+.motion-stagger > :nth-child(5) { animation-delay: 160ms; }
+.motion-stagger > :nth-child(n + 6) { animation-delay: 200ms; }
+
+/* Skeleton: khối xám có vệt sáng chạy ngang (vệt sáng chỉ dùng transform). */
+.skeleton {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+.skeleton-line {
+  position: relative;
+  overflow: hidden;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+}
+.skeleton-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: motion-shimmer 1.2s var(--ease-in-out) infinite;
+}
+.skeleton-line:nth-child(1) { width: 42%; height: 16px; }
+.skeleton-line:nth-child(2) { width: 92%; }
+.skeleton-line:nth-child(3) { width: 78%; }
+.skeleton-line:nth-child(4) { width: 64%; }
+.skeleton-caption {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+/* Người dùng bật "giảm chuyển động" thì tắt hẳn các preset trên. */
+@media (prefers-reduced-motion: reduce) {
+  .motion-fade-in,
+  .motion-fade-up,
+  .motion-scale-in,
+  .motion-stagger > *,
+  .skeleton-line::after {
+    animation: none;
+  }
+}

@@ -1,3 +1,4 @@
+// [VAI TRÒ] MEMBER nhập mã OTP gửi qua email để hoàn tất đăng ký.
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Field, Notice } from "../components/ui";
@@ -53,6 +54,7 @@ export default function MemberRegistrationVerification() {
     setError("");
     try {
       if (configuredMode !== "api") throw new Error("Xác minh email cần kết nối backend.");
+      // [API] api.verifyMemberRegistration → POST /users/register/verify-code
       await api.verifyMemberRegistration(email, code);
       sessionStorage.removeItem(`otp-deadline:${email}`);
       navigate("/login", { replace: true, state: { registrationComplete: true } });
@@ -75,6 +77,7 @@ export default function MemberRegistrationVerification() {
     setError("");
     try {
       if (configuredMode !== "api") throw new Error("Gửi mã xác minh cần kết nối backend.");
+      // [API] api.resendMemberRegistrationCode → POST /users/register/resend-code
       const delivery = await api.resendMemberRegistrationCode(email);
       setCode("");
       setExpiredOnServer(false);
@@ -126,10 +129,12 @@ export default function MemberRegistrationVerification() {
                     onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                   />
                 </Field>
+                {/* [NÚT] NÚT "Xác minh và tạo tài khoản" → gửi form (xử lý ở onSubmit của form chứa nút) */}
                 <Button type="submit" loading={busy} disabled={expired || code.length !== 6}>
                   Xác minh và tạo tài khoản
                 </Button>
               </form>
+              {/* [NÚT] NÚT "Gửi lại mã" → gọi API api.resendMemberRegistrationCode → POST /users/register/resend-code */}
               <Button
                 type="button"
                 variant="secondary"

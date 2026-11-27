@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
       changeOrigin: true,
       headers: { Origin: "https://sportiva-demo.vercel.app" },
     },
+    // FE local gửi /api qua Vite tới BE (mặc định 8080); cấu hình proxy này không đi theo bản build lên Vercel.
     "/api": {
       target: env.API_PROXY_TARGET || "http://127.0.0.1:8080",
       changeOrigin: true,

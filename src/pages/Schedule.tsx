@@ -1,3 +1,4 @@
+// [VAI TRÒ] Lịch hoạt động theo tuần: cả Lễ tân và Member xem lịch các buổi học.
 /**
  * FLOW 2 — BIỂU DIỄN LỊCH TỪ DỮ LIỆU LỚP, không tạo nguồn lịch độc lập.
  * Thành viên lọc lớp đã BOOKED để xem lịch cá nhân; HLV nhận lớp phụ trách
@@ -64,6 +65,7 @@ function layoutDay(items: SportClass[]) {
 }
 
 export default function Schedule() {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
   const { session } = useAuth();
   const can = usePermissions();
@@ -76,6 +78,7 @@ export default function Schedule() {
   const calendarQueryOptions = member && session?.mode === "api"
     ? { refetchOnMount: "always" as const }
     : {};
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses(calendarQueryOptions);
   const [offset, setOffset] = useState(0);
   const [sport, setSport] = useState("all");
@@ -95,6 +98,7 @@ export default function Schedule() {
    */
   const bookings = useQuery({
     queryKey: ["bookings", session!.user.id],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
     queryFn: () => api.bookings(session!.user.id),
     enabled: member,
     ...calendarQueryOptions,
@@ -162,12 +166,14 @@ export default function Schedule() {
         <div className="schedule-toolbar">
           <div className="calendar-range">
             <div className="day-nav">
+              {/* [NÚT] NÚT "Tuần trước" → đổi cách hiển thị / bộ lọc trên màn hình (setOffset) */}
               <button
                 aria-label="Tuần trước"
                 onClick={() => setOffset((o) => o - 1)}
               >
                 <ChevronLeft size={17} />
               </button>
+              {/* [NÚT] NÚT "Tuần sau" → đổi cách hiển thị / bộ lọc trên màn hình (setOffset) */}
               <button
                 aria-label="Tuần sau"
                 onClick={() => setOffset((o) => o + 1)}
@@ -179,6 +185,7 @@ export default function Schedule() {
               {dateLabel(days[0], { day: "2-digit", month: "2-digit" })} –{" "}
               {dateLabel(days[6])}
             </h2>
+            {/* [NÚT] NÚT "Hôm nay" → đổi cách hiển thị / bộ lọc trên màn hình (setOffset) */}
             <Button variant="secondary" onClick={() => setOffset(0)}>
               {manager ? "Tuần này" : "Hôm nay"}
             </Button>
@@ -212,12 +219,14 @@ export default function Schedule() {
               </Select>
             )}
             <div className="segmented">
+              {/* [NÚT] NÚT "Tuần" → mở/đóng hộp thoại hoặc form (setView) */}
               <button
                 className={view === "week" ? "active" : ""}
                 onClick={() => setView("week")}
               >
                 Tuần
               </button>
+              {/* [NÚT] NÚT "Danh sách" → mở/đóng hộp thoại hoặc form (setView) */}
               <button
                 className={view === "list" ? "active" : ""}
                 onClick={() => setView("list")}
@@ -287,6 +296,7 @@ export default function Schedule() {
                     ))}
                     {layoutDay(weekRows.filter((c) => c.scheduleTime.startsWith(localDate(d))))
                       .map(({ item: c, top, height, column, columns }) => (
+                        // [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setSelected)
                         <button
                           key={c.id}
                           className={`calendar-event sport-${c.sportId}`}
@@ -340,6 +350,7 @@ export default function Schedule() {
                         <strong>{timeLabel(c.scheduleTime)}</strong>
                         <div>
                           <h4>
+                            {/* [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setSelected) */}
                             <button className="text-link" onClick={() => setSelected(c)}>
                               {c.className}
                             </button>

@@ -272,6 +272,7 @@ async function consumeEventStream(
 }
 
 export const notificationsApi = {
+  // [API] notificationsApi.history → GET /notifications?page={page}&size={size} — được trang Lễ tân/Member gọi
   async history(page = 0, size = 20): Promise<NotificationHistoryPage> {
     const actor = apiSession();
     if (
@@ -309,6 +310,7 @@ export const notificationsApi = {
       throw new ApiError("Lịch sử thông báo trả về không hợp lệ.");
     return result;
   },
+  // [API] notificationsApi.markRead → PATCH /notifications/{positiveId}/read — được trang Lễ tân/Member gọi
   async markRead(id: number): Promise<NotificationEvent> {
     const actor = apiSession();
     const result = await request<NotificationEvent>(
@@ -331,6 +333,7 @@ export const notificationsApi = {
       throw new ApiError("Trạng thái đã đọc trả về không hợp lệ.");
     return result;
   },
+  // [API] notificationsApi.send → POST /notifications — được trang Lễ tân/Member gọi
   async send(input: NotificationInput): Promise<NotificationSendResult> {
     const session = apiSession();
     if (!["CENTER_MANAGER", "COACH"].includes(session.user.roleName))
@@ -383,6 +386,7 @@ export const notificationsApi = {
     return result;
   },
 
+  // [API] notificationsApi.connect → GET /notifications/stream — được trang Lễ tân/Member gọi
   async connect(
     onNotification: (event: NotificationEvent) => void,
     signal: AbortSignal,

@@ -1,3 +1,4 @@
+// [VAI TRÒ] Gói thành viên. MEMBER: xem gói, gửi yêu cầu đăng ký/gia hạn. LỄ TÂN: chọn thành viên rồi đăng ký/gia hạn hộ.
 /**
  * FLOW 1 — ĐĂNG KÝ, GIA HẠN VÀ THEO DÕI THỜI HẠN GÓI TẬP.
  * Package là danh mục gói, Subscription là gói một thành viên đã đăng ký.
@@ -43,8 +44,10 @@ import {
   useToast,
 } from "../components/ui";
 import { MembershipCheckoutPage } from "../components/MembershipCheckout";
+/** Điểm vào từ menu Gói thành viên: phiên API dùng checkout có hóa đơn chờ, nối Flow 1 sang Flow 3. */
 export default function Memberships() {
   const { session } = useAuth();
+  // Khi ôn demo dữ liệu thật, đọc tiếp MembershipCheckout.tsx; LegacyMemberships là nhánh fixture kiểm thử.
   return session?.mode === "api" ? (
     <MembershipCheckoutPage />
   ) : (
@@ -58,6 +61,7 @@ function LegacyMemberships() {
   const [params] = useSearchParams();
   const member = session!.user.roleName === "MEMBER",
     demo = session!.mode === "demo";
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
   const [memberId, setMemberId] = useState(
     member
@@ -78,6 +82,7 @@ function LegacyMemberships() {
    */
   const query = useQuery({
     queryKey: ["subscriptions", Number(memberId)],
+    // [API] api.subscriptions → GET /memberships/members/{memberId}
     queryFn: () => api.subscriptions(Number(memberId)),
     enabled: !!memberId,
   });
@@ -114,6 +119,7 @@ function LegacyMemberships() {
                 Quản lý danh mục gói
               </Link>
             )}
+            {/* [NÚT] NÚT "Gia hạn gói tập / Đăng ký gói tập" → mở/đóng hộp thoại hoặc form (setAction) */}
             <Button onClick={() => setAction({ renew: active })}>
               <Plus size={16} />
               {active ? "Gia hạn gói tập" : "Đăng ký gói tập"}
@@ -189,6 +195,7 @@ function LegacyMemberships() {
               </span>
             </p>
           </div>
+          {/* [NÚT] NÚT "Gia hạn ngay" → mở/đóng hộp thoại hoặc form (setAction) */}
           <Button
             variant="secondary"
             onClick={() => setAction({ renew: active })}
@@ -257,6 +264,7 @@ function LegacyMemberships() {
                     <CheckItem key={f}>{f}</CheckItem>
                   ))}
                 </ul>
+                {/* [NÚT] NÚT "Gia hạn với gói này / Chọn gói tập" → mở/đóng hộp thoại hoặc form (setAction) */}
                 <Button
                   variant={i === 1 ? "primary" : "secondary"}
                   onClick={() => setAction({ pkg, renew: active })}
@@ -341,6 +349,7 @@ function LegacyMemberships() {
                   label: "Thao tác",
                   render: (s) => (
                     <div className="row-actions">
+                      {/* [NÚT] NÚT "Gia hạn" → mở/đóng hộp thoại hoặc form (setAction) */}
                       <button
                         className="subtle-link"
                         disabled={!!active && active.id !== s.id}
@@ -355,6 +364,7 @@ function LegacyMemberships() {
                         Gia hạn
                       </button>
                       {s.status === "ACTIVE" && (
+                        // [NÚT] NÚT "Hủy gói" → mở/đóng hộp thoại hoặc form (setCancel)
                         <button
                           className="text-danger"
                           onClick={() => setCancel(s)}
@@ -371,6 +381,7 @@ function LegacyMemberships() {
         )}
       </Panel>
       {action && (
+        // [NÚT] FORM "Gia hạn gói thành viên, nút "Xác nhận gia hạn"" → gọi API api.subscribe → POST /memberships/{renewId}/renew?packageId={packageId} | /memberships/subscribe
         <FormModal
           title={
             action.renew ? "Gia hạn gói thành viên" : "Đăng ký gói thành viên"
@@ -388,6 +399,7 @@ function LegacyMemberships() {
              * renew.id quyết định gọi gia hạn hay đăng ký mới. Không gửi ngày bắt đầu/kết thúc
              * từ form vì backend tính ngày. Lưu xong tải lại dữ liệu; thu tiền thực hiện ở Payments.
              */
+            // [API] api.subscribe → POST /memberships/{renewId}/renew?packageId={packageId} | /memberships/subscribe
             await api.subscribe(
               id,
               action.pkg?.id || Number(data.get("packageId")),
@@ -450,6 +462,7 @@ function LegacyMemberships() {
         </FormModal>
       )}
       {cancel && (
+        // [NÚT] HỘP XÁC NHẬN "Hủy gói thành viên?" → gọi API api.cancelSubscription → POST /memberships/{id}/cancel
         <Confirm
           title="Hủy gói thành viên?"
           description="Gói này sẽ ngừng hoạt động. Hủy gói không tự động hoàn tiền hóa đơn đã thanh toán."
@@ -459,6 +472,7 @@ function LegacyMemberships() {
              * Hủy gói không tự hoàn tiền. Nếu cần ghi nhận hoàn tiền phải thao tác riêng
              * trên hóa đơn và đáp ứng quyền/trạng thái tương ứng.
              */
+            // [API] api.cancelSubscription → POST /memberships/{id}/cancel
             await api.cancelSubscription(cancel.id, cancel.memberId);
             await client.invalidateQueries();
             toast("Đã hủy gói thành viên.");

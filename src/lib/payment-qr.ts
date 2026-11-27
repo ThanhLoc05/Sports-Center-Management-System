@@ -65,6 +65,7 @@ export function crc16(text: string) {
   }
   return crc.toString(16).toUpperCase().padStart(4, "0");
 }
+// Mỗi trường QR có mã + độ dài + nội dung; giới hạn độ dài giúp payload không sai cấu trúc.
 const field = (id: string, value: string) => {
   if (value.length > 99) throw new Error("Trường QR quá dài.");
   return id + String(value.length).padStart(2, "0") + value;
@@ -90,6 +91,7 @@ export function transferReference(invoiceId: number, memberId?: number) {
  * Trường nội dung 62.08 tối đa 25 ký tự; không cắt mã đối soát để nhét tên.
  * Tên đầy đủ vẫn được hiển thị ở chi tiết hóa đơn, tên trong QR được báo rõ nếu rút gọn.
  */
+// [FLOW 3] NỘI DUNG CHUYỂN KHOẢN: HD{mã hóa đơn} TV{mã Member} {TÊN KHÔNG DẤU}, tối đa 25 ký tự; backend dò mã này khi SePay báo về.
 export function transferContent(
   invoiceId: number,
   memberId: number,
@@ -114,6 +116,8 @@ export function transferContent(
   if (name.length > available || available < 1) return reference;
   return reference + " " + name;
 }
+/** Ghép tài khoản nhận, tiền VND và mã hóa đơn/thành viên thành payload VietQR; hàm này không gọi ngân hàng. */
+// [FLOW 3] DỰNG MÃ VIETQR: tài khoản nhận + số tiền + nội dung chuyển khoản. Không gọi ngân hàng.
 export function buildVietQr(
   config: BankConfig,
   amount: number,
@@ -124,12 +128,14 @@ export function buildVietQr(
   validateBank(config);
   if (!Number.isSafeInteger(amount) || amount < 1 || String(amount).length > 13)
     throw new Error("Số tiền QR phải là số nguyên dương VND hợp lệ.");
+  // Thông tin người hưởng: BIN ngân hàng và số tài khoản nhận tiền.
   const beneficiary =
     field("00", config.bankBin) + field("01", config.accountNo);
   const provider =
     field("00", "A000000727") +
     field("01", beneficiary) +
     field("02", "QRIBFTTA");
+  // Trường 54 chứa số tiền; 62.08 chứa nội dung HD/TV/tên; 53=704 và 58=VN xác định tiền VND tại Việt Nam.
   const payload =
     field("00", "01") +
     field("01", "12") +
@@ -147,6 +153,7 @@ export function buildVietQr(
       ),
     ) +
     "6304";
+  // Gắn CRC cuối chuỗi để ứng dụng quét kiểm tra payload; CRC không chứng minh tiền đã được chuyển.
   return payload + crc16(payload);
 }
 

@@ -1,0 +1,410 @@
+/**
+ * COMPONENT NỀN THEO DESIGN TOKEN (Phase 1 — hướng "Fresh Court").
+ * Cái gì: chuẩn hóa trạng thái hover/focus/active/disabled và chuyển động của nút, ô nhập, bảng,
+ * hộp thoại, toast, tab dạng segmented.
+ * Làm sao: nạp sau các file CSS cũ nên chỉ ghi đè phần trình bày; chỉ animate transform/opacity.
+ * Tại sao: trước đây mỗi màn tự định nghĩa trạng thái khác nhau; gom về một chỗ để nhất quán.
+ */
+
+/* Nút: cỡ sm/lg, chuyển động hover và nhấn, vòng focus rõ ràng cho bàn phím. */
+.btn {
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+}
+.btn:focus-visible {
+  outline: 3px solid var(--color-primary-300);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  transform: none;
+}
+.btn-sm {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+}
+.btn-lg {
+  min-height: 46px;
+  padding: 12px 22px;
+  font-size: var(--text-md);
+}
+
+/* Ô nhập: viền đậm hơn khi focus (không animate thuộc tính màu để tránh giật). */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Bảng: hàng sáng nhẹ khi rê chuột; tiêu đề cột sắp xếp được là nút. */
+tbody tr:hover > td {
+  background: var(--color-primary-50);
+}
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  color: inherit;
+  white-space: nowrap;
+}
+.th-sort span {
+  color: var(--color-text-subtle);
+}
+.th-sort:focus-visible {
+  outline: 2px solid var(--color-primary-300);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Hộp thoại và toast: hiện ra mượt (nền mờ dần, khung phóng nhẹ / trồi lên). */
+.modal-overlay {
+  animation: motion-fade-in var(--duration-base) var(--ease-out);
+}
+.modal-overlay > .modal {
+  animation: motion-scale-in var(--duration-base) var(--ease-out);
+}
+.toast {
+  animation: motion-fade-up var(--duration-base) var(--ease-out);
+}
+
+/* Tab dạng segmented: nút đang chọn nổi lên nhẹ. */
+.segmented > button {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.segmented > button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Trang trống / lỗi: chữ theo thang mới, căn giữa thoáng hơn. */
+.empty-state h3,
+.error-state h3 {
+  font-size: var(--text-md);
+}
+.empty-state p,
+.error-state p {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .segmented > button,
+  .modal-overlay,
+  .modal-overlay > .modal,
+  .toast {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Skeleton dùng chung class cũ .loading-state: bỏ kiểu căn giữa của spinner cũ để các thanh trải đủ chiều ngang. */
+.skeleton.loading-state {
+  display: grid;
+  justify-items: stretch;
+  align-items: start;
+  text-align: left;
+  min-height: 0;
+}
+
+/**
+ * Thanh điều hướng thu gọn (chỉ trên màn ≥ 1001px; màn nhỏ hơn đã dùng menu trượt).
+ * Làm sao: class .sidebar-collapsed trên .app-shell thu sidebar còn 76px, ẩn chữ bằng kiểu "chỉ cho trình đọc màn hình"
+ * để link vẫn giữ tên truy cập; rê chuột vào icon hiện tên mục (thuộc tính title).
+ * Tại sao: laptop hẹp cần thêm chỗ cho bảng và lịch tuần.
+ */
+.sidebar-collapse {
+  position: absolute;
+  top: 34px;
+  right: 12px;
+}
+@media (max-width: 1000px) {
+  .sidebar-collapse {
+    display: none;
+  }
+}
+@media (min-width: 1001px) {
+  .sidebar-collapsed {
+    --sidebar: 76px;
+  }
+  .sidebar-collapsed .sidebar {
+    padding-inline: 12px;
+    align-items: center;
+  }
+  .sidebar-collapsed .sidebar-collapse {
+    position: static;
+    margin: 4px auto 12px;
+  }
+  .sidebar-collapsed .brand {
+    font-size: 0;
+    padding: 0;
+    justify-content: center;
+  }
+  .sidebar-collapsed .brand-symbol {
+    margin-right: 0;
+  }
+  .sidebar-collapsed .workspace-card,
+  .sidebar-collapsed .sidebar-bottom,
+  .sidebar-collapsed .nav-new,
+  .sidebar-collapsed .nav-count {
+    display: none;
+  }
+  .sidebar-collapsed .nav-group > p,
+  .sidebar-collapsed .nav-item > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .sidebar-collapsed .nav-item {
+    justify-content: center;
+    padding-inline: 0;
+    width: 48px;
+  }
+  .sidebar-collapsed .nav-item::after {
+    display: none;
+  }
+}
+
+/* Chuyển trang: nội dung trồi lên nhẹ mỗi khi đổi route (main có key theo đường dẫn). */
+.main-content {
+  animation: motion-fade-up var(--duration-slow) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .main-content {
+    animation: none;
+  }
+}
+
+/**
+ * Đăng nhập / đăng ký và lỗi form.
+ * Cái gì: khung form trồi lên khi mở trang; dòng báo lỗi (role="alert") rung nhẹ khi xuất hiện.
+ * Làm sao: dùng preset motion-fade-up và keyframe motion-shake (chỉ translateX) trong 260ms.
+ * Tại sao: người dùng nhận ra ngay ô nào sai mà không cần đọc lại cả form; áp dụng chung cho mọi form.
+ */
+@keyframes motion-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.auth-form-content {
+  animation: motion-fade-up var(--duration-slow) var(--ease-out);
+}
+.form-error[role="alert"] {
+  animation: motion-shake 260ms var(--ease-in-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-form-content,
+  .form-error[role="alert"] {
+    animation: none;
+  }
+}
+
+/**
+ * Nhật ký hoạt động dạng dòng thời gian.
+ * Làm sao: danh sách có đường kẻ dọc bên trái, mỗi mục có chấm mốc; nhãn ngày chỉ hiện ở mục đầu tiên của ngày.
+ * Tại sao: Quản lý đọc lịch sử theo trình tự thời gian dễ hơn bảng nhiều cột.
+ */
+.audit-view-toggle {
+  margin: 0 var(--space-6) var(--space-4);
+  width: max-content;
+}
+.audit-timeline {
+  list-style: none;
+  margin: 0 var(--space-6) var(--space-4);
+  padding: 0 0 0 var(--space-5);
+  border-left: 2px solid var(--color-border);
+}
+.audit-timeline-day {
+  margin: var(--space-4) 0 var(--space-2) calc(-1 * var(--space-5));
+  padding-left: var(--space-5);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+.audit-timeline-card {
+  position: relative;
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.audit-timeline-card::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--space-5) - 7px);
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+.audit-timeline-time {
+  flex: 0 0 52px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-primary-700);
+}
+.audit-timeline-card > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--text-base);
+}
+.audit-timeline-card small {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .audit-view-toggle,
+  .audit-timeline {
+    margin-inline: var(--space-4);
+  }
+  .audit-timeline-card {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+}
+
+/* Chip trạng thái gói: màu + icon theo token trạng thái (đạt tương phản AA). */
+.membership-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.membership-status-active {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+.membership-status-expiring {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+.membership-status-expired {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+/*
+  Thanh tiến trình đơn gói tập (MembershipOrderDetail).
+  Làm sao: 3 bước nối bằng vạch; done = xanh chính, current = viền + nền lime, end = màu lỗi cho đơn hủy/hoàn tiền.
+  Tại sao: giúp lễ tân thấy ngay đơn đang chờ thu tiền hay đã kích hoạt; ẩn khi in để hóa đơn PDF giữ nguyên.
+*/
+.order-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.order-step {
+  display: inline-flex;
+  flex: 1 1 140px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.order-step-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+.order-step.is-done {
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-700);
+}
+.order-step.is-done .order-step-dot {
+  background: var(--color-primary-700);
+}
+.order-step.is-current {
+  color: var(--color-text);
+  border-color: var(--color-primary-700);
+  background: var(--color-accent-100);
+}
+.order-step.is-current .order-step-dot {
+  background: var(--color-accent-300);
+  box-shadow: 0 0 0 3px var(--color-primary-700);
+}
+.order-step.is-end {
+  color: var(--color-error-text);
+  border-color: var(--color-error-text);
+  background: var(--color-error-bg);
+}
+.order-step.is-end .order-step-dot {
+  background: var(--color-error-text);
+}
+.order-step.is-skipped {
+  text-decoration: line-through;
+}
+@media print {
+  .order-steps {
+    display: none;
+  }
+}
+
+/*
+  Thanh tiến độ điểm danh (Attendance, góc nhìn HLV/lễ tân).
+  Làm sao: thanh nền + lớp phủ co giãn bằng transform scaleX từ trái sang (không animate width).
+  Tại sao: chỉ animate transform cho mượt; tắt chuyển động khi người dùng bật prefers-reduced-motion.
+*/
+.attendance-progress {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.attendance-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+.attendance-progress-label strong {
+  color: var(--color-text);
+}
+.attendance-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-100);
+}
+.attendance-progress-track > span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary-700);
+  transform-origin: left center;
+  transition: transform var(--duration-slow, 320ms) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .attendance-progress-track > span {
+    transition: none;
+  }
+}

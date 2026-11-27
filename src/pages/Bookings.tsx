@@ -1,3 +1,4 @@
+// [VAI TRÒ] Đăng ký lớp. MEMBER: đăng ký/hủy lớp của mình. LỄ TÂN: đăng ký/hủy hộ thành viên.
 import PersonalBookings from "../components/PersonalBookings";
 import BookingForm from "../components/BookingForm";
 import "../styles-bookings.css";
@@ -42,7 +43,9 @@ function BookingTable() {
   const member = session!.user.roleName === "MEMBER",
     coach = session!.user.roleName === "COACH";
   const [params] = useSearchParams();
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers(true);
   const initialSearch = !member && !coach ? params.get("memberId") || "" : "";
   const [searchInput, setSearchInput] = useState(initialSearch);
@@ -57,6 +60,7 @@ function BookingTable() {
   const selectedClass = classes.data?.find((item) => item.id === Number(classId));
   const query = useQuery({
     queryKey: ["bookings", session!.user.id, session!.user.roleName, member ? session!.user.id : classId],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
     queryFn: () => member
       ? api.bookings(session!.user.id)
       : api.bookings(undefined, Number(classId)),
@@ -64,6 +68,7 @@ function BookingTable() {
   });
   const coachNames = useQuery({
     queryKey: ["coachBookingNames", session!.user.id, selectedClass?.id],
+    // [API] operations.students → GET /classes/{classId}/students
     queryFn: () => operations.students(selectedClass!.id),
     enabled: coach && session!.mode === "api" && !!selectedClass,
   });
@@ -73,6 +78,7 @@ function BookingTable() {
   const rosters = useQueries({
     queries: rosterClasses.map((item) => ({
       queryKey: ["bookings", session!.user.id, session!.user.roleName, item.id],
+      // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
       queryFn: () => api.bookings(undefined, item.id),
     })),
   });
@@ -124,6 +130,7 @@ function BookingTable() {
               Khám phá lớp học
             </Link>
             {(member || can("bookings.assist")) && (
+              // [NÚT] NÚT "Đăng ký lớp" → mở/đóng hộp thoại hoặc form (setCreate)
               <Button onClick={() => setCreate(true)}>
                 <Plus size={17} />
                 Đăng ký lớp
@@ -172,11 +179,13 @@ function BookingTable() {
               label="Tìm đăng ký theo ID hoặc tên thành viên"
               placeholder="Nhập ID, mã TV hoặc tên thành viên..."
             />
+            {/* [NÚT] NÚT "Tìm kiếm" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <Button type="submit" variant="secondary">
               <Search size={16} />
               Tìm kiếm
             </Button>
             {search && (
+              // [NÚT] NÚT "Xem tất cả" → mở/đóng hộp thoại hoặc form (setSearchInput)
               <Button
                 type="button"
                 variant="ghost"
@@ -206,6 +215,7 @@ function BookingTable() {
         {rosterErrors.length > 0 && (
           <Notice>
             Không tải được đăng ký của: {rosterErrors.map((item) => item.className).join(", ")}.{" "}
+            {/* [NÚT] NÚT "Thử tải lại lớp bị lỗi" → tải lại dữ liệu từ API */}
             <Button variant="secondary" onClick={() => {
               for (const roster of rosters) if (roster.isError) void roster.refetch();
             }}>Thử tải lại lớp bị lỗi</Button>
@@ -226,6 +236,7 @@ function BookingTable() {
               {
                 key: "id",
                 label: "Mã đăng ký",
+                sort: (b) => b.id,
                 render: (b) => (
                   <span className="mono">{idLabel(b.id, "DK")}</span>
                 ),
@@ -233,6 +244,7 @@ function BookingTable() {
               {
                 key: "member",
                 label: "Thành viên",
+                sort: (b) => names.get(b.memberId) || "",
                 render: (b) => {
                   const name = names.get(b.memberId);
                   return (
@@ -255,6 +267,7 @@ function BookingTable() {
               {
                 key: "class",
                 label: "Lớp học",
+                sort: (b) => classes.data?.find((c) => c.id === b.classId)?.scheduleTime || "",
                 render: (b) => {
                   const c = classes.data?.find((c) => c.id === b.classId);
                   return (
@@ -272,11 +285,13 @@ function BookingTable() {
               {
                 key: "date",
                 label: "Ngày đăng ký",
+                sort: (b) => b.bookedAt,
                 render: (b) => dateLabel(b.bookedAt),
               },
               {
                 key: "status",
                 label: "Trạng thái",
+                sort: (b) => b.status,
                 render: (b) => (
                   <Badge status={b.status} />
                 ),
@@ -287,6 +302,7 @@ function BookingTable() {
                 render: (b) =>
                   b.status === "BOOKED" &&
                   (member || can("bookings.assist")) ? (
+                    // [NÚT] NÚT "Hủy đăng ký" → mở/đóng hộp thoại hoặc form (setCancel)
                     <button
                       className="text-danger"
                       onClick={() => setCancel(b)}
@@ -309,6 +325,7 @@ function BookingTable() {
         />
       )}
       {cancel && (
+        // [NÚT] HỘP XÁC NHẬN "Hủy đăng ký lớp?" → gọi API api.cancelBooking → DELETE /bookings/{id}
         <Confirm
           title="Hủy đăng ký lớp?"
           description="Hủy sẽ trả lại chỗ cho lớp. Hủy sát giờ có thể tính một vi phạm giữ chỗ."
@@ -318,6 +335,7 @@ function BookingTable() {
              * Xác nhận hủy một booking rồi tải lại cache; số chỗ và lịch cá nhân phản ánh
              * dữ liệu mới sau phản hồi, không tự xóa một lớp khỏi hệ thống.
              */
+            // [API] api.cancelBooking → DELETE /bookings/{id}
             await api.cancelBooking(cancel.id);
             await client.invalidateQueries();
             toast("Đã hủy đăng ký lớp học.");

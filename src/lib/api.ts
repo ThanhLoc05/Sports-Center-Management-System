@@ -400,15 +400,18 @@ interface RegistrationCodeDelivery {
 
 export const api = {
   features: () => request<{ courseEnabled: boolean }>("/features", { cache: "no-store" }),
+  // [API] api.beginMemberRegistration → POST /users/register — được trang Lễ tân/Member gọi
   beginMemberRegistration(input: RegisterInput) {
     return post<RegistrationCodeDelivery>("/users/register", input);
   },
+  // [API] api.verifyMemberRegistration → POST /users/register/verify-code — được trang Lễ tân/Member gọi
   verifyMemberRegistration(email: string, code: string) {
     return post<{ message: string }>("/users/register/verify-code", {
       email: email.trim(),
       code,
     });
   },
+  // [API] api.resendMemberRegistrationCode → POST /users/register/resend-code — được trang Lễ tân/Member gọi
   resendMemberRegistrationCode(email: string) {
     return post<RegistrationCodeDelivery>("/users/register/resend-code", {
       email: email.trim(),
@@ -426,15 +429,18 @@ export const api = {
   resendVerification(email: string) {
     return request<{ message: string }>("/users/resend-verification", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);
   },
+  // [API] api.createMember → POST /users/members — được trang Lễ tân/Member gọi
   createMember(input: RegisterInput): Promise<User> {
     if (mode() === "demo") return api.register(input);
     return post("/users/members", input);
   },
+  // [API] api.createStaff → POST /users/staff — được trang Lễ tân/Member gọi
   async createStaff(input: RegisterInput & { roleName: string }): Promise<User> {
     const result = await post<User>("/users/staff", input);
     if (!result?.id || result.roleName !== input.roleName) throw new ApiError("Phản hồi tạo nhân viên không hợp lệ.");
     return result;
   },
+  // [API] api.feedbackList → GET /feedbacks?kind={kind} — được trang Lễ tân/Member gọi
   async feedbackList(kind: "coach" | "class" | "member"): Promise<Feedback[]> {
     const actor = feedbackActor();
     if (kind === "member" && actor.roleName === "COACH")
@@ -459,6 +465,7 @@ export const api = {
       throw new ApiError("Bạn không có quyền xem nhận xét của thành viên này.", 403);
     return assertArray(await request<Feedback[]>(`/feedbacks/member/${feedbackId(memberId)}`)).map(feedbackResponse);
   },
+  // [API] api.createFeedback → POST /feedbacks — được trang Lễ tân/Member gọi
   async createFeedback(input: FeedbackInput): Promise<Feedback> {
     const actor = feedbackActor();
     if (!["MEMBER", "COACH"].includes(actor.roleName)) throw new ApiError("Vai trò này không được gửi đánh giá.", 403);
@@ -478,12 +485,14 @@ export const api = {
       throw new ApiError("Phản hồi đánh giá không khớp yêu cầu đã gửi.");
     return result;
   },
+  // [API] api.supportTickets → GET /support-tickets/my | /support-tickets — được trang Lễ tân/Member gọi
   async supportTickets(): Promise<SupportTicket[]> {
     const actor = supportActor();
     return assertArray(await request<SupportTicket[]>(
       actor.roleName === "MEMBER" ? "/support-tickets/my" : "/support-tickets",
     ));
   },
+  // [API] api.supportTicket → GET /support-tickets/{id} — được trang Lễ tân/Member gọi
   async supportTicket(id: number): Promise<SupportTicket> {
     const actor = supportActor();
     if (!Number.isSafeInteger(id) || id < 1) throw new ApiError("Mã phiếu không hợp lệ.");
@@ -492,6 +501,7 @@ export const api = {
       throw new ApiError("Phiếu trả về không thuộc yêu cầu đang xem.");
     return ticket;
   },
+  // [API] api.createSupportTicket → POST /support-tickets | /support-tickets?memberId= — được trang Lễ tân/Member gọi
   createSupportTicket(input: SupportTicketInput, memberId?: number): Promise<SupportTicket> {
     const actor = supportActor();
     const own = actor.roleName === "MEMBER";
@@ -512,6 +522,7 @@ export const api = {
       return ticket;
     });
   },
+  // [API] api.resolveSupportTicket → PATCH /support-tickets/{id}/resolve — được trang Lễ tân/Member gọi
   resolveSupportTicket(id: number, response: string): Promise<SupportTicket> {
     supportActor(["RECEPTIONIST", "CENTER_MANAGER"]);
     if (!Number.isSafeInteger(id) || id < 1) throw new ApiError("Mã phiếu không hợp lệ.");
@@ -524,6 +535,7 @@ export const api = {
    * Đăng nhập: demo so với tài khoản mẫu và mật khẩu chung; API POST /users/login
    * nhận token + user. Kiểm tra response tối thiểu rồi trả Session cho AuthProvider.
    */
+  // [API] api.login → POST /users/login — được trang Lễ tân/Member gọi
   async login(email: string, password: string): Promise<Session> {
     if (configuredMode === "demo") {
       const user = readDemo().users.find(
@@ -555,6 +567,7 @@ export const api = {
     return { ...data, mode: "api" };
   },
   /** Nhánh demo tạo bản xem trước tại chỗ; API thật phải đi qua bước xác minh OTP. */
+  // [API] api.register → GET (xem lib/api.ts) — được trang Lễ tân/Member gọi
   async register(input: RegisterInput): Promise<User> {
     if (configuredMode === "api" || mode() === "api")
       throw new ApiError("Đăng ký thật cần xác minh email. Hãy bắt đầu từ biểu mẫu đăng ký.");
@@ -582,6 +595,7 @@ export const api = {
    * Flow 1: lấy danh sách tài khoản. Việc gọi danh sách ở UI được giới hạn
    * trong useUsers; quyền truy cập API thực tế vẫn do backend kiểm tra.
    */
+  // [API] api.users → GET /users — được trang Lễ tân/Member gọi
   async users(): Promise<User[]> {
     if (mode() === "api") return assertArray(await request<User[]>("/users"));
     return readDemo().users;
@@ -590,6 +604,7 @@ export const api = {
    * Đọc hồ sơ một người theo ID, dùng cho màn hồ sơ/tra cứu.
    * Nhánh demo kiểm tra người sở hữu; API xử lý quyền trên tài nguyên ở backend.
    */
+  // [API] api.user → GET /users/{id} — được trang Lễ tân/Member gọi
   async user(id: number): Promise<User> {
     if (mode() === "api") return request(`/users/${id}`);
     ownOrStaff(id, "members.read");
@@ -597,6 +612,7 @@ export const api = {
     if (!user) throw new ApiError("Không tìm thấy thành viên.", 404);
     return user;
   },
+  // [API] api.updateStaffDetails → PUT /users/{id}/details — được trang Lễ tân/Member gọi
   async updateStaffDetails(
     id: number,
     input: Pick<User, "fullName" | "email" | "phone">,
@@ -625,6 +641,7 @@ export const api = {
       body: JSON.stringify({ fullName, email, phone }),
     });
   },
+  // [API] api.coachProfile → GET /users/{id}/coach-profile — được trang Lễ tân/Member gọi
   async coachProfile(id: number): Promise<CoachProfessionalProfile> {
     if (!Number.isSafeInteger(id) || id < 1)
       throw new ApiError("Mã HLV không hợp lệ.");
@@ -646,6 +663,7 @@ export const api = {
       bio: coach.bio || null,
     };
   },
+  // [API] api.coaches → GET /users/coaches — được trang Lễ tân/Member gọi
   async coaches(): Promise<CoachProfessionalProfile[]> {
     if (mode() === "api") {
       const profiles = await request<CoachProfessionalProfile[]>("/users/coaches");
@@ -665,6 +683,7 @@ export const api = {
         bio: coach.bio || null,
       }));
   },
+  // [API] api.saveCoachProfile → PUT /users/{id}/coach-profile — được trang Lễ tân/Member gọi
   async saveCoachProfile(
     id: number,
     input: Pick<
@@ -708,6 +727,7 @@ export const api = {
    * Flow 1: đổi trạng thái ACTIVE/INACTIVE/BLOCKED của tài khoản, không đổi vai trò.
    * Dùng PATCH /users/{id}/status với query status được encode.
    */
+  // [API] api.status → PATCH /users/{id}/status?status={encodeURIComponent} — được trang Lễ tân/Member gọi
   async status(id: number, status: string): Promise<User> {
     if (mode() === "api")
       return request(
@@ -749,6 +769,7 @@ export const api = {
       pageCount: number;
     }>(`/classes/management?${params}`);
   },
+  // [API] api.classDetail → GET /classes/{id} — được trang Lễ tân/Member gọi
   async classDetail(id: number): Promise<SportClass> {
     if (mode() !== "api") {
       const item = readDemo().classes.find(c => c.id === id);
@@ -760,6 +781,7 @@ export const api = {
     return item;
   },
   /** HLV dùng endpoint tự lấy ID từ JWT; tham số client không được mở rộng lịch của HLV. */
+  // [API] api.classes → GET /classes/my-classes | /classes… — được trang Lễ tân/Member gọi
   async classes(coachId?: number): Promise<SportClass[]> {
     const actor = getSession();
     const ownCoach = actor?.user.roleName === "COACH";
@@ -779,6 +801,7 @@ export const api = {
    * Nhánh demo kiểm tra sức chứa phòng, ID liên quan, lịch trùng phòng/HLV
    * và không giảm sức chứa dưới số người đã đặt; API phải tự bảo đảm các quy tắc của nó.
    */
+  // [API] api.saveClass → POST /classes/{id} | /classes — được trang Lễ tân/Member gọi
   async saveClass(input: ClassInput, id?: number): Promise<SportClass> {
     if (mode() === "api")
       return id
@@ -883,6 +906,7 @@ export const api = {
       `/classes/${id}/cancellation`,
     );
   },
+  // [API] api.cancelClass → POST /classes/{id}/cancel | /schedule — được trang Lễ tân/Member gọi
   async cancelClass(id: number, cancellation?: { reason: string; description?: string; note?: string }) {
     if (mode() === "api") return post(`/classes/${id}/cancel`, cancellation);
     requirePermission("classes.manage");
@@ -913,6 +937,7 @@ export const api = {
    * Đọc số chỗ còn lại để khóa nút đăng ký nếu đầy. Dữ liệu này chỉ là ảnh chụp
    * tại thời điểm tải; backend phải kiểm tra lại khi nhận yêu cầu đặt chỗ.
    */
+  // [API] api.capacity → GET /classes/{id}/capacity — được trang Lễ tân/Member gọi
   async capacity(id: number): Promise<number> {
     if (mode() === "api") return request(`/classes/${id}/capacity`);
     const db = readDemo();
@@ -923,6 +948,7 @@ export const api = {
           .length,
     );
   },
+  // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings — được trang Lễ tân/Member gọi
   async bookings(memberId?: number, classId?: number): Promise<Booking[]> {
     if (mode() === "api") {
       if (!memberId && !classId)
@@ -958,6 +984,7 @@ export const api = {
    * không gửi JSON body. Demo kiểm tra lớp còn mở/chưa bắt đầu, trùng đăng ký
    * và còn chỗ rồi lưu BOOKED. Lỗi API không được coi là đăng ký thành công.
    */
+  // [API] api.book → POST /classes/{classId}/book?memberId={memberId} — được trang Lễ tân/Member gọi
   async book(classId: number, memberId: number): Promise<Booking> {
     if (mode() === "api")
       return post(`/classes/${classId}/book?memberId=${memberId}`);
@@ -998,6 +1025,7 @@ export const api = {
    * Hủy một lượt đăng ký bằng DELETE /bookings/{id}. Demo giữ bản ghi và chuyển
    * sang CANCELLED để trả chỗ; không xóa lớp học.
    */
+  // [API] api.cancelBooking → DELETE /bookings/{id} — được trang Lễ tân/Member gọi
   async cancelBooking(id: number) {
     if (mode() === "api")
       return request(`/bookings/${id}`, { method: "DELETE" });
@@ -1011,6 +1039,7 @@ export const api = {
   /**
    * Đọc gói đang hiệu lực do backend xác định theo ngày hiện tại.
    */
+  // [API] api.activeSubscription → GET /memberships/members/{memberId}/active — được trang Lễ tân/Member gọi
   async activeSubscription(memberId: number): Promise<Subscription | null> {
     if (!Number.isSafeInteger(memberId) || memberId < 1)
       throw new ApiError("Mã thành viên không hợp lệ.");
@@ -1031,6 +1060,7 @@ export const api = {
       throw error;
     }
   },
+  // [API] api.membershipPackages → GET /memberships/packages — được trang Lễ tân/Member gọi
   async membershipPackages(): Promise<MembershipPackage[]> {
     // Gói ngừng bán vẫn có thể cấp quyền cho subscription còn hiệu lực.
     return assertArray(
@@ -1038,6 +1068,7 @@ export const api = {
     );
   },
   /** Flow 1: lịch sử các kỳ gói đã đăng ký, khác danh mục gói bán. */
+  // [API] api.subscriptions → GET /memberships/members/{memberId} — được trang Lễ tân/Member gọi
   async subscriptions(memberId: number): Promise<Subscription[]> {
     if (mode() === "api")
       return assertArray(
@@ -1051,6 +1082,7 @@ export const api = {
    * không có renewId: POST /memberships/subscribe với memberId và packageId.
    * Demo tạo hóa đơn chờ thu cùng đăng ký; API hiện vẫn tách hai thao tác ở backend.
    */
+  // [API] api.subscribe → POST /memberships/{renewId}/renew?packageId={packageId} | /memberships/subscribe — được trang Lễ tân/Member gọi
   async subscribe(
     memberId: number,
     packageId: number,
@@ -1143,6 +1175,7 @@ export const api = {
   /**
    * Hủy hiệu lực gói; thao tác này không tự hoàn tiền hóa đơn đã thanh toán.
    */
+  // [API] api.cancelSubscription → POST /memberships/{id}/cancel — được trang Lễ tân/Member gọi
   async cancelSubscription(id: number, memberId: number) {
     if (mode() === "api") return post(`/memberships/${id}/cancel`);
     ownOrStaff(memberId);
@@ -1158,6 +1191,7 @@ export const api = {
    * Flow 3: có memberId thì lấy hóa đơn của thành viên. Chưa chọn memberId thì
    * API chỉ trả hóa đơn PENDING, không phải toàn bộ lịch sử thu tiền của trung tâm.
    */
+  // [API] api.invoices → GET /payments/members/{memberId}/invoices | /payments/invoices/pending — được trang Lễ tân/Member gọi
   async invoices(memberId?: number): Promise<Invoice[]> {
     if (mode() === "api")
       return assertArray(
@@ -1177,6 +1211,7 @@ export const api = {
    * Tạo bản ghi hóa đơn từ payload. Màn Payments chủ động gửi PENDING;
    * chỉ tạo hóa đơn không đồng nghĩa tiền đã thực nhận.
    */
+  // [API] api.invoice → POST /payments/invoices — được trang Lễ tân/Member gọi
   async invoice(input: InvoiceInput): Promise<Invoice> {
     if (mode() === "api") return post("/payments/invoices", input);
     requirePermission("payments.collect");
@@ -1248,6 +1283,7 @@ export const api = {
     if (mode() !== "api") throw new ApiError("Chỉ hoàn được hóa đơn đăng ký gói đã lưu trên máy chủ.");
     return post(`/payments/invoices/${id}/refund`, receipt);
   },
+  // [API] api.pay → POST /payments/invoices/{id}/pay | /payments — được trang Lễ tân/Member gọi
   async pay(id: number): Promise<Invoice> {
     if (mode() === "api")
       return post(`/payments/invoices/${id}/pay`);
@@ -1318,6 +1354,7 @@ export const api = {
    * Flow 4: lớp luôn lấy đủ bản ghi để xác định ai đã điểm danh.
    * Chỉ lịch sử cá nhân dùng khoảng ngày.
    */
+  // [API] api.attendance → GET /attendance/classes/{classId} | /attendance/members/{memberId}?startDate={start}&endDate={end} — được trang Lễ tân/Member gọi
   async attendance(
     memberId?: number,
     classId?: number,
@@ -1382,6 +1419,7 @@ export const api = {
    * Gửi classId, memberId, checkedInBy, status để ghi nhận điểm danh.
    * Trong demo: thành viên không tự điểm danh và không được ghi trùng một lớp.
    */
+  // [API] api.checkIn → POST /attendance — được trang Lễ tân/Member gọi
   async checkIn(input: AttendanceInput): Promise<Attendance> {
     if (mode() === "api") return post("/attendance", input);
     requirePermission("attendance.record");
@@ -1423,6 +1461,7 @@ export const api = {
     saveDemo(db);
     return a;
   },
+  // [API] api.makeUpAttendance → PATCH (xem lib/api.ts) — được trang Lễ tân/Member gọi
   async makeUpAttendance(attendanceId: number): Promise<Attendance> {
     if (mode() === "api")
       return request<Attendance>(
@@ -1462,6 +1501,7 @@ export const api = {
   },
 
   /** API danh mục mới của backend: đổi tên trường DTO sang kiểu frontend, không lấy tên demo thay thế. */
+  // [API] api.sports → GET /sports — được trang Lễ tân/Member gọi
   async sports(): Promise<Sport[]> {
     if (mode() !== "api") return readDemo().sports;
     const rows = assertArray(

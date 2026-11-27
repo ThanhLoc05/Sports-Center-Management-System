@@ -1,3 +1,4 @@
+// [VAI TRÒ] Đăng nhập (cả Lễ tân và Member) + MEMBER tự đăng ký tài khoản.
 /**
  * ĐĂNG NHẬP/ĐĂNG KÝ — điểm vào Flow 1. Cùng component, prop register chọn form.
  * Trang gom dữ liệu và điều hướng; api.ts chịu trách nhiệm chọn API hoặc demo.
@@ -105,15 +106,18 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
           phone: String(data.get("phone")).trim(),
         };
         if (configuredMode === "api") {
+          // [API] api.beginMemberRegistration → POST /users/register
           const delivery = await api.beginMemberRegistration(input);
           navigate(`/verify-registration?email=${encodeURIComponent(email)}`, {
             state: { expiresAtEpochMs: delivery.expiresAtEpochMs },
           });
         } else {
+          // [API] api.register → GET (xem lib/api.ts)
           await api.register(input);
           navigate("/login", { state: { registrationComplete: true } });
         }
       } else {
+        // [API] api.login → POST /users/login
         signIn(await api.login(email, password));
         navigate("/");
       }
@@ -291,6 +295,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                     setFieldErrors((current) => ({ ...current, password: errors.password, confirmPassword: errors.confirmPassword }));
                   }}
                 />
+                {/* [NÚT] NÚT "Ẩn mật khẩu" → đổi cách hiển thị / bộ lọc trên màn hình (setShow) */}
                 <button
                   type="button"
                   aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -328,6 +333,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
                 {error}
               </p>
             )}
+            {/* [NÚT] NÚT "Tạo tài khoản / Đăng nhập" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <Button type="submit" loading={busy} className="auth-submit">
               {register ? "Tạo tài khoản" : "Đăng nhập"}
               <ArrowRight size={18} />

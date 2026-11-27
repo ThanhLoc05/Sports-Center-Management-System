@@ -388,6 +388,7 @@ function LegacyStudentsPage() {
   );
 }
 
+// [VAI TRÒ] Thông báo & bài tập: MEMBER xem thông báo về gói/thanh toán/lớp; Lễ tân xem thông báo của mình.
 export function NotificationsPage() {
   const { session } = useAuth();
   return session?.mode === "api" && session.user.roleName === "MEMBER" ? (
@@ -402,6 +403,7 @@ function LegacyNotificationsPage() {
   const db = useDemoData();
   const { session } = useAuth();
   const can = usePermissions();
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   const [filter, setFilter] = useState("all");
   const [compose, setCompose] = useState(false);
@@ -424,6 +426,7 @@ function LegacyNotificationsPage() {
         description="Cập nhật lịch, học phí, bài tập và nhận xét dành cho tài khoản của bạn."
         actions={
           can("notifications.send") ? (
+            // [NÚT] NÚT "Gửi thông báo / bài tập" → mở/đóng hộp thoại hoặc form (setCompose)
             <Button disabled={!db} onClick={() => setCompose(true)}>
               Gửi thông báo / bài tập
             </Button>
@@ -441,6 +444,7 @@ function LegacyNotificationsPage() {
             <option value="all">Tất cả</option>
             <option value="unread">Chưa đọc</option>
           </Select>
+          {/* [NÚT] NÚT "Đánh dấu tất cả đã đọc" */}
           <Button
             variant="secondary"
             disabled={!db || !rows.length}
@@ -468,6 +472,7 @@ function LegacyNotificationsPage() {
                 Xem nội dung
               </Link>
               {!n.readAt && (
+                // [NÚT] NÚT "Đã đọc"
                 <Button
                   variant="ghost"
                   onClick={() => markNotificationsRead(n.id)}
@@ -485,6 +490,7 @@ function LegacyNotificationsPage() {
         )}
       </Panel>
       {compose && db && (
+        // [NÚT] FORM "Gửi thông báo hoặc bài tập về nhà" → tải lại dữ liệu từ API
         <FormModal
           title="Gửi thông báo hoặc bài tập về nhà"
           onClose={() => setCompose(false)}
@@ -557,6 +563,7 @@ function LegacyNotificationsPage() {
   );
 }
 
+/** Phần báo cáo vận hành trong Flow 3: FE ghép users/classes/bookings để hiển thị tình trạng đăng ký lớp. */
 export function OperationsReport({
   start,
   end,
@@ -567,6 +574,7 @@ export function OperationsReport({
   const db = useDemoData();
   const classes = useClasses();
   const users = useUsers();
+  // Chọn lớp có lịch học nằm trong kỳ; đây là phạm vi lớp dùng cho bảng và tổng BOOKED.
   const classRows = (classes.data || []).filter(
     (c) =>
       c.scheduleTime.slice(0, 10) >= start &&
@@ -583,6 +591,7 @@ export function OperationsReport({
     enabled: !db && classRows.length > 0,
   });
   const bookings = db?.bookings || query.data || [];
+  // Chỉ tiêu lượt đăng ký trong kỳ lọc theo ngày bookedAt, khác với tổng BOOKED hiện tại của các lớp.
   const inPeriod = bookings.filter(
     (b) => b.bookedAt.slice(0, 10) >= start && b.bookedAt.slice(0, 10) <= end,
   );

@@ -1,3 +1,4 @@
+// [VAI TRÒ] Thành viên (LỄ TÂN): tìm kiếm, tạo thành viên, xem chi tiết, sửa hồ sơ thành viên.
 import { operations } from "../lib/operations-api";
 /**
  * FLOW 1 — QUẢN LÝ THÀNH VIÊN VÀ ĐỘI NGŨ. Prop team chọn nhóm nhân sự thay vì học viên.
@@ -27,6 +28,7 @@ import { dateLabel, downloadCsv, idLabel, matches } from "../lib/utils";
 import {
   Avatar,
   Badge,
+  MembershipStatus,
   Button,
   Confirm,
   DataTable,
@@ -49,6 +51,7 @@ export default function Members({ team = false }: { team?: boolean }) {
   const { session } = useAuth();
   const can = usePermissions();
   const [editUser, setEditUser] = useState<User | null>(null);
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers(!team);
   const [search, setSearch] = useState(params.get("q") || "");
   const [status, setStatus] = useState("all");
@@ -96,6 +99,7 @@ export default function Members({ team = false }: { team?: boolean }) {
    * Đây không phải thao tác xóa tài khoản hoặc đổi quyền.
    */
   const changeAction = useAction(
+    // [API] api.status → PATCH /users/{id}/status?status={encodeURIComponent}
     (v: { user: User; status: string }) => api.status(v.user.id, v.status),
     "Đã cập nhật trạng thái tài khoản.",
   );
@@ -112,6 +116,7 @@ export default function Members({ team = false }: { team?: boolean }) {
         actions={
           <>
             {!!users.data && (
+              // [NÚT] NÚT (nút biểu tượng) → tải file CSV
               <ExportButton
                 onClick={() =>
                   downloadCsv(team ? "doi-ngu.csv" : "thanh-vien.csv", [
@@ -136,6 +141,7 @@ export default function Members({ team = false }: { team?: boolean }) {
               />
             )}
             {(team ? can("team.manage") : can("members.create")) && (
+              // [NÚT] NÚT "Thêm nhân viên / Thêm thành viên" → mở/đóng hộp thoại hoặc form (setCreate)
               <Button onClick={() => setCreate(true)}>
                 <Plus size={17} />
                 {team ? "Thêm nhân viên" : "Thêm thành viên"}
@@ -210,6 +216,7 @@ export default function Members({ team = false }: { team?: boolean }) {
               setLookupError("");
               setDetail(null);
               try {
+                // [API] api.user → GET /users/{id}
                 const found = await api.user(id);
                 // Không mở kết quả của ID cũ khi người dùng đã đổi nội dung tra cứu.
                 if (request !== lookupRequest.current) return;
@@ -243,6 +250,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                 placeholder="Nhập ID để hỗ trợ"
               />
             </Field>
+            {/* [NÚT] NÚT "Xem hồ sơ" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <Button type="submit" loading={lookupBusy}>Xem hồ sơ</Button>
             <Link
               className="btn btn-primary"
@@ -285,6 +293,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                 // Dùng nút phân nhóm có sẵn để không trộn nhân sự với thành viên.
                 <div className="segmented" role="group" aria-label="Nhóm đội ngũ">
                   {(["COACH", "RECEPTIONIST"] as const).map((value) => (
+                    // [NÚT] NÚT (nút biểu tượng) → đổi cách hiển thị / bộ lọc trên màn hình (setRole)
                     <button
                       key={value}
                       type="button"
@@ -328,8 +337,10 @@ export default function Members({ team = false }: { team?: boolean }) {
               columns={[
                 {
                   key: "name",
+                  sort: (u) => u.fullName,
                   label: team ? "Nhân viên" : "Thành viên",
                   render: (u) => (
+                    // [NÚT] NÚT (nút biểu tượng) → đổi cách hiển thị / bộ lọc trên màn hình (setLookupBusy)
                     <button
                       className="person-cell"
                       onClick={() => openDetail(u)}
@@ -344,6 +355,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                 },
                 {
                   key: "contact",
+                  sort: (u) => u.email,
                   label: "Liên hệ",
                   render: (u) => (
                     <div className="contact-cell">
@@ -354,6 +366,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                 },
                 {
                   key: "role",
+                  sort: (u) => u.roleName,
                   label: "Vai trò",
                   render: (u) => (
                     <span className="role-chip">{roleLabels[u.roleName]}</span>
@@ -361,6 +374,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                 },
                 {
                   key: "status",
+                  sort: (u) => u.status,
                   label: "Trạng thái",
                   render: (u) => <Badge status={u.status} />,
                 },
@@ -375,6 +389,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                             ? "members.update"
                             : "team.manage",
                         ) && (
+                          // [NÚT] NÚT "Sửa hồ sơ" → mở/đóng hộp thoại hoặc form (setEditUser)
                           <button
                             className="text-link"
                             onClick={() => setEditUser(u)}
@@ -382,6 +397,7 @@ export default function Members({ team = false }: { team?: boolean }) {
                             Sửa hồ sơ
                           </button>
                         )}
+                      {/* [NÚT] NÚT "Chi tiết" → đổi cách hiển thị / bộ lọc trên màn hình (setLookupBusy) */}
                       <button
                         className="subtle-link"
                         onClick={() => openDetail(u)}
@@ -405,6 +421,7 @@ export default function Members({ team = false }: { team?: boolean }) {
         <ProfileEditor user={editUser} onClose={() => setEditUser(null)} />
       )}
       {create && !team && (
+        // [NÚT] FORM "Thêm thành viên mới, nút "Tạo thành viên"" → gọi API api.createMember → POST /users/members
         <FormModal
           title="Thêm thành viên mới"
           description="Tài khoản mới luôn có vai trò Thành viên. Thông tin đăng nhập do thành viên quản lý."
@@ -415,6 +432,7 @@ export default function Members({ team = false }: { team?: boolean }) {
              * Tạo thành viên tại quầy bằng cùng endpoint đăng ký công khai. Payload
              * không chứa role; backend tạo MEMBER, frontend không tự tạo quản lý/HLV.
              */
+            // [API] api.createMember → POST /users/members
             await api.createMember({
               fullName: String(data.get("fullName")).trim(),
               email: String(data.get("email")).trim(),
@@ -482,6 +500,7 @@ export default function Members({ team = false }: { team?: boolean }) {
           onRoleSaved={setDetail}
           // Đặt thao tác trong hồ sơ để quản lý kiểm tra đúng người trước khi xác nhận.
           statusAction={manager && detail.id !== session!.user.id ? (
+            // [NÚT] NÚT "Cập nhật trạng thái tài khoản" → đổi cách hiển thị / bộ lọc trên màn hình (setChange)
             <Button
               variant="secondary"
               aria-label={"Thay đổi trạng thái " + detail.fullName}
@@ -500,6 +519,7 @@ export default function Members({ team = false }: { team?: boolean }) {
         />
       )}
       {change && (
+        // [NÚT] HỘP XÁC NHẬN "Cập nhật trạng thái tài khoản?"
         <Confirm
           title="Cập nhật trạng thái tài khoản?"
           description={`${change.user.fullName} sẽ được chuyển sang trạng thái ${change.status === "ACTIVE" ? "đang hoạt động" : "ngừng hoạt động"}. Tài khoản ngừng hoạt động sẽ không đăng nhập được.`}
@@ -536,17 +556,20 @@ function MemberDetail({
   // Hồ sơ luyện tập được tải riêng theo memberId khi mở chi tiết thành viên.
   const profile = useQuery({
     queryKey: ["member-profile", user.id],
+    // [API] operations.profile → GET /users/{memberId}/profile
     queryFn: () => operations.profile(user.id),
     enabled: session?.mode === "api" && member,
     retry: false,
   });
   const subs = useQuery({
     queryKey: ["subscriptions", user.id],
+    // [API] api.subscriptions → GET /memberships/members/{memberId}
     queryFn: () => api.subscriptions(user.id),
     enabled: member,
   });
   const bookings = useQuery({
     queryKey: ["bookings", user.id],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
     queryFn: () => api.bookings(user.id),
     enabled: member,
   });
@@ -616,6 +639,7 @@ function MemberDetail({
               <div><span>Ngày sinh</span><strong>{profile.data?.dob ? dateLabel(profile.data.dob) : "Chưa cung cấp"}</strong></div>
               <div><span>Giới tính</span><strong>{profile.data?.gender || "Chưa cung cấp"}</strong></div>
             </div>
+            {/* [NÚT] NÚT "Sửa hồ sơ thành viên" → mở/đóng hộp thoại hoặc form (setEditProfile) */}
             {canEditProfile && <Button disabled={!profile.isSuccess || profile.isFetching} onClick={() => setEditProfile(true)}>Sửa hồ sơ thành viên</Button>}
           </>)}
         {member && (
@@ -635,7 +659,7 @@ function MemberDetail({
                         {dateLabel(s.startDate)} – {dateLabel(s.endDate)}
                       </small>
                     </div>
-                    <Badge status={s.status} />
+                    <MembershipStatus status={s.status} endDate={s.endDate} />
                   </div>
                 ))}
               </div>

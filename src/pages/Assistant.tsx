@@ -1,3 +1,4 @@
+// [VAI TRÒ] Trợ lý tập luyện AI: Member và Lễ tân hỏi đáp, gợi ý bài tập.
 import { useAssignedStudents } from "../lib/use-coach-data";
 import { operations } from "../lib/operations-api";
 import { parseDate } from "../lib/utils";
@@ -87,6 +88,7 @@ export default function Assistant() {
     : "Mẫu theo quy tắc demo. Cần HLV xem lại trước khi áp dụng.";
   useEffect(() => {
     const controller = new AbortController();
+    // [API] getAiStatus → GET /api/assistant
     void getAiStatus(controller.signal).then((status) => {
       if (controller.signal.aborted) return;
       setAiStatus(status);
@@ -108,6 +110,7 @@ export default function Assistant() {
   const [recommend, setRecommend] = useState(false);
   const [plan, setPlan] = useState("");
   const [goal, setGoal] = useState("Vận động đều đặn");
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   const bottom = useRef<HTMLDivElement>(null);
   const toast = useToast();
@@ -139,6 +142,7 @@ export default function Assistant() {
     const q = normalize(input);
     try {
       if (online) {
+        // [API] askAi → POST /api/assistant (cổng AI)
         const result = await askAi(
           [...previous.filter((m) => m.source === "gemini"), question],
           controller.signal,
@@ -151,6 +155,7 @@ export default function Assistant() {
             : "");
       } else if (q.includes("lich") || q.includes("lop")) {
         const member = session!.user.roleName === "MEMBER";
+        // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
         const bookings = member ? await api.bookings(session!.user.id) : [];
         const booked = (classes.data || [])
           .filter(
@@ -222,6 +227,7 @@ export default function Assistant() {
         title="Trợ lý tập luyện"
         description="Thêm cảm hứng cho buổi tập. Thêm rõ ràng cho mỗi lựa chọn."
         actions={
+          // [NÚT] NÚT "Gợi ý buổi tập" → đổi cách hiển thị / bộ lọc trên màn hình (setRecommend)
           <Button
             disabled={!canRecommend || busy}
             onClick={() => setRecommend(true)}
@@ -232,6 +238,7 @@ export default function Assistant() {
         }
       />
       <div className="assistant-mode" role="group" aria-label="Chế độ trợ lý">
+        {/* [NÚT] NÚT "AI Gemini" → đổi cách hiển thị / bộ lọc trên màn hình (setAssistantMode) */}
         <Button
           variant={assistantMode === "ai" ? "primary" : "secondary"}
           aria-pressed={assistantMode === "ai"}
@@ -241,6 +248,7 @@ export default function Assistant() {
           <Sparkles size={16} />
           AI Gemini
         </Button>
+        {/* [NÚT] NÚT "Tra cứu tại trung tâm" → đổi cách hiển thị / bộ lọc trên màn hình (setAssistantMode) */}
         <Button
           variant={assistantMode === "center" ? "primary" : "secondary"}
           aria-pressed={assistantMode === "center"}
@@ -259,6 +267,7 @@ export default function Assistant() {
         </span>
       </div>
       {aiStatus?.configured === false && (
+        // [NÚT] NÚT "Thử kết nối AI" → đổi cách hiển thị / bộ lọc trên màn hình (setAiStatus)
         <Button
           variant="secondary"
           disabled={busy}
@@ -292,6 +301,7 @@ export default function Assistant() {
                   : "Tra cứu tại trung tâm"}
               </small>
             </div>
+            {/* [NÚT] NÚT "Cuộc trò chuyện mới" → đổi cách hiển thị / bộ lọc trên màn hình (setMessages) */}
             <button
               className="subtle-link"
               disabled={busy}
@@ -355,6 +365,7 @@ export default function Assistant() {
                         { icon: MessageCircle, text: "Tôi cần hỗ trợ dịch vụ" },
                       ]
                   ).map((s) => (
+                    // [NÚT] NÚT (nút biểu tượng) → gọi API askAi → POST /api/assistant (cổng AI); api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
                     <button
                       key={s.text}
                       disabled={!canChat || busy}
@@ -428,6 +439,7 @@ export default function Assistant() {
                     : "Chọn AI Gemini để trò chuyện về tập luyện"
               }
             />
+            {/* [NÚT] NÚT "Gửi tin nhắn" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <button
               aria-label="Gửi tin nhắn"
               type="submit"
@@ -452,6 +464,7 @@ export default function Assistant() {
               Tìm nhịp của riêng bạn.
             </h3>
             <p>Bắt đầu vừa sức, duy trì đều đặn và dành thời gian phục hồi.</p>
+            {/* [NÚT] NÚT "Tạo mẫu buổi tập" → đổi cách hiển thị / bộ lọc trên màn hình (setRecommend) */}
             <Button
               variant="secondary"
               disabled={!canRecommend || busy}
@@ -475,6 +488,7 @@ export default function Assistant() {
         </aside>
       </div>
       {recommend && (
+        // [NÚT] FORM "Tạo mẫu buổi tập, nút "Tạo gợi ý"" → gọi API operations.logs → GET /workout-logs/{kind}/{target}; suggestAiWorkout → POST /api/assistant (cổng AI)
         <FormModal
           title="Tạo mẫu buổi tập"
           description={
@@ -520,6 +534,7 @@ export default function Assistant() {
               )
                 throw new Error("Chọn học viên trong phạm vi phụ trách.");
               // Dùng số buổi từ nhật ký backend làm ngữ cảnh AI; lỗi tải phải báo lại, không giả bằng 0.
+              // [API] operations.logs → GET /workout-logs/{kind}/{target}
               const history = !db
                 ? session!.user.roleName === "COACH"
                   ? (await operations.logs("coach", session!.user.id)).filter(
@@ -529,6 +544,7 @@ export default function Assistant() {
                 : [];
               const controller = new AbortController();
               request.current = controller;
+              // [API] suggestAiWorkout → POST /api/assistant (cổng AI)
               const result = await suggestAiWorkout(
                 {
                   goal: chosenGoal,
@@ -631,16 +647,19 @@ export default function Assistant() {
             </Notice>
           </div>
           <div className="modal-footer">
+            {/* [NÚT] NÚT "Đóng" → đổi cách hiển thị / bộ lọc trên màn hình (setPlan) */}
             <Button variant="secondary" onClick={() => setPlan("")}>
               Đóng
             </Button>
             {!demo &&
               session!.user.roleName === "COACH" &&
               recommendMember > 0 && (
+                // [NÚT] NÚT "HLV duyệt và lưu giáo án" → gọi API operations.savePlan → POST (xem lib/operations-api.ts)
                 <Button
                   onClick={async () => {
                     try {
                       // AI chỉ đề xuất; HLV xem xét rồi chủ động lưu thành giáo án chính thức.
+                      // [API] operations.savePlan → POST (xem lib/operations-api.ts)
                       await operations.savePlan({
                         title: `Gợi ý tập luyện · ${goal}`,
                         description: plan,
@@ -663,6 +682,7 @@ export default function Assistant() {
                 </Button>
               )}
             {demo && session!.user.roleName === "MEMBER" && (
+              // [NÚT] NÚT "Lưu vào kế hoạch của tôi" → đổi cách hiển thị / bộ lọc trên màn hình (setPlan)
               <Button
                 onClick={() => {
                   updateDemo("Lưu mẫu tập demo", goal, (db) =>
@@ -687,6 +707,7 @@ export default function Assistant() {
             {demo &&
               session!.user.roleName !== "MEMBER" &&
               can("training.manage") && (
+                // [NÚT] NÚT "HLV áp dụng thành kế hoạch" → đổi cách hiển thị / bộ lọc trên màn hình (setPlan)
                 <Button
                   onClick={() => {
                     try {

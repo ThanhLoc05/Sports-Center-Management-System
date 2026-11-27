@@ -1,3 +1,4 @@
+// [VAI TRÒ] Lớp học. MEMBER: xem lớp, xem chi tiết lớp + HLV, đăng ký lớp. LỄ TÂN: xem lớp, đăng ký hộ thành viên.
 import { parseDate } from "../lib/utils";
 import BookingForm from "../components/BookingForm";
 import { FlexibleBooking } from "../components/FlexibleBooking";
@@ -86,6 +87,7 @@ export function ClassForm({
   onClose: () => void;
   dialogClassName?: string;
 }) {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const catalog = useCatalog();
   const { sports, rooms } = catalog;
   const originalSlot = item && slotForSession(item);
@@ -94,6 +96,7 @@ export function ClassForm({
   const original = item && vietnamScheduleParts(item.scheduleTime);
   const legacySlot = fixedSlots && slotCode === "legacy";
   const selectedSlot = SCHEDULING_SLOTS.find(slot => slot.code === slotCode);
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
   const checkResources = fixedSlots && !item?.courseId && !item?.regularClassId;
   const [sportId, setSportId] = useState(item?.sportId ?? 0);
@@ -108,6 +111,7 @@ export function ClassForm({
   const client = useQueryClient();
   const toast = useToast();
   return (
+    // [NÚT] FORM "Chỉnh sửa lớp học, nút "Lưu lớp học"" → gọi API api.saveClass → POST /classes/{id} | /classes
     <FormModal
       title={item ? "Chỉnh sửa lớp học" : "Tạo lớp học mới"}
       className={dialogClassName}
@@ -121,6 +125,7 @@ export function ClassForm({
          * Gửi dữ liệu form cùng item?.id; API chọn POST/PUT. Chỉ sau khi chờ lưu thành công
          * mới invalidate cache và báo hoàn tất. FormModal sẽ giữ form nếu có lỗi.
          */
+        // [API] api.saveClass → POST /classes/{id} | /classes
         const slotSchedule = fixedSlots && selectedSlot ? `${String(data.get("scheduleDate"))}T${selectedSlot.start}:00` : undefined;
         if (fixedSlots && !legacySlot && !slotSchedule) throw new Error("Chọn một ca học.");
         const input = {
@@ -300,6 +305,7 @@ function lacksManagementEndpoint(error: unknown) {
 }
 
 export default function Classes() {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
   const { session } = useAuth();
   const can = usePermissions();
@@ -310,11 +316,13 @@ export default function Classes() {
   const apiMember = member && session!.mode === "api";
   const activeMembership = useQuery({
     queryKey: ["activeSubscription", session!.user.id],
+    // [API] api.activeSubscription → GET /memberships/members/{memberId}/active
     queryFn: () => api.activeSubscription(session!.user.id),
     enabled: apiMember,
   });
   const membershipPackages = useQuery({
     queryKey: ["membershipPackages"],
+    // [API] api.membershipPackages → GET /memberships/packages
     queryFn: api.membershipPackages,
     enabled: apiMember,
   });
@@ -373,6 +381,7 @@ export default function Classes() {
   const [selected, setSelected] = useState<SportClass | null>(null);
   const [selectedCoachId, setSelectedCoachId] = useState<number | null>(null);
   const [cancel, setCancel] = useState<SportClass | null>(null);
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const managedClasses = useQuery({
     queryKey: ["managed-classes", session!.user.id, status, sport, search, page, filters],
     queryFn: () => anyFilterActive
@@ -402,6 +411,7 @@ export default function Classes() {
   }
   const coaches = useQuery({
     queryKey: ["coach-directory"],
+    // [API] api.coaches → GET /users/coaches
     queryFn: api.coaches,
     enabled: member || managed,
     retry: false,
@@ -484,6 +494,7 @@ export default function Classes() {
               <Link to="/classes/weekly-template" className="btn btn-primary">Lịch tuần mẫu</Link>
             )}
             {manager && (
+              // [NÚT] NÚT "Tạo lớp học" → mở/đóng hộp thoại hoặc form (setEdit)
               <Button onClick={() => setEdit(true)}>
                 <Plus size={17} />
                 {demo ? "Tạo lớp học" : "Tạo buổi lẻ"}
@@ -509,6 +520,7 @@ export default function Classes() {
                       ? ` · ${coachProfile.specialties}`
                       : ""}
                   </span>
+                  {/* [NÚT] NÚT "Xem thông tin" → mở/đóng hộp thoại hoặc form (setSelectedCoachId) */}
                   <Button
                     variant="secondary"
                     onClick={() => setSelectedCoachId(coachProfile.coachId)}
@@ -561,6 +573,7 @@ export default function Classes() {
           </Panel>
         )}
         <div className="sport-tabs">
+          {/* [NÚT] NÚT "Tất cả bộ môn" → đổi cách hiển thị / bộ lọc trên màn hình (setSport) */}
           <button
             className={sport === "all" ? "selected" : ""}
             onClick={() => { setPage(0); setSport("all"); }}
@@ -568,6 +581,7 @@ export default function Classes() {
             Tất cả bộ môn
           </button>
           {Object.entries(sports).map(([id, name]) => (
+            // [NÚT] NÚT (nút biểu tượng) → đổi cách hiển thị / bộ lọc trên màn hình (setSport)
             <button
               key={id}
               className={sport === id ? "selected" : ""}
@@ -600,6 +614,7 @@ export default function Classes() {
             <option value="all">Tất cả trạng thái</option>
           </Select>
           <div className="view-toggle">
+            {/* [NÚT] NÚT "Xem dạng thẻ" → mở/đóng hộp thoại hoặc form (setView) */}
             <button
               aria-label="Xem dạng thẻ"
               aria-pressed={view === "grid"}
@@ -608,6 +623,7 @@ export default function Classes() {
             >
               <LayoutGrid size={17} />
             </button>
+            {/* [NÚT] NÚT "Xem dạng bảng" → mở/đóng hộp thoại hoặc form (setView) */}
             <button
               aria-label="Xem dạng bảng"
               aria-pressed={view === "list"}
@@ -687,6 +703,7 @@ export default function Classes() {
                 key: "name",
                 label: "Lớp học",
                 render: (c) => (
+                  // [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setSelected)
                   <button className="table-name" onClick={() => setSelected(c)}>
                     {c.className}
                   </button>
@@ -748,6 +765,7 @@ export default function Classes() {
                 key: "actions",
                 label: "Thao tác",
                 render: (c) => (
+                  // [NÚT] NÚT "Chỉnh sửa / Chi tiết" → mở/đóng hộp thoại hoặc form (setEdit)
                   <button
                     className="subtle-link"
                     onClick={() => manager && (!managed || c.status !== "CANCELLED") ? setEdit(c) : setSelected(c)}
@@ -814,6 +832,7 @@ export default function Classes() {
         }} />
       )}
       {cancel && demo && (
+        // [NÚT] HỘP XÁC NHẬN "Hủy lớp học?" → gọi API api.cancelBooking → DELETE /bookings/{id}; api.cancelClass → POST /classes/{id}/cancel | /schedule
         <Confirm
           title="Hủy lớp học?"
           description={`Lớp ${cancel.className} sẽ bị hủy cùng toàn bộ đăng ký liên quan.`}
@@ -823,6 +842,7 @@ export default function Classes() {
              * Hủy cả lớp theo quyền quản lý; không nhầm với api.cancelBooking hủy chỗ
              * của một học viên. Dữ liệu các màn liên quan được lấy lại sau khi lưu.
              */
+            // [API] api.cancelClass → POST /classes/{id}/cancel | /schedule
             await api.cancelClass(cancel.id);
             await client.invalidateQueries();
             toast("Đã hủy lớp và các đăng ký liên quan.");
@@ -851,10 +871,12 @@ function ClassCard({
   onView: () => void;
   onEdit?: () => void;
 }) {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
   const visual = sportVisual(sports[c.sportId]);
   const capacity = useQuery({
     queryKey: ["capacity", c.id],
+    // [API] api.capacity → GET /classes/{id}/capacity
     queryFn: () => api.capacity(c.id),
   });
   const available = capacity.data;
@@ -898,6 +920,7 @@ function ClassCard({
         </span>
         <span className="class-level">{c.durationMinutes} PHÚT</span>
         {onEdit && (courseEnabled || !c.courseId) && (
+          // [NÚT] NÚT (nút biểu tượng) → chạy hàm onEdit()
           <button
             className="class-edit"
             aria-label={`Chỉnh sửa ${c.className}`}
@@ -968,6 +991,7 @@ function ClassCard({
               : `Tối đa ${c.maxCapacity}`}{" "}
             thành viên
           </span>
+          {/* [NÚT] NÚT "Xem lớp học" → chạy hàm onView() */}
           <button onClick={onView}>
             Xem lớp học
             <ArrowRight size={15} />
@@ -984,9 +1008,11 @@ function ClassCard({
  */
 export function ClassCoachName({ coachId }: { coachId: number }) {
   const { session } = useAuth();
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
   const directory = useQuery({
     queryKey: ["coach-directory"],
+    // [API] api.coaches → GET /users/coaches
     queryFn: api.coaches,
     enabled: session?.mode === "api",
     retry: false,
@@ -1000,6 +1026,7 @@ export function ClassCoachName({ coachId }: { coachId: number }) {
     return (
       <>
         Không tải được tên HLV #{coachId}{" "}
+        {/* [NÚT] NÚT "Thử lại" → tải lại dữ liệu từ API */}
         <button className="text-link" onClick={() => void directory.refetch()}>
           Thử lại
         </button>
@@ -1021,6 +1048,7 @@ export function ClassDetail(props: {
   const live = session?.mode === "api";
   const detail = useQuery({
     queryKey: ["classDetail", props.item.id, session?.user.id],
+    // [API] api.classDetail → GET /classes/{id}
     queryFn: () => api.classDetail(props.item.id),
     enabled: live,
     refetchOnMount: "always",
@@ -1053,8 +1081,10 @@ function ClassDetailContent({
   onCancel?: (item: SportClass) => void;
   dialogClassName?: string;
 }) {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
   const visual = sportVisual(sports[c.sportId]);
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
 
   const [showCoach, setShowCoach] = useState(false);
@@ -1064,6 +1094,7 @@ function ClassDetailContent({
 
   const capacity = useQuery({
     queryKey: ["capacity", c.id],
+    // [API] api.capacity → GET /classes/{id}/capacity
     queryFn: () => api.capacity(c.id),
   });
   const cancellation = useQuery({
@@ -1077,6 +1108,7 @@ function ClassDetailContent({
   const ownBookings = useQuery({
     queryKey: ["memberBookings", session!.user.id, c.id],
     queryFn: async () =>
+      // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
       (await api.bookings(session!.user.id)).filter(
         (booking) => booking.classId === c.id,
       ),
@@ -1089,6 +1121,8 @@ function ClassDetailContent({
     );
   const bookings = useQuery({
     queryKey: ["classStudents", session!.user.id, session!.user.roleName, c.id],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
+    // [API] operations.students → GET /classes/{classId}/students
     queryFn: async () => session!.mode === "api"
       ? (await operations.students(c.id)).map((student) => ({
           id: student.memberId,
@@ -1139,6 +1173,7 @@ function ClassDetailContent({
               <strong>
                 <ClassCoachName coachId={c.coachId} />
               </strong>
+              {/* [NÚT] NÚT "Xem thông tin HLV" → đổi cách hiển thị / bộ lọc trên màn hình (setShowCoach) */}
               <button
                 className="text-link"
                 disabled={!c.coachId || c.coachId < 1}
@@ -1206,6 +1241,7 @@ function ClassDetailContent({
               c.status === "SCHEDULED" &&
               parseDate(c.scheduleTime) > new Date() && (
                 ownBookings.isPending ? (
+                  // [NÚT] NÚT "Đang kiểm tra đăng ký…"
                   <Button disabled>Đang kiểm tra đăng ký…</Button>
                 ) : ownBookings.error ? (
                   <div className="booking-status-error">
@@ -1223,14 +1259,17 @@ function ClassDetailContent({
                     </div>
                   </div>
                 ) : capacity.isPending ? (
+                  // [NÚT] NÚT "Đang kiểm tra chỗ trống…"
                   <Button disabled>Đang kiểm tra chỗ trống…</Button>
                 ) : capacity.error ? (
                   <div className="booking-status-error">
                     <ErrorState error={capacity.error} retry={capacity.refetch} />
                   </div>
                 ) : (capacity.data ?? 0) <= 0 ? (
+                  // [NÚT] NÚT "Lớp đã đủ chỗ"
                   <Button disabled>Lớp đã đủ chỗ</Button>
                 ) : (
+                  // [NÚT] NÚT "Đăng ký lớp học" → đổi cách hiển thị / bộ lọc trên màn hình (setBooking)
                   <Button onClick={() => setBooking(true)}>
                     Đăng ký lớp học
                   </Button>
@@ -1241,6 +1280,7 @@ function ClassDetailContent({
               can("bookings.assist") &&
               c.status === "SCHEDULED" &&
               parseDate(c.scheduleTime) > new Date() && (
+                // [NÚT] NÚT "Đăng ký cho thành viên" → đổi cách hiển thị / bộ lọc trên màn hình (setBooking)
                 <Button
                   disabled={
                     capacity.isPending ||
@@ -1262,12 +1302,14 @@ function ClassDetailContent({
             )}
             {cancellation.data?.reason && <Notice>Lý do trung tâm hủy: {cancellation.data.reason}</Notice>}
             {onEdit && (courseEnabled || !c.courseId) && (
+              // [NÚT] NÚT "Chỉnh sửa"
               <Button variant="secondary" onClick={() => onEdit(c)}>
                 <Pencil size={16} />
                 Chỉnh sửa
               </Button>
             )}
             {onCancel && c.status !== "CANCELLED" && (session?.mode === "demo" || cancellation.data?.canCancel) && (
+              // [NÚT] NÚT "Hủy lớp"
               <Button variant="danger" onClick={() => onCancel(c)}>
                 Hủy buổi học
               </Button>

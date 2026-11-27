@@ -6,6 +6,7 @@ import { dateLabel, errorText, timeLabel } from "../lib/utils";
 import {
   Button,
   DataTable,
+  Empty,
   ErrorState,
   Field,
   Loading,
@@ -70,6 +71,7 @@ export default function ApiAudit() {
   });
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [view, setView] = useState<"timeline" | "table">("timeline");
   const query = useQuery({
     queryKey: ["audit-logs", filters],
     queryFn: () => auditApi.list(filters),
@@ -171,12 +173,57 @@ export default function ApiAudit() {
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : (
           <>
+            {/*
+              Chế độ xem nhật ký: dòng thời gian (mặc định) hoặc bảng.
+              Làm sao: cùng một danh sách entries đã lọc, chỉ đổi cách trình bày; phân trang dùng chung bên dưới.
+              Tại sao: dòng thời gian gom theo ngày giúp đọc lịch sử thao tác nhanh hơn bảng nhiều cột.
+            */}
+            <div className="segmented audit-view-toggle" role="group" aria-label="Cách hiển thị nhật ký">
+              <button type="button" className={view === "timeline" ? "active" : ""} aria-pressed={view === "timeline"} onClick={() => setView("timeline")}>
+                Dòng thời gian
+              </button>
+              <button type="button" className={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => setView("table")}>
+                Bảng
+              </button>
+            </div>
+            {view === "timeline" ? (
+              entries.length ? (
+                <ol className="audit-timeline motion-stagger" aria-label="Nhật ký hoạt động theo thời gian">
+                  {entries.map((entry, index) => {
+                    const day = dateLabel(entry.createdAt);
+                    const newDay = index === 0 || dateLabel(entries[index - 1].createdAt) !== day;
+                    return (
+                      <li key={entry.id} className="audit-timeline-item">
+                        {newDay && <p className="audit-timeline-day">{day}</p>}
+                        <div className="audit-timeline-card">
+                          <span className="audit-timeline-time">{timeLabel(entry.createdAt)}</span>
+                          <div>
+                            <strong>{actionLabels[entry.action] || entry.action}</strong>{" "}
+                            <span>
+                              {entityLabels[entry.entityType] || entry.entityType}
+                              {entry.entityId ? ` #${entry.entityId}` : ""}
+                            </span>
+                            <small>
+                              {entry.actorName || entry.actorEmail}
+                              {entry.ipAddress ? ` · IP ${entry.ipAddress}` : ""}
+                            </small>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <Empty title="Không có kết quả" description="Thử thay đổi bộ lọc hoặc khoảng ngày." />
+              )
+            ) : (
             <DataTable
               rows={entries}
               label="Nhật ký hoạt động"
               columns={[
                 {
                   key: "time",
+                  sort: (entry) => entry.createdAt,
                   label: "Thời gian",
                   render: (entry) => (
                     <div className="contact-cell">
@@ -187,6 +234,7 @@ export default function ApiAudit() {
                 },
                 {
                   key: "actor",
+                  sort: (entry) => entry.actorName || entry.actorEmail || "",
                   label: "Người thực hiện",
                   render: (entry) => (
                     <div className="contact-cell">
@@ -197,11 +245,13 @@ export default function ApiAudit() {
                 },
                 {
                   key: "action",
+                  sort: (entry) => entry.action,
                   label: "Thao tác",
                   render: (entry) => actionLabels[entry.action] || entry.action,
                 },
                 {
                   key: "entity",
+                  sort: (entry) => entry.entityType,
                   label: "Dữ liệu liên quan",
                   render: (entry) => (
                     <div className="contact-cell">
@@ -215,11 +265,13 @@ export default function ApiAudit() {
                 },
                 {
                   key: "ip",
+                  sort: (entry) => entry.ipAddress || "",
                   label: "IP",
                   render: (entry) => entry.ipAddress || "—",
                 },
               ]}
             />
+            )}
             <div className="table-footer">
               <span>
                 Trang {totalPages ? page + 1 : 0}/{totalPages} ·{" "}

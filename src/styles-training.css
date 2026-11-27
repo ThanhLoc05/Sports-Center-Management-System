@@ -85,13 +85,13 @@
   justify-content: space-between;
   gap: 10px;
   color: #54665c;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .training-card-facts {
   display: flex;
   gap: 10px 16px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: var(--text-base);
   color: #516359;
 }
 .training-card-facts span {
@@ -111,7 +111,7 @@
   gap: 5px;
   padding: 12px 0;
   border-bottom: 1px solid #e3e9e5;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 .training-slot-list small {
   color: #66766b;
@@ -123,15 +123,15 @@
   flex-wrap: wrap;
 }
 .training-price strong {
-  font-size: 22px;
+  font-size: var(--text-2xl);
   color: #214c39;
 }
 .training-price del {
   color: #88948d;
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .training-price span {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #285b40;
   background: #e5f1e8;
   border-radius: 5px;
@@ -165,7 +165,7 @@
 }
 .training-slot-input > strong {
   align-self: center;
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .training-sessions {
   max-height: 52vh;

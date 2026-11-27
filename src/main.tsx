@@ -20,8 +20,10 @@ import "@fontsource/be-vietnam-pro/latin-400.css";
 import "@fontsource/be-vietnam-pro/latin-500.css";
 import "@fontsource/be-vietnam-pro/latin-600.css";
 import "@fontsource/be-vietnam-pro/latin-700.css";
+import "./styles-tokens.css";
 import "./styles.css";
 import "./styles-topic.css";
+import "./styles-components.css";
 /**
  * Chính sách lấy dữ liệu dùng chung cho các màn hình. Cache còn mới trong 30 giây;
  * lỗi 4xx không tự thử lại, lỗi khác chỉ thử thêm một lần. Mutation không tự gửi lại

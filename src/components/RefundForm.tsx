@@ -1,3 +1,4 @@
+// [VAI TRÒ] LỄ TÂN ghi nhận hoàn tiền mặt cho hóa đơn.
 import { useQuery } from "@tanstack/react-query";
 import { transferReference } from "../lib/payment-qr";
 import { api } from "../lib/api";

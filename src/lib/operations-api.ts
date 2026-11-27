@@ -124,11 +124,13 @@ function profileResponse(
   return value;
 }
 export const operations = {
+  // [API] operations.students → GET /classes/{classId}/students — được trang Lễ tân/Member gọi
   async students(classId: number) {
     return list(
       await request<ClassStudent[]>(`/classes/${id(classId)}/students`),
     );
   },
+  // [API] operations.profile → GET /users/{memberId}/profile — được trang Lễ tân/Member gọi
   async profile(userId: number): Promise<MemberProfile | null> {
     const memberId = id(userId);
     try {
@@ -142,6 +144,7 @@ export const operations = {
       throw error;
     }
   },
+  // [API] operations.saveProfile → PUT /users/{memberId}/profile — được trang Lễ tân/Member gọi
   async saveProfile(
     userId: number,
     input: MemberProfileInput,
@@ -177,12 +180,14 @@ export const operations = {
       profile: profileResponse(result.profile, memberId),
     };
   },
+  // [API] operations.plans → GET /workout-plans/{kind}/{target} — được trang Lễ tân/Member gọi
   async plans(kind: "coach" | "member" | "class", target: number) {
     return list(
       await request<WorkoutPlan[]>(`/workout-plans/${kind}/${id(target)}`),
     );
   },
   /** Có planId thì sửa giáo án; chưa có thì tạo mới cho cá nhân hoặc lớp. */
+  // [API] operations.savePlan → POST (xem lib/operations-api.ts) — được trang Lễ tân/Member gọi
   savePlan(input: PlanInput, planId?: number) {
     const actor = role(staff);
     if (
@@ -199,16 +204,19 @@ export const operations = {
       input,
     );
   },
+  // [API] operations.deletePlan → DELETE /workout-plans/{planId} — được trang Lễ tân/Member gọi
   deletePlan(planId: number) {
     role(staff);
     return request<void>(`/workout-plans/${id(planId)}`, { method: "DELETE" });
   },
+  // [API] operations.logs → GET /workout-logs/{kind}/{target} — được trang Lễ tân/Member gọi
   async logs(kind: "coach" | "member", target: number) {
     return list(
       await request<WorkoutLog[]>(`/workout-logs/${kind}/${id(target)}`),
     );
   },
   /** Mỗi bài dùng một chỉ số có đơn vị, các trường Fitness hoặc chỉ ghi tên. */
+  // [API] operations.saveLog → POST /workout-logs — được trang Lễ tân/Member gọi
   saveLog(input: LogInput) {
     const actor = role(staff);
     id(input.memberId);
@@ -244,6 +252,7 @@ export const operations = {
     }
     return send<WorkoutLog>("/workout-logs", "POST", input);
   },
+  // [API] operations.feedback → PATCH /workout-logs/{logId}/feedback?feedback={encodeURIComponent} — được trang Lễ tân/Member gọi
   feedback(logId: number, feedback: string) {
     role(staff);
     if (!feedback.trim()) throw new ApiError("Nhập nhận xét buổi tập.");

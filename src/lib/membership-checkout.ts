@@ -185,6 +185,7 @@ async function contract<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export const membershipCheckout = {
   // GET danh mục checkout và chỉ cho chọn gói ACTIVE đã qua kiểm tra dữ liệu.
+  // [API] membershipCheckout.packages → GET /membership-packages — được trang Lễ tân/Member gọi
   async packages() {
     const data = await contract<MembershipOffer[]>("/membership-packages");
     if (!Array.isArray(data))
@@ -192,6 +193,7 @@ export const membershipCheckout = {
     return data.map(offer).filter((p) => p.status === "ACTIVE");
   },
   // Member đọc đơn của mình; nhân viên có thể đọc danh sách hoặc lọc theo memberId. BE vẫn kiểm tra quyền.
+  // [API] membershipCheckout.list → GET /membership-orders — được trang Lễ tân/Member gọi
   async list(memberId?: number) {
     const data = await contract<MembershipOrder[]>(
       "/membership-orders" + (memberId ? "?memberId=" + id(memberId) : ""),
@@ -204,6 +206,7 @@ export const membershipCheckout = {
     return orders;
   },
   // Dùng khi mở hóa đơn và khi polling; chỉ đọc trạng thái, không xác nhận đã nhận tiền.
+  // [FLOW 3] API: GET /membership-orders/{id} - xem chi tiết đơn + hóa đơn (dùng khi mở hộp thoại và khi tự tải lại).
   async detail(orderId: number) {
     const order = validateMembershipOrder(
       await contract<MembershipOrder>("/membership-orders/" + id(orderId)),
@@ -213,6 +216,7 @@ export const membershipCheckout = {
     return order;
   },
   // POST tạo đơn chờ. Giữ cùng Idempotency-Key khi thử lại cùng lựa chọn để BE không tạo thêm hóa đơn.
+  // [FLOW 3] API: POST /membership-orders - tạo đơn chờ + hóa đơn PENDING (điểm bắt đầu của Flow 3).
   async create(input: MembershipOrderInput, key: string) {
     id(input.memberId);
     id(input.packageId);
@@ -233,6 +237,7 @@ export const membershipCheckout = {
     return order;
   },
   // Hủy đơn chờ qua BE; chỉ cập nhật giao diện theo trạng thái đơn/hóa đơn trả về.
+  // [FLOW 3] API: POST /membership-orders/{id}/cancel - hủy đơn chờ.
   async cancel(order: MembershipOrder) {
     if (order.status !== "PENDING_PAYMENT")
       throw new ApiError("Chỉ có thể hủy đơn đang chờ thanh toán.");
@@ -255,6 +260,7 @@ export const membershipCheckout = {
     return updated;
   },
   // POST xác nhận tiền mặt gửi version của đơn; BE kiểm tra và trả kết quả gói đã ghi thành công.
+  // [FLOW 3] API: POST /membership-orders/{id}/confirm-payment - lễ tân xác nhận đã thu TIỀN MẶT (đơn QR không được gọi hàm này).
   async confirm(order: MembershipOrder, _transactionId: string, key: string) {
     if (order.status !== "PENDING_PAYMENT")
       throw new ApiError("Yêu cầu không còn chờ thanh toán.");

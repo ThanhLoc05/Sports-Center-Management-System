@@ -1,3 +1,4 @@
+// [VAI TRÒ] Kế hoạch tập luyện (MEMBER): xem kế hoạch HLV giao, ghi kết quả buổi tập.
 import ApiTraining from "../components/ApiTraining";
 /**
  * Phiên API dùng ApiTraining để lưu giáo án, kết quả và nhận xét qua backend.
@@ -39,6 +40,7 @@ function LegacyTraining() {
   const { session } = useAuth();
   const db = useDemoData();
   const can = usePermissions();
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   const client = useQueryClient();
   const toast = useToast();
@@ -129,6 +131,7 @@ function LegacyTraining() {
         description="Kế hoạch, buổi tập, kết quả và nhận xét trong cùng một hành trình."
         actions={
           can("training.manage") ? (
+            // [NÚT] NÚT "Tạo kế hoạch" → mở/đóng hộp thoại hoặc form (setTarget)
             <Button disabled={!db} onClick={() => openPlan()}>
               Tạo kế hoạch
             </Button>
@@ -179,6 +182,7 @@ function LegacyTraining() {
               key: "view",
               label: "Thao tác",
               render: (p) => (
+                // [NÚT] NÚT "Xem kế hoạch" → mở/đóng hộp thoại hoặc form (setSelected)
                 <Button variant="ghost" onClick={() => setSelected(p.id)}>
                   Xem kế hoạch
                 </Button>
@@ -188,6 +192,7 @@ function LegacyTraining() {
         />
       </Panel>
       {edit && db && (
+        // [NÚT] FORM "Chỉnh sửa kế hoạch" → tải lại dữ liệu từ API
         <FormModal
           title={formPlan ? "Chỉnh sửa kế hoạch" : "Tạo kế hoạch tập luyện"}
           onClose={() => setEdit(null)}
@@ -405,9 +410,11 @@ function LegacyTraining() {
           )}
           {can("training.manage") && (
             <div className="detail-actions">
+              {/* [NÚT] NÚT "Ghi nhận kết quả" → mở/đóng hộp thoại hoặc form (setSelected) */}
               <Button onClick={() => openLog(selected)}>
                 Ghi nhận kết quả
               </Button>
+              {/* [NÚT] NÚT "Chỉnh sửa" → mở/đóng hộp thoại hoặc form (setSelected) */}
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -417,6 +424,7 @@ function LegacyTraining() {
               >
                 Chỉnh sửa
               </Button>
+              {/* [NÚT] NÚT "Xóa kế hoạch" → mở/đóng hộp thoại hoặc form (setSelected) */}
               <Button
                 variant="danger"
                 onClick={() => {
@@ -431,6 +439,7 @@ function LegacyTraining() {
         </Modal>
       )}
       {logPlan && db && (
+        // [NÚT] FORM "Ghi nhận kết quả buổi tập" → tải lại dữ liệu từ API
         <FormModal
           title="Ghi nhận kết quả buổi tập"
           description={logPlan.title}
@@ -530,6 +539,7 @@ function LegacyTraining() {
         </FormModal>
       )}
       {remove && (
+        // [NÚT] HỘP XÁC NHẬN "Xóa kế hoạch demo?" → tải lại dữ liệu từ API
         <Confirm
           title="Xóa kế hoạch demo?"
           description="Kế hoạch và kết quả liên quan sẽ được xóa khỏi dữ liệu demo."

@@ -1,3 +1,4 @@
+// [VAI TRÒ] Khung QR chuyển khoản trên hóa đơn (Member quét, Lễ tân xem).
 import { useEffect, useState } from "react";
 import { CenterBankSettings } from "./CenterBankSettings";
 import { bankAccountApi } from "../lib/bank-account-api";
@@ -135,12 +136,14 @@ function LocalBankSettings() {
             </Field>
           </div>
           <div className="row-actions">
+            {/* [NÚT] NÚT "center / Xem lại cấu hình trung tâm / Lưu cấu hình QR" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <Button type="submit">
               {scope === "center"
                 ? "Xem lại cấu hình trung tâm"
                 : "Lưu cấu hình QR"}
             </Button>
             {config && scope === "local" && (
+              // [NÚT] NÚT "Gỡ cấu hình QR" → đổi cách hiển thị / bộ lọc trên màn hình (setConfig)
               <Button
                 type="button"
                 variant="secondary"
@@ -181,9 +184,11 @@ function LocalBankSettings() {
             chờ kết nối backend.
           </Notice>
           <div className="modal-footer">
+            {/* [NÚT] NÚT "Quay lại chỉnh sửa" → đổi cách hiển thị / bộ lọc trên màn hình (setReview) */}
             <Button variant="secondary" onClick={() => setReview(null)}>
               Quay lại chỉnh sửa
             </Button>
+            {/* [NÚT] NÚT "Lưu cấu hình dùng chung" */}
             <Button disabled>Lưu cấu hình dùng chung</Button>
           </div>
         </Modal>
@@ -207,6 +212,7 @@ export function PaymentQr({
   // Hóa đơn thuộc đơn gia hạn bắt buộc dùng tài khoản chụp trong đơn, không lấy nhầm cấu hình máy/global đã đổi.
   const sharedBank = useQuery({
     queryKey: ["center-bank-account"],
+    // [FLOW 3] LẤY API: GET /payments/bank-account - tài khoản nhận tiền của trung tâm để dựng QR.
     queryFn: bankAccountApi.get,
     retry: false,
     enabled:
@@ -215,6 +221,7 @@ export function PaymentQr({
       invoice.paymentMethod === "BANK_TRANSFER" &&
       !bankAccount,
   });
+  // Ưu tiên snapshot trên đơn; chỉ hóa đơn không gắn đơn gói mới đọc cấu hình ngân hàng chung hiện tại.
   const config =
     bankAccount ||
     (session?.mode === "demo"
@@ -222,6 +229,7 @@ export function PaymentQr({
       : !invoice.membershipOrderId
         ? sharedBank.data?.bankAccount
         : null);
+  // [API] usePaymentMember() (hook trong lib/use-payment-member.ts) → api.user → GET /users/{id}
   const member = usePaymentMember(invoice.memberId, memberName);
   let content = transferReference(invoice.id, invoice.memberId);
   let contentError = "";
@@ -237,6 +245,7 @@ export function PaymentQr({
   } else if (config)
     contentError =
       "Đang chờ đúng tên thành viên để tạo QR. Không dùng tên người thu ngân.";
+  // Đổi người mua, số tiền hoặc tài khoản thì QR cũ không còn hợp lệ; dùng khóa này để ẩn ảnh cũ ngay.
   const qrKey = JSON.stringify([
     invoice.id,
     invoice.memberId,
@@ -278,6 +287,7 @@ export function PaymentQr({
         setError(contentError);
         return;
       }
+      // buildVietQr tạo chuỗi thanh toán; thư viện qrcode chỉ vẽ chuỗi đó thành ảnh PNG tại trình duyệt.
       import("qrcode")
         .then((q) =>
           q.toDataURL(
@@ -305,6 +315,7 @@ export function PaymentQr({
         .then((data) => {
           if (current) {
             setImage(data);
+            // Chỉ cho hiện ảnh khi nó khớp dữ liệu hóa đơn hiện tại.
             setImageKey(qrKey);
           }
         })
@@ -314,6 +325,7 @@ export function PaymentQr({
         });
     }
     return () => {
+      // Bỏ kết quả tạo ảnh cũ nếu người dùng đã đổi hóa đơn hoặc component bị đóng.
       current = false;
     };
   }, [
@@ -333,6 +345,7 @@ export function PaymentQr({
   )
     return null;
   return (
+    // [FLOW 3] GIAO DIỆN QR: dựng mã VietQR (buildVietQr) từ tài khoản nhận + số tiền + nội dung HD.. TV.. TÊN. Quét QR chưa phải là đã thanh toán.
     <section className="payment-qr status-unpaid" aria-label="Thanh toán QR">
       <h3>Thanh toán bằng QR chuyển khoản</h3>
       <p>
@@ -343,6 +356,7 @@ export function PaymentQr({
       {member.error && (
         <Notice>
           Không tải được tên thành viên.{" "}
+          {/* [NÚT] NÚT "Tải lại thông tin thành viên" → tải lại dữ liệu từ API */}
           <Button variant="ghost" onClick={() => void member.refetch()}>
             Tải lại thông tin thành viên
           </Button>
@@ -431,6 +445,7 @@ export function PaymentQr({
               <p>
                 Nội dung: <strong>{content}</strong>
               </p>
+              {/* [NÚT] NÚT "Sao chép thông tin" */}
               <Button
                 variant="secondary"
                 disabled={!!contentError}
@@ -474,6 +489,7 @@ export function PaymentQr({
           )}
           {session!.user.id === invoice.memberId &&
             session!.mode === "demo" && (
+              // [NÚT] NÚT "Đã báo giao dịch · chờ đối chiếu / Tôi đã chuyển khoản · báo" → tải lại dữ liệu từ API
               <Button
                 disabled={reported}
                 onClick={() => {

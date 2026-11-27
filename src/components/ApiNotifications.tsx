@@ -1,3 +1,4 @@
+// [VAI TRÒ] Hộp thông báo: Member/Lễ tân xem thông báo, đánh dấu đã đọc.
 import type { ReactNode } from "react";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
@@ -85,6 +86,7 @@ function NotificationInbox({ additionalCards = [], canShowEmpty = true }: InboxP
   const key = ["notification-history", session?.user.id];
   const history = useInfiniteQuery({
     queryKey: key,
+    // [API] notificationsApi.history → GET /notifications?page={page}&size={size}
     queryFn: ({ pageParam }) => notificationsApi.history(pageParam),
     initialPageParam: 0,
     getNextPageParam: (page) => (page.hasNext ? page.page + 1 : undefined),
@@ -92,6 +94,7 @@ function NotificationInbox({ additionalCards = [], canShowEmpty = true }: InboxP
     retry: false,
   });
   const read = useMutation({
+    // [API] notificationsApi.markRead → PATCH /notifications/{positiveId}/read
     mutationFn: notificationsApi.markRead,
     onSuccess: async (item) => {
       if (
@@ -174,6 +177,7 @@ function NotificationInbox({ additionalCards = [], canShowEmpty = true }: InboxP
           {(link || (general && !event.readAt)) && (
             <footer className="inbox-actions">
               {link && <Link className="text-link" to={link}>Mở nội dung liên quan</Link>}
+              {/* [NÚT] NÚT "Đánh dấu đã đọc" */}
               {general && !event.readAt && <Button variant="ghost" disabled={read.isPending} onClick={() => read.mutate(event.id)}>Đánh dấu đã đọc</Button>}
             </footer>
           )}
@@ -203,6 +207,7 @@ function NotificationInbox({ additionalCards = [], canShowEmpty = true }: InboxP
         </div>
       )}
       {history.hasNextPage && (
+        // [NÚT] NÚT "Tải thêm thông báo"
         <Button
           variant="secondary"
           loading={history.isFetchingNextPage}
@@ -243,7 +248,9 @@ function NotificationComposer() {
       now.token === session?.token
     );
   };
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
   const students = useAssignedStudents();
   const toast = useToast();
@@ -267,6 +274,7 @@ function NotificationComposer() {
       session?.user.roleName,
       classTarget,
     ],
+    // [API] operations.students → GET /classes/{classId}/students
     queryFn: () => operations.students(classTarget!),
     enabled: session?.mode === "api" && classTarget !== undefined,
     retry: false,
@@ -341,6 +349,7 @@ function NotificationComposer() {
     setSending(true);
     try {
       if (draft.audience === "class") {
+        // [API] operations.students → GET /classes/{classId}/students
         const fresh = await operations.students(draft.targetId);
         if (!current()) return;
         const booked = new Set(
@@ -354,6 +363,7 @@ function NotificationComposer() {
           );
       }
       if (!current()) return;
+      // [API] notificationsApi.send → POST /notifications
       const result = await notificationsApi.send({
         recipientIds: draft.recipientIds,
         title: draft.title,
@@ -440,6 +450,7 @@ function NotificationComposer() {
         description="Gửi thông báo trực tuyến hoặc giao bài tập cho học viên."
         actions={
           canSend ? (
+            // [NÚT] NÚT "Soạn thông báo / bài tập" → đổi cách hiển thị / bộ lọc trên màn hình (setAudience)
             <Button onClick={openComposer}>Soạn thông báo / bài tập</Button>
           ) : undefined
         }
@@ -455,6 +466,7 @@ function NotificationComposer() {
         </Notice>
       )}
       {compose && (
+        // [NÚT] FORM "Soạn thông báo hoặc bài tập, nút "Xem trước nội dung"" → mở/đóng hộp thoại hoặc form (setCompose)
         <FormModal
           title="Soạn thông báo hoặc bài tập"
           wide
@@ -625,6 +637,7 @@ function NotificationComposer() {
             qua SSE. HOMEWORK vẫn được lưu thành kế hoạch tập luyện.
           </Notice>
           <div className="modal-footer">
+            {/* [NÚT] NÚT "Chỉnh sửa" → đổi cách hiển thị / bộ lọc trên màn hình (setReview) */}
             <Button
               variant="secondary"
               disabled={sending}
@@ -639,6 +652,7 @@ function NotificationComposer() {
             >
               Chỉnh sửa
             </Button>
+            {/* [NÚT] NÚT "Gửi thông báo" → gọi API operations.students → GET /classes/{classId}/students; notificationsApi.send → POST /notifications */}
             <Button loading={sending} onClick={() => void sendDraft()}>
               Gửi thông báo
             </Button>

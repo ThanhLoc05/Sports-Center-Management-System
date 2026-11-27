@@ -1,3 +1,4 @@
+// [VAI TRÒ] Hộp thoại hồ sơ HLV (mở từ chi tiết lớp) - Member/Lễ tân xem kinh nghiệm, chứng chỉ.
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -24,14 +25,17 @@ export function CoachProfileDialog({
   coachId: number;
   onClose: () => void;
 }) {
+  // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports } = useCatalog();
   const profile = useQuery({
     queryKey: ["coach-profile", coachId],
+    // [API] api.coachProfile → GET /users/{id}/coach-profile
     queryFn: () => api.coachProfile(coachId),
     retry: false,
   });
   const classes = useQuery({
     queryKey: ["coach-profile-classes", coachId],
+    // [API] api.classes → GET /classes/my-classes | /classes…
     queryFn: () => api.classes(coachId),
     retry: false,
   });
@@ -109,6 +113,7 @@ export function CoachProfileCard({ coachId }: { coachId: number }) {
   const [editing, setEditing] = useState(false);
   const profile = useQuery({
     queryKey: ["coach-profile", coachId],
+    // [API] api.coachProfile → GET /users/{id}/coach-profile
     queryFn: () => api.coachProfile(coachId),
     enabled: session?.mode === "api",
     retry: false,
@@ -120,6 +125,7 @@ export function CoachProfileCard({ coachId }: { coachId: number }) {
         title="Hồ sơ nghề nghiệp"
         action={
           session?.mode === "api" ? (
+            // [NÚT] NÚT "Cập nhật hồ sơ nghề nghiệp" → mở/đóng hộp thoại hoặc form (setEditing)
             <Button
               variant="secondary"
               disabled={!profile.isSuccess || profile.isFetching}
@@ -152,10 +158,12 @@ export function CoachProfileCard({ coachId }: { coachId: number }) {
         )}
       </Panel>
       {editing && profile.data && (
+        // [NÚT] FORM "Cập nhật hồ sơ nghề nghiệp" → gọi API api.saveCoachProfile → PUT /users/{id}/coach-profile
         <FormModal
           title="Cập nhật hồ sơ nghề nghiệp"
           onClose={() => setEditing(false)}
           onSubmit={async (data) => {
+            // [API] api.saveCoachProfile → PUT /users/{id}/coach-profile
             const saved = await api.saveCoachProfile(coachId, {
               professionalLevel:
                 String(data.get("professionalLevel")).trim() || null,

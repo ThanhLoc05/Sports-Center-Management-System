@@ -322,10 +322,27 @@ describe("Phần FE còn thiếu của luồng thanh toán", () => {
     expect(screen.queryByText("HD30 TV4")).not.toBeInTheDocument();
     expect(screen.getByText("HD31 TV4")).toBeVisible();
   });
+  it("finds an older member order by unaccented name across all pages", async () => {
+    const namOrder = { ...pending, memberName: "Lê Hoàng Nam" };
+    const newer = Array.from({ length: 9 }, (_, i) => ({
+      ...pending, id: 100 + i, memberId: 100 + i, memberName: "Thành viên khác",
+      paymentReference: `HD${100 + i} TV${100 + i}`,
+      invoice: { ...pending.invoice, id: 100 + i, memberId: 100 + i, membershipOrderId: 100 + i },
+    }));
+    vi.stubGlobal("fetch", vi.fn(async () => json([...newer, namOrder])));
+    wrap(<MembershipOrders />);
+    await screen.findByText("HD100 TV100");
+    expect(screen.queryByText("HD30 TV4")).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText("Tìm tên thành viên, mã hóa đơn, mã thanh toán, gói tập..."), "le hoang nam");
+    expect(await screen.findByText("HD30 TV4")).toBeVisible();
+    expect(screen.queryByText("HD100 TV100")).not.toBeInTheDocument();
+  });
   it("opens the order detail from its invoice so the QR uses the bank attached to the order", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
+        if (url.endsWith("/refund-requests")) return json([]);
         if (url.includes("/users/")) return json(member);
         if (url.endsWith("/membership-orders/20"))
           return json({ ...pending, bankAccount: bank });

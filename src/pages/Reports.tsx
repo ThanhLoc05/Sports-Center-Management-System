@@ -663,11 +663,12 @@ export default function Reports() {
               rows={periods}
               pageSize={12}
               columns={[
-                { key: "label", label: groupLabels[groupBy], render: (p) => p.label },
-                { key: "gross", label: "Tổng thu", render: (p) => money(p.gross) },
-                { key: "refunded", label: "Tiền hoàn", render: (p) => money(p.refunded) },
+                { key: "label", sort: (p) => p.date, label: groupLabels[groupBy], render: (p) => p.label },
+                { key: "gross", sort: (p) => p.gross, label: "Tổng thu", render: (p) => money(p.gross) },
+                { key: "refunded", sort: (p) => p.refunded, label: "Tiền hoàn", render: (p) => money(p.refunded) },
                 {
                   key: "net",
+                  sort: (p) => p.net,
                   label: "Doanh thu ròng",
                   render: (p) => <strong>{money(p.net)}</strong>,
                 },

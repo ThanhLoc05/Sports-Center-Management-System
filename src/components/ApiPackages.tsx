@@ -59,10 +59,11 @@ export default function ApiPackages() {
           <DataTable
             rows={q.data || []}
             columns={[
-              { key: "name", label: "Gói", render: (p) => p.packageName },
-              { key: "price", label: "Học phí", render: (p) => money(p.price) },
+              { key: "name", sort: (p) => p.packageName, label: "Gói", render: (p) => p.packageName },
+              { key: "price", sort: (p) => p.price, label: "Học phí", render: (p) => money(p.price) },
               {
                 key: "duration",
+                sort: (p) => p.durationDays,
                 label: "Thời hạn",
                 render: (p) => (
                   <span className="package-duration">
@@ -72,6 +73,7 @@ export default function ApiPackages() {
               },
               {
                 key: "level",
+                sort: (p) => p.accessLevel || "",
                 label: "Cấp gói",
                 render: (p) => p.accessLevel || "Chưa xác định",
               },
@@ -86,6 +88,7 @@ export default function ApiPackages() {
               },
               {
                 key: "status",
+                sort: (p) => p.status,
                 label: "Trạng thái",
                 render: (p) => <Badge status={p.status} />,
               },

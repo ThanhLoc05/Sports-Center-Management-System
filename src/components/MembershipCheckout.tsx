@@ -28,6 +28,7 @@ import { MembershipBenefits } from "./MembershipBenefits";
 import { MembershipPlanCompare } from "./MembershipPlanCompare";
 import {
   Badge,
+  MembershipStatus,
   Button,
   Confirm,
   DataTable,
@@ -60,6 +61,41 @@ const orderStatus = {
 };
 const methodName = (method: string) =>
   method === "CASH" ? "Tiền mặt tại quầy" : "Chuyển khoản QR";
+/**
+ * Cái gì: dải 3 bước hiển thị tiến trình một đơn gói tập.
+ * Làm sao: bước hoàn tất = done, bước hiện tại = current (aria-current="step"); CANCELLED/REFUNDED thay bước cuối bằng nhãn kết thúc.
+ * Tại sao: chỉ là lớp trình bày cho trạng thái BE trả về, không thay đổi quy tắc thanh toán.
+ */
+function OrderSteps({ status, method }: { status: keyof typeof orderStatus; method: string }) {
+  const paid = status === "CONFIRMED" || status === "REFUNDED";
+  const last =
+    status === "CANCELLED" ? "Đã hủy đơn" : status === "REFUNDED" ? "Đã hoàn tiền" : "Kích hoạt gói";
+  const steps = [
+    { label: "Tạo đơn", state: "done" },
+    {
+      label: method === "CASH" ? "Thu tiền mặt" : "Chuyển khoản QR",
+      state: paid ? "done" : status === "PENDING_PAYMENT" ? "current" : "skipped",
+    },
+    {
+      label: last,
+      state: status === "CONFIRMED" ? "done" : status === "PENDING_PAYMENT" ? "todo" : "end",
+    },
+  ];
+  return (
+    <ol className="order-steps membership-order-full" aria-label="Tiến trình đơn">
+      {steps.map((step) => (
+        <li
+          key={step.label}
+          className={`order-step is-${step.state}`}
+          aria-current={step.state === "current" ? "step" : undefined}
+        >
+          <span className="order-step-dot" aria-hidden="true" />
+          {step.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
 /** Tên chủ đơn lấy theo memberId, không nhầm với nhân viên thu tiền đang đăng nhập. */
 function OrderMemberLabel({ order }: { order: MembershipOrder }) {
   // [API] usePaymentMember() (hook trong lib/use-payment-member.ts) → api.user → GET /users/{id}
@@ -176,7 +212,8 @@ export function MembershipCheckoutPage() {
           }}>
             <SearchInput label="Tìm thành viên xem gói" placeholder="Nhập ID, mã TV hoặc tên thành viên..."
               value={memberSearchInput} onChange={(value) => {
-                setMemberSearchInput(value); if (!value) setMemberSearch("");
+                // Lọc ngay khi gõ để lễ tân thấy gợi ý tức thì; danh sách đã tải sẵn nên không gọi thêm API.
+                setMemberSearchInput(value); setMemberSearch(value);
               }} />
             {/* [NÚT] NÚT "Tìm kiếm" → gửi form (xử lý ở onSubmit của form chứa nút) */}
             <Button type="submit" variant="secondary"><Search size={16} />Tìm kiếm</Button>
@@ -219,7 +256,7 @@ export function MembershipCheckoutPage() {
         >
           <p>
             {dateLabel(active.startDate)} – {dateLabel(active.endDate)} ·{" "}
-            <Badge status="ACTIVE" />
+            <MembershipStatus status="ACTIVE" endDate={active.endDate} />
           </p>
           <Notice>
             Yêu cầu gia hạn chưa thanh toán không làm mất thời hạn của gói đang
@@ -313,13 +350,7 @@ export function MembershipCheckoutPage() {
                 key: "status",
                 label: "Trạng thái",
                 render: (s) => (
-                  <Badge
-                    status={
-                      s.status === "ACTIVE" && s.endDate < localDate()
-                        ? "EXPIRED"
-                        : s.status
-                    }
-                  />
+                  <MembershipStatus status={s.status} endDate={s.endDate} />
                 ),
               },
               {
@@ -856,6 +887,12 @@ export function MembershipOrderDetail({
         order && (
           <>
             <div className="membership-order-body" id="print-invoice">
+              {/*
+                Thanh tiến trình đơn: Tạo đơn → Thanh toán → Kích hoạt gói.
+                Làm sao: chỉ suy ra từ order.status và phương thức đã có, không gọi thêm API; đơn hủy/hoàn tiền hiện bước cuối riêng.
+                Tại sao: lễ tân nhìn một lần biết đơn đang kẹt ở bước nào; ẩn khi in để PDF hóa đơn không đổi.
+              */}
+              <OrderSteps status={order.status} method={order.invoice.paymentMethod} />
               <section
                 className="membership-order-card"
                 aria-label="Thông tin đơn"

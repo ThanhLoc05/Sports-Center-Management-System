@@ -1,3 +1,4 @@
+// [VAI TRÒ] Đánh giá. MEMBER: gửi đánh giá HLV/lớp. LỄ TÂN: tra cứu đánh giá.
 import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, getSession } from "../lib/api";
@@ -10,6 +11,7 @@ type Kind = "coach" | "class" | "member";
 const labels = { coach: "Huấn luyện viên", class: "Lớp học", member: "Thành viên" };
 const placeholders = { coach: "Nhập ID huấn luyện viên", class: "Nhập ID lớp học", member: "Nhập ID thành viên" };
 function useCoachDirectory() {
+  // [API] api.coaches → GET /users/coaches
   return useQuery({ queryKey: ["coach-directory"], queryFn: api.coaches, retry: false });
 }
 
@@ -30,13 +32,16 @@ function FeedbackSearch({ kind, text, selected, onEdit, onPick }: {
     enabled: open,
     queryFn: async () => {
       if (kind === "coach") {
+        // [API] api.coaches → GET /users/coaches
         return (await api.coaches()).map(p => ({ id: p.coachId, name: p.fullName }));
       }
       if (kind === "class") {
+        // [API] api.classes → GET /classes/my-classes | /classes…
         return (await api.classes()).map(c => ({ id: c.id, name: c.className }));
       }
       if (actor.roleName === "MEMBER") return [{ id: actor.id, name: actor.fullName }];
       if (actor.roleName !== "CENTER_MANAGER" && actor.roleName !== "RECEPTIONIST") return [];
+      // [API] api.users → GET /users
       return (await api.users()).filter(u => u.roleName === "MEMBER")
         .map(u => ({ id: u.id, name: u.fullName }));
     },
@@ -130,6 +135,7 @@ function FeedbackContent() {
   };
   const q = useQuery({
     queryKey: ["feedbacks", actor.id, actor.roleName, kind],
+    // [API] api.feedbackList → GET /feedbacks?kind={kind}
     queryFn: () => api.feedbackList(kind),
     enabled: member || coach || staff,
     retry: false,
@@ -157,6 +163,7 @@ function FeedbackContent() {
     setFilter("");
   }
   return <>
+    {/* [NÚT] NÚT "Nhận xét thành viên / Viết đánh giá" → mở/đóng hộp thoại hoặc form (setCreate) */}
     <PageHeader title="Đánh giá" description="Đánh giá HLV, lớp học và nhận xét dành cho thành viên."
       actions={member || coach ? <Button onClick={() => setCreate(true)}>{coach ? "Nhận xét thành viên" : "Viết đánh giá"}</Button> : undefined} />
     {!member && !coach && !staff ? <Notice>Vai trò của bạn chưa được hỗ trợ tại màn hình này.</Notice> : <>
@@ -171,6 +178,7 @@ function FeedbackContent() {
           </select></Field>
           <FeedbackSearch key={kind} kind={kind} text={search} selected={selectedId} onEdit={editSearch}
             onPick={(id, name) => { setSelectedId(id); setSearch(name); setFilter(""); }} />
+          {/* [NÚT] NÚT "Tìm kiếm" → gửi form (xử lý ở onSubmit của form chứa nút) */}
           <Button type="submit">Tìm kiếm</Button>
         </form>
       </Panel>
@@ -212,6 +220,7 @@ function FeedbackForm({ coach, initialKind, initialId, onClose, onSaved }: {
   const [kind, setKind] = useState(initialKind);
   const [coachId, setCoachId] = useState(initialKind === "coach" && initialId ? String(initialId) : "");
   const saving = useRef<Promise<void> | null>(null);
+  // [NÚT] FORM "Nhận xét thành viên, nút "Gửi nhận xét"" → gọi API api.createFeedback → POST /feedbacks
   return <FormModal title={coach ? "Nhận xét thành viên" : "Gửi đánh giá"} submitLabel={coach ? "Gửi nhận xét" : "Gửi đánh giá"} onClose={onClose}
     onSubmit={data => {
       if (saving.current) return saving.current;
@@ -222,6 +231,7 @@ function FeedbackForm({ coach, initialKind, initialId, onClose, onSaved }: {
         ...(coach || kind === "coach" ? { toUserId: id } : { classId: id }),
         comment: String(data.get("comment") || ""), rating: score === "" ? null : Number(score),
       };
+      // [API] api.createFeedback → POST /feedbacks
       saving.current = (async () => { try { await onSaved(await api.createFeedback(input)); } finally { saving.current = null; } })();
       return saving.current;
     }}>

@@ -1,3 +1,4 @@
+// [VAI TRÒ] Hook dùng chung: tải danh sách người dùng, lớp học... cho các trang Lễ tân/Member.
 /**
  * CÁC HOOK ĐỌC/GHI DỮ LIỆU DÙNG LẠI GIỮA NHIỀU TRANG.
  * useQuery dành cho tải dữ liệu; useMutation dành cho thao tác thay đổi dữ liệu.
@@ -36,6 +37,7 @@ export function useDemoData() {
   );
   return session?.mode === "demo" ? readDemo() : null;
 }
+/** Các trang gọi can("payments.collect")/can("reports.read") để quyết định nút và phần nội dung được hiển thị. */
 export function usePermissions() {
   const { session } = useAuth();
   const db = useDemoData();
@@ -47,7 +49,9 @@ export function usePermissions() {
 export function useUsers(allowReceptionist = false) {
   const { session } = useAuth();
   return useQuery({
+    // Dùng chung cache danh sách người dùng để tìm tên trên hóa đơn và đếm Member ở báo cáo.
     queryKey: ["users"],
+    // [API] api.users → GET /users
     queryFn: api.users,
     enabled:
       !!session &&
@@ -64,10 +68,12 @@ export function useClasses({ enabled = true, ...options }: {
   enabled?: boolean;
 } = {}) {
   const { session } = useAuth();
+  // Khi Quản lý mở báo cáo, coachId để trống nên danh sách lớp không bị giới hạn theo một HLV.
   const coachId =
     session?.user.roleName === "COACH" ? session.user.id : undefined;
   return useQuery({
     queryKey: ["classes", coachId],
+    // [API] api.classes → GET /classes/my-classes | /classes…
     queryFn: () => api.classes(coachId),
     enabled: !!session && enabled,
     ...options,

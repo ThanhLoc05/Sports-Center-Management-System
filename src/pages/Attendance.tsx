@@ -1,3 +1,4 @@
+// [VAI TRÒ] Điểm danh. LỄ TÂN: điểm danh thành viên theo lớp. MEMBER: xem lịch sử điểm danh của mình.
 /**
  * FLOW 4 — ĐIỂM DANH VÀ LỊCH SỬ CÓ MẶT/VẮNG.
  * Thành viên xem lịch sử của mình; nhân viên/HLV chọn lớp để ghi nhận.
@@ -54,14 +55,17 @@ export default function Attendance() {
   const can = usePermissions();
   const [params] = useSearchParams();
   const member = session!.user.roleName === "MEMBER";
+  // [API] useClasses() (hook trong lib/hooks.ts) → api.classes → GET /classes/my-classes | /classes…
   const classes = useClasses();
   // Tải tên thành viên cho lễ tân để hiển thị và tìm kiếm trong danh sách điểm danh.
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers(true);
   const [classId, setClassId] = useState(params.get("classId") || "");
   const effectiveClassId = classId || String(classes.data?.[0]?.id || "");
   const coachNames = session!.mode === "api" && session!.user.roleName === "COACH";
   const classStudents = useQuery({
     queryKey: ["attendance-students", session!.user.id, session!.user.roleName, effectiveClassId],
+    // [API] operations.students → GET /classes/{classId}/students
     queryFn: () => operations.students(Number(effectiveClassId)),
     enabled: coachNames && !!classes.data?.some(
       (c) => c.id === Number(effectiveClassId) && c.coachId === session!.user.id,
@@ -95,6 +99,7 @@ export default function Attendance() {
       ? ["attendance", "member", session!.user.id, start, end]
       : ["attendance", "class", session!.user.id, effectiveClassId],
     queryFn: () =>
+      // [API] api.attendance → GET /attendance/classes/{classId} | /attendance/members/{memberId}?startDate={start}&endDate={end}
       member
         ? api.attendance(session!.user.id, undefined, start, end)
         : api.attendance(undefined, Number(effectiveClassId)),
@@ -102,6 +107,7 @@ export default function Attendance() {
   });
   const bookings = useQuery({
     queryKey: ["classBookings", effectiveClassId],
+    // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
     queryFn: () => api.bookings(undefined, Number(effectiveClassId)),
     enabled: !member && !!effectiveClassId,
   });
@@ -155,8 +161,10 @@ export default function Attendance() {
     setPending(memberId);
     try {
       if (makeup) {
+        // [API] api.makeUpAttendance → PATCH (xem lib/api.ts)
         await api.makeUpAttendance(makeup.id);
       } else {
+        // [API] api.checkIn → POST /attendance
         await api.checkIn({
           memberId,
           classId: Number(effectiveClassId),
@@ -184,6 +192,7 @@ export default function Attendance() {
         description="Ghi nhận sự hiện diện. Trân trọng từng nỗ lực."
         actions={
           <>
+            {/* [NÚT] NÚT (nút biểu tượng) → tải file CSV */}
             <ExportButton
               disabled={!query.isSuccess}
               onClick={() =>
@@ -200,6 +209,7 @@ export default function Attendance() {
               }
             />
             {can("attendance.record") && (
+              // [NÚT] NÚT "Điểm danh thành viên" → mở/đóng hộp thoại hoặc form (setCreate)
               <Button disabled={!attendanceOpen} onClick={() => setCreate(true)}>
                 <ScanLine size={17} />
                 Điểm danh thành viên
@@ -309,6 +319,31 @@ export default function Attendance() {
           </div>
         </div>
       </div>
+      {/*
+        Thanh tỷ lệ có mặt của thành viên trong khoảng ngày đã chọn.
+        Làm sao: dùng lại present/absent đã đếm từ query; dùng chung kiểu .attendance-progress với thanh của HLV.
+        Tại sao: con số % dễ hiểu hơn khi có thanh trực quan đi kèm; chỉ hiện khi đã có ít nhất một buổi.
+      */}
+      {member && query.isSuccess && present + absent > 0 && (
+        <div className="attendance-progress">
+          <div className="attendance-progress-label">
+            <span>Có mặt / tổng buổi đã ghi nhận</span>
+            <strong>
+              {present}/{present + absent} buổi
+            </strong>
+          </div>
+          <div
+            className="attendance-progress-track"
+            role="progressbar"
+            aria-label="Tỷ lệ có mặt"
+            aria-valuemin={0}
+            aria-valuemax={present + absent}
+            aria-valuenow={present}
+          >
+            <span style={{ transform: `scaleX(${present / (present + absent)})` }} />
+          </div>
+        </div>
+      )}
       {!member && currentClass && !attendanceOpen && can("attendance.record") && (
         <Notice tone="warning">
           Đã ngoài khung điểm danh. Khung mở từ 15 phút trước giờ học đến 1 giờ
@@ -324,6 +359,35 @@ export default function Attendance() {
               : "Gồm học viên chưa điểm danh trong lớp đã chọn."
           }
         >
+          {/*
+            Thanh tiến độ điểm danh của lớp: đã ghi nhận / tổng học viên đã đăng ký.
+            Làm sao: dùng lại bookedStudents và notRecorded đã tính sẵn, chỉ hiện khi cả hai truy vấn đã tải xong.
+            Tại sao: HLV nhìn nhanh còn bao nhiêu người chưa điểm danh mà không phải đếm danh sách.
+          */}
+          {bookings.isSuccess && query.isSuccess && bookedStudents.length > 0 && (
+            <div className="attendance-progress">
+              <div className="attendance-progress-label">
+                <span>Đã điểm danh</span>
+                <strong>
+                  {bookedStudents.length - notRecorded.length}/{bookedStudents.length} học viên
+                </strong>
+              </div>
+              <div
+                className="attendance-progress-track"
+                role="progressbar"
+                aria-label="Tiến độ điểm danh"
+                aria-valuemin={0}
+                aria-valuemax={bookedStudents.length}
+                aria-valuenow={bookedStudents.length - notRecorded.length}
+              >
+                <span
+                  style={{
+                    transform: `scaleX(${(bookedStudents.length - notRecorded.length) / bookedStudents.length})`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
           <div className="check-in-roster">
             {(bookings.isPending || query.isPending) && effectiveClassId ? (
               <Loading />
@@ -348,6 +412,7 @@ export default function Attendance() {
                       </strong>
                       <small>{idLabel(b.memberId)}</small>
                     </div>
+                    {/* [NÚT] NÚT "Điểm danh bù / Có mặt" → gọi API api.makeUpAttendance → PATCH (xem lib/api.ts); api.checkIn → POST /attendance */}
                     <Button
                       variant="secondary"
                       disabled={
@@ -364,6 +429,7 @@ export default function Attendance() {
                         ? "Điểm danh bù"
                         : "Có mặt"}
                     </Button>
+                    {/* [NÚT] NÚT "Vắng" → gọi API api.makeUpAttendance → PATCH (xem lib/api.ts); api.checkIn → POST /attendance */}
                     <button
                       className="text-danger"
                       disabled={
@@ -411,6 +477,7 @@ export default function Attendance() {
               {
                 key: "member",
                 label: "Thành viên",
+                sort: (a) => memberName(a.memberId) || "",
                 render: (a) => {
                   const name = memberName(a.memberId);
                   return (
@@ -440,6 +507,7 @@ export default function Attendance() {
               {
                 key: "time",
                 label: "Thời gian ghi nhận",
+                sort: (a) => a.checkedInAt,
                 render: (a) => (
                   <div className="contact-cell">
                     <strong>{timeLabel(a.checkedInAt)}</strong>
@@ -457,6 +525,7 @@ export default function Attendance() {
               {
                 key: "status",
                 label: "Trạng thái",
+                sort: (a) => a.status,
                 render: (a) => <Badge status={a.status} />,
               },
               ...(!member && session!.mode === "api" ? [{
@@ -475,12 +544,14 @@ export default function Attendance() {
         )}
       </Panel>
       {create && can("attendance.record") && (
+        // [NÚT] FORM "Ghi nhận điểm danh, nút "Lưu điểm danh"" → gọi API api.checkIn → POST /attendance
         <FormModal
           title="Ghi nhận điểm danh"
           description="Chọn thành viên và lớp học đang tham gia."
           onClose={() => setCreate(false)}
           submitLabel="Lưu điểm danh"
           onSubmit={async (d) => {
+            // [API] api.checkIn → POST /attendance
             await api.checkIn({
               memberId: Number(d.get("memberId")),
               classId: Number(d.get("classId")),

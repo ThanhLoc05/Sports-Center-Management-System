@@ -2,7 +2,7 @@
   display: block;
   margin-top: 6px;
   color: var(--green);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 /* Bố cục cho các chức năng bổ sung; tái sử dụng màu và component của giao diện hiện có. */
 .permission-grid {
@@ -72,7 +72,7 @@
   overflow-wrap: anywhere;
 }
 .qr-details > strong {
-  font-size: 24px;
+  font-size: var(--text-2xl);
   color: var(--green);
 }
 .qr-details p {
@@ -125,13 +125,13 @@
   margin: 0 0 16px;
 }
 .assistant-mode > span {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 .assistant-progress {
   padding: 10px 24px;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 
 /* Gán vai trò gọn dưới email trong chi tiết Đội ngũ. */
@@ -152,7 +152,7 @@
   flex-wrap: wrap;
 }
 .team-role-review p {
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 
@@ -192,7 +192,7 @@
 }
 .membership-order-card > h3 {
   margin: 0 0 16px;
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--green-dark);
 }
 .membership-order-card > p {
@@ -211,7 +211,7 @@
 }
 .membership-order-facts dt {
   color: #697465;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .membership-order-facts dd {
   margin: 0;
@@ -230,7 +230,7 @@
   border-radius: 6px;
   background: #fbf3e4;
   color: #82632b;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .membership-order-state.is-complete {
   background: var(--status-green-bg);
@@ -238,7 +238,7 @@
 }
 .membership-order-package {
   display: block;
-  font-size: 16px;
+  font-size: var(--text-lg);
 }
 .membership-order-total {
   display: grid;
@@ -249,10 +249,10 @@
 }
 .membership-order-total > span {
   color: #697465;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .membership-order-total > strong {
-  font-size: 23px;
+  font-size: var(--text-2xl);
   line-height: 1.4;
   color: var(--green-dark);
 }
@@ -329,7 +329,7 @@
 .membership-order-help,
 .membership-order-updated {
   color: #697465;
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.7;
 }
 .membership-order-updated {
@@ -499,7 +499,7 @@
 }
 .membership-checkout-card > h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.5;
   color: var(--green-dark);
 }
@@ -513,12 +513,12 @@
   gap: 7px;
 }
 .membership-checkout-fields .field > label {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .membership-checkout-fields input,
 .membership-checkout-fields select {
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .membership-checkout-summary {
   display: grid;
@@ -532,13 +532,13 @@
   gap: 5px;
 }
 .membership-checkout-package > strong {
-  font-size: 16px;
+  font-size: var(--text-lg);
   line-height: 1.5;
   color: var(--green-dark);
 }
 .membership-checkout-package > span,
 .membership-checkout-facts dt {
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: #5e6e51;
 }
@@ -556,7 +556,7 @@
 .membership-checkout-facts dd {
   margin: 0;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.6;
   font-weight: 500;
 }
@@ -567,12 +567,12 @@
   border-top: 1px solid var(--line);
 }
 .membership-checkout-total > span {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: #5e6e51;
 }
 .membership-checkout-total > strong {
   color: var(--green-dark);
-  font-size: 27px;
+  font-size: var(--text-3xl);
   line-height: 1.3;
   letter-spacing: -0.5px;
 }
@@ -582,13 +582,13 @@
   border-radius: 5px;
   background: var(--status-green-bg);
   color: var(--status-green-text);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 .membership-checkout-demo p,
 .membership-checkout-empty {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.7;
   color: #5e6e51;
 }
@@ -599,7 +599,7 @@
 .membership-checkout-dialog .membership-checkout-help .notice {
   margin: 0;
   padding: 13px 15px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.7;
 }
 .membership-checkout-dialog .modal-footer {
@@ -659,12 +659,12 @@
 .class-membership-overview > p {
   margin: 0;
   color: #5e6e51;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.7;
 }
 .class-membership-overview .check-option {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 .class-membership-actions {
@@ -675,10 +675,10 @@
 }
 .class-membership-actions .btn {
   min-height: 38px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .class-membership-actions .text-link {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 @media (max-width: 680px) {
   .class-membership-panel .panel-heading {
@@ -800,7 +800,7 @@
 .btn {
   min-height: var(--ui-control-height);
   padding: 8px 16px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.5;
   white-space: normal;
   text-align: center;
@@ -813,11 +813,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type=
 select {
   min-height: var(--ui-control-height);
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 textarea {
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.7;
 }
 input:is([type="checkbox"], [type="radio"]) {
@@ -911,11 +911,11 @@ td {
   flex-wrap: wrap;
   gap: 12px 16px;
   padding: 16px var(--ui-panel-space);
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .pagination {
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 .pagination button {
   width: 32px;
@@ -1124,7 +1124,7 @@ td {
   gap: 6px;
   padding: 5px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .payment-status::before,
@@ -1193,7 +1193,7 @@ td {
   .mini-stats { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .mini-stats > div { display: flex; align-items: center; }
   .mini-stat-icon { margin-bottom: 0; }
-  .mini-stats strong { font-size: 24px; }
+  .mini-stats strong { font-size: var(--text-2xl); }
   .report-range .field { min-width: 0; flex-basis: 100%; }
   .report-range > .btn { width: 100%; }
   .toast-stack { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
@@ -1203,7 +1203,7 @@ td {
   :root { --ui-gutter: 12px; }
   .topbar-actions { gap: 0; }
   .topbar { gap: 4px; }
-  .breadcrumb { gap: 4px; font-size: 11px; }
+  .breadcrumb { gap: 4px; font-size: var(--text-sm); }
   .page-actions .btn { flex: 1 1 auto; }
   .modal .modal-footer .btn { flex: 1 1 auto; }
   .membership-order-primary { width: 100%; }
@@ -1237,7 +1237,7 @@ td {
 .chat-heading > div { min-width: 0; }
 .chat-heading > .subtle-link { white-space: normal; max-width: 100%; text-align: left; line-height: 1.5; }
 /* Chỉ nâng nhãn trục biểu đồ, không làm nhỏ các số liệu tổng và tiêu đề. */
-.recharts-cartesian-axis-tick-value { font-size: 11px !important; }
+.recharts-cartesian-axis-tick-value { font-size: var(--text-sm) !important; }
 /* Ô chỉ đọc/vô hiệu vẫn đọc được dữ liệu, đồng thời phân biệt với ô có thể nhập. */
 input[readonly], textarea[readonly], input:disabled, select:disabled, textarea:disabled { background-color: var(--accent-subtle); }
 input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
@@ -1509,7 +1509,7 @@ select:not([multiple]):not([size]) {
   align-items: center;
   gap: 8px;
   margin: -8px 0 20px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #5f6858;
 }
 .report-chart-actions {
@@ -1520,7 +1520,7 @@ select:not([multiple]):not([size]) {
 }
 .report-table-total {
   margin: 14px 20px 18px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #4d5746;
 }
 /* [FLOW 3] Chú thích màu dưới biểu đồ doanh thu: xanh = doanh thu, đỏ = tiền hoàn. */
@@ -1529,7 +1529,7 @@ select:not([multiple]):not([size]) {
   justify-content: center;
   gap: 20px;
   padding-top: 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #4d5746;
 }
 .report-chart-legend span {
@@ -1575,13 +1575,13 @@ select:not([multiple]):not([size]) {
 }
 .plan-card h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 .plan-subtitle {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #6b7563;
 }
 .plan-card-vip .plan-subtitle {
@@ -1594,7 +1594,7 @@ select:not([multiple]):not([size]) {
   border-top: 1px solid #e4e8de;
   display: grid;
   gap: 7px;
-  font-size: 12.5px;
+  font-size: var(--text-sm);
 }
 .plan-card-vip .plan-benefits {
   border-top-color: rgba(255, 255, 255, 0.22);
@@ -1640,14 +1640,14 @@ select:not([multiple]):not([size]) {
   gap: 2px;
 }
 .plan-combo span {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #6b7563;
 }
 .plan-card-vip .plan-combo span {
   color: #c9d5c0;
 }
 .plan-combo strong {
-  font-size: 15px;
+  font-size: var(--text-md);
 }
 @media (max-width: 760px) {
   .plan-compare {

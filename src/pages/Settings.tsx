@@ -1,3 +1,4 @@
+// [VAI TRÒ] Cài đặt + Hồ sơ cá nhân: cả Lễ tân và Member sửa thông tin của mình, đổi mật khẩu.
 import { ApiProfile } from "../components/ApiProfileEditor";
 /**
  * CÀI ĐẶT HIỂN THỊ, THÔNG TIN KẾT NỐI VÀ HỒ SƠ NGƯỜI DÙNG.
@@ -75,6 +76,7 @@ export default function Settings() {
             { id: "general", icon: Monitor, label: "Không gian làm việc" },
             { id: "integration", icon: Server, label: "Kết nối & API" },
           ].map((t) => (
+            // [NÚT] NÚT (nút biểu tượng) → đổi cách hiển thị / bộ lọc trên màn hình (setTab)
             <button
               className={tab === t.id ? "active" : ""}
               key={t.id}
@@ -120,6 +122,7 @@ export default function Settings() {
                       duyệt này.
                     </p>
                   </div>
+                  {/* [NÚT] NÚT "Bảng dữ liệu gọn hơn" → đổi cách hiển thị / bộ lọc trên màn hình (setCompact) */}
                   <button
                     role="switch"
                     aria-checked={compact}
@@ -203,6 +206,7 @@ export default function Settings() {
                 </div>
                 {!demo && (
                   <>
+                    {/* [NÚT] NÚT "Kiểm tra kết nối" → đổi cách hiển thị / bộ lọc trên màn hình (setChecking) */}
                     <Button
                       variant="secondary"
                       loading={checking}
@@ -270,6 +274,7 @@ function LegacyProfile() {
 
   const query = useQuery({
     queryKey: ["profile", session!.user.id],
+    // [API] api.user → GET /users/{id}
     queryFn: () => api.user(session!.user.id),
   });
   const user = query.data || session!.user;
@@ -281,6 +286,7 @@ function LegacyProfile() {
         description="Thông tin của bạn trong cộng đồng Sportiva."
         actions={
           demo && (
+            // [NÚT] NÚT "Cập nhật hồ sơ demo" → mở/đóng hộp thoại hoặc form (setEdit)
             <Button onClick={() => setEdit(true)}>Cập nhật hồ sơ demo</Button>
           )
         }

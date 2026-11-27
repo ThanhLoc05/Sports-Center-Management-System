@@ -1,3 +1,4 @@
+// [VAI TRÒ] Yêu cầu hỗ trợ. MEMBER: gửi yêu cầu. LỄ TÂN: tiếp nhận, trả lời, đóng yêu cầu.
 /**
  * Support API dùng DTO riêng; nhánh demo giữ dữ liệu và thao tác local hiện có.
  */
@@ -52,10 +53,12 @@ function ApiSupport() {
   const toast = useToast();
   // Tách cache theo tài khoản/vai trò; đổi tài khoản không giữ phiếu hoặc form của người trước.
   const scope = ["support-tickets", actor.id, actor.roleName] as const;
+  // [API] api.supportTickets → GET /support-tickets/my | /support-tickets
   const tickets = useQuery({ queryKey: scope, queryFn: api.supportTickets, enabled: member || staff, retry: false });
   // Chỉ tải danh sách khi nhân viên mở form; cache tách theo tài khoản để tránh dùng nhầm phiên.
   const membersQuery = useQuery({
     queryKey: ["support-members", actor.id, actor.roleName],
+    // [API] api.users → GET /users
     queryFn: api.users,
     enabled: staff && create,
     retry: false,
@@ -78,6 +81,7 @@ function ApiSupport() {
     <PageHeader eyebrow="WE'RE HERE TO HELP" title="Yêu cầu hỗ trợ"
       description="Mỗi câu hỏi đều xứng đáng được lắng nghe."
       actions={member || staff ? (
+        // [NÚT] NÚT "Tiếp nhận yêu cầu tại quầy / Tạo yêu cầu hỗ trợ" → mở/đóng hộp thoại hoặc form (setCreate)
         <Button onClick={() => setCreate(true)}><Plus size={17} />
           {staff ? "Tiếp nhận yêu cầu tại quầy" : "Tạo yêu cầu hỗ trợ"}
         </Button>
@@ -98,15 +102,18 @@ function ApiSupport() {
         {tickets.isPending ? <Loading /> : tickets.error ? <ErrorState error={tickets.error} retry={tickets.refetch} /> :
           <DataTable rows={rows} columns={[
             { key: "id", label: "Mã yêu cầu", render: t => <span className="mono">{idLabel(t.id, "HT")}</span> },
+            // [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setDetailId)
             { key: "subject", label: "Nội dung", render: t => <button className="table-name" onClick={() => setDetailId(t.id)}>{t.subject}</button> },
             { key: "member", label: "Người gửi", render: t => `Thành viên #${t.memberId}` },
             { key: "date", label: "Ngày tiếp nhận", render: t => dateLabel(t.createdAt) },
             { key: "status", label: "Trạng thái", render: t => <Badge status={t.status} /> },
+            // [NÚT] NÚT "Xem yêu cầu" → mở/đóng hộp thoại hoặc form (setDetailId)
             { key: "action", label: "Thao tác", render: t => <button className="subtle-link" onClick={() => setDetailId(t.id)}>Xem yêu cầu</button> },
           ]} />}
       </Panel>
     </>}
     {create && (member || staff) && (
+      // [NÚT] FORM "Tiếp nhận yêu cầu tại quầy, nút "Lưu yêu cầu hỗ trợ"" → gọi API api.createSupportTicket → POST /support-tickets | /support-tickets?memberId=
       <FormModal
         title={staff ? "Tiếp nhận yêu cầu tại quầy" : "Yêu cầu hỗ trợ mới"}
         description={staff ? "Chọn đúng thành viên và ghi lại nội dung cần trung tâm hỗ trợ." : undefined}
@@ -122,6 +129,7 @@ function ApiSupport() {
             throw new ApiError("Chọn thành viên hợp lệ từ danh sách đã tải.");
           creating.current = true;
           try {
+            // [API] api.createSupportTicket → POST /support-tickets | /support-tickets?memberId=
             const ticket = await api.createSupportTicket({
               subject: String(d.get("subject") || ""),
               content: String(d.get("content") || ""),
@@ -148,6 +156,7 @@ function ApiSupportDetail({ id, scope, staff, onClose, onSaved, currentActor }: 
   id: number; scope: readonly [string, number, string]; staff: boolean; onClose: () => void;
   onSaved: (ticket: SupportTicket) => Promise<void>; currentActor: () => boolean;
 }) {
+  // [API] api.supportTicket → GET /support-tickets/{id}
   const ticket = useQuery({ queryKey: [...scope, "detail", id], queryFn: () => api.supportTicket(id), retry: false });
   const [resolve, setResolve] = useState(false);
   const resolving = useRef(false);
@@ -175,10 +184,13 @@ function ApiSupportDetail({ id, scope, staff, onClose, onSaved, currentActor }: 
           </section>}
         </div>}
       <div className="modal-footer">
+        {/* [NÚT] NÚT "Xử lý yêu cầu" → đổi cách hiển thị / bộ lọc trên màn hình (setResolve) */}
         {staff && data?.status === "OPEN" && !ticket.isFetching && !ticket.error && <Button onClick={() => setResolve(true)}>Xử lý yêu cầu</Button>}
+        {/* [NÚT] NÚT "Đóng" → chạy hàm onClose() */}
         <Button variant="secondary" onClick={onClose}>Đóng</Button>
       </div>
     </Modal>
+    {/* [NÚT] FORM "Xử lý yêu cầu hỗ trợ, nút "Đánh dấu đã xử lý"" → gọi API api.resolveSupportTicket → PATCH /support-tickets/{id}/resolve */}
     {resolve && staff && <FormModal title="Xử lý yêu cầu hỗ trợ" submitLabel="Đánh dấu đã xử lý" onClose={() => setResolve(false)}
       submitDisabled={ticket.isFetching || !!ticket.error || data?.status !== "OPEN"}
       onSubmit={async d => {
@@ -186,6 +198,7 @@ function ApiSupportDetail({ id, scope, staff, onClose, onSaved, currentActor }: 
         if (ticket.isFetching || ticket.error || data?.status !== "OPEN") throw new ApiError("Phiếu không còn sẵn sàng để xử lý. Vui lòng tải lại.");
         resolving.current = true;
         try {
+          // [API] api.resolveSupportTicket → PATCH /support-tickets/{id}/resolve
           const updated = await api.resolveSupportTicket(id, String(d.get("response") || ""));
           await onSaved(updated);
           if (currentActor()) toast("Đã giải quyết yêu cầu hỗ trợ.");
@@ -200,6 +213,7 @@ function DemoSupport() {
   const can = usePermissions();
   const demo = session!.mode === "demo",
     staff = can("support.manage");
+  // [API] useUsers() (hook trong lib/hooks.ts) → api.users → GET /users
   const users = useUsers();
   const [create, setCreate] = useState(false);
   const [search, setSearch] = useState("");
@@ -224,6 +238,7 @@ function DemoSupport() {
         title="Yêu cầu hỗ trợ"
         description="Mỗi câu hỏi đều xứng đáng được lắng nghe."
         actions={
+          // [NÚT] NÚT "Tiếp nhận yêu cầu / Tạo yêu cầu hỗ trợ" → mở/đóng hộp thoại hoặc form (setCreate)
           <Button disabled={!demo} onClick={() => setCreate(true)}>
             <Plus size={17} />
             {staff ? "Tiếp nhận yêu cầu" : "Tạo yêu cầu hỗ trợ"}
@@ -286,6 +301,7 @@ function DemoSupport() {
               key: "title",
               label: "Nội dung",
               render: (t) => (
+                // [NÚT] NÚT (nút biểu tượng) → mở/đóng hộp thoại hoặc form (setDetail)
                 <button className="table-name" onClick={() => setDetail(t)}>
                   {t.title}
                 </button>
@@ -312,6 +328,7 @@ function DemoSupport() {
               key: "action",
               label: "Thao tác",
               render: (t) => (
+                // [NÚT] NÚT "Xem yêu cầu" → mở/đóng hộp thoại hoặc form (setDetail)
                 <button className="subtle-link" onClick={() => setDetail(t)}>
                   Xem yêu cầu
                 </button>
@@ -321,6 +338,7 @@ function DemoSupport() {
         />
       </Panel>
       {create && (
+        // [NÚT] FORM "Tiếp nhận yêu cầu tại quầy, nút "Lưu yêu cầu demo"" → tải lại dữ liệu từ API
         <FormModal
           title={staff ? "Tiếp nhận yêu cầu tại quầy" : "Yêu cầu hỗ trợ mới"}
           description="Mô tả rõ nội dung để trung tâm có thể hỗ trợ bạn tốt hơn."
@@ -373,6 +391,7 @@ function DemoSupport() {
             <Badge status={detail.status} />
             <p>{detail.description}</p>
             {staff && (
+              // [NÚT] NÚT "OPEN / Đánh dấu đã xử lý / Mở lại yêu cầu" → tải lại dữ liệu từ API
               <Button
                 variant={detail.status === "OPEN" ? "primary" : "secondary"}
                 onClick={async () => {
