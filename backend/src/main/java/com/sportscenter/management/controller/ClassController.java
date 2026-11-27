@@ -96,8 +96,10 @@ public class ClassController {
      */
     @GetMapping("/{classId}")
     public ResponseEntity<ClassResponse> getClass(@PathVariable Integer classId) {
-        return classService.getClassById(classId).map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return classService.getClassById(classId).map(session -> {
+            session.setBookedCount(classService.getCurrentBookingCount(classId));
+            return ResponseEntity.ok(session);
+        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /**

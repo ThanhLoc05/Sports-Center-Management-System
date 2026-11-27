@@ -20,7 +20,7 @@ import { useCatalog } from "../lib/catalog";
 import { SCHEDULING_SLOTS } from "../lib/scheduling-slots";
 import { matchesSchedulingSport } from "../lib/scheduling-resources";
 import type { AccessLevel, CoachProfessionalProfile } from "../lib/types";
-import { dateLabel, localDate } from "../lib/utils";
+import { dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
 import {
   weeklyScheduleApi,
   type PreviewOccurrence,
@@ -519,6 +519,10 @@ export default function WeeklySchedule() {
                             entry.weekdays.includes(weekdays[weekdayIndex(change.date)].code)) : [];
                           const resources = change.classId != null ? classesById.get(change.classId)
                             : candidates.length === 1 ? candidates[0] : undefined;
+                          const slot = slotFor(change.slotCode);
+                          const changeInterval = change.actualStart && slot
+                            ? `${change.actualStart.slice(0, 5)}–${timeLabel(new Date(parseDate(`${change.date}T${change.actualStart}`).getTime() + slot.durationMinutes * 60_000).toISOString())}`
+                            : interval(change.slotCode);
                           return (
                           <li key={index}>
                             {includeOrphans ? (
@@ -528,7 +532,7 @@ export default function WeeklySchedule() {
                                   <span className="schedule-reconcile-tag">{syncLabels[change.action]}</span>
                                 </div>
                                 <dl className="schedule-reconcile-details">
-                                  <div><dt>Lịch tập</dt><dd>{dateLabel(change.date)} · {interval(change.slotCode)}</dd></div>
+                                  <div><dt>Lịch tập</dt><dd>{dateLabel(change.date)} · {changeInterval}</dd></div>
                                   <div><dt>HLV</dt><dd>{resources ? coachNames[resources.coachId] ?? ("#" + resources.coachId) : "Chưa có thông tin"}</dd></div>
                                   <div><dt>Sân/phòng</dt><dd>{resources ? rooms[resources.roomId] ?? ("#" + resources.roomId) : "Chưa có thông tin"}</dd></div>
                                   <div><dt>Đăng ký</dt><dd>{change.booked ?? (change.classId == null ? 0 : "—")} lượt</dd></div>
@@ -536,7 +540,7 @@ export default function WeeklySchedule() {
                               </>
                             ) : (
                               <><strong>{syncLabels[change.action]}</strong> · {dateLabel(change.date)}{" "}
-                                {slotFor(change.slotCode)?.start} · {change.className}</>
+                                {changeInterval} · {change.className}</>
                             )}
                             {change.message && <p>{change.message}</p>}
                             {!includeOrphans && change.booked != null && <p>{change.booked} lượt đã đăng ký · {change.waitlisted ?? 0} lượt danh sách chờ</p>}

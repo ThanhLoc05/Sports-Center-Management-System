@@ -7,7 +7,8 @@ import { useCatalog } from "../lib/catalog";
 import { useClasses } from "../lib/hooks";
 import type { Booking, SportClass } from "../lib/types";
 import { addDays, dateLabel, errorText, idLabel, localDate, parseDate, timeLabel } from "../lib/utils";
-import { Button, Confirm, Empty, ErrorState, Loading, PageHeader, useToast } from "./ui";
+import { Button, Empty, ErrorState, Loading, PageHeader, useToast } from "./ui";
+import MemberBookingCancellation, { bookingCancellationBlocker, type MemberCancellationAction } from "./MemberBookingCancellation";
 import "../styles-personal-bookings.css";
 
 type Filter = "upcoming" | "past" | "cancelled" | "waitlist";
@@ -32,9 +33,8 @@ export default function PersonalBookings() {
     enabled: filter === "cancelled" && openCancelled !== null,
     retry: false,
   });
-  const [cancel, setCancel] = useState<SessionRow | null>(null);
+  const [memberAction, setMemberAction] = useState<MemberCancellationAction | null>(null);
   const [accepting, setAccepting] = useState<number | null>(null);
-  const [declining, setDeclining] = useState<SessionRow | null>(null);
   const [acceptError, setAcceptError] = useState("");
   const bookings = useQuery({
     queryKey: ["bookings", memberId, "MEMBER", memberId],
@@ -105,7 +105,6 @@ export default function PersonalBookings() {
     }
   }
 
-  const cancelTime = cancel?.session ? new Date(startTime(cancel) - 12 * 60 * 60 * 1000).toISOString() : null;
   const loading = classes.isPending || (filter === "waitlist" ? waitlist.isPending : bookings.isPending);
   const visibleQuery = filter === "waitlist" ? waitlist : bookings;
   return (
@@ -147,7 +146,8 @@ export default function PersonalBookings() {
                   : attendance.isError ? "Chưa tải được điểm danh"
                   : attendanceStatus === "PRESENT" ? "Đã tham gia"
                   : attendanceStatus === "ABSENT" ? "Vắng đã xác nhận" : "Chờ cập nhật điểm danh";
-                const canCancel = booking?.status === "BOOKED" && session?.status === "SCHEDULED" && startTime(row) > now.getTime();
+                const blocker = session ? bookingCancellationBlocker(session, now) : "Chưa xác minh được lịch buổi tập.";
+                const canCancel = booking?.status === "BOOKED" && !blocker;
                 const hours = session ? `${timeLabel(session.scheduleTime)}–${timeLabel(new Date(startTime(row) + session.durationMinutes * 60_000).toISOString())}` : "Chưa có giờ";
                 return (
                   <li key={row.key} className="panel personal-bookings__card">
@@ -176,14 +176,15 @@ export default function PersonalBookings() {
                         {filter === "past" && attendance.error && <><dt>Điểm danh</dt><dd><Button variant="secondary" onClick={() => void attendance.refetch()}>Thử tải lại</Button></dd></>}
                         {invitationLive && waiting.inviteUntil && <><dt>Hạn nhận chỗ</dt><dd>{dateTime(waiting.inviteUntil)}</dd></>}
                         {canCancel && <><dt>Chính sách hủy</dt><dd>Hủy trước ít nhất 12 giờ để tránh vi phạm.</dd></>}
+                        {booking?.status === "BOOKED" && blocker && <><dt>Hủy đăng ký</dt><dd>{blocker}</dd></>}
                       </dl>
-                      {canCancel && <Button variant="danger" onClick={() => setCancel(row)}>Hủy buổi</Button>}
+                      {canCancel && session && <Button variant="danger" onClick={() => setMemberAction({ kind: "booking", item: session, bookingId: booking.id })}>Hủy đăng ký</Button>}
                     </details>
                     {invitationLive && <>
                       <Button variant="primary" loading={accepting === row.classId} disabled={accepting !== null}
                         onClick={() => void accept(row)}>Xác nhận lời mời</Button>
-                      <Button variant="secondary" disabled={accepting !== null}
-                        onClick={() => setDeclining(row)}>Từ chối lời mời</Button>
+                      {session && !blocker && <Button variant="secondary" disabled={accepting !== null}
+                        onClick={() => setMemberAction({ kind: "waitlist", item: session })}>Rời danh sách chờ</Button>}
                     </>}
                   </li>
                 );
@@ -191,26 +192,7 @@ export default function PersonalBookings() {
             </ul>
           </section>
         ))}
-      {declining && <Confirm
-        title="Từ chối lời mời giữ chỗ?"
-        description="Chỗ này sẽ được giải phóng cho thành viên tiếp theo trong danh sách chờ."
-        onClose={() => setDeclining(null)}
-        onConfirm={async () => {
-          await request("/classes/" + declining.classId + "/waitlist/decline", { method: "POST" });
-          await client.invalidateQueries();
-          toast("Đã từ chối lời mời giữ chỗ.");
-        }}
-      />}
-      {cancel && cancelTime && (
-        <Confirm title="Hủy buổi tập?"
-          description={`${cancel.session!.className} · ${dateTime(cancel.session!.scheduleTime)}. Mốc hủy không vi phạm: ${dateTime(cancelTime)}.${now > parseDate(cancelTime) ? " Bạn đang hủy trễ và có thể bị tính vi phạm giữ chỗ." : ""}`}
-          onClose={() => setCancel(null)}
-          onConfirm={async () => {
-            await api.cancelBooking(cancel.booking!.id);
-            await client.invalidateQueries();
-            toast("Đã hủy đăng ký lớp học.");
-          }} />
-      )}
+      {memberAction && <MemberBookingCancellation action={memberAction} memberId={memberId} onClose={() => setMemberAction(null)} />}
     </div>
   );
 }

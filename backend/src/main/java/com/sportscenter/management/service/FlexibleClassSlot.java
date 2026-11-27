@@ -8,17 +8,27 @@ import java.util.Arrays;
 public enum FlexibleClassSlot {
     SLOT_01(6, 0),
     SLOT_02(8, 0),
-    SLOT_03(15, 0),
-    SLOT_04(16, 30),
-    SLOT_05(18, 0),
-    SLOT_06(19, 30);
+    SLOT_03(14, 0, 15, 0),
+    SLOT_04(15, 45, 16, 30),
+    SLOT_05(17, 30, 18, 0),
+    SLOT_06(19, 15, 19, 30);
 
     public static final int DURATION_MINUTES = 90;
     public static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private final LocalTime start;
+    private final LocalTime previousStart;
 
     FlexibleClassSlot(int hour, int minute) {
+        this(hour, minute, hour, minute);
+    }
+
+    FlexibleClassSlot(int hour, int minute, int previousHour, int previousMinute) {
         start = LocalTime.of(hour, minute);
+        previousStart = LocalTime.of(previousHour, previousMinute);
+    }
+
+    boolean matchesPublishedStart(LocalTime time) {
+        return start.equals(time) || previousStart.equals(time);
     }
 
     public LocalTime start() {

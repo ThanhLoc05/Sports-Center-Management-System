@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +48,12 @@ public class WeeklyScheduleSyncService {
     public enum Action { CREATE, UPDATE, CANCEL, ORPHAN, MISSING, SKIP, CONFLICT }
 
     public record Change(Action action, LocalDate date, FlexibleClassSlot slotCode, String className,
-                         Integer classId, String message, Long booked, Long waitlisted, String placementKey) {
+                         Integer classId, String message, Long booked, Long waitlisted, String placementKey, LocalTime actualStart) {
+        public Change(Action action, LocalDate date, FlexibleClassSlot slotCode, String className,
+                      Integer classId, String message, Long booked, Long waitlisted, String placementKey) {
+            this(action, date, slotCode, className, classId, message, booked, waitlisted, placementKey, null);
+        }
+
         public Change(Action action, LocalDate date, FlexibleClassSlot slotCode, String className,
                       Integer classId, String message) {
             this(action, date, slotCode, className, classId, message, null, null, null);
@@ -143,7 +149,7 @@ public class WeeklyScheduleSyncService {
                 }
                 boolean cancel = removedNow || unresolved.remove(id);
                 changes.add(new Change(cancel ? Action.CANCEL : Action.ORPHAN, date, slot, actual.getClassName(), id,
-                        null, details.booked(), details.waitlisted(), null));
+                        null, details.booked(), details.waitlisted(), null, legacyStart(actual.getScheduleTime(), slot)));
                 if (cancel) classes.cancelClass(id,
                         new ClassCancellationRequest(ClassCancellationRequest.Reason.SCHEDULE_CHANGE, null, null), actor);
             }
@@ -280,20 +286,26 @@ public class WeeklyScheduleSyncService {
                     && classes.getCurrentBookingCount(classId) > 0) {
                 changes.add(change(Action.CONFLICT, date, to, classId,
                         "Lớp đã có học viên đăng ký nên không đổi bộ môn hoặc cấp Membership."));
-            } else if (!target.atTime(to.entry().slotCode().start()).isAfter(now)) {
+            } else if (!(target.equals(date) && from.entry().slotCode() == to.entry().slotCode())
+                    && !target.atTime(to.entry().slotCode().start()).isAfter(now)) {
                 changes.add(change(Action.CONFLICT, target, to, classId, "Ca mới đã bắt đầu hoặc đã qua."));
             } else if (sessionExists(newKey, target)) {
                 changes.add(change(Action.CONFLICT, target, to, classId, "Ngày này đã có lớp giống hệt lớp sau khi sửa."));
             } else {
                 try {
-                    classes.updateClass(classId, to.entry().requestOn(target));
+                    var request = to.entry().requestOn(target);
+                    if (target.equals(date) && from.entry().slotCode() == to.entry().slotCode()) {
+                        request.setScheduleTime(actual.getScheduleTime());
+                    }
+                    classes.updateClass(classId, request);
                     if (target.equals(date)) {
                         jdbc.update("UPDATE dbo.recurring_class_sessions SET recurrence_key=? WHERE class_id=?", newKey, classId);
                     } else {
                         jdbc.update("UPDATE dbo.recurring_class_sessions SET recurrence_key=?, session_date=? WHERE class_id=?",
                                 newKey, target, classId);
                     }
-                    changes.add(change(Action.UPDATE, target, to, classId, null));
+                    changes.add(new Change(Action.UPDATE, target, to.entry().slotCode(), to.entry().className().strip(),
+                            classId, null, null, null, null, legacyStart(request.getScheduleTime(), to.entry().slotCode())));
                 } catch (IllegalArgumentException | ResponseStatusException invalid) {
                     entityManager.clear();
                     changes.add(change(Action.CONFLICT, target, to, classId, reason(invalid)));
@@ -369,9 +381,13 @@ public class WeeklyScheduleSyncService {
         return count != null && count > 0;
     }
 
+    private static LocalTime legacyStart(LocalDateTime dateTime, FlexibleClassSlot slot) {
+        return slot.start().equals(dateTime.toLocalTime()) ? null : dateTime.toLocalTime();
+    }
+
     private static FlexibleClassSlot slotOf(Classes actual) {
         return Arrays.stream(FlexibleClassSlot.values())
-                .filter(s -> s.start().equals(actual.getScheduleTime().toLocalTime())).findFirst().orElse(null);
+                .filter(s -> s.matchesPublishedStart(actual.getScheduleTime().toLocalTime())).findFirst().orElse(null);
     }
 
     private static String classKey(Classes actual) {

@@ -112,8 +112,8 @@ it("distinguishes both cancellation deadlines and changes status only after succ
   async function confirmFor(name: string) {
     const row = within(card(name));
     if (!row.getByText("Xem chi tiết").closest("details")?.open) await user.click(row.getByText("Xem chi tiết"));
-    await user.click(row.getByRole("button", { name: "Hủy buổi" }));
-    return within(screen.getByRole("dialog", { name: "Hủy buổi tập?" }));
+    await user.click(row.getByRole("button", { name: "Hủy đăng ký" }));
+    return within(screen.getByRole("dialog", { name: "Hủy đăng ký lớp?" }));
   }
   const onTime = await confirmFor("Buổi xa");
   expect(onTime.getByText(/27\/11\/2026 · 02:00/)).toBeVisible();
@@ -143,10 +143,10 @@ it("keeps Waitlist separate and accepts a live invitation through the existing e
 it("declines only after confirmation and refreshes the waiting list without making a booking", async () => {
   const user = open();
   await user.click(await screen.findByRole("button", { name: "Danh sách chờ (2)" }));
-  expect(within(card("Buổi trong hàng chờ")).queryByRole("button", { name: "Từ chối lời mời" })).toBeNull();
-  const decline = screen.getByRole("button", { name: "Từ chối lời mời" });
+  expect(within(card("Buổi trong hàng chờ")).queryByRole("button", { name: "Rời danh sách chờ" })).toBeNull();
+  const decline = screen.getByRole("button", { name: "Rời danh sách chờ" });
   await user.click(decline);
-  const confirmation = () => within(screen.getByRole("dialog", { name: "Từ chối lời mời giữ chỗ?" }));
+  const confirmation = () => within(screen.getByRole("dialog", { name: "Rời danh sách chờ?" }));
   await user.click(confirmation().getByRole("button", { name: "Quay lại" }));
   expect(request).not.toHaveBeenCalledWith("/classes/8/waitlist/decline", expect.anything());
 

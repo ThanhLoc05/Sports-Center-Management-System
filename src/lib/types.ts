@@ -67,6 +67,7 @@ export type AccessLevel = "STANDARD" | "VIP";
 export interface SportClass {
   regularClassId?: number;
   courseId?: number;
+  bookedCount?: number;
   id: number;
   className: string;
   sportId: number;
@@ -81,7 +82,7 @@ export interface SportClass {
 /**
  * Payload tạo/sửa lớp bỏ id vì ID bản ghi do backend quản lý.
  */
-export type ClassInput = Omit<SportClass, "id">;
+export type ClassInput = Omit<SportClass, "id" | "bookedCount">;
 /**
  * Một đăng ký nối một thành viên với một lớp. Hủy đăng ký thay đổi trạng thái
  * để phân biệt với hủy chính lớp học và giữ được lịch sử.

@@ -1,0 +1,128 @@
+.member-schedule-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0 16px 12px;
+}
+
+.member-schedule-table {
+  width: 100%;
+  min-width: 670px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: var(--text-sm);
+}
+
+.member-schedule-table :is(th, td) {
+  padding: 4px;
+  border-radius: 7px;
+}
+
+.member-schedule-table th {
+  color: var(--muted);
+  background: var(--panel-muted, #f4f6f2);
+  text-align: center;
+  font-weight: 600;
+}
+
+.member-schedule-table th:first-child { width: 84px; }
+.member-schedule-table th small { display: block; font-size: .75rem; white-space: nowrap; }
+.member-schedule-table th[data-today="true"] { color: #22542e; background: #e1efdf; }
+
+.member-schedule-table td {
+  height: 37px;
+  vertical-align: top;
+  background: var(--panel-muted, #f7f8f6);
+}
+
+.member-schedule-card {
+  --member-sport-bg: #edf2ee;
+  --member-sport-edge: #64806d;
+  --member-sport-text: #32493c;
+}
+
+.member-schedule-card[data-sport="badminton"], .member-schedule-legend[data-sport="badminton"] {
+  --member-sport-bg: #d7ecf9;
+  --member-sport-edge: #327bb6;
+  --member-sport-text: #225c8c;
+}
+
+.member-schedule-card[data-sport="yoga"], .member-schedule-legend[data-sport="yoga"] {
+  --member-sport-bg: #e9dcf8;
+  --member-sport-edge: #8a5aba;
+  --member-sport-text: #674294;
+}
+
+.member-schedule-card[data-sport="dance"], .member-schedule-legend[data-sport="dance"] {
+  --member-sport-bg: #fbe4ce;
+  --member-sport-edge: #d48639;
+  --member-sport-text: #9b501b;
+}
+
+.schedule-legend .member-schedule-legend {
+  background: var(--member-sport-bg, #edf2ee);
+  border: 1px solid var(--member-sport-edge, #64806d);
+}
+
+.member-schedule-card.schedule-list-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--member-sport-edge);
+  border-left-width: 3px;
+  border-radius: 7px;
+  background: var(--member-sport-bg);
+  color: var(--member-sport-text);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.member-schedule-card + .member-schedule-card { margin-top: 5px; }
+.member-schedule-card:hover { box-shadow: inset 0 0 0 1px var(--member-sport-edge); }
+.member-schedule-card:focus-visible { outline: 2px solid var(--member-sport-text); outline-offset: 1px; }
+.member-schedule-card[data-status="BOOKED"] { border-width: 2px 2px 2px 4px; }
+.member-schedule-card:is([data-status="CANCELLED"], [data-status="COMPLETED"]) {
+  --member-sport-bg: #f1f3f0;
+  --member-sport-edge: #92988f;
+  --member-sport-text: #485248;
+}
+
+.member-schedule-card > :is(.member-schedule-time, .member-schedule-title, .member-schedule-sport, .member-schedule-resources, .member-schedule-status) {
+  color: inherit;
+  min-width: 0;
+  font-size: .75rem;
+}
+
+.member-schedule-card .member-schedule-title { font-weight: 700; }
+.member-schedule-card .member-schedule-status { display: flex; align-items: center; gap: 3px; font-weight: 700; }
+.member-schedule-status svg { flex-shrink: 0; }
+.member-schedule-card:is([data-status="QUEUED"], [data-status="INVITED"]) .member-schedule-status {
+  color: #7a4700;
+  background: #fff1cd;
+  border-radius: 4px;
+  padding: 2px 3px;
+}
+
+.member-schedule-list { padding: 0 16px 16px; }
+.member-schedule-list section { margin-bottom: 12px; }
+.member-schedule-list h3 { margin: 0 0 6px; font-size: var(--text-sm); }
+.member-schedule-list h3[data-today="true"] { color: #22542e; }
+
+.member-schedule-list .member-schedule-card {
+  grid-template-columns: 110px 1fr;
+  padding: 8px 10px;
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.member-schedule-list .member-schedule-time { grid-row: 1 / span 4; }
+.member-schedule-list .member-schedule-card :is(.member-schedule-title, .member-schedule-time) { font-size: var(--text-sm); }
+.member-schedule-list .member-schedule-card > span { grid-column: 2; }
+
+@media (max-width: 768px) {
+  .member-schedule-scroll { margin-inline: 8px; }
+  .member-schedule-list { padding-inline: 10px; }
+  .member-schedule-list .member-schedule-card { grid-template-columns: 82px minmax(0, 1fr); }
+  .member-schedule-list .member-schedule-card > span:last-child { display: flex; }
+}

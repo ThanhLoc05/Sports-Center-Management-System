@@ -225,7 +225,7 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     ).not.toBeInTheDocument();
     client.clear();
   });
-  it("member schedule uses only active bookings, and all-class scope can show remaining classes", async () => {
+  it("member schedule defaults to personal classes, and all-class scope can show remaining classes", async () => {
     login("MEMBER");
     const db = readDemo();
     db.classes.forEach((c) => {
@@ -243,14 +243,14 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     const client = page("/schedule", "MEMBER");
     await user.click(await screen.findByRole("button", { name: "Danh sách" }));
     expect(
-      await screen.findByRole("heading", { name: "Morning Yoga" }),
+      await screen.findByRole("button", { name: "Morning Yoga" }),
     ).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "Full Body Strength" }),
+      screen.queryByRole("button", { name: "Full Body Strength" }),
     ).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Phạm vi lịch học"), "all");
     expect(
-      await screen.findByRole("heading", { name: "Full Body Strength" }),
+      await screen.findByRole("button", { name: "Full Body Strength" }),
     ).toBeVisible();
     client.clear();
   });

@@ -11,13 +11,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useClasses, usePermissions } from "../lib/hooks";
-import { api } from "../lib/api";
+import { api, request } from "../lib/api";
 import type { SportClass } from "../lib/types";
 import { addDays, dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
 import { ClassDetail, ClassForm, ClassCoachName } from "./Classes";
 import { TrainingProgramForm } from "../components/TrainingProgramForm";
 import ClassCancellationDialog from "../components/ClassCancellationDialog";
 import ManagerWeekSchedule from "../components/ManagerWeekSchedule";
+import MemberSchedule, { memberScheduleSport, type MemberScheduleStatus } from "../components/MemberSchedule";
 import ScheduleSportMarkers from "../components/ScheduleSportMarkers";
 import "../styles-weekly-schedule.css";
 import {
@@ -84,7 +85,7 @@ export default function Schedule() {
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("not-cancelled");
   const [scope, setScope] = useState(member ? "mine" : "all");
-  const [view, setView] = useState("week");
+  const [view, setView] = useState(() => member && window.matchMedia?.("(max-width: 768px)").matches ? "list" : "week");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const setSelected = (item: SportClass | null) => setSelectedId(item?.id ?? null);
   const selected = classes.data?.find((item) =>
@@ -103,6 +104,24 @@ export default function Schedule() {
     enabled: member,
     ...calendarQueryOptions,
   });
+  const waitlist = useQuery({
+    queryKey: ["booking-waitlist", session!.user.id],
+    queryFn: () => request<{ classId: number; status: string }[]>("/bookings/my-waitlist"),
+    enabled: member && session?.mode === "api",
+    retry: false,
+    ...calendarQueryOptions,
+  });
+  const registration = new Map<number, MemberScheduleStatus>();
+  for (const entry of waitlist.data ?? []) {
+    if (entry.status === "QUEUED" || entry.status === "INVITED") registration.set(entry.classId, entry.status);
+  }
+  const cancelledBooking = new Set<number>();
+  for (const booking of bookings.data ?? []) {
+    if (booking.status === "BOOKED") registration.set(booking.classId, "BOOKED");
+    if (booking.status === "CANCELLED") cancelledBooking.add(booking.classId);
+  }
+  const personal = (item: SportClass) =>
+    registration.has(item.id) || (item.status === "CANCELLED" && cancelledBooking.has(item.id));
   const calendarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!manager && view === "week" && calendarRef.current)
@@ -120,16 +139,12 @@ export default function Schedule() {
    */
   const rows = (classes.data || []).filter(
     (c) =>
-      (manager && status !== "not-cancelled" ? status === "all" || c.status === status : c.status !== "CANCELLED") &&
-      (sport === "all" || c.sportId === Number(sport)) &&
-      (!member ||
-        scope === "all" ||
-        bookings.data?.some(
-          (b) => b.classId === c.id && b.status === "BOOKED",
-        )),
+      (member ? (scope === "mine" ? personal(c) : c.status !== "CANCELLED" || personal(c))
+        : manager && status !== "not-cancelled" ? status === "all" || c.status === status : c.status !== "CANCELLED") &&
+      (sport === "all" || c.sportId === Number(sport)),
   );
   const dayOf = (item: SportClass) =>
-    manager ? localDate(parseDate(item.scheduleTime)) : item.scheduleTime.slice(0, 10);
+    manager || member ? localDate(parseDate(item.scheduleTime)) : item.scheduleTime.slice(0, 10);
   const start = localDate(days[0]);
   const end = localDate(days[6]);
   const weekRows = rows.filter((item) => {
@@ -244,6 +259,14 @@ export default function Schedule() {
           <Loading />
         ) : member && scope === "mine" && bookings.error ? (
           <ErrorState error={bookings.error} retry={bookings.refetch} />
+        ) : member && scope === "mine" && session?.mode === "api" && waitlist.isPending ? (
+          <Loading />
+        ) : member ? (
+          <>
+            {waitlist.error && <ErrorState error={waitlist.error} retry={waitlist.refetch} />}
+            <MemberSchedule days={days} items={weekRows} sports={sports} rooms={rooms}
+              registration={registration} week={view === "week"} onView={setSelected} />
+          </>
         ) : view === "week" && manager ? (
           <ManagerWeekSchedule days={days} items={weekRows} sports={sports} rooms={rooms} onView={setSelected} />
         ) : view === "week" ? (
@@ -384,7 +407,9 @@ export default function Schedule() {
         <div className="schedule-legend">
           {Object.entries(sports).map(([id, name]) => (
             <span key={id}>
-              {manager ? <ScheduleSportMarkers names={[name]} /> : <i className={`sport-${id}`} />}
+              {manager ? <ScheduleSportMarkers names={[name]} /> : member
+                ? <i className="member-schedule-legend" data-sport={memberScheduleSport(name)} />
+                : <i className={`sport-${id}`} />}
               {name}
             </span>
           ))}
@@ -396,6 +421,7 @@ export default function Schedule() {
       {selected && (
         <ClassDetail
           item={selected}
+          memberSchedule={member}
           dialogClassName={manager ? "schedule-ui-dialog" : undefined}
           onClose={() => setSelected(null)}
           onEdit={manager && selected.status !== "CANCELLED" ? (item) => {

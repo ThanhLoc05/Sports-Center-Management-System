@@ -90,7 +90,7 @@ class ClassServiceValidationTest {
         when(coachProfiles.findById(5)).thenReturn(Optional.of(
                 CoachProfile.builder().specialties("Cầu lông – kỹ thuật và di chuyển").build()));
         ClassRequest yoga = ClassRequest.builder().className("Yoga").sportId(2).coachId(5).roomId(2)
-                .maxCapacity(6).scheduleTime(nextSlot(15, 0)).durationMinutes(90).build();
+                .maxCapacity(6).scheduleTime(nextSlot(14, 0)).durationMinutes(90).build();
 
         assertTrue(assertThrows(IllegalArgumentException.class, () -> service.validatePlanningResources(yoga))
                 .getMessage().contains("Chuyên môn"));
@@ -119,7 +119,7 @@ class ClassServiceValidationTest {
                 .coachId(5)
                 .roomId(2)
                 .maxCapacity(8)
-                .scheduleTime(nextSlot(15, 0)).durationMinutes(90)
+                .scheduleTime(nextSlot(14, 0)).durationMinutes(90)
                 .build();
 
         assertThrows(IllegalArgumentException.class, () -> service.createClass(request));
@@ -149,7 +149,7 @@ class ClassServiceValidationTest {
                 .coachId(5)
                 .roomId(2)
                 .maxCapacity(8)
-                .scheduleTime(nextSlot(15, 0)).durationMinutes(90)
+                .scheduleTime(nextSlot(14, 0)).durationMinutes(90)
                 .build();
 
         assertThrows(IllegalArgumentException.class, () -> service.createClass(request));
@@ -170,7 +170,7 @@ class ClassServiceValidationTest {
                 .coachId(5)
                 .roomId(2)
                 .maxCapacity(8)
-                .scheduleTime(nextSlot(15, 0)).durationMinutes(90)
+                .scheduleTime(nextSlot(14, 0)).durationMinutes(90)
                 .build();
 
         service.createClass(request);
@@ -193,7 +193,7 @@ class ClassServiceValidationTest {
 
     @Test
     void rejectsDurationConflictBeforeMutatingOrPublishing() {
-        LocalDateTime start = nextSlot(15, 0);
+        LocalDateTime start = nextSlot(14, 0);
         Classes row = scheduledClass(start);
         when(bookings.findBookedMemberIds(1)).thenReturn(List.of(17, 21));
         when(bookings.hasMemberScheduleConflict(1, start, start.plusMinutes(90))).thenReturn(true);
@@ -228,7 +228,7 @@ class ClassServiceValidationTest {
         var request = ClassRequest.builder().sportId(1).coachId(5).roomId(2).maxCapacity(8)
                 .className("Yoga").scheduleTime(nextSlot(15, 30)).durationMinutes(90).build();
         assertThrows(IllegalArgumentException.class, () -> service.createClass(request));
-        request.setScheduleTime(nextSlot(15, 0));
+        request.setScheduleTime(nextSlot(14, 0));
         request.setDurationMinutes(60);
         assertThrows(IllegalArgumentException.class, () -> service.createClass(request));
         verifyNoInteractions(rooms, users, classes);
@@ -245,7 +245,7 @@ class ClassServiceValidationTest {
 
     @Test
     void movesFlexibleClassWhenMembershipCoversNewDateIncludingLastDay() {
-        var original = nextSlot(15, 0);
+        var original = nextSlot(14, 0);
         var target = original.plusDays(2);
         var row = scheduledClass(original);
         when(bookings.findBookedMemberIds(1)).thenReturn(List.of(17, 21));
@@ -270,7 +270,7 @@ class ClassServiceValidationTest {
     }
 
     private void assertBlockedMembershipMove(List<Integer> members, int expired) {
-        var original = nextSlot(15, 0);
+        var original = nextSlot(14, 0);
         var target = original.plusDays(2);
         var row = scheduledClass(original);
         when(bookings.findBookedMemberIds(1)).thenReturn(members);

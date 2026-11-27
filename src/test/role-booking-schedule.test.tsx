@@ -131,7 +131,8 @@ describe("Coach/Member booking and navigation scope", () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json([])));
     page("/schedule", role, true);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Danh sách" }));
-    expect(await screen.findByText(/Public Coach Name/, { selector: "p" })).toBeVisible();
+    const card = await screen.findByRole("button", { name: c.className });
+    expect(await within(card.closest(".schedule-list-item") as HTMLElement).findByText(/Public Coach Name/)).toBeVisible();
     expect(coaches).toHaveBeenCalled();
     expect(users).not.toHaveBeenCalled();
     await userEvent.setup().click(screen.getByRole("button", { name: c.className }));
@@ -226,7 +227,7 @@ it("groups the Manager week by Vietnam date and official slots while keeping leg
   const grid = await screen.findByRole("table", { name: "Sáu ca học trong tuần" });
   expect(grid.querySelectorAll("tbody tr")).toHaveLength(6);
   expect(grid.querySelectorAll("tbody td")).toHaveLength(42);
-  expect(within(grid).getByText("19:30–21:00")).toBeVisible();
+  expect(within(grid).getByText("19:15–20:45")).toBeVisible();
   expect(booked).not.toHaveBeenCalled();
   const user = userEvent.setup();
   const firstSlot = within(grid).getByRole("button", { name: /Ca 01.*2 buổi/ });

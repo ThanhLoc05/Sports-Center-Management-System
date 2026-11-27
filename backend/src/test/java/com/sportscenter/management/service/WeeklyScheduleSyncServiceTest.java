@@ -67,6 +67,21 @@ class WeeklyScheduleSyncServiceTest {
     }
 
     @Test
+    void keepsThePublishedLegacyTimeWhenOnlyTheNameChanges() {
+        var old = entry("Yoga", 2, 3);
+        var actual = classOf(old, 41);
+        actual.setScheduleTime(MONDAY.atTime(18, 0));
+        published(old, 41, actual);
+
+        var changes = sync.run(List.of(old), List.of(entry("Yoga sáng", 2, 3)), Mode.SELECTED_WEEK, MONDAY);
+
+        var request = ArgumentCaptor.forClass(ClassRequest.class);
+        verify(classes).updateClass(eq(41), request.capture());
+        assertEquals(MONDAY.atTime(18, 0), request.getValue().getScheduleTime());
+        assertEquals(actual.getScheduleTime().toLocalTime(), changes.getFirst().actualStart());
+    }
+
+    @Test
     void movesPublishedClassToAnotherDayAndSlotWithoutChangingItsId() {
         var old = entry("Yoga", 2, 3);
         published(old, 41, classOf(old, 41));
@@ -76,7 +91,7 @@ class WeeklyScheduleSyncServiceTest {
                 FlexibleClassSlot.SLOT_06, "Yoga mới", 41, null), changes.getFirst());
         var request = ArgumentCaptor.forClass(ClassRequest.class);
         verify(classes).updateClass(eq(41), request.capture());
-        assertEquals(MONDAY.plusDays(1).atTime(19, 30), request.getValue().getScheduleTime());
+        assertEquals(MONDAY.plusDays(1).atTime(19, 15), request.getValue().getScheduleTime());
         verify(jdbc).update(anyString(), eq(WeeklyScheduleService.seriesKey(edited)), eq(MONDAY.plusDays(1)), eq(41));
         verify(classes, never()).createClass(any());
     }

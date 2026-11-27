@@ -67,6 +67,110 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     expect(screen.getByText(/Lớp học đã được thêm vào lịch của bạn/)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Đăng ký lớp học" })).not.toBeInTheDocument();
   });
+  it("retries a failed cancellation without closing and submits only one in-flight request", async () => {
+    const member = memberSession().user.id;
+    const future = { ...item(), scheduleTime: `${localDate(addDays(1))}T19:15:00` };
+    const firstDelete = pending<Response>();
+    let attempts = 0;
+    let active = true;
+    const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/classes/1") return json(future);
+      if (path.endsWith("/capacity")) return json(active ? 5 : 6);
+      if (path === `/api/v1/members/${member}/bookings`) {
+        return json([{ id: 71, classId: 1, memberId: member, status: active ? "BOOKED" : "CANCELLED" }]);
+      }
+      if (path === "/api/v1/bookings/71" && init?.method === "DELETE") {
+        if (++attempts === 1) return firstDelete.promise;
+        active = false;
+        return json({ status: "CANCELLED" });
+      }
+      return json([]);
+    });
+    vi.stubGlobal("fetch", fetch);
+    const user = userEvent.setup();
+    page(detailNode());
+    await user.click(await screen.findByRole("button", { name: "Hủy đăng ký" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Hủy đăng ký lớp?" }));
+    expect(dialog.getByText(/Mốc hủy không vi phạm/)).toBeVisible();
+    await user.dblClick(dialog.getByRole("button", { name: "Xác nhận" }));
+    expect(attempts).toBe(1);
+    expect(dialog.getByRole("button", { name: "Xác nhận" })).toBeDisabled();
+    await act(async () => firstDelete.resolve(json({ message: "Chưa thể hủy." }, 409)));
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Chưa thể hủy.");
+    expect(screen.getByText("Bạn đã đăng ký lớp học này")).toBeVisible();
+    await user.click(dialog.getByRole("button", { name: "Xác nhận" }));
+    expect(await screen.findByText("Đã hủy đăng ký lớp học.")).toBeVisible();
+    expect(screen.queryByRole("dialog", { name: "Hủy đăng ký lớp?" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Đăng ký lớp học" })).toBeEnabled();
+    expect(screen.getByText("6 chỗ")).toBeVisible();
+    expect(attempts).toBe(2);
+  });
+
+  it("explains why an active booking for a started class cannot be cancelled", async () => {
+    const member = memberSession().user.id;
+    const past = { ...item(), scheduleTime: `${localDate(addDays(-1))}T14:00:00` };
+    server(async () => json(past));
+    vi.spyOn(api, "bookings").mockResolvedValue([{ id: 71, classId: 1, memberId: member, status: "BOOKED", bookedAt: past.scheduleTime }]);
+    page(detailNode());
+    expect(await screen.findByText("Chỉ được hủy đăng ký trước khi buổi tập bắt đầu.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Hủy đăng ký" })).toBeNull();
+  });
+
+  it.each(["INVITED", "QUEUED"])("offers to leave only an eligible waitlist entry (%s)", async (status) => {
+    memberSession();
+    const future = { ...item(), scheduleTime: `${localDate(addDays(1))}T19:15:00` };
+    let left = false;
+    const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/v1/classes/1") return json(future);
+      if (path.endsWith("/capacity")) return json(0);
+      if (path.endsWith("/bookings/my-waitlist")) {
+        return json([{ classId: 1, status: left ? "CANCELLED" : status, inviteUntil: future.scheduleTime }]);
+      }
+      if (path.endsWith("/waitlist/decline") && init?.method === "POST") {
+        left = true;
+        return json({ classId: 1, status: "CANCELLED" });
+      }
+      return json([]);
+    });
+    vi.stubGlobal("fetch", fetch);
+    page(detailNode());
+    if (status === "QUEUED") {
+      expect(await screen.findByText(/Bạn đang chờ chỗ/)).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Rời danh sách chờ" })).toBeNull();
+      return;
+    }
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Rời danh sách chờ" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Rời danh sách chờ?" })).getByRole("button", { name: "Xác nhận" }));
+    expect(await screen.findByText("Đã rời danh sách chờ.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Rời danh sách chờ" })).toBeNull();
+    expect(fetch).toHaveBeenCalledWith("/api/v1/classes/1/waitlist/decline", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("shows actual slot hours and counts, and replaces the schedule detail with one confirmation", async () => {
+    const member = memberSession().user.id;
+    const future = { ...item(), scheduleTime: `${localDate(addDays(1))}T15:45:00`, durationMinutes: 90, bookedCount: 1, maxCapacity: 8 };
+    server(async () => json(future));
+    vi.spyOn(api, "bookings").mockResolvedValue([{ id: 71, classId: 1, memberId: member, status: "BOOKED", bookedAt: future.scheduleTime }]);
+    vi.spyOn(api, "capacity").mockResolvedValue(6);
+    page(<ClassDetail item={future} memberSchedule onClose={() => {}} />);
+    const user = userEvent.setup();
+    expect(await screen.findByText("15:45 – 17:15")).toBeVisible();
+    const detail = within(screen.getByRole("dialog", { name: "Chi tiết buổi tập" }));
+    expect(detail.getByText("Ca 04 · Buổi chiều")).toBeVisible();
+    expect(detail.getByText("1/8 thành viên")).toBeVisible();
+    expect(await detail.findByText("Còn 6 chỗ trống")).toBeVisible();
+    await user.click(await detail.findByRole("button", { name: "Hủy đăng ký" }));
+    const confirmation = within(screen.getByRole("dialog", { name: "Hủy đăng ký lớp?" }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(confirmation.getByText(/Ca 04 · Buổi chiều · 15:45 – 17:15/)).toBeVisible();
+    expect(confirmation.getByRole("button", { name: "Xác nhận hủy" })).toBeEnabled();
+    await user.click(confirmation.getByRole("button", { name: "Giữ đăng ký" }));
+    expect(await screen.findByRole("dialog", { name: "Chi tiết buổi tập" })).toBeVisible();
+  });
+
   it("allows booking when the Member has no ACTIVE booking", async () => {
     const s = memberSession();
     vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {

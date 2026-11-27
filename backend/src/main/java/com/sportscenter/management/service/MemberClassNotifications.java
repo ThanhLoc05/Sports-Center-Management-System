@@ -85,7 +85,16 @@ public class MemberClassNotifications {
     }
 
     private void send(String key,Classes row,int sender,String title,String content) {
-        var recipients=jdbc.queryForList("SELECT b.member_id FROM class_bookings b WITH(UPDLOCK,HOLDLOCK) JOIN users u ON u.user_id=b.member_id JOIN roles r ON r.role_id=u.role_id WHERE b.class_id=? AND b.status='BOOKED' AND r.role_name='MEMBER' ORDER BY b.member_id",Integer.class,row.getId());
+        var recipients = jdbc.queryForList("""
+                SELECT recipient.member_id FROM (
+                    SELECT member_id FROM dbo.class_bookings WITH(UPDLOCK,HOLDLOCK) WHERE class_id=? AND status='BOOKED'
+                    UNION
+                    SELECT member_id FROM dbo.class_waitlist WHERE class_id=? AND status IN ('QUEUED','INVITED')
+                ) recipient JOIN dbo.users u ON u.user_id=recipient.member_id
+                JOIN dbo.roles r ON r.role_id=u.role_id
+                WHERE r.role_name='MEMBER'
+                ORDER BY recipient.member_id
+                """, Integer.class, row.getId(), row.getId());
         for(int recipient:recipients)outbox.enqueue(key,sender,recipient,title,content,"/schedule");
     }
     private String roomName(int id){return jdbc.queryForObject("SELECT room_name FROM rooms WHERE room_id=?",String.class,id);}

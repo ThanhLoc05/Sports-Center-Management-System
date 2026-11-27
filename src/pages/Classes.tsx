@@ -17,6 +17,8 @@ import {
  */
 import { useCatalog } from "../lib/catalog";
 import ClassCancellationDialog from "../components/ClassCancellationDialog";
+import MemberBookingCancellation, { bookingCancellationBlocker, type MemberCancellationAction } from "../components/MemberBookingCancellation";
+import MemberSessionDetail from "../components/MemberSessionDetail";
 import { sportVisual, sportImage } from "../lib/sport-visuals";
 import "../styles-sports.css";
 import { useState } from "react";
@@ -39,7 +41,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { useCourseFeature } from "../lib/course-feature";
 import { useClasses, useUsers } from "../lib/hooks";
-import { ApiError, api } from "../lib/api";
+import { ApiError, api, request } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { SCHEDULING_SLOTS, slotForSession, vietnamScheduleParts } from "../lib/scheduling-slots";
 import { matchesSchedulingSport, schedulingSportIds } from "../lib/scheduling-resources";
@@ -1077,6 +1079,7 @@ export function ClassCoachName({ coachId }: { coachId: number }) {
 
 export function ClassDetail(props: {
   item: SportClass;
+  memberSchedule?: boolean;
   onClose: () => void;
   onEdit?: (item: SportClass) => void;
   onCancel?: (item: SportClass) => void;
@@ -1084,6 +1087,7 @@ export function ClassDetail(props: {
 }) {
   const { session } = useAuth();
   const live = session?.mode === "api";
+  const [memberAction, setMemberAction] = useState<MemberCancellationAction | null>(null);
   const detail = useQuery({
     queryKey: ["classDetail", props.item.id, session?.user.id],
     // [API] api.classDetail → GET /classes/{id}
@@ -1093,18 +1097,26 @@ export function ClassDetail(props: {
     retry: false,
   });
   // Không dùng object từ danh sách hoặc cache cũ như chi tiết đã được xác nhận.
-  if (live && (detail.isPending || detail.isFetching || detail.error))
-    return (
-      <Modal title="Chi tiết lớp học" onClose={props.onClose} className={props.dialogClassName} wide>
-        {detail.isPending || detail.isFetching ? (
-          <Loading />
-        ) : (
-          <ErrorState error={detail.error} retry={detail.refetch} />
-        )}
-      </Modal>
-    );
-  const item = live ? detail.data! : props.item;
-  return <ClassDetailContent key={item.id} {...props} item={item} />;
+  const item = live ? detail.data : props.item;
+  const memberSchedule = props.memberSchedule && session?.user.roleName === "MEMBER";
+  const confirmation = memberAction?.item.id === props.item.id && session?.user.roleName === "MEMBER"
+    ? <MemberBookingCancellation action={item ? { ...memberAction, item } : memberAction} memberId={session.user.id}
+        onClose={() => setMemberAction(null)} scheduleDetail={memberSchedule} />
+    : null;
+  if (memberSchedule && confirmation) return confirmation;
+  return (
+    <>
+      {live && (detail.isPending || detail.isFetching || detail.error || !item) ? (
+        <Modal title={memberSchedule ? "Chi tiết buổi tập" : "Chi tiết lớp học"} onClose={props.onClose}
+          className={memberSchedule ? "member-session-modal" : props.dialogClassName} wide>
+          {detail.error && !detail.isFetching ? (
+            <ErrorState error={detail.error} retry={detail.refetch} />
+          ) : <Loading />}
+        </Modal>
+      ) : item && <ClassDetailContent key={item.id} {...props} item={item} memberSchedule={memberSchedule} onMemberAction={setMemberAction} />}
+      {confirmation}
+    </>
+  );
 }
 function ClassDetailContent({
   item: c,
@@ -1112,12 +1124,16 @@ function ClassDetailContent({
   onEdit,
   onCancel,
   dialogClassName,
+  onMemberAction,
+  memberSchedule,
 }: {
   item: SportClass;
+  memberSchedule?: boolean;
   onClose: () => void;
   onEdit?: (item: SportClass) => void;
   onCancel?: (item: SportClass) => void;
   dialogClassName?: string;
+  onMemberAction: (action: MemberCancellationAction) => void;
 }) {
   // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
@@ -1152,11 +1168,20 @@ function ClassDetailContent({
       ),
     enabled: isMember,
   });
-  const isRegistered =
-    ownBookings.isSuccess &&
-    ownBookings.data.some((booking) =>
-      ["BOOKED", "ACTIVE", "CONFIRMED"].includes(booking.status),
-    );
+  const ownBooking = ownBookings.data?.find((booking) =>
+    booking.memberId === session!.user.id && ["BOOKED", "ACTIVE", "CONFIRMED"].includes(booking.status));
+  const cancelledBooking = ownBookings.data?.some((booking) =>
+    booking.memberId === session!.user.id && booking.status === "CANCELLED");
+  const flexible = !c.regularClassId && !c.courseId;
+  const blocker = bookingCancellationBlocker(c);
+  const waitlist = useQuery({
+    queryKey: ["booking-waitlist", session!.user.id],
+    queryFn: () => request<{ classId: number; status: string; inviteUntil: string | null }[]>("/bookings/my-waitlist"),
+    enabled: isMember && flexible && session?.mode === "api" && !blocker,
+    retry: false,
+  });
+  const waiting = waitlist.data?.find((entry) => entry.classId === c.id);
+  const invited = waiting?.status === "INVITED" && !!waiting.inviteUntil && parseDate(waiting.inviteUntil) > new Date();
   const bookings = useQuery({
     queryKey: ["classStudents", session!.user.id, session!.user.roleName, c.id],
     // [API] api.bookings → GET /classes/{classId}/bookings | /members/{memberId}/bookings
@@ -1174,6 +1199,21 @@ function ClassDetailContent({
         })),
     enabled: can("classes.roster"),
   });
+  if (memberSchedule) {
+    if (booking) return <BookingForm classId={c.id} onClose={() => setBooking(false)} />;
+    if (showCoach) return <CoachProfileDialog coachId={c.coachId} onClose={() => setShowCoach(false)} />;
+    const needsWaitlist = session?.mode === "api" && flexible && !blocker && !ownBooking;
+    return (
+      <MemberSessionDetail item={c} sport={sports[c.sportId] ?? `Bộ môn #${c.sportId}`}
+        room={rooms[c.roomId] ?? `Phòng #${c.roomId}`} coach={<ClassCoachName coachId={c.coachId} />}
+        capacity={capacity.data} capacityError={capacity.isError} retryCapacity={() => { void capacity.refetch(); }}
+        booking={ownBooking} cancelled={cancelledBooking} waiting={waiting}
+        registrationLoading={ownBookings.isPending || (needsWaitlist && waitlist.isPending)}
+        registrationError={ownBookings.isError || (needsWaitlist && waitlist.isError)}
+        retryRegistration={() => { void ownBookings.refetch(); if (needsWaitlist) void waitlist.refetch(); }}
+        onClose={onClose} onCoach={() => setShowCoach(true)} onBook={() => setBooking(true)} onAction={onMemberAction} />
+    );
+  }
   return (
     <>
       <Modal
@@ -1274,10 +1314,7 @@ function ClassDetailContent({
             ))}
           <div className="detail-actions">
             {courseEnabled && c.courseId && <Link className="btn btn-secondary" to="/courses">Đăng ký theo khóa học</Link>}
-            {isMember &&
-              !c.regularClassId && !c.courseId &&
-              c.status === "SCHEDULED" &&
-              parseDate(c.scheduleTime) > new Date() && (
+            {isMember && flexible && (!blocker || ownBooking || cancelledBooking) && (
                 ownBookings.isPending ? (
                   // [NÚT] NÚT "Đang kiểm tra đăng ký…"
                   <Button disabled>Đang kiểm tra đăng ký…</Button>
@@ -1288,14 +1325,32 @@ function ClassDetailContent({
                       retry={ownBookings.refetch}
                     />
                   </div>
-                ) : isRegistered ? (
-                  <div className="booking-status-success" role="status">
-                    <CheckCircle2 size={20} />
-                    <div>
-                      <strong>Bạn đã đăng ký lớp học này</strong>
-                      <span>Lớp học đã được thêm vào lịch của bạn.</span>
+                ) : ownBooking ? (
+                  <>
+                    <div className="booking-status-success" role="status">
+                      <CheckCircle2 size={20} />
+                      <div>
+                        <strong>Bạn đã đăng ký lớp học này</strong>
+                        <span>{blocker ?? "Lớp học đã được thêm vào lịch của bạn."}</span>
+                        {!blocker && ownBooking.status !== "BOOKED" && <span>Lượt đăng ký này không thể hủy tại đây.</span>}
+                      </div>
                     </div>
-                  </div>
+                    {!blocker && ownBooking.status === "BOOKED" && (
+                      <Button variant="danger" onClick={() => onMemberAction({ kind: "booking", item: c, bookingId: ownBooking.id })}>
+                        Hủy đăng ký
+                      </Button>
+                    )}
+                  </>
+                ) : blocker ? (
+                  <Notice>{blocker}</Notice>
+                ) : session?.mode === "api" && (waitlist.isPending || waitlist.error) ? (
+                  waitlist.error ? <ErrorState error={waitlist.error} retry={waitlist.refetch} />
+                    : <Button disabled>Đang kiểm tra danh sách chờ…</Button>
+                ) : waiting?.status === "QUEUED" || invited ? (
+                  <>
+                    <Notice>{invited ? "Bạn có lời mời giữ chỗ." : "Bạn đang chờ chỗ. Bạn có thể rời danh sách khi có lời mời giữ chỗ."}</Notice>
+                    {invited && <Button variant="secondary" onClick={() => onMemberAction({ kind: "waitlist", item: c })}>Rời danh sách chờ</Button>}
+                  </>
                 ) : capacity.isPending ? (
                   // [NÚT] NÚT "Đang kiểm tra chỗ trống…"
                   <Button disabled>Đang kiểm tra chỗ trống…</Button>

@@ -1,5 +1,6 @@
 package com.sportscenter.management.dto.Response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,8 @@ public class ClassResponse {
     private Integer roomId;
 
     private Integer maxCapacity;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long bookedCount;
 
     private LocalDateTime scheduleTime;
 

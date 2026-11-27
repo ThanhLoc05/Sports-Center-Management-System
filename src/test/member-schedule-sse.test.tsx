@@ -60,6 +60,19 @@ async function openMemberCalendar(firstRead?: Promise<SportClass[]>) {
   };
 }
 
+it("groups personal bookings outside the new slots without changing their time", async () => {
+  const view = await openMemberCalendar();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Tuần" }));
+  const table = screen.getByRole("table", { name: "Sáu ca tập trong tuần" });
+  expect(within(table).getByText("14:00–15:30")).toBeVisible();
+  const outside = within(table).getByRole("rowheader", { name: "Ngoài khung ca" }).closest("tr")!;
+  const card = within(outside).getByRole("button", { name: view.name });
+  expect(card).toHaveTextContent("10:00");
+  expect(card).toHaveTextContent("Đã đăng ký");
+  expect(table.querySelectorAll("td[data-today]")).toHaveLength(0);
+  expect(table.querySelectorAll('th[aria-current="date"]')).toHaveLength(1);
+});
+
 it("updates the open list after a schedule change and ignores wrong recipients, unrelated links and replays", async () => {
   const view = await openMemberCalendar();
   const before = view.classes.mock.calls.length;
@@ -79,12 +92,12 @@ it("updates the open list after a schedule change and ignores wrong recipients, 
   expect(JSON.parse(sessionStorage.getItem("sportiva-session")!)).toEqual(view.session);
 });
 
-it("removes a cancelled class and refreshes personal bookings on the same page", async () => {
+it("marks a cancelled class in personal history and refreshes bookings on the same page", async () => {
   const view = await openMemberCalendar();
   view.cancel();
   view.emit({ title: "Lớp học đã hủy" });
-  await waitFor(() => expect(screen.queryByRole("button", { name: view.name })).toBeNull());
-  expect(view.client.getQueryData(["bookings", view.session.user.id])).toMatchObject([{ status: "CANCELLED" }]);
+  expect(await within(screen.getByRole("button", { name: view.name })).findByText("Buổi đã hủy")).toBeVisible();
+  await waitFor(() => expect(view.client.getQueryData(["bookings", view.session.user.id])).toMatchObject([{ status: "CANCELLED" }]));
   expect(view.connect).toHaveBeenCalledTimes(1);
 });
 

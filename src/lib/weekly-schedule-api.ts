@@ -77,6 +77,7 @@ export interface SyncChange {
   className: string;
   classId: number | null;
   message: string | null;
+  actualStart?: string | null;
   booked?: number | null;
   waitlisted?: number | null;
   placementKey?: string | null;

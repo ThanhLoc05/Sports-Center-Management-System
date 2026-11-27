@@ -56,14 +56,18 @@ class WeeklyScheduleServiceTest {
 
     @Test
     void officialSlotsHaveExactlyTheApprovedNinetyMinuteIntervals() {
-        assertEquals(List.of("06:00", "08:00", "15:00", "16:30", "18:00", "19:30"),
-                Arrays.stream(FlexibleClassSlot.values()).map(slot -> slot.start().toString()).toList());
+        var slots = FlexibleClassSlot.values();
+        assertEquals(List.of("06:00–07:30", "08:00–09:30", "14:00–15:30", "15:45–17:15", "17:30–19:00", "19:15–20:45"),
+                Arrays.stream(slots).map(slot -> slot.start() + "–" + slot.end()).toList());
+        for (int i = 1; i < slots.length; i++) {
+            assertTrue(Duration.between(slots[i - 1].end(), slots[i].start()).toMinutes() >= 15);
+        }
         for (var slot : FlexibleClassSlot.values()) {
             assertEquals(90, Duration.between(slot.start(), slot.end()).toMinutes());
             assertDoesNotThrow(() -> requireScheduledSlot(MONDAY.atTime(slot.start()), 90));
         }
-        assertThrows(IllegalArgumentException.class, () -> requireScheduledSlot(MONDAY.atTime(18, 0), 60));
-        assertThrows(IllegalArgumentException.class, () -> requireScheduledSlot(MONDAY.atTime(18, 30), 90));
+        assertThrows(IllegalArgumentException.class, () -> requireScheduledSlot(MONDAY.atTime(17, 30), 60));
+        assertThrows(IllegalArgumentException.class, () -> requireScheduledSlot(MONDAY.atTime(18, 0), 90));
     }
 
     @Test

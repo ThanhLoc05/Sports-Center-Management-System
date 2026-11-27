@@ -669,6 +669,8 @@ export function Confirm({
   onConfirm,
   danger = true,
   className = "",
+  backLabel = "Quay lại",
+  confirmLabel = "Xác nhận",
 }: {
   title: string;
   description: string;
@@ -676,6 +678,8 @@ export function Confirm({
   onConfirm: () => Promise<unknown>;
   danger?: boolean;
   className?: string;
+  backLabel?: string;
+  confirmLabel?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -689,7 +693,7 @@ export function Confirm({
       )}
       <div className="modal-footer">
         <Button variant="secondary" disabled={busy} onClick={onClose}>
-          Quay lại
+          {backLabel}
         </Button>
         <Button
           variant={danger ? "danger" : "primary"}
@@ -706,7 +710,7 @@ export function Confirm({
             }
           }}
         >
-          Xác nhận
+          {confirmLabel}
         </Button>
       </div>
     </Modal>
