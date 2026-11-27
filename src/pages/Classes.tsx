@@ -42,7 +42,7 @@ import { useClasses, useUsers } from "../lib/hooks";
 import { ApiError, api } from "../lib/api";
 import { operations } from "../lib/operations-api";
 import { SCHEDULING_SLOTS, slotForSession, vietnamScheduleParts } from "../lib/scheduling-slots";
-import { matchesSchedulingSport } from "../lib/scheduling-resources";
+import { matchesSchedulingSport, schedulingSportIds } from "../lib/scheduling-resources";
 
 import type { AccessLevel, SportClass } from "../lib/types";
 import {
@@ -304,6 +304,26 @@ function lacksManagementEndpoint(error: unknown) {
   return error instanceof ApiError && error.status === 400 && error.message === 'For input string: "management"';
 }
 
+type SchedulingFilterResource = { id: string; name: string; sportIds: number[] };
+
+function SchedulingFilterOptions({ resources, sport, sports }: {
+  resources: SchedulingFilterResource[];
+  sport: string;
+  sports: Record<number, string>;
+}) {
+  const option = ({ id, name }: SchedulingFilterResource) => <option key={id} value={id}>{name}</option>;
+  if (sport !== "all") return resources.filter(item => item.sportIds.includes(Number(sport))).map(option);
+
+  const unclassified = resources.filter(item => item.sportIds.length === 0);
+  return <>
+    {Object.entries(sports).map(([id, name]) => {
+      const group = resources.filter(item => item.sportIds.includes(Number(id)));
+      return group.length > 0 && <optgroup key={id} label={name}>{group.map(option)}</optgroup>;
+    })}
+    {unclassified.length > 0 && <optgroup label="Chưa phân loại">{unclassified.map(option)}</optgroup>}
+  </>;
+}
+
 export default function Classes() {
   // [API] useCatalog() (hook trong lib/catalog.ts) → api.sports → GET /sports; api.rooms → GET /rooms
   const { sports, rooms } = useCatalog();
@@ -416,6 +436,24 @@ export default function Classes() {
     enabled: member || managed,
     retry: false,
   });
+  const coachOptions = managed ? (coaches.data ?? []).map(({ coachId, fullName, specialties }) => ({
+    id: String(coachId), name: fullName, sportIds: schedulingSportIds(specialties, sports),
+  })) : [];
+  const roomOptions = managed ? Object.entries(rooms).map(([id, name]) => ({
+    id, name, sportIds: schedulingSportIds(name, sports),
+  })) : [];
+  function changeSport(nextSport: string) {
+    setPage(0);
+    setSport(nextSport);
+    if (!managed || nextSport === "all") return;
+    const eligible = (options: SchedulingFilterResource[], id: string) =>
+      options.some(item => item.id === id && item.sportIds.includes(Number(nextSport)));
+    setFilters(current => ({
+      ...current,
+      coachId: eligible(coachOptions, current.coachId) ? current.coachId : "",
+      roomId: eligible(roomOptions, current.roomId) ? current.roomId : "",
+    }));
+  }
   const client = useQueryClient();
   const toast = useToast();
   if (apiMember) {
@@ -576,7 +614,7 @@ export default function Classes() {
           {/* [NÚT] NÚT "Tất cả bộ môn" → đổi cách hiển thị / bộ lọc trên màn hình (setSport) */}
           <button
             className={sport === "all" ? "selected" : ""}
-            onClick={() => { setPage(0); setSport("all"); }}
+            onClick={() => changeSport("all")}
           >
             Tất cả bộ môn
           </button>
@@ -585,7 +623,7 @@ export default function Classes() {
             <button
               key={id}
               className={sport === id ? "selected" : ""}
-              onClick={() => { setPage(0); setSport(String(id)); }}
+              onClick={() => changeSport(id)}
             >
               {name}
             </button>
@@ -652,13 +690,13 @@ export default function Classes() {
           <Field label="Lọc theo HLV">
             <select value={filters.coachId} onChange={event => changeFilter("coachId", event.target.value)}>
               <option value="">Tất cả HLV</option>
-              {(coaches.data ?? []).map(coach => <option key={coach.coachId} value={coach.coachId}>{coach.fullName}</option>)}
+              <SchedulingFilterOptions resources={coachOptions} sport={sport} sports={sports} />
             </select>
           </Field>
           <Field label="Lọc theo sân/phòng">
             <select value={filters.roomId} onChange={event => changeFilter("roomId", event.target.value)}>
               <option value="">Tất cả sân/phòng</option>
-              {Object.entries(rooms).map(([id, room]) => <option key={id} value={id}>{room}</option>)}
+              <SchedulingFilterOptions resources={roomOptions} sport={sport} sports={sports} />
             </select>
           </Field>
         </div>

@@ -4,18 +4,25 @@ function sportWords(text?: string | null) {
     .toLowerCase().replaceAll("đ", "d").replace(/[^a-z0-9]+/g, " ").trim() + " ";
 }
 
-export function matchesSchedulingSport(
+export function schedulingSportIds(
   description: string | null | undefined,
-  sportId: number,
   sports: Record<number, string>,
 ) {
   const words = sportWords(description);
-  const identified = Object.entries(sports).filter(([, name]) => {
+  return Object.entries(sports).filter(([, name]) => {
     const key = sportWords(name);
     return (key !== "  " && words.includes(key))
       || (key === " cau long " && words.includes(" badminton "))
       || (key === " badminton " && words.includes(" cau long "))
       || (key === " dance " && words.includes(" hip hop "));
-  });
-  return !identified.length || identified.some(([id]) => Number(id) === sportId);
+  }).map(([id]) => Number(id));
+}
+
+export function matchesSchedulingSport(
+  description: string | null | undefined,
+  sportId: number,
+  sports: Record<number, string>,
+) {
+  const identified = schedulingSportIds(description, sports);
+  return !identified.length || identified.includes(sportId);
 }

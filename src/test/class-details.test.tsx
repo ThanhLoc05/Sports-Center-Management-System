@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -194,6 +194,79 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     session(); server(async () => json({ ...item(), status: "COMPLETED" })); page(detailNode());
     expect(await screen.findByText("Đã hoàn thành")).toBeVisible(); expect(screen.queryByRole("button", { name: "Đăng ký cho thành viên" })).not.toBeInTheDocument();
   });
+  it("groups Manager resources by sport and only resets incompatible selections", async () => {
+    session();
+    const fetch = server();
+    const fallback = fetch.getMockImplementation()!;
+    fetch.mockImplementation((path, init) => {
+      switch (String(path)) {
+        case "/api/v1/sports":
+          return Promise.resolve(json([
+            { id: 1, sportName: "Cầu lông" }, { id: 2, sportName: "Yoga" }, { id: 7, sportName: "Pickleball" },
+          ]));
+        case "/api/v1/rooms":
+          return Promise.resolve(json([
+            { id: 21, roomName: "Sân Cầu lông và Yoga", capacity: 15 },
+            { id: 22, roomName: "Sân Pickleball", capacity: 15 },
+            { id: 23, roomName: "Sân chung", capacity: 15 },
+          ]));
+        case "/api/v1/users/coaches":
+          return Promise.resolve(json([
+            { coachId: 10, fullName: "An", specialties: "Badminton, Yoga", professionalLevel: null, bio: null },
+            { coachId: 11, fullName: "Bình", specialties: "Pickleball", professionalLevel: null, bio: null },
+            { coachId: 12, fullName: "Chi", specialties: null, professionalLevel: null, bio: null },
+          ]));
+        default:
+          return fallback(path, init);
+      }
+    });
+    page(<Classes />);
+    const user = userEvent.setup();
+    const coach = await screen.findByLabelText("Lọc theo HLV");
+    const room = screen.getByLabelText("Lọc theo sân/phòng");
+    const coachList = within(coach);
+    const roomList = within(room);
+    expect(await within(await coachList.findByRole("group", { name: "Cầu lông" })).findByRole("option", { name: "An" })).toBeVisible();
+    expect(within(coachList.getByRole("group", { name: "Yoga" })).getByRole("option", { name: "An" })).toBeVisible();
+    expect(within(roomList.getByRole("group", { name: "Yoga" })).getByRole("option", { name: "Sân Cầu lông và Yoga" })).toBeVisible();
+    expect(within(roomList.getByRole("group", { name: "Chưa phân loại" })).getByRole("option", { name: "Sân chung" })).toBeVisible();
+    expect(coachList.queryByRole("option", { name: "Cầu lông" })).not.toBeInTheDocument();
+
+    await user.selectOptions(coach, coachList.getAllByRole("option", { name: "An" })[0]);
+    await user.selectOptions(room, roomList.getAllByRole("option", { name: "Sân Cầu lông và Yoga" })[0]);
+    await user.click(screen.getByRole("button", { name: /^Yoga$/ }));
+    expect(coach).toHaveValue("10");
+    expect(room).toHaveValue("21");
+    expect(coachList.queryByRole("option", { name: "Chi" })).not.toBeInTheDocument();
+    expect(roomList.queryByRole("option", { name: "Sân Pickleball" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Pickleball$/ }));
+    expect(coach).toHaveValue("");
+    expect(room).toHaveValue("");
+    expect(coachList.getAllByRole("option").map(option => option.textContent)).toEqual(["Tất cả HLV", "Bình"]);
+    expect(roomList.getAllByRole("option").map(option => option.textContent)).toEqual(["Tất cả sân/phòng", "Sân Pickleball"]);
+    await user.selectOptions(coach, "11");
+    await user.selectOptions(room, "22");
+    await user.selectOptions(screen.getByLabelText("Lọc theo ca"), "SLOT_01");
+    await user.selectOptions(screen.getByLabelText("Trạng thái lớp"), "CANCELLED");
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-11-28" } });
+    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-11-30" } });
+    fireEvent.change(screen.getByPlaceholderText("Tìm lớp học..."), { target: { value: "giao lưu" } });
+    const criteria = () => {
+      const request = fetch.mock.calls.map(([path]) => String(path)).filter(path => path.startsWith("/api/v1/classes/management?")).at(-1)!;
+      return Object.fromEntries(new URLSearchParams(request.split("?")[1]));
+    };
+    await waitFor(() => expect(criteria()).toEqual({
+      status: "CANCELLED", keyword: "giao lưu", page: "0", sportId: "7", coachId: "11", roomId: "22",
+      slot: "SLOT_01", fromDate: "2026-11-28", throughDate: "2026-11-30",
+    }));
+    await user.click(screen.getByRole("button", { name: /^Yoga$/ }));
+    await waitFor(() => expect(criteria()).toEqual({
+      status: "CANCELLED", keyword: "giao lưu", page: "0", sportId: "2",
+      slot: "SLOT_01", fromDate: "2026-11-28", throughDate: "2026-11-30",
+    }));
+  });
+
   it("loads Manager cancellation history by page and renders the reason", async () => {
     session();
     const cancelled = { ...item(4), className: "Buổi đã hủy", status: "CANCELLED" };
