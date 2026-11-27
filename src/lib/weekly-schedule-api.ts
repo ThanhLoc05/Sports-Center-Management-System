@@ -68,15 +68,44 @@ interface PublishedSession {
   classId: number;
 }
 
+export type SyncMode = "TEMPLATE_ONLY" | "SELECTED_WEEK" | "FUTURE_PUBLISHED";
+
+export interface SyncChange {
+  action: "CREATE" | "UPDATE" | "SKIP" | "CONFLICT";
+  date: string;
+  slotCode: string;
+  className: string;
+  classId: number | null;
+  message: string | null;
+}
+
+export interface SyncPreview {
+  mode: SyncMode;
+  changes: SyncChange[];
+  token: string;
+}
+
+export interface SyncOptions {
+  mode: SyncMode;
+  weekStart?: string;
+  token?: string;
+}
+
 const recurring = "/classes/recurring";
 
 export const weeklyScheduleApi = {
   published: () => request<PublishedSession[]>(recurring),
   template: () => request<SavedWeeklySchedule>(recurring + "/template"),
-  save: (version: number, entries: WeeklyClass[]) => request<SavedWeeklySchedule>(recurring + "/template", {
-    method: "PUT",
-    body: JSON.stringify({ version, entries }),
-  }),
+  save: (version: number, entries: WeeklyClass[], sync?: SyncOptions) =>
+    request<SavedWeeklySchedule>(recurring + "/template", {
+      method: "PUT",
+      body: JSON.stringify({ version, entries, ...sync }),
+    }),
+  syncPreview: (version: number, entries: WeeklyClass[], sync: SyncOptions) =>
+    request<SyncPreview>(recurring + "/template/sync-preview", {
+      method: "POST",
+      body: JSON.stringify({ version, entries, ...sync }),
+    }),
   preview: (input: SavedWeeklyWindow) =>
     request<WeeklySchedulePreview>(recurring + "/template/preview", {
       method: "POST",

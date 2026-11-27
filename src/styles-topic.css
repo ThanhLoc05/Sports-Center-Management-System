@@ -1654,3 +1654,20 @@ select:not([multiple]):not([size]) {
     grid-template-columns: 1fr;
   }
 }
+/* Lịch tuần mẫu: nội dung trong khung không dính viền (khung .panel không có padding riêng). */
+.weekly-schedule .panel > :not(.panel-heading) {
+  margin-inline: 24px;
+}
+.weekly-schedule .panel > :last-child:not(.panel-heading) {
+  margin-bottom: 24px;
+}
+/* Màu bộ môn: bộ môn có id lớn hơn 6 dùng lại bảng màu; chấm chú thích dùng màu đậm để nhìn rõ. */
+.sport-7 { background: #edf2e2; color: #606d47; }
+.sport-8 { background: #f6eee3; color: #78654b; }
+.sport-9 { background: #efeaf5; color: #6f6280; }
+.sport-10 { background: #f5eae4; color: #7e6451; }
+.sport-11 { background: #e8f1f3; color: #516f77; }
+.sport-12 { background: #edf0df; color: #686c4b; }
+.schedule-legend i[class^="sport-"] {
+  background: currentColor;
+}

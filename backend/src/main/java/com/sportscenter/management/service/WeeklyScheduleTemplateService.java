@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -29,9 +30,11 @@ public class WeeklyScheduleTemplateService {
     private final ClassService classes;
     private final TrainingProgramService resources;
     private final WeeklyScheduleService scheduling;
+    private final WeeklyScheduleSyncService sync;
 
     public record Template(long version, String name, List<Entry> entries) {}
-    public record Save(@Min(0) long version, @NotNull @Size(max = 100) List<@NotNull @Valid Entry> entries) {}
+    public record Save(@Min(0) long version, @NotNull @Size(max = 100) List<@NotNull @Valid Entry> entries,
+                       WeeklyScheduleSyncService.Mode mode, LocalDate weekStart, String token) {}
     public record Window(@Min(1) long version, @NotNull LocalDate startDate, int weeks,
                          @Size(max = 8400) Set<String> excludedKeys, String token) {}
 
@@ -68,18 +71,9 @@ public class WeeklyScheduleTemplateService {
     public Template save(Save input, Integer actor) {
         if (actor == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không xác định được người lưu mẫu.");
         resources.lock();
-        requireVersion(input.version(), get());
-        Set<String> coaches = new HashSet<>();
-        Set<String> rooms = new HashSet<>();
-        for (var entry : input.entries()) {
-            classes.validatePlanningResources(entry.requestOn(LocalDate.of(2000, 1, 1)));
-            for (var day : entry.weekdays()) {
-                String cell = day.getValue() + ":" + entry.slotCode() + ":";
-                if (!coaches.add(cell + entry.coachId()) || !rooms.add(cell + entry.roomId())) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Trùng HLV hoặc sân/phòng trong cùng ngày và ca.");
-                }
-            }
-        }
+        var current = get();
+        requireVersion(input.version(), current);
+        validate(input);
 
         Integer id;
         if (input.version() == 0) {
@@ -106,7 +100,43 @@ public class WeeklyScheduleTemplateService {
                         entry.maxCapacity(), entry.accessLevel());
             }
         }
+        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart());
+        var blocked = changes.stream().filter(c -> c.action() == WeeklyScheduleSyncService.Action.CONFLICT).findFirst();
+        if (blocked.isPresent()) {
+            var row = blocked.get();
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ngày " + row.date() + ", " + row.slotCode().start()
+                    + " - " + row.className() + ": " + row.message());
+        }
+        if (input.mode() != null && input.mode() != WeeklyScheduleSyncService.Mode.TEMPLATE_ONLY
+                && !WeeklyScheduleSyncService.token(changes).equals(input.token())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phạm vi thay đổi đã khác bản xem trước. Vui lòng xem trước lại.");
+        }
         return get();
+    }
+
+    @Transactional
+    public WeeklyScheduleSyncService.SyncPreview previewSync(Save input) {
+        resources.lock();
+        var current = get();
+        requireVersion(input.version(), current);
+        validate(input);
+        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart());
+        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return new WeeklyScheduleSyncService.SyncPreview(input.mode(), changes, WeeklyScheduleSyncService.token(changes));
+    }
+
+    private void validate(Save input) {
+        Set<String> coaches = new HashSet<>();
+        Set<String> rooms = new HashSet<>();
+        for (var entry : input.entries()) {
+            classes.validatePlanningResources(entry.requestOn(LocalDate.of(2000, 1, 1)));
+            for (var day : entry.weekdays()) {
+                String cell = day.getValue() + ":" + entry.slotCode() + ":";
+                if (!coaches.add(cell + entry.coachId()) || !rooms.add(cell + entry.roomId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Trùng HLV hoặc sân/phòng trong cùng ngày và ca.");
+                }
+            }
+        }
     }
 
     @Transactional(readOnly = true)

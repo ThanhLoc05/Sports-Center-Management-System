@@ -195,9 +195,7 @@ public class WeeklyScheduleService {
                 reason = invalid.getMessage();
             }
             // A series keeps its identity across overlapping planning periods and exclusion changes.
-            String series = digest(String.join("|", entry.className().strip(), String.valueOf(entry.sportId()),
-                    String.valueOf(entry.coachId()), String.valueOf(entry.roomId()), String.valueOf(entry.maxCapacity()),
-                    entry.slotCode().name(), entry.accessLevel()));
+            String series = seriesKey(entry);
             for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
                 if (!entry.weekdays().contains(day.getDayOfWeek())) continue;
                 var candidate = new Candidate(series, day, entry, reason);
@@ -250,6 +248,12 @@ public class WeeklyScheduleService {
                 && actual.getRoomId() == entry.roomId() && actual.getMaxCapacity() == entry.maxCapacity()
                 && Objects.equals(actual.getClassName(), entry.className().strip())
                 && Objects.equals(actual.getRequiredAccessLevel(), entry.accessLevel());
+    }
+
+    static String seriesKey(Entry entry) {
+        return digest(String.join("|", entry.className().strip(), String.valueOf(entry.sportId()),
+                String.valueOf(entry.coachId()), String.valueOf(entry.roomId()), String.valueOf(entry.maxCapacity()),
+                entry.slotCode().name(), entry.accessLevel()));
     }
 
     private static String sharedResource(Entry entry, int coachId, int roomId) {

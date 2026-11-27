@@ -27,7 +27,16 @@ import {
   type WeeklyClass,
   type SavedWeeklyWindow,
   type WeeklySchedulePreview,
+  type SyncMode,
+  type SyncPreview,
 } from "../lib/weekly-schedule-api";
+
+const syncLabels = {
+  CREATE: "Tạo mới",
+  UPDATE: "Cập nhật",
+  SKIP: "Giữ nguyên",
+  CONFLICT: "Xung đột",
+} as const;
 import "../styles-manager-week-schedule.css";
 import "../styles-weekly-schedule.css";
 import ScheduleSportMarkers from "../components/ScheduleSportMarkers";
@@ -105,6 +114,10 @@ export default function WeeklySchedule() {
     ReturnType<typeof weeklyScheduleApi.confirm>
   > | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [syncMode, setSyncMode] = useState<SyncMode>("TEMPLATE_ONLY");
+  const [syncWeek, setSyncWeek] = useState(() => localDate());
+  const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
+  useEffect(() => setSyncPreview(null), [entries, syncMode, syncWeek]);
   const history = useQuery({
     queryKey: ["recurring-classes", session?.user.id],
     queryFn: weeklyScheduleApi.published,
@@ -145,11 +158,27 @@ export default function WeeklySchedule() {
     setBusy(true);
     setError("");
     try {
-      const next = await weeklyScheduleApi.save(version, entries.map(({ id: _id, ...entry }) => entry));
+      const rows = entries.map(({ id: _id, ...entry }) => entry);
+      const sync = { mode: syncMode, weekStart: syncMode === "SELECTED_WEEK" ? syncWeek : undefined };
+      if (syncMode !== "TEMPLATE_ONLY" && !syncPreview) {
+        setSyncPreview(await weeklyScheduleApi.syncPreview(version, rows, sync));
+        return;
+      }
+      const next = syncMode === "TEMPLATE_ONLY"
+        ? await weeklyScheduleApi.save(version, rows)
+        : await weeklyScheduleApi.save(version, rows, { ...sync, token: syncPreview?.token });
       setVersion(next.version);
       setDirty(false);
       setSaved(true);
+      setSyncPreview(null);
       client.setQueryData(["weekly-schedule-template", session?.user.id], next);
+      if (syncMode !== "TEMPLATE_ONLY") {
+        await Promise.all([
+          client.invalidateQueries({ queryKey: ["classes"] }),
+          client.invalidateQueries({ queryKey: ["managed-classes"] }),
+          client.invalidateQueries({ queryKey: ["recurring-classes"] }),
+        ]);
+      }
     } catch (failure) {
       setError(messageFor(failure));
     } finally {
@@ -292,12 +321,51 @@ export default function WeeklySchedule() {
                 </div>
                 {template.isError && <ErrorState error={template.error} retry={template.refetch} />}
                 <div className="weekly-schedule-actions">
-                  <Button loading={busy && dirty} disabled={!dirty || version === null || busy} onClick={() => void saveTemplate()}>
-                    Lưu mẫu
+                  <select
+                    aria-label="Phạm vi áp dụng khi lưu mẫu"
+                    value={syncMode}
+                    onChange={(event) => setSyncMode(event.target.value as SyncMode)}
+                  >
+                    <option value="TEMPLATE_ONLY">Chỉ lưu lịch mẫu</option>
+                    <option value="SELECTED_WEEK">Áp dụng cho tuần được chọn</option>
+                    <option value="FUTURE_PUBLISHED">Áp dụng cho các tuần tương lai đã công bố</option>
+                  </select>
+                  {syncMode === "SELECTED_WEEK" && (
+                    <input
+                      type="date"
+                      aria-label="Ngày bất kỳ trong tuần cần áp dụng"
+                      min={localDate()}
+                      value={syncWeek}
+                      onChange={(event) => setSyncWeek(event.target.value)}
+                    />
+                  )}
+                  <Button
+                    loading={busy && dirty}
+                    disabled={!dirty || version === null || busy || syncPreview?.changes.some((c) => c.action === "CONFLICT")}
+                    onClick={() => void saveTemplate()}
+                  >
+                    {syncMode === "TEMPLATE_ONLY" ? "Lưu mẫu" : syncPreview ? "Lưu và áp dụng" : "Xem trước thay đổi"}
                   </Button>
                   {dirty && <span>Chưa lưu thay đổi</span>}
                   {saved && <span role="status">Đã lưu mẫu lịch.</span>}
                 </div>
+                {syncPreview && (
+                  <div className="weekly-schedule-sync" role="status">
+                    {syncPreview.changes.length === 0 ? (
+                      <p>Không có lớp thực tế nào thay đổi trong phạm vi đã chọn.</p>
+                    ) : (
+                      <ul className="weekly-schedule-list">
+                        {syncPreview.changes.map((change, index) => (
+                          <li key={index}>
+                            <strong>{syncLabels[change.action]}</strong> · {dateLabel(change.date)}{" "}
+                            {SCHEDULING_SLOTS.find((slot) => slot.code === change.slotCode)?.start} · {change.className}
+                            {change.message && <p>{change.message}</p>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
                 <div
                   className="manager-week-scroll"
                   role="region"

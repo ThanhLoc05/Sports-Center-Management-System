@@ -2,6 +2,7 @@ package com.sportscenter.management.controller;
 
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.service.WeeklyScheduleService;
+import com.sportscenter.management.service.WeeklyScheduleSyncService;
 import com.sportscenter.management.service.WeeklyScheduleTemplateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,11 @@ public class WeeklyScheduleTemplateController {
     @PutMapping
     public WeeklyScheduleTemplateService.Template save(@Valid @RequestBody WeeklyScheduleTemplateService.Save input) {
         return templates.save(input, security.getCurrentUserId());
+    }
+
+    @PostMapping("/sync-preview")
+    public WeeklyScheduleSyncService.SyncPreview syncPreview(@Valid @RequestBody WeeklyScheduleTemplateService.Save input) {
+        return templates.previewSync(input);
     }
 
     @PostMapping("/preview")
