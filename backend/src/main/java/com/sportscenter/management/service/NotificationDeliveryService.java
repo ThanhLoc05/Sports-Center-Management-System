@@ -251,6 +251,14 @@ public class NotificationDeliveryService {
                 .link(row.getLink()).createdAt(row.getCreatedAt()).kind("GENERAL").build());
     }
 
+    public void publishManagerScheduleChangedAfterCommit() {
+        var managerIds = userRepository.findByRole_RoleNameAndStatus("CENTER_MANAGER", "ACTIVE")
+                .stream().map(User::getId).toList();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() { managerIds.forEach(NotificationDeliveryService.this::publishScheduleChanged); }
+        });
+    }
+
     public void publishScheduleChanged(Integer userId) {
         Set<SseEmitter> emitters = subscribers.get(userId);
         if (emitters == null) return;

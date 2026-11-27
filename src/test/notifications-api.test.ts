@@ -85,6 +85,36 @@ describe("C007 notification API contract", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("keeps a heartbeat stream alive and releases a stalled stream for retry", async () => {
+    vi.useFakeTimers();
+    try {
+      let controller!: ReadableStreamDefaultController<Uint8Array>;
+      const cancel = vi.fn();
+      const stream = new ReadableStream<Uint8Array>({
+        start: (value) => { controller = value; },
+        cancel,
+      });
+      vi.stubGlobal("fetch", vi.fn(async () =>
+        new Response(stream, { headers: { "Content-Type": "text/event-stream" } }),
+      ));
+      const onNotification = vi.fn();
+      const onOpen = vi.fn();
+      const streamResult = notificationsApi.connect(onNotification, new AbortController().signal, onOpen);
+      const failed = expect(streamResult).rejects.toThrow("Luồng thông báo không còn phản hồi.");
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(onOpen).toHaveBeenCalledOnce();
+      controller.enqueue(new TextEncoder().encode(":keepalive\n\n"));
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(cancel).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(6_000);
+      await failed;
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(onNotification).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("authenticates the SSE stream and parses notification events", async () => {
     const expected: NotificationEvent = {
       id: 21,

@@ -5,11 +5,13 @@ import com.sportscenter.management.dto.Request.ClassCancellationRequest;
 import com.sportscenter.management.dto.Response.ClassResponse;
 import com.sportscenter.management.service.ClassService;
 import com.sportscenter.management.service.FlexibleClassSlot;
+import com.sportscenter.management.service.NotificationDeliveryService;
 import com.sportscenter.auth.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,6 +32,7 @@ public class ClassController {
 
     private final ClassService classService;
     private final SecurityUtils securityUtils;
+    private final NotificationDeliveryService notifications;
 
     /**
      * TẠO LỚP HỌC MỚI VÀ PHÂN CÔNG HUẤN LUYỆN VIÊN (CREATE CLASS)
@@ -103,8 +106,11 @@ public class ClassController {
      */
     @PutMapping("/{classId}")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
+    @Transactional
     public ClassResponse updateClass(@PathVariable Integer classId, @Valid @RequestBody ClassRequest request) {
-        return classService.updateClass(classId, request);
+        var result = classService.updateClass(classId, request);
+        notifications.publishManagerScheduleChangedAfterCommit();
+        return result;
     }
 
     /**

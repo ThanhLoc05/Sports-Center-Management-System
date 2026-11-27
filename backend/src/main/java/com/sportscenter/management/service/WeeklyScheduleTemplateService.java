@@ -13,8 +13,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -122,13 +120,7 @@ public class WeeklyScheduleTemplateService {
             case CREATE, UPDATE, CANCEL -> true;
             default -> false;
         })) {
-            var managers = jdbc.queryForList("""
-                    SELECT u.user_id FROM dbo.users u JOIN dbo.roles r ON r.role_id=u.role_id
-                    WHERE r.role_name='CENTER_MANAGER' AND u.status='ACTIVE'
-                    """, Integer.class);
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override public void afterCommit() { managers.forEach(notifications::publishScheduleChanged); }
-            });
+            notifications.publishManagerScheduleChangedAfterCommit();
         }
         return get();
     }

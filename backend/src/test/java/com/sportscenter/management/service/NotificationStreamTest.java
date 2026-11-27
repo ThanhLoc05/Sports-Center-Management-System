@@ -2,6 +2,7 @@ package com.sportscenter.management.service;
 
 import com.sportscenter.auth.SecurityUtils;
 import com.sportscenter.management.controller.NotificationController;
+import com.sportscenter.management.entity.User;
 import com.sportscenter.management.repository.ClassBookingRepository;
 import com.sportscenter.management.repository.ClassRepository;
 import com.sportscenter.management.repository.UserRepository;
@@ -10,7 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.io.IOException;
@@ -23,6 +26,31 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class NotificationStreamTest {
+    @Test
+    void scheduleSignalReachesOnlyActiveManagersAfterCommit() {
+        var users = mock(UserRepository.class);
+        var service = spy(new NotificationDeliveryService(mock(SecurityUtils.class), users,
+                mock(ClassRepository.class), mock(ClassBookingRepository.class), mock(WorkoutPlanService.class),
+                mock(GeneralNotificationRepository.class)));
+        var first = new User();
+        first.setId(10);
+        var second = new User();
+        second.setId(11);
+        when(users.findByRole_RoleNameAndStatus("CENTER_MANAGER", "ACTIVE")).thenReturn(List.of(first, second));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.publishManagerScheduleChangedAfterCommit();
+            verify(service, never()).publishScheduleChanged(anyInt());
+            var callbacks = TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1, callbacks.size());
+            callbacks.getFirst().afterCommit();
+            verify(service).publishScheduleChanged(10);
+            verify(service).publishScheduleChanged(11);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
     @Test
     void subscriptionFlushesOnlyConnectionCommentWithoutBusinessWrites() throws Exception {
         var security = mock(SecurityUtils.class);

@@ -233,12 +233,23 @@ async function consumeEventStream(
   const cancel = () => {
     void reader.cancel().catch(() => undefined);
   };
+  let idle = false;
+  let heartbeatTimeout: ReturnType<typeof setTimeout> | undefined;
+  function waitForHeartbeat() {
+    clearTimeout(heartbeatTimeout);
+    heartbeatTimeout = setTimeout(() => {
+      idle = true;
+      cancel();
+    }, 35_000);
+  }
+  waitForHeartbeat();
   signal.addEventListener("abort", cancel, { once: true });
   if (signal.aborted) cancel();
   try {
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) break;
+      waitForHeartbeat();
       buffer += decoder.decode(value, { stream: true });
       const blocks = buffer.split(/\r?\n\r?\n/);
       buffer = blocks.pop() || "";
@@ -251,8 +262,9 @@ async function consumeEventStream(
       }
     }
     if (!signal.aborted)
-      throw new ApiError("Kết nối thông báo đã bị máy chủ đóng.");
+      throw new ApiError(idle ? "Luồng thông báo không còn phản hồi." : "Kết nối thông báo đã bị máy chủ đóng.");
   } finally {
+    clearTimeout(heartbeatTimeout);
     signal.removeEventListener("abort", cancel);
     await reader.cancel().catch(() => undefined);
     reader.releaseLock();
