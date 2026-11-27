@@ -16,10 +16,11 @@ const reasons = [
   ["OTHER", "Lý do khác"],
 ];
 
-export default function ClassCancellationDialog({ item, onClose, onSaved }: {
+export default function ClassCancellationDialog({ item, onClose, onSaved, dialogClassName }: {
   item: SportClass;
   onClose: () => void;
   onSaved: () => Promise<void>;
+  dialogClassName?: string;
 }) {
   const { session } = useAuth();
   const { rooms } = useCatalog();
@@ -52,13 +53,15 @@ export default function ClassCancellationDialog({ item, onClose, onSaved }: {
     }
   }
 
-  return <Modal title="Hủy buổi học" onClose={onClose} dismissible={!busy}
+  return <Modal title="Hủy buổi học" onClose={onClose} dismissible={!busy} className={dialogClassName}
     description="Booking và danh sách chờ sẽ được đóng, lịch sử vẫn được lưu.">
+    <div className="schedule-cancel-summary">
     <p><strong>{item.className}</strong> · {dateLabel(item.scheduleTime)} {timeLabel(item.scheduleTime)}</p>
     <p>HLV: {coaches.data?.find(coach => coach.coachId === item.coachId)?.fullName ?? "Chưa có tên HLV"} · Sân/phòng: {rooms[item.roomId] ?? `Phòng #${item.roomId}`}</p>
     {info.isFetching ? <Loading /> : info.error ? <p role="alert">{errorText(info.error)}</p>
       : <p>{info.data?.booked} Member đã xác nhận · {info.data?.waitlisted} Member trong danh sách chờ</p>}
     {info.data && !info.data.canCancel && <p role="alert">Buổi này hiện không thể hủy.</p>}
+    </div>
     <form onSubmit={submit}>
       <Field label="Lý do hủy">
         <select required value={reason} onChange={event => setReason(event.target.value)} disabled={busy}>

@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import WeeklySchedule from "../pages/WeeklySchedule";
 import { ApiError } from "../lib/api";
 import { weeklyScheduleApi } from "../lib/weekly-schedule-api";
+import { addDays, localDate } from "../lib/utils";
 import type {
   PreviewOccurrence,
   SavedWeeklyWindow,
@@ -32,6 +33,7 @@ vi.mock("../lib/api", async (original) => {
   return {
     ...current,
     api: {
+      classes: vi.fn().mockResolvedValue([{ id: 1, coachId: 5, roomId: 3 }, { id: 2, coachId: 7, roomId: 4 }]),
       coaches: vi.fn().mockResolvedValue([
         { coachId: 5, fullName: "An", specialties: "Cầu lông – kỹ thuật" },
         { coachId: 6, fullName: "Bình" },
@@ -45,7 +47,7 @@ vi.mock("../lib/weekly-schedule-api", () => ({
 }));
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  for (const method of Object.values(weeklyScheduleApi)) vi.mocked(method).mockReset();
   vi.mocked(weeklyScheduleApi.template).mockResolvedValue({ version: 0, name: "Lịch chuẩn", entries: [] });
   vi.mocked(weeklyScheduleApi.save).mockImplementation(async (version, entries) => ({
     version: version + 1, name: "Lịch chuẩn", entries,
@@ -54,7 +56,8 @@ beforeEach(() => {
 
 it("reviews multiple linked sessions before requesting a single cancellation", async () => {
   const user = setup();
-  expect(screen.getByLabelText("Phạm vi áp dụng khi lưu mẫu")).toHaveValue("FUTURE_PUBLISHED");
+  await user.click(await screen.findByRole("button", { name: "Đối chiếu lịch tập" }));
+  expect(screen.getByLabelText("Phạm vi đối chiếu")).toHaveValue("FUTURE_PUBLISHED");
   const orphans = [1, 2].map((classId) => ({
     action: "ORPHAN" as const, classId, className: `Yoga ${classId}`, date: "2026-12-07",
     slotCode: "SLOT_01", booked: 1, waitlisted: 1, message: null,
@@ -66,11 +69,17 @@ it("reviews multiple linked sessions before requesting a single cancellation", a
       changes: orphans.map((row) => ({ ...row, action: "CANCEL" })),
       token: "selected",
     });
-  await user.click(await screen.findByLabelText("Kiểm tra chênh lệch với lịch đã công bố"));
-  await user.click(await screen.findByRole("button", { name: "Xem trước thay đổi" }));
-  await user.click(await screen.findByRole("button", { name: /Chọn tất cả buổi không còn trong mẫu/ }));
-  await user.click(screen.getByRole("button", { name: "Xem trước thay đổi" }));
-  expect(await screen.findByText(/2 buổi sẽ hủy/)).toHaveTextContent(/2 lượt đã đăng ký.*2 lượt danh sách chờ/);
+  await user.click(screen.getByRole("button", { name: /^Đối chiếu$/ }));
+  expect(await screen.findByText("07/12/2026 – 13/12/2026 · 2 buổi")).toBeVisible();
+  expect(await screen.findByText("Sân A")).toBeVisible();
+  const metrics = screen.getByText("Buổi chênh lệch phát hiện").closest("dl");
+  expect(metrics).toHaveTextContent("Buổi chênh lệch phát hiện2");
+  expect(metrics).toHaveTextContent("Buổi đã chọn xử lý0");
+  await user.click(screen.getByRole("button", { name: /Chọn tất cả buổi ngoài mẫu/ }));
+  expect(metrics).toHaveTextContent("Buổi đã chọn xử lý2");
+  expect(screen.getByText(/Nếu xác nhận hủy/)).toHaveTextContent("2 lượt đăng ký cũng sẽ bị hủy");
+  await user.click(screen.getByRole("button", { name: "Xem trước xử lý" }));
+  expect(await screen.findByRole("button", { name: "Xác nhận hủy 2 buổi và áp dụng" })).toBeEnabled();
   expect(weeklyScheduleApi.save).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Xác nhận hủy 2 buổi và áp dụng" }));
   expect(weeklyScheduleApi.save).toHaveBeenCalledWith(0, [],
@@ -104,13 +113,13 @@ async function addClass(
   const form = within(
     screen.getByRole("dialog", { name: "Thêm lớp vào lịch tuần mẫu" }),
   );
-  await user.type(form.getByLabelText("Tên lớp học"), name);
+  fireEvent.change(form.getByLabelText("Tên lớp học"), { target: { value: name } });
   for (const day of additionalDays) await user.click(form.getByLabelText(day));
   await user.selectOptions(form.getByLabelText("Bộ môn"), "1");
   await form.findByRole("option", { name: "An" });
   await user.selectOptions(form.getByLabelText("Huấn luyện viên"), "5");
   await user.selectOptions(form.getByLabelText("Sân/phòng"), "3");
-  await user.type(form.getByLabelText("Sức chứa"), "8");
+  fireEvent.change(form.getByLabelText("Sức chứa"), { target: { value: "8" } });
   await user.click(form.getByRole("button", { name: "Lưu vào mẫu" }));
 }
 
@@ -195,8 +204,7 @@ it("lọc HLV và sân/phòng khi chọn hoặc đổi bộ môn", async () => {
 
 it("giữ loại trừ khi xem trước lại sau 409 và công bố đúng số buổi còn hợp lệ", async () => {
   const user = setup();
-  const start = (screen.getByLabelText("Ngày bắt đầu") as HTMLInputElement)
-    .value;
+  const start = localDate(addDays(1));
   const end = new Date(Date.parse(start) + 6 * 86400000)
     .toISOString()
     .slice(0, 10);
@@ -260,11 +268,15 @@ it("giữ loại trừ khi xem trước lại sau 409 và công bố đúng số
 
   await addClass(user);
   await closeCell(user);
-  await user.selectOptions(screen.getByLabelText("Số tuần"), "1");
-  expect(screen.getByRole("button", { name: "Xem trước lịch" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Công bố lịch" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "Lưu & đồng bộ" }));
   await user.selectOptions(screen.getByLabelText("Phạm vi áp dụng khi lưu mẫu"), "TEMPLATE_ONLY");
   await user.click(screen.getByRole("button", { name: /^Lưu mẫu$/ }));
   expect(await screen.findByText("Đã lưu mẫu lịch.")).toBeVisible();
+  const publishButton = screen.getByRole("button", { name: "Công bố lịch" });
+  await waitFor(() => expect(publishButton).toBeEnabled());
+  await user.click(publishButton);
+  await user.selectOptions(screen.getByLabelText("Số tuần"), "1");
   await user.click(screen.getByRole("button", { name: "Xem trước lịch" }));
   expect(await screen.findByText(/HLV An trùng với buổi Yoga/)).toBeVisible();
   const payload: SavedWeeklyWindow = { version: 1, startDate: start, weeks: 1, excludedKeys: [] };
@@ -316,8 +328,7 @@ it("giữ loại trừ khi xem trước lại sau 409 và công bố đúng số
 
 it("khóa cấu hình và ngày áp dụng cho đến khi nhận được kết quả xem trước", async () => {
   const user = setup();
-  const start = (screen.getByLabelText("Ngày bắt đầu") as HTMLInputElement)
-    .value;
+  const start = localDate(addDays(1));
   const end = new Date(Date.parse(start) + 27 * 86400000)
     .toISOString()
     .slice(0, 10);
@@ -336,9 +347,13 @@ it("khóa cấu hình và ngày áp dụng cho đến khi nhận được kết 
   );
   await addClass(user);
   await closeCell(user);
+  await user.click(screen.getByRole("button", { name: "Lưu & đồng bộ" }));
   await user.selectOptions(screen.getByLabelText("Phạm vi áp dụng khi lưu mẫu"), "TEMPLATE_ONLY");
   await user.click(screen.getByRole("button", { name: /^Lưu mẫu$/ }));
   expect(await screen.findByText("Đã lưu mẫu lịch.")).toBeVisible();
+  const publishButton = screen.getByRole("button", { name: "Công bố lịch" });
+  await waitFor(() => expect(publishButton).toBeEnabled());
+  await user.click(publishButton);
   await user.click(screen.getByRole("button", { name: "Xem trước lịch" }));
   expect(screen.getByLabelText("Ngày bắt đầu")).toBeDisabled();
   expect(screen.getByLabelText("Số tuần")).toBeDisabled();

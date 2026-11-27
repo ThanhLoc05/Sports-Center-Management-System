@@ -238,16 +238,17 @@ it("groups the Manager week by Vietnam date and official slots while keeping leg
   expect(await screen.findByRole("dialog", { name: "Confirmed first" })).toBeVisible();
   await user.keyboard("{Escape}");
 
+  expect(within(grid).queryByRole("button", { name: /Ngoài khung ca/ })).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Trạng thái buổi học"), "CANCELLED");
+  expect(within(grid).queryByRole("button", { name: /Ca 01/ })).not.toBeInTheDocument();
   await user.click(within(grid).getByRole("button", { name: /Ngoài khung ca.*1 buổi.*1 đã hủy/ }));
   expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancelled legacy" })).toBeVisible();
   await user.keyboard("{Escape}");
-  await user.selectOptions(screen.getByLabelText("Trạng thái buổi học"), "CANCELLED");
-  expect(within(grid).queryByRole("button", { name: /Ca 01/ })).not.toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Trạng thái buổi học"), "all");
   await user.click(screen.getByRole("button", { name: "Tuần sau" }));
   await user.click(within(grid).getByRole("button", { name: /Ca 02.*1 buổi/ }));
   expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Next week" })).toBeVisible();
   await user.keyboard("{Escape}");
-  await user.click(screen.getByRole("button", { name: "Hôm nay" }));
+  await user.click(screen.getByRole("button", { name: "Tuần này" }));
   expect(within(grid).getByRole("button", { name: /Ca 01.*2 buổi/ })).toBeVisible();
 });

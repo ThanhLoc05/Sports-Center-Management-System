@@ -17,6 +17,8 @@ import { ClassDetail, ClassForm, ClassCoachName } from "./Classes";
 import { TrainingProgramForm } from "../components/TrainingProgramForm";
 import ClassCancellationDialog from "../components/ClassCancellationDialog";
 import ManagerWeekSchedule from "../components/ManagerWeekSchedule";
+import ScheduleSportMarkers from "../components/ScheduleSportMarkers";
+import "../styles-weekly-schedule.css";
 import {
   Button,
   Empty,
@@ -134,9 +136,9 @@ export default function Schedule() {
   return (
     <>
       <PageHeader
-        eyebrow="MAKE TIME TO MOVE"
+        eyebrow={manager ? undefined : "MAKE TIME TO MOVE"}
         title={member ? "Lịch tập của bạn" : "Lịch hoạt động"}
-        description="Một tuần đầy năng lượng bắt đầu từ một lịch trình rõ ràng."
+        description={manager ? "Xem và quản lý các buổi đã lên lịch." : "Một tuần đầy năng lượng bắt đầu từ một lịch trình rõ ràng."}
         actions={
           <>
             <Link to="/classes" className="btn btn-secondary">
@@ -146,7 +148,7 @@ export default function Schedule() {
               <>
                 <Button onClick={() => setCreate("flexible")}>
                   <Plus size={17} />
-                  Tạo buổi lẻ
+                  Tạo buổi tập
                 </Button>
                 <Button variant="secondary" onClick={() => setCreate("regular")}>
                   Tạo lớp cố định
@@ -156,7 +158,7 @@ export default function Schedule() {
           </>
         }
       />
-      <Panel className="schedule-panel">
+      <Panel className={manager ? "schedule-panel schedule-manager-panel" : "schedule-panel"}>
         <div className="schedule-toolbar">
           <div className="calendar-range">
             <div className="day-nav">
@@ -178,7 +180,7 @@ export default function Schedule() {
               {dateLabel(days[6])}
             </h2>
             <Button variant="secondary" onClick={() => setOffset(0)}>
-              Hôm nay
+              {manager ? "Tuần này" : "Hôm nay"}
             </Button>
           </div>
           <div className="table-filters">
@@ -371,7 +373,7 @@ export default function Schedule() {
         <div className="schedule-legend">
           {Object.entries(sports).map(([id, name]) => (
             <span key={id}>
-              <i className={`sport-${id}`} />
+              {manager ? <ScheduleSportMarkers names={[name]} /> : <i className={`sport-${id}`} />}
               {name}
             </span>
           ))}
@@ -383,6 +385,7 @@ export default function Schedule() {
       {selected && (
         <ClassDetail
           item={selected}
+          dialogClassName={manager ? "schedule-ui-dialog" : undefined}
           onClose={() => setSelected(null)}
           onEdit={manager && selected.status !== "CANCELLED" ? (item) => {
             setEditing(item);
@@ -395,14 +398,14 @@ export default function Schedule() {
         />
       )}
       {create === "flexible" && manager && (
-        <ClassForm fixedSlots={session?.mode === "api"} onClose={() => setCreate(null)} />
+        <ClassForm dialogClassName="schedule-ui-dialog" fixedSlots={session?.mode === "api"} onClose={() => setCreate(null)} />
       )}
       {create === "regular" && manager && (
         <TrainingProgramForm kind="REGULAR" onClose={() => setCreate(null)} />
       )}
-      {editing && <ClassForm item={editing} fixedSlots={session?.mode === "api"} onClose={() => setEditing(null)} />}
+      {editing && <ClassForm dialogClassName="schedule-ui-dialog" item={editing} fixedSlots={session?.mode === "api"} onClose={() => setEditing(null)} />}
       {cancelling && (
-        <ClassCancellationDialog item={cancelling} onClose={() => setCancelling(null)} onSaved={async () => {
+        <ClassCancellationDialog dialogClassName="schedule-ui-dialog" item={cancelling} onClose={() => setCancelling(null)} onSaved={async () => {
           await client.invalidateQueries();
           toast("Đã hủy buổi học.");
         }} />

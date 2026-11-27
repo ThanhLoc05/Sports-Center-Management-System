@@ -6,7 +6,7 @@ import { useAuth } from "../lib/auth";
 import { SCHEDULING_SLOTS, slotForSession } from "../lib/scheduling-slots";
 import { dateLabel, localDate, parseDate, timeLabel } from "../lib/utils";
 import { ClassCoachName } from "../pages/Classes";
-import { Badge, Modal } from "./ui";
+import { Badge, Field, Modal } from "./ui";
 import ScheduleSportMarkers from "./ScheduleSportMarkers";
 import "../styles-manager-week-schedule.css";
 
@@ -74,8 +74,9 @@ export default function ManagerWeekSchedule({
   onView: (item: SportClass) => void;
 }) {
   const [selected, setSelected] = useState<SlotSelection | null>(null);
-  const dates = days.map((day) => localDate(day));
   const today = localDate();
+  const [mobileDay, setMobileDay] = useState(() => (new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7);
+  const dates = days.map((day) => localDate(day));
   const bySlot = new Map<string, SportClass[]>();
   const sportName = (item: SportClass) => sports[item.sportId] ?? `Bộ môn #${item.sportId}`;
   const dayLabel = (day: Date) => dateLabel(day, {
@@ -97,7 +98,7 @@ export default function ManagerWeekSchedule({
     const sportNames = group.map(sportName);
     const title = `${dayLabel(day)} · ${label}`;
     return (
-      <td key={date} className={date === today ? "manager-week-today" : undefined}>
+      <td key={date} data-selected-day={date === dates[mobileDay]} className={date === today ? "manager-week-today" : undefined}>
         {group.length === 0 ? <span className="manager-week-empty">Trống</span> : (
           <button
             type="button"
@@ -122,13 +123,20 @@ export default function ManagerWeekSchedule({
     : [];
   return (
     <>
+      <div className="schedule-mobile-day">
+        <Field label="Ngày trong tuần">
+          <select value={mobileDay} onChange={(event) => setMobileDay(Number(event.target.value))}>
+            {days.map((day, index) => <option value={index} key={dates[index]}>{dayLabel(day)}</option>)}
+          </select>
+        </Field>
+      </div>
       <div className="manager-week-scroll" role="region" aria-label="Lịch tuần theo ca" tabIndex={0}>
-        <table className="manager-week-table" aria-label="Sáu ca học trong tuần">
+        <table className="manager-week-table schedule-responsive-table" aria-label="Sáu ca học trong tuần">
           <thead>
             <tr>
               <th scope="col">Ca học <small>GMT+7</small></th>
               {days.map((day, index) => (
-                <th scope="col" key={dates[index]} className={dates[index] === today ? "manager-week-today" : undefined}>
+                <th scope="col" key={dates[index]} data-selected-day={index === mobileDay} className={dates[index] === today ? "manager-week-today" : undefined}>
                   {dayLabel(day)}
                 </th>
               ))}
@@ -151,7 +159,8 @@ export default function ManagerWeekSchedule({
         </table>
       </div>
       {selected && (
-        <Modal title={selected.title} onClose={() => setSelected(null)} wide>
+        <Modal title={selected.title} onClose={() => setSelected(null)} wide className="schedule-ui-dialog">
+          <div className="schedule-dialog-body">
           {selectedItems.length ? (
             <ul className="manager-week-sessions">
               {selectedItems.map((item) => (
@@ -168,6 +177,7 @@ export default function ManagerWeekSchedule({
               ))}
             </ul>
           ) : <p>Khung lịch này đang trống.</p>}
+          </div>
         </Modal>
       )}
     </>

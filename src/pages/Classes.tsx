@@ -79,10 +79,12 @@ export function ClassForm({
   item,
   fixedSlots = true,
   onClose,
+  dialogClassName,
 }: {
   item?: SportClass;
   fixedSlots?: boolean;
   onClose: () => void;
+  dialogClassName?: string;
 }) {
   const catalog = useCatalog();
   const { sports, rooms } = catalog;
@@ -108,6 +110,7 @@ export function ClassForm({
   return (
     <FormModal
       title={item ? "Chỉnh sửa lớp học" : "Tạo lớp học mới"}
+      className={dialogClassName}
       description="Lịch học, không gian và người đồng hành cho mỗi buổi tập."
       wide
       submitDisabled={catalog.loading || !!catalog.error || (checkResources && (profiles.isPending || profiles.isError))}
@@ -1012,6 +1015,7 @@ export function ClassDetail(props: {
   onClose: () => void;
   onEdit?: (item: SportClass) => void;
   onCancel?: (item: SportClass) => void;
+  dialogClassName?: string;
 }) {
   const { session } = useAuth();
   const live = session?.mode === "api";
@@ -1025,7 +1029,7 @@ export function ClassDetail(props: {
   // Không dùng object từ danh sách hoặc cache cũ như chi tiết đã được xác nhận.
   if (live && (detail.isPending || detail.isFetching || detail.error))
     return (
-      <Modal title="Chi tiết lớp học" onClose={props.onClose} wide>
+      <Modal title="Chi tiết lớp học" onClose={props.onClose} className={props.dialogClassName} wide>
         {detail.isPending || detail.isFetching ? (
           <Loading />
         ) : (
@@ -1041,11 +1045,13 @@ function ClassDetailContent({
   onClose,
   onEdit,
   onCancel,
+  dialogClassName,
 }: {
   item: SportClass;
   onClose: () => void;
   onEdit?: (item: SportClass) => void;
   onCancel?: (item: SportClass) => void;
+  dialogClassName?: string;
 }) {
   const { sports, rooms } = useCatalog();
   const visual = sportVisual(sports[c.sportId]);
@@ -1100,6 +1106,7 @@ function ClassDetailContent({
     <>
       <Modal
         title={c.className}
+        className={dialogClassName}
         description={`${dateLabel(c.scheduleTime)} · ${timeLabel(c.scheduleTime)} · ${c.durationMinutes} phút`}
         onClose={onClose}
         wide
