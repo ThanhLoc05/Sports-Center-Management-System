@@ -173,6 +173,28 @@ describe("Gia hạn qua hóa đơn chờ — mock hợp đồng API, không ph�
     expect(screen.queryByText(/nhóm nhỏ|8 người|16 người/)).not.toBeInTheDocument();
   });
 
+  it("shows every sellable package with its catalog name, price and duration", async () => {
+    const monthly = { ...pkg, name: "Gói tháng", accessLevel: "STANDARD" };
+    const offers = [
+      { ...monthly, id: 2, name: "Gói STANDARD 1 tháng", price: 10000 },
+      { ...monthly, id: 3, name: "Gói năm", price: 8000000, durationDays: 365 },
+      monthly,
+    ];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/membership-packages") ? json(offers) : json([])));
+    wrap(<MembershipCheckoutPage />);
+
+    const standardCard = within(await screen.findByRole("article", { name: "Gói STANDARD" }));
+    for (const offer of offers) {
+      const row = within(standardCard.getByText(`${offer.name} · ${offer.durationDays} ngày`).parentElement!);
+      expect(row.getByText(money(offer.price).replace(/\s+/g, " "))).toBeVisible();
+      expect(standardCard.getByRole("button", { name: `Chọn ${offer.name}` })).toBeEnabled();
+    }
+
+    await userEvent.click(standardCard.getByRole("button", { name: "Chọn Gói tháng" }));
+    expect(await screen.findByRole("combobox", { name: "Gói muốn sử dụng" })).toHaveValue(String(monthly.id));
+  });
+
   it("creates a pending cash order with idempotency then navigates, never calls old renew/pay", async () => {
     const calls = vi.fn(async (url: string, init?: RequestInit) =>
       url.endsWith("/membership-packages")

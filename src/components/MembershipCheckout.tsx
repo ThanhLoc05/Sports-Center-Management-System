@@ -236,7 +236,7 @@ export function MembershipCheckoutPage() {
         ) : packages.error ? (
           <ErrorState error={packages.error} retry={packages.refetch} />
         ) : packages.data?.some((p) => p.accessLevel === "STANDARD" || p.accessLevel === "VIP") ? (
-          // [GÓI COMBO] So sánh STANDARD / VIP, mỗi gói chọn combo 1 tháng hoặc 3 tháng.
+          // Nhóm gói theo cấp STANDARD / VIP, giữ từng lựa chọn từ danh mục đang bán.
           <MembershipPlanCompare
             offers={packages.data}
             disabled={!selected || !historyReady}

@@ -1,7 +1,7 @@
 /**
- * [GÓI COMBO] So sánh quyền lợi 2 gói STANDARD và VIP, mỗi gói có combo 1 tháng và 3 tháng.
+ * [GÓI COMBO] So sánh quyền lợi STANDARD và VIP, hiển thị từng gói đang bán trong mỗi nhóm.
  * Dùng chung cho MEMBER (tự chọn gói) và LỄ TÂN (chọn gói hộ thành viên) ở trang Gói thành viên.
- * Giá lấy từ API GET /membership-packages (backend), FE chỉ hiển thị; giá tiền mặt = giá chuyển khoản.
+ * Tên, giá niêm yết và thời hạn lấy từ API GET /membership-packages.
  */
 import { CircleCheck, CreditCard, Crown, X } from "lucide-react";
 import type { MembershipOffer } from "../lib/membership-checkout";
@@ -44,11 +44,6 @@ const PLANS: Record<Level, { title: string; subtitle: string; items: [string, bo
   },
 };
 
-/** 30 ngày → "Combo 1 tháng", 90 ngày → "Combo 3 tháng"; số ngày khác giữ nguyên. */
-function comboLabel(days: number) {
-  return days % 30 === 0 ? `Combo ${days / 30} tháng` : `${days} ngày`;
-}
-
 export function MembershipPlanCompare({
   offers,
   disabled,
@@ -64,15 +59,10 @@ export function MembershipPlanCompare({
     <div className="plan-compare">
       {(["STANDARD", "VIP"] as Level[]).map((level) => {
         const plan = PLANS[level];
-        // Mỗi gói chỉ hiện 2 combo: 1 tháng (30 ngày) và 3 tháng (90 ngày).
-        // Nếu có nhiều gói cùng thời hạn, ưu tiên gói có tên chứa STANDARD/VIP (vd "Gói STANDARD 1 tháng").
-        const sameLevel = offers.filter((o) => (o.accessLevel || "STANDARD") === level);
-        const combos = [30, 90]
-          .map((days) => {
-            const matches = sameLevel.filter((o) => o.durationDays === days);
-            return matches.find((o) => o.name.toUpperCase().includes(level)) || matches[0];
-          })
-          .filter((o): o is MembershipOffer => !!o);
+        // Giữ từng mã gói để các gói cùng thời hạn vẫn có thể được chọn riêng.
+        const availableOffers = offers
+          .filter((offer) => (offer.accessLevel || "STANDARD") === level)
+          .sort((a, b) => a.durationDays - b.durationDays || a.id - b.id);
         return (
           <article
             key={level}
@@ -93,11 +83,11 @@ export function MembershipPlanCompare({
               ))}
             </ul>
             <div className="plan-combos">
-              {combos.length ? (
-                combos.map((offer) => (
+              {availableOffers.length ? (
+                availableOffers.map((offer) => (
                   <div className="plan-combo" key={offer.id}>
                     <div>
-                      <span>{comboLabel(offer.durationDays)}</span>
+                      <span>{offer.name} · {offer.durationDays} ngày</span>
                       <strong>{money(offer.price)}</strong>
                     </div>
                     {/* [NÚT] NÚT "Chọn / Gia hạn" combo → mở form tạo đơn đăng ký/gia hạn (gọi POST /membership-orders khi gửi) */}
@@ -112,7 +102,7 @@ export function MembershipPlanCompare({
                   </div>
                 ))
               ) : (
-                <p className="plan-subtitle">Chưa mở bán combo cho gói này.</p>
+                <p className="plan-subtitle">Chưa có gói đang bán ở cấp này.</p>
               )}
             </div>
           </article>
