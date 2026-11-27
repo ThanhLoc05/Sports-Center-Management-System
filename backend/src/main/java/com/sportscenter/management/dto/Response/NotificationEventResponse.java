@@ -16,4 +16,5 @@ public class NotificationEventResponse {
     LocalDateTime createdAt;
     String link;
     String kind;
+    String category;
 }

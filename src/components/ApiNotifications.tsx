@@ -1,10 +1,6 @@
 // [VAI TRÒ] Hộp thông báo: Member/Lễ tân xem thông báo, đánh dấu đã đọc.
-import type { ReactNode } from "react";
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import {
-  useInfiniteQuery,
-  useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -13,24 +9,13 @@ import { useAuth } from "../lib/auth";
 import { useClasses, useUsers } from "../lib/hooks";
 import { useAssignedStudents } from "../lib/use-coach-data";
 import { operations } from "../lib/operations-api";
-import {
-  getNotificationStreamStatus,
-  getReceivedNotifications,
-  notificationsApi,
-  mergeNotificationItems,
-  newestNotificationFirst,
-  subscribeNotificationStreamStatus,
-  subscribeReceivedNotifications,
-} from "../lib/notifications-api";
-import type {
-  NotificationEvent,
-  NotificationSendResult,
-} from "../lib/notifications-api";
-import { dateLabel, errorText } from "../lib/utils";
+import { notificationsApi, type NotificationSendResult } from "../lib/notifications-api";
+import { errorText } from "../lib/utils";
 import { TrainingInstructions } from "./TrainingInstructions";
+import { ApiNotificationInbox } from "./NotificationCenter";
+export { ApiNotificationInbox } from "./NotificationCenter";
 import {
   Button,
-  Empty,
   ErrorState,
   Field,
   FormModal,
@@ -38,7 +23,6 @@ import {
   Modal,
   Notice,
   PageHeader,
-  Panel,
   useToast,
 } from "./ui";
 
@@ -55,169 +39,6 @@ interface Draft {
   content: string;
   kind: NotificationKind;
   coachId?: number;
-}
-
-function notificationTime(value: string) {
-  return dateLabel(value, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
-
-interface InboxCard {
-  key: string;
-  id: number;
-  createdAt: string;
-  content: ReactNode;
-}
-
-interface InboxProps {
-  additionalCards?: InboxCard[];
-  canShowEmpty?: boolean;
-}
-
-export function ApiNotificationInbox(props: InboxProps) {
-  const { session } = useAuth();
-  return <NotificationInbox key={`${session?.mode}:${session?.user.id}`} {...props} />;
-}
-
-function NotificationInbox({ additionalCards = [], canShowEmpty = true }: InboxProps) {
-  const { session } = useAuth();
-  const client = useQueryClient();
-  const toast = useToast();
-  const streamWasReconnecting = useRef(false);
-  const key = ["notification-history", session?.user.id];
-  const history = useInfiniteQuery({
-    queryKey: key,
-    // [API] notificationsApi.history → GET /notifications?page={page}&size={size}
-    queryFn: ({ pageParam }) => notificationsApi.history(pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (page) => (page.hasNext ? page.page + 1 : undefined),
-    enabled: session?.mode === "api",
-    retry: false,
-  });
-  const read = useMutation({
-    // [API] notificationsApi.markRead → PATCH /notifications/{positiveId}/read
-    mutationFn: notificationsApi.markRead,
-    onSuccess: async (item) => {
-      if (
-        getSession()?.token !== session?.token ||
-        getSession()?.user.id !== session?.user.id
-      )
-        return;
-      client.setQueryData(
-        key,
-        (old: typeof history.data) =>
-          old && {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              content: page.content.map((row) =>
-                row.id === item.id ? item : row,
-              ),
-            })),
-          },
-      );
-      setReadItems((previous) => ({ ...previous, [item.id]: item }));
-    },
-    onError: (error) => {
-      if (getSession()?.token === session?.token)
-        toast(errorText(error), "error");
-    },
-  });
-  const [readItems, setReadItems] = useState<Record<number, NotificationEvent>>(
-    {},
-  );
-  const received = useSyncExternalStore(
-    subscribeReceivedNotifications,
-    getReceivedNotifications,
-    getReceivedNotifications,
-  );
-  const stream = useSyncExternalStore(
-    subscribeNotificationStreamStatus,
-    getNotificationStreamStatus,
-    getNotificationStreamStatus,
-  );
-  useEffect(() => {
-    if (stream.status === "reconnecting") {
-      streamWasReconnecting.current = true;
-      return;
-    }
-    if (
-      stream.status === "connected" &&
-      streamWasReconnecting.current &&
-      session?.mode === "api"
-    ) {
-      streamWasReconnecting.current = false;
-      void client.invalidateQueries({ queryKey: key });
-      return;
-    }
-    if (stream.status === "disconnected" || stream.status === "error") {
-      streamWasReconnecting.current = false;
-    }
-  }, [client, session?.mode, stream.status, session?.user.id]);
-  const items = mergeNotificationItems(
-    history.data?.pages.flatMap((page) => page.content) || [],
-    received,
-  ).map((item) =>
-    item.kind === "GENERAL" ? readItems[item.id] || item : item,
-  );
-  const cards: InboxCard[] = items.map((event) => {
-    const link = event.link || (event.kind === "HOMEWORK" ? "/training" : undefined);
-    const general = event.kind === "GENERAL";
-    return {
-      key: `${event.kind}:${event.id}:${general ? "" : event.createdAt}`,
-      id: event.id,
-      createdAt: event.createdAt,
-      content: (
-        <article className={`inbox-card${general && !event.readAt ? " unread" : ""}`}>
-          <header className="inbox-card-header">
-            <strong>{event.title}</strong>
-            {general && <small className="inbox-read-state">{event.readAt ? "Đã đọc" : "Chưa đọc"}</small>}
-          </header>
-          <p className="inbox-message">{event.content}</p>
-          <small>{general ? "Thông báo" : "Bài tập"} · <time dateTime={event.createdAt}>{notificationTime(event.createdAt)}</time> · Người gửi #{event.senderId}</small>
-          {(link || (general && !event.readAt)) && (
-            <footer className="inbox-actions">
-              {link && <Link className="text-link" to={link}>Mở nội dung liên quan</Link>}
-              {/* [NÚT] NÚT "Đánh dấu đã đọc" */}
-              {general && !event.readAt && <Button variant="ghost" disabled={read.isPending} onClick={() => read.mutate(event.id)}>Đánh dấu đã đọc</Button>}
-            </footer>
-          )}
-        </article>
-      ),
-    };
-  });
-  cards.push(...additionalCards);
-  cards.sort(newestNotificationFirst);
-  return (
-    <Panel className="member-inbox" title="Thông báo của bạn">
-      {history.isPending && <Loading />}
-      {history.error && (
-        <ErrorState
-          error={history.error}
-          retry={() => void history.refetch()}
-        />
-      )}
-      {!history.isPending && !history.error && canShowEmpty && cards.length === 0 ? (
-        <Empty
-          title="Chưa nhận thông báo nào"
-          description="Xác nhận đăng ký, thay đổi lịch và bài tập sẽ xuất hiện tại đây."
-        />
-      ) : (
-        <div className="inbox-list">
-          {cards.map((card) => <Fragment key={card.key}>{card.content}</Fragment>)}
-        </div>
-      )}
-      {history.hasNextPage && (
-        // [NÚT] NÚT "Tải thêm thông báo"
-        <Button
-          variant="secondary"
-          loading={history.isFetchingNextPage}
-          onClick={() => void history.fetchNextPage()}
-        >
-          Tải thêm thông báo
-        </Button>
-      )}
-    </Panel>
-  );
 }
 
 export default function ApiNotifications() {

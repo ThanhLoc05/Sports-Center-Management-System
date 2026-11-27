@@ -19,7 +19,11 @@ class GeneralNotificationHistoryTest {
  @Test void historyUsesOnlyAuthenticatedRecipientAndBoundedPage(){
   when(security.getCurrentUserId()).thenReturn(15);
   when(repo.findByRecipientIdOrderByCreatedAtDescIdDesc(15,PageRequest.of(2,20))).thenReturn(new SliceImpl<>(List.of(row()),PageRequest.of(2,20),true));
+  when(repo.countByRecipientIdAndReadAtIsNull(15)).thenReturn(122L);
+  when(repo.findEventKeys(15, List.of(3L))).thenReturn(List.<Object[]>of(new Object[]{3L, "WAITLIST_INVITED:452:example"}));
   var result=service.list(2,20);assertEquals(15,result.content().getFirst().recipientId());assertEquals("GENERAL",result.content().getFirst().kind());assertTrue(result.hasNext());
+  assertEquals("WAITLIST", result.content().getFirst().category());
+  assertEquals(122, result.unreadCount());
   verify(repo).findByRecipientIdOrderByCreatedAtDescIdDesc(15,PageRequest.of(2,20));
  }
  @Test void noAuthenticationCannotReadOrMark(){

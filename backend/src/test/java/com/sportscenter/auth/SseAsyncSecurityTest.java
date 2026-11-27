@@ -158,7 +158,7 @@ class SseAsyncSecurityTest {
 
     @Test void historyAndReadRequireJwtAndDelegateOwnershipToService() throws Exception {
         var history=context.getBean(GeneralNotificationHistory.class);
-        when(history.list(0,20)).thenReturn(new com.sportscenter.management.dto.Response.NotificationHistoryPage(List.of(),0,20,false));
+        when(history.list(0,20)).thenReturn(new com.sportscenter.management.dto.Response.NotificationHistoryPage(List.of(),0,20,false,0));
         when(history.read(99)).thenThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND));
         var mvc=MockMvcBuilders.webAppContextSetup(context).addFilters(chain).build();
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/notifications")).andExpect(status().isUnauthorized());

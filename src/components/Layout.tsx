@@ -47,6 +47,7 @@ import { routeAllowed } from "../lib/permissions";
 import { markNotificationsRead } from "../lib/center";
 import { dateLabel, localDate, matches } from "../lib/utils";
 import { Avatar, Empty, Modal, Notice, SearchInput, useToast } from "./ui";
+import { NotificationBell } from "./NotificationCenter";
 import {
   clearReceivedNotifications,
   notificationsApi,
@@ -331,6 +332,9 @@ export default function Layout() {
             (event) => {
               if (!active || event.recipientId !== session.user.id) return;
               if (!recordReceivedNotification(event)) return;
+              if (event.kind === "GENERAL") void client.invalidateQueries({
+                queryKey: ["notification-history", session.user.id],
+              });
               toastRef.current(event.title);
               if (event.kind === "GENERAL" && event.link === "/schedule") {
                 syncSchedule();
@@ -570,14 +574,16 @@ export default function Layout() {
               <CircleHelp size={19} />
             </button>
             {/* [NÚT] NÚT "Thông báo" → đổi cách hiển thị / bộ lọc trên màn hình (setNotifications) */}
-            <button
-              className="icon-btn notification-trigger"
-              aria-label="Thông báo"
-              onClick={() => setNotifications(true)}
-            >
-              <Bell size={19} />
-              {expiring.length + ownNotifications.length > 0 && <span />}
-            </button>
+            {apiMode ? <NotificationBell key={session!.user.id} /> : (
+              <button
+                className="icon-btn notification-trigger"
+                aria-label="Thông báo"
+                onClick={() => setNotifications(true)}
+              >
+                <Bell size={19} />
+                {expiring.length + ownNotifications.length > 0 && <span />}
+              </button>
+            )}
             <div className="profile-area">
               {/* [NÚT] NÚT "Mở menu tài khoản" → đổi cách hiển thị / bộ lọc trên màn hình (setProfile) */}
               <button
@@ -708,7 +714,7 @@ export default function Layout() {
           </div>
         </Modal>
       )}
-      {notifications && (
+      {notifications && !apiMode && (
         <Modal
           title="Thông báo"
           description="Những cập nhật cần bạn chú ý."
@@ -736,12 +742,7 @@ export default function Layout() {
                 </div>
               </Link>
             ))}
-            {session!.mode === "api" ? (
-              <Notice>
-                Backend chưa có API thông báo. Các cập nhật realtime sẽ được kết
-                nối khi endpoint sẵn sàng.
-              </Notice>
-            ) : expiring.length ? (
+            {expiring.length ? (
               expiring.map((s) => (
                 <Link
                   key={s.id}

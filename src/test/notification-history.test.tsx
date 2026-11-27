@@ -5,11 +5,13 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { ApiNotificationInbox } from "../components/ApiNotifications";
+import { NotificationBell } from "../components/NotificationCenter";
 import { ToastProvider } from "../components/ui";
 import {
   clearReceivedNotifications,
@@ -51,7 +53,7 @@ function Switch() {
   const { signIn } = useAuth();
   return <button onClick={() => signIn(session(16))}>Switch account</button>;
 }
-function mount() {
+function mount(withBell = false) {
   sessionStorage.setItem("sportiva-session", JSON.stringify(session()));
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -63,6 +65,7 @@ function mount() {
         <MemoryRouter>
           <ToastProvider>
             <Switch />
+            {withBell && <NotificationBell />}
             <ApiNotificationInbox />
           </ToastProvider>
         </MemoryRouter>
@@ -99,14 +102,44 @@ describe("GENERAL persisted history", () => {
       mergeNotificationItems([row], [{ ...row, kind: "HOMEWORK" }]),
     ).toHaveLength(2);
   });
+  it("shows the backend total in both views and syncs read state from the popover", async () => {
+    let readAt: string | null = null;
+    const fetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        readAt = "2026-11-07T19:00:00";
+        return Response.json({ ...row, readAt });
+      }
+      return Response.json({ ...page([{ ...row, category: "BOOKING", readAt }]), unreadCount: readAt ? 99 : 100 });
+    });
+    vi.stubGlobal("fetch", fetch);
+    mount(true);
+    expect(await screen.findByText("99+")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Thông báo" }));
+    const popover = screen.getByRole("dialog", { name: "Thông báo" });
+    expect(popover).not.toHaveAttribute("aria-modal");
+    fireEvent.click(within(popover).getByRole("button", { name: "Lịch tập" }));
+    expect(within(popover).getByText(row.title)).toBeVisible();
+    fireEvent.click(within(popover).getByRole("button", { name: "Đánh dấu đã đọc" }));
+    expect(await within(popover).findByText("Đã đọc")).toBeVisible();
+    expect(screen.getAllByText("Đã đọc")).toHaveLength(2);
+    expect(screen.getByText("99")).toBeVisible();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Thông báo" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Thông báo" })).toHaveFocus();
+  });
+
   it("loads saved history and marks read only after a successful PATCH", async () => {
     let finish!: (r: Response) => void;
+    let saved = row;
     const fetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
       init?.method === "PATCH"
         ? new Promise<Response>((r) => {
-            finish = r;
+            finish = (response) => {
+              saved = { ...row, readAt: "2026-11-07T19:00:00" };
+              r(response);
+            };
           })
-        : Response.json(page([row])),
+        : Response.json(page([saved])),
     );
     vi.stubGlobal("fetch", fetch);
     mount();
@@ -196,7 +229,7 @@ describe("GENERAL persisted history", () => {
       ),
     );
     mount();
-    await screen.findByText("History unavailable");
+    await screen.findByText(/Không thể tải thông báo/);
     expect(
       screen.queryByText("Chưa nhận thông báo nào"),
     ).not.toBeInTheDocument();

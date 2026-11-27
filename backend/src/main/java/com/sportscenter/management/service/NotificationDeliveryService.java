@@ -245,10 +245,10 @@ public class NotificationDeliveryService {
     }
 
     /** ME09 only publishes rows already committed to the shared GENERAL history. */
-    public void publishPersisted(GeneralNotification row) {
+    public void publishPersisted(GeneralNotification row, String category) {
         dispatch(NotificationEventResponse.builder().id(row.getId()).senderId(row.getSenderId())
                 .recipientId(row.getRecipientId()).title(row.getTitle()).content(row.getContent())
-                .link(row.getLink()).createdAt(row.getCreatedAt()).kind("GENERAL").build());
+                .link(row.getLink()).createdAt(row.getCreatedAt()).kind("GENERAL").category(category).build());
     }
 
     public void publishManagerScheduleChangedAfterCommit() {

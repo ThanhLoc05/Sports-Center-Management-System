@@ -11,6 +11,7 @@ export interface NotificationEvent {
   link?: string | null;
   kind: "GENERAL" | "HOMEWORK";
   readAt?: string | null;
+  category?: string | null;
 }
 
 export interface NotificationHistoryPage {
@@ -18,6 +19,7 @@ export interface NotificationHistoryPage {
   page: number;
   size: number;
   hasNext: boolean;
+  unreadCount?: number;
 }
 
 type NotificationOrder = Pick<NotificationEvent, "createdAt" | "id">;
@@ -42,7 +44,7 @@ export function mergeNotificationItems(
         ? `GENERAL:${item.id}`
         : `HOMEWORK:${item.id}:${item.createdAt}`;
     const previous = items.get(key);
-    items.set(key, { ...item, readAt: previous?.readAt || item.readAt });
+    items.set(key, { ...item, category: item.category ?? previous?.category, readAt: previous?.readAt || item.readAt });
   }
   return [...items.values()].sort(newestNotificationFirst);
 }
@@ -170,7 +172,8 @@ function isNotificationEvent(value: unknown): value is NotificationEvent {
         !event.link.startsWith("//") &&
         !/[\r\n\\]/.test(event.link) &&
         event.link.length <= 500)) &&
-    (event.kind === "GENERAL" || event.kind === "HOMEWORK")
+    (event.kind === "GENERAL" || event.kind === "HOMEWORK") &&
+    (event.category == null || typeof event.category === "string")
   );
 }
 
@@ -296,6 +299,7 @@ export const notificationsApi = {
       result.page !== page ||
       result.size !== size ||
       typeof result.hasNext !== "boolean" ||
+      (result.unreadCount !== undefined && (!Number.isSafeInteger(result.unreadCount) || result.unreadCount < 0)) ||
       !Array.isArray(result.content) ||
       result.content.some(
         (item) =>

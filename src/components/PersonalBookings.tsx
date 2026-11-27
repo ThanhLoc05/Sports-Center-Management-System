@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, request } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -25,7 +25,15 @@ export default function PersonalBookings() {
   const toast = useToast();
   const classes = useClasses();
   const { rooms } = useCatalog();
-  const [filter, setFilter] = useState<Filter>("upcoming");
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab");
+  const filter = tab === "waitlist" || tab === "past" || tab === "cancelled" ? tab : "upcoming";
+  const setFilter = (next: Filter) => setParams((current) => {
+    const change = new URLSearchParams(current);
+    if (next === "upcoming") change.delete("tab");
+    else change.set("tab", next);
+    return change;
+  }, { replace: true });
   const [openCancelled, setOpenCancelled] = useState<number | null>(null);
   const cancellation = useQuery({
     queryKey: ["classCancellation", memberId, openCancelled],

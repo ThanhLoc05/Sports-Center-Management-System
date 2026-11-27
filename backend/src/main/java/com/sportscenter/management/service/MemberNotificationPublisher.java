@@ -55,7 +55,9 @@ public class MemberNotificationPublisher {
             try {
                 var row=history.findById(notification).orElseThrow();
                 var event=jdbc.queryForMap("SELECT event_key,recipient_id FROM member_notification_outbox WHERE id=?",id);
-                if(eligibility.eligible((String)event.get("event_key"),((Number)event.get("recipient_id")).intValue()))delivery.publishPersisted(row);
+                String eventKey = (String) event.get("event_key");
+                if (eligibility.eligible(eventKey, ((Number) event.get("recipient_id")).intValue()))
+                    delivery.publishPersisted(row, GeneralNotificationHistory.category(eventKey));
                 tx.executeWithoutResult(status->jdbc.update("UPDATE member_notification_outbox SET state='SENT',published_at=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",LocalDateTime.now(clock),id,token));
             } catch(RuntimeException error) {
                 int attempt=((Number)claimed.getFirst().get("attempts")).intValue();

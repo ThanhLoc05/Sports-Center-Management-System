@@ -16,10 +16,19 @@ public class MemberClassNotifications {
     private final JdbcTemplate jdbc;
     private final MemberNotificationOutboxService outbox;
     private final SecurityUtils security;
-    public record Before(LocalDateTime time,Integer room,Integer coach,String name) {
-        public static Before of(Classes row){return new Before(row.getScheduleTime(),row.getRoomId(),row.getCoachId(),row.getClassName());}
+    public record Before(LocalDateTime time,Integer room,Integer coach,String name,Integer duration) {
+        public static Before of(Classes row){return new Before(row.getScheduleTime(),row.getRoomId(),row.getCoachId(),row.getClassName(),row.getDurationMinutes());}
     }
-    private static final DateTimeFormatter CLASS_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter CLASS_DAY = DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
+    private static final DateTimeFormatter CLASS_TIME = DateTimeFormatter.ofPattern("HH:mm");
+
+    static String sessionSchedule(LocalDateTime start, Integer duration) {
+        var slot = Arrays.stream(FlexibleClassSlot.values())
+                .filter(s -> s.start().equals(start.toLocalTime()) && Objects.equals(duration, FlexibleClassSlot.DURATION_MINUTES))
+                .findFirst().map(s -> "Ca " + s.name().substring("SLOT_".length())).orElse("Ngoài khung ca");
+        return start.format(CLASS_DAY) + " · " + slot + " · " + start.format(CLASS_TIME) + "–"
+                + start.plusMinutes(duration).format(CLASS_TIME);
+    }
 
     public void bookingConfirmed(ClassBooking booking, Classes clazz) {
         notifyBooking("BOOKING_CONFIRMED", booking, clazz, "Đăng ký lớp thành công",
@@ -34,19 +43,25 @@ public class MemberClassNotifications {
     private void notifyBooking(String event, ClassBooking booking, Classes clazz, String title, String message) {
         // Each booking cycle has its own timestamp, even when it reuses the booking row.
         String key = event + ":" + booking.getId() + ":" + booking.getBookedAt();
-        String content = message + clazz.getClassName() + " (" + clazz.getScheduleTime().format(CLASS_TIME) + ").";
+        String content = message + clazz.getClassName() + ".\n" + sessionSchedule(clazz.getScheduleTime(), clazz.getDurationMinutes());
         outbox.enqueue(key, clazz.getCoachId(), booking.getMemberId(), title, content, "/schedule");
     }
 
     public void changed(Before before,Classes row) {
         var changes=new ArrayList<String>();
         if(!Objects.equals(before.name(),row.getClassName()))changes.add("Tên lớp: "+before.name()+" → "+row.getClassName());
-        if(!Objects.equals(before.time(),row.getScheduleTime()))changes.add("Lịch: "+before.time().format(CLASS_TIME)+" → "+row.getScheduleTime().format(CLASS_TIME));
+        boolean moved = !Objects.equals(before.time(), row.getScheduleTime()) || !Objects.equals(before.duration(), row.getDurationMinutes());
+        if (moved) {
+            changes.add("Lịch cũ: " + sessionSchedule(before.time(), before.duration()));
+            changes.add("Lịch mới: " + sessionSchedule(row.getScheduleTime(), row.getDurationMinutes()));
+        }
         if(!Objects.equals(before.room(),row.getRoomId()))changes.add("Phòng: "+roomName(before.room())+" → "+roomName(row.getRoomId()));
         if(!Objects.equals(before.coach(),row.getCoachId()))changes.add("HLV: "+coachName(before.coach())+" → "+coachName(row.getCoachId()));
         if(changes.isEmpty())return;
         String key = "CLASS_CHANGED:" + row.getId() + ":" + UUID.randomUUID();
-        String content = "Thông báo tự động Sportiva. Lớp " + row.getClassName() + ".\n" + String.join("\n", changes);
+        String content = row.getClassName() + "\n"
+                + (moved ? "" : sessionSchedule(row.getScheduleTime(), row.getDurationMinutes()) + "\n")
+                + String.join("\n", changes);
         Integer sender = security.getCurrentUserId();
         if (sender == null) throw new IllegalStateException("Class event requires an authenticated actor");
         send(key, row, sender, "Lớp học thay đổi lịch", content);
@@ -69,11 +84,11 @@ public class MemberClassNotifications {
                 GROUP BY recipient.member_id ORDER BY recipient.member_id
                 """, row.getId(), row.getId());
         outbox.enqueue("CLASS_CANCELLED:" + row.getId(), sender, row.getCoachId(), "Lớp được phân công đã bị hủy",
-                row.getClassName() + " (" + row.getScheduleTime().format(CLASS_TIME) + "). Lý do: " + reason, "/schedule");
+                row.getClassName() + "\n" + sessionSchedule(row.getScheduleTime(), row.getDurationMinutes()) + "\nLý do: " + reason, "/schedule");
         if (recipients.isEmpty()) return;
         String sport = jdbc.queryForObject("SELECT sport_name FROM dbo.sports WHERE sport_id=?", String.class, row.getSportId());
-        String prefix = "Trung tâm đã hủy buổi " + row.getClassName() + " (" + sport + ") lúc "
-                + row.getScheduleTime().format(CLASS_TIME) + ".\nLý do: " + reason + ".\n";
+        String prefix = row.getClassName() + " (" + sport + ")\n"
+                + sessionSchedule(row.getScheduleTime(), row.getDurationMinutes()) + "\nLý do: " + reason + ".\n";
         for (var recipient : recipients) {
             int member = ((Number) recipient.get("member_id")).intValue();
             boolean booked = ((Number) recipient.get("booked")).intValue() == 1;

@@ -312,7 +312,10 @@ public class FlexibleBookingPolicy {
     }
 
     private void notify(Classes clazz, int member, String key, String title, String content) {
-        outbox.enqueue(key, clazz.getCoachId(), member, title, content, "/classes");
+        String message = key.startsWith("WAITLIST_")
+                ? content + "\n" + MemberClassNotifications.sessionSchedule(clazz.getScheduleTime(), clazz.getDurationMinutes())
+                : content;
+        outbox.enqueue(key, clazz.getCoachId(), member, title, message, "/classes");
     }
 
     private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT, message); }
