@@ -73,7 +73,7 @@ const messageFor = (error: unknown) =>
     ? error.message
     : "Thao tác chưa thành công. Vui lòng thử lại.";
 type Cell = { weekday: Weekday; slotCode: string };
-type Entry = WeeklyClass & { id: number };
+type Entry = WeeklyClass & { id: number; sourceIndex?: number };
 type Editor = { cell: Cell; entry?: Entry };
 
 export default function WeeklySchedule() {
@@ -98,7 +98,7 @@ export default function WeeklySchedule() {
   });
   useEffect(() => {
     if (!template.data || version !== null) return;
-    setEntries(template.data.entries.map((entry, index) => ({ ...entry, id: index + 1 })));
+    setEntries(template.data.entries.map((entry, index) => ({ ...entry, id: index + 1, sourceIndex: index })));
     setVersion(template.data.version);
   }, [template.data, version]);
   const [cell, setCell] = useState<Cell | null>(null);
@@ -158,8 +158,12 @@ export default function WeeklySchedule() {
     setBusy(true);
     setError("");
     try {
-      const rows = entries.map(({ id: _id, ...entry }) => entry);
-      const sync = { mode: syncMode, weekStart: syncMode === "SELECTED_WEEK" ? syncWeek : undefined };
+      const rows = entries.map(({ id: _id, sourceIndex: _source, ...entry }) => entry);
+      const sync = {
+        mode: syncMode,
+        weekStart: syncMode === "SELECTED_WEEK" ? syncWeek : undefined,
+        sourceIndices: entries.map((entry) => entry.sourceIndex ?? null),
+      };
       if (syncMode !== "TEMPLATE_ONLY" && !syncPreview) {
         setSyncPreview(await weeklyScheduleApi.syncPreview(version, rows, sync));
         return;
@@ -168,6 +172,7 @@ export default function WeeklySchedule() {
         ? await weeklyScheduleApi.save(version, rows)
         : await weeklyScheduleApi.save(version, rows, { ...sync, token: syncPreview?.token });
       setVersion(next.version);
+      setEntries(next.entries.map((entry, index) => ({ ...entry, id: index + 1, sourceIndex: index })));
       setDirty(false);
       setSaved(true);
       setSyncPreview(null);
@@ -265,7 +270,7 @@ export default function WeeklySchedule() {
     setEntries((current) =>
       id === undefined
         ? [...current, { ...next, id: (current.at(-1)?.id ?? 0) + 1 }]
-        : current.map((entry) => (entry.id === id ? { ...next, id } : entry)),
+        : current.map((entry) => (entry.id === id ? { ...next, id, sourceIndex: entry.sourceIndex } : entry)),
     );
   }
 

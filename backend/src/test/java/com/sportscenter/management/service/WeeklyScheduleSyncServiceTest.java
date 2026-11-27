@@ -10,6 +10,7 @@ import com.sportscenter.management.service.WeeklyScheduleSyncService.Mode;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -65,6 +66,32 @@ class WeeklyScheduleSyncServiceTest {
     }
 
     @Test
+    void movesPublishedClassToAnotherDayAndSlotWithoutChangingItsId() {
+        var old = entry("Yoga", 2, 3);
+        published(old, 41, classOf(old, 41));
+        var edited = new Entry("Yoga mới", 1, 4, 5, 8, Set.of(DayOfWeek.TUESDAY), FlexibleClassSlot.SLOT_06, null);
+        var changes = sync.run(List.of(old), List.of(edited), Mode.SELECTED_WEEK, MONDAY, List.of(0));
+        assertEquals(new WeeklyScheduleSyncService.Change(Action.UPDATE, MONDAY.plusDays(1),
+                FlexibleClassSlot.SLOT_06, "Yoga mới", 41, null), changes.getFirst());
+        var request = ArgumentCaptor.forClass(ClassRequest.class);
+        verify(classes).updateClass(eq(41), request.capture());
+        assertEquals(MONDAY.plusDays(1).atTime(19, 30), request.getValue().getScheduleTime());
+        verify(jdbc).update(anyString(), eq(WeeklyScheduleService.seriesKey(edited)), eq(MONDAY.plusDays(1)), eq(41));
+        verify(classes, never()).createClass(any());
+    }
+
+    @Test
+    void dateOnlyOverrideIsNotOverwritten() {
+        var old = entry("Yoga", 2, 3);
+        var adjusted = classOf(old, 41);
+        adjusted.setScheduleTime(adjusted.getScheduleTime().plusDays(1));
+        published(old, 41, adjusted);
+        var changes = sync.run(List.of(old), List.of(entry("Yoga đổi tên", 2, 3)), Mode.SELECTED_WEEK, MONDAY, List.of(0));
+        assertEquals(Action.SKIP, changes.getFirst().action());
+        verify(classes, never()).updateClass(any(), any());
+    }
+
+    @Test
     void individuallyAdjustedClassIsNotOverwritten() {
         var old = entry("Yoga", 2, 3);
         var adjusted = classOf(old, 41);
@@ -93,6 +120,9 @@ class WeeklyScheduleSyncServiceTest {
         assertEquals(1, changes.size());
         assertEquals(Action.CREATE, changes.get(0).action());
         assertEquals(MONDAY, changes.get(0).date());
+        when(classes.createClass(any())).thenReturn(ClassResponse.builder().id(78).build());
+        var replay = sync.run(List.of(), List.of(entry("Pilates", 4, 5)), Mode.SELECTED_WEEK, MONDAY);
+        assertEquals(WeeklyScheduleSyncService.token(changes), WeeklyScheduleSyncService.token(replay));
     }
 
     @Test

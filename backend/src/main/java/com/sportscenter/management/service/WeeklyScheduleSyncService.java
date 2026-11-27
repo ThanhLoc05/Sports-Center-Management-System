@@ -21,6 +21,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,12 +62,28 @@ public class WeeklyScheduleSyncService {
     private EntityManager entityManager;
 
     public List<Change> run(List<Entry> before, List<Entry> after, Mode mode, LocalDate weekStart) {
+        return run(before, after, mode, weekStart, null);
+    }
+
+    public List<Change> run(List<Entry> before, List<Entry> after, Mode mode, LocalDate weekStart,
+                            List<Integer> sourceIndices) {
         if (mode == null || mode == Mode.TEMPLATE_ONLY) return List.of();
         LocalDateTime now = LocalDateTime.now(clock.withZone(ZONE));
         Set<LocalDate> dates = scope(mode, weekStart, now.toLocalDate());
-        Map<String, List<Row>> oldCells = cells(before);
         List<Row[]> edits = new ArrayList<>();
         List<Row> added = new ArrayList<>();
+        if (sourceIndices == null) matchCells(before, after, edits, added);
+        else matchEntries(before, after, sourceIndices, edits, added);
+        List<Change> changes = new ArrayList<>();
+        for (Row[] edit : edits) update(edit[0], edit[1], dates, now, changes);
+        for (Row row : added) create(row, dates, now, changes);
+        changes.sort(Comparator.comparing(Change::date).thenComparing(Change::slotCode)
+                .thenComparing(Change::className));
+        return List.copyOf(changes);
+    }
+
+    private static void matchCells(List<Entry> before, List<Entry> after, List<Row[]> edits, List<Row> added) {
+        Map<String, List<Row>> oldCells = cells(before);
         for (var cell : cells(after).entrySet()) {
             List<Row> olds = new ArrayList<>(oldCells.getOrDefault(cell.getKey(), List.of()));
             for (Row row : cell.getValue()) {
@@ -81,12 +98,39 @@ public class WeeklyScheduleSyncService {
                 if (!match.key().equals(row.key())) edits.add(new Row[]{match, row});
             }
         }
-        List<Change> changes = new ArrayList<>();
-        for (Row[] edit : edits) update(edit[0], edit[1], dates, now, changes);
-        for (Row row : added) create(row, dates, now, changes);
-        changes.sort(Comparator.comparing(Change::date).thenComparing(Change::slotCode)
-                .thenComparing(Change::className));
-        return List.copyOf(changes);
+    }
+
+    private static void matchEntries(List<Entry> before, List<Entry> after, List<Integer> sourceIndices,
+                                     List<Row[]> edits, List<Row> added) {
+        if (sourceIndices.size() != after.size()) throw new IllegalArgumentException("Danh sách mục gốc không khớp lịch mẫu.");
+        Set<Integer> matched = new HashSet<>();
+        for (int i = 0; i < after.size(); i++) {
+            Entry next = after.get(i);
+            Integer source = sourceIndices.get(i);
+            if (source == null) {
+                next.weekdays().forEach(day -> added.add(new Row(day, next)));
+                continue;
+            }
+            if (source < 0 || source >= before.size() || !matched.add(source)) {
+                throw new IllegalArgumentException("Mục gốc trong lịch mẫu không hợp lệ.");
+            }
+            Entry previous = before.get(source);
+            var removedDays = previous.weekdays().stream().filter(day -> !next.weekdays().contains(day)).toList();
+            var addedDays = next.weekdays().stream().filter(day -> !previous.weekdays().contains(day)).toList();
+            if (!removedDays.isEmpty() && !addedDays.isEmpty()) {
+                if (removedDays.size() != 1 || addedDays.size() != 1) {
+                    throw new IllegalArgumentException("Đổi từng ngày trong một lần đồng bộ để giữ đúng lớp đã công bố.");
+                }
+                edits.add(new Row[]{new Row(removedDays.getFirst(), previous), new Row(addedDays.getFirst(), next)});
+            } else {
+                addedDays.forEach(day -> added.add(new Row(day, next)));
+            }
+            if (!WeeklyScheduleService.seriesKey(previous).equals(WeeklyScheduleService.seriesKey(next))) {
+                for (DayOfWeek day : next.weekdays()) {
+                    if (previous.weekdays().contains(day)) edits.add(new Row[]{new Row(day, previous), new Row(day, next)});
+                }
+            }
+        }
     }
 
     public static String token(List<Change> changes) {
@@ -142,28 +186,36 @@ public class WeeklyScheduleSyncService {
             LocalDate date = ((java.sql.Date) session.get("session_date")).toLocalDate();
             int classId = ((Number) session.get("class_id")).intValue();
             if (!dates.contains(date) || date.getDayOfWeek() != from.day()) continue;
+            LocalDate target = date.plusDays(to.day().getValue() - from.day().getValue());
             Classes actual = classRepository.findById(classId).orElse(null);
             if (actual == null || !"SCHEDULED".equals(actual.getStatus())) {
                 changes.add(change(Action.SKIP, date, to, classId, "Lớp đã hoàn thành hoặc đã hủy."));
             } else if (!actual.getScheduleTime().isAfter(now)) {
                 changes.add(change(Action.SKIP, date, to, classId, "Lớp đã diễn ra."));
-            } else if (!oldKey.equals(classKey(actual))) {
+            } else if (!date.equals(actual.getScheduleTime().toLocalDate()) || !oldKey.equals(classKey(actual))) {
                 changes.add(change(Action.SKIP, date, to, classId, "Lớp đã được điều chỉnh riêng trong Lịch hoạt động."));
             } else if ((from.entry().sportId() != to.entry().sportId()
                     || !from.entry().accessLevel().equals(to.entry().accessLevel()))
                     && classes.getCurrentBookingCount(classId) > 0) {
                 changes.add(change(Action.CONFLICT, date, to, classId,
                         "Lớp đã có học viên đăng ký nên không đổi bộ môn hoặc cấp Membership."));
-            } else if (sessionExists(newKey, date)) {
-                changes.add(change(Action.CONFLICT, date, to, classId, "Ngày này đã có lớp giống hệt lớp sau khi sửa."));
+            } else if (!target.atTime(to.entry().slotCode().start()).isAfter(now)) {
+                changes.add(change(Action.CONFLICT, target, to, classId, "Ca mới đã bắt đầu hoặc đã qua."));
+            } else if (sessionExists(newKey, target)) {
+                changes.add(change(Action.CONFLICT, target, to, classId, "Ngày này đã có lớp giống hệt lớp sau khi sửa."));
             } else {
                 try {
-                    classes.updateClass(classId, to.entry().requestOn(date));
-                    jdbc.update("UPDATE dbo.recurring_class_sessions SET recurrence_key=? WHERE class_id=?", newKey, classId);
-                    changes.add(change(Action.UPDATE, date, to, classId, null));
+                    classes.updateClass(classId, to.entry().requestOn(target));
+                    if (target.equals(date)) {
+                        jdbc.update("UPDATE dbo.recurring_class_sessions SET recurrence_key=? WHERE class_id=?", newKey, classId);
+                    } else {
+                        jdbc.update("UPDATE dbo.recurring_class_sessions SET recurrence_key=?, session_date=? WHERE class_id=?",
+                                newKey, target, classId);
+                    }
+                    changes.add(change(Action.UPDATE, target, to, classId, null));
                 } catch (IllegalArgumentException | ResponseStatusException invalid) {
                     entityManager.clear();
-                    changes.add(change(Action.CONFLICT, date, to, classId, reason(invalid)));
+                    changes.add(change(Action.CONFLICT, target, to, classId, reason(invalid)));
                 }
             }
         }
@@ -181,7 +233,7 @@ public class WeeklyScheduleSyncService {
                 var created = classes.createClass(row.entry().requestOn(date));
                 jdbc.update("INSERT dbo.recurring_class_sessions(recurrence_key,session_date,class_id) VALUES(?,?,?)",
                         key, date, created.getId());
-                changes.add(change(Action.CREATE, date, row, created.getId(), null));
+                changes.add(change(Action.CREATE, date, row, null, null));
             } catch (IllegalArgumentException | ResponseStatusException invalid) {
                 entityManager.clear();
                 changes.add(change(Action.CONFLICT, date, row, null, reason(invalid)));

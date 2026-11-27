@@ -34,7 +34,7 @@ public class WeeklyScheduleTemplateService {
 
     public record Template(long version, String name, List<Entry> entries) {}
     public record Save(@Min(0) long version, @NotNull @Size(max = 100) List<@NotNull @Valid Entry> entries,
-                       WeeklyScheduleSyncService.Mode mode, LocalDate weekStart, String token) {}
+                       WeeklyScheduleSyncService.Mode mode, LocalDate weekStart, String token, List<Integer> sourceIndices) {}
     public record Window(@Min(1) long version, @NotNull LocalDate startDate, int weeks,
                          @Size(max = 8400) Set<String> excludedKeys, String token) {}
 
@@ -100,7 +100,7 @@ public class WeeklyScheduleTemplateService {
                         entry.maxCapacity(), entry.accessLevel());
             }
         }
-        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart());
+        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart(), input.sourceIndices());
         var blocked = changes.stream().filter(c -> c.action() == WeeklyScheduleSyncService.Action.CONFLICT).findFirst();
         if (blocked.isPresent()) {
             var row = blocked.get();
@@ -120,7 +120,7 @@ public class WeeklyScheduleTemplateService {
         var current = get();
         requireVersion(input.version(), current);
         validate(input);
-        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart());
+        var changes = sync.run(current.entries(), input.entries(), input.mode(), input.weekStart(), input.sourceIndices());
         TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
         return new WeeklyScheduleSyncService.SyncPreview(input.mode(), changes, WeeklyScheduleSyncService.token(changes));
     }

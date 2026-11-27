@@ -16,8 +16,8 @@ public class MemberClassNotifications {
     private final JdbcTemplate jdbc;
     private final MemberNotificationOutboxService outbox;
     private final SecurityUtils security;
-    public record Before(LocalDateTime time,Integer room,Integer coach) {
-        public static Before of(Classes row){return new Before(row.getScheduleTime(),row.getRoomId(),row.getCoachId());}
+    public record Before(LocalDateTime time,Integer room,Integer coach,String name) {
+        public static Before of(Classes row){return new Before(row.getScheduleTime(),row.getRoomId(),row.getCoachId(),row.getClassName());}
     }
     private static final DateTimeFormatter CLASS_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
@@ -40,6 +40,7 @@ public class MemberClassNotifications {
 
     public void changed(Before before,Classes row) {
         var changes=new ArrayList<String>();
+        if(!Objects.equals(before.name(),row.getClassName()))changes.add("Tên lớp: "+before.name()+" → "+row.getClassName());
         if(!Objects.equals(before.time(),row.getScheduleTime()))changes.add("Lịch: "+before.time().format(CLASS_TIME)+" → "+row.getScheduleTime().format(CLASS_TIME));
         if(!Objects.equals(before.room(),row.getRoomId()))changes.add("Phòng: "+roomName(before.room())+" → "+roomName(row.getRoomId()));
         if(!Objects.equals(before.coach(),row.getCoachId()))changes.add("HLV: "+coachName(before.coach())+" → "+coachName(row.getCoachId()));

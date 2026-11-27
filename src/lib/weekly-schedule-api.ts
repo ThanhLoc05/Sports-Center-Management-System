@@ -89,6 +89,7 @@ export interface SyncOptions {
   mode: SyncMode;
   weekStart?: string;
   token?: string;
+  sourceIndices?: (number | null)[];
 }
 
 const recurring = "/classes/recurring";
