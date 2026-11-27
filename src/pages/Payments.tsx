@@ -23,6 +23,7 @@ import {
 import { transferReference } from "../lib/payment-qr";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { useCourseFeature } from "../lib/course-feature";
 import { useUsers } from "../lib/hooks";
 import { api } from "../lib/api";
 
@@ -69,6 +70,7 @@ export const methodLabels: Record<string, string> = {
 };
 export default function Payments() {
   const { session } = useAuth();
+  const { enabled: courseEnabled } = useCourseFeature();
   const can = usePermissions();
   const db = useDemoData();
   const [params] = useSearchParams();
@@ -339,6 +341,7 @@ export default function Payments() {
                   <div>
                     <Badge status={i.paymentStatus} />
                     {member &&
+                      (courseEnabled || !i.courseOrderId) &&
                       i.paymentStatus === "PENDING" &&
                       i.paymentMethod === "BANK_TRANSFER" && (
                         <button
@@ -375,7 +378,7 @@ export default function Payments() {
                         Xử lý yêu cầu gói
                       </Link>
                     )}
-                    {i.courseOrderId && <Link to={`/courses?orderId=${i.courseOrderId}`}>Xử lý đơn khóa học</Link>}
+                    {courseEnabled && i.courseOrderId && <Link to={`/courses?orderId=${i.courseOrderId}`}>Xử lý đơn khóa học</Link>}
                     {can("payments.collect") &&
                       !i.membershipOrderId &&
                       !i.courseOrderId &&

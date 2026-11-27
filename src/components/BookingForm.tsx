@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { useCourseFeature } from "../lib/course-feature";
 import { useClasses, useDemoData, useUsers } from "../lib/hooks";
 import {
   activeSubscription,
@@ -121,7 +122,9 @@ export default function BookingForm({
     db && selectedClass && selectedMember
       ? classEligibility(db, selectedClass, selectedMember)
       : undefined;
-  const clazz = classes.data?.find((c) => c.id === selectedClass);
+  const { enabled: courseEnabled } = useCourseFeature();
+  const bookingClasses = classes.data?.filter((item) => courseEnabled || !item.courseId);
+  const clazz = bookingClasses?.find((c) => c.id === selectedClass);
   // Ngày hết hạn và sức chứa lấy từ API thật; backend vẫn kiểm tra lại khi nhận POST.
   const apiReason = !selectedMember
     ? "Chọn thành viên."
@@ -325,7 +328,7 @@ export default function BookingForm({
           onChange={(e) => setClass(Number(e.target.value))}
         >
           <option value="">Chọn lớp</option>
-          {classes.data
+          {bookingClasses
             ?.filter((c) => !classId || c.id === classId)
             .filter((c) => c.status === "SCHEDULED")
             .map((c) => {

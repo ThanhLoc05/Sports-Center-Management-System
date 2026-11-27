@@ -30,8 +30,10 @@ public class CourseOrderService {
     private final BankAccountService bankAccounts;
     private final BankPaymentEventRepository events;
     private final SecurityUtils security;
+    private final CourseFeature courseFeature;
 
     public CourseOrder create(CourseOrderInput request,String key) {
+        courseFeature.requireEnabled();
         programs.lock();
         if(key==null || key.isBlank() || key.length()>100) throw new IllegalArgumentException("Thiếu mã chống tạo đơn trùng");
         int member=access.requireMember(request.memberId()),actor=security.getCurrentUserId();
@@ -114,6 +116,7 @@ public class CourseOrderService {
     private void confirm(int id,boolean bank,String bankReference) {
         var row=order(id);
         if("CONFIRMED".equals(row.get("status"))) return;
+        courseFeature.requireEnabled();
         if(!"PENDING_PAYMENT".equals(row.get("status")) || !time(row,"expires_at").isAfter(access.now())) throw conflict("Đơn đã hết hạn giữ chỗ hoặc đã hủy");
         int member=number(row,"member_id"),courseId=number(row,"course_id");
         access.lockMember(member);
@@ -168,6 +171,8 @@ public class CourseOrderService {
         event.setTransactionAt(bankDate);event.setReceivedAt(access.now());
         event.setStatus("PENDING_PAYMENT".equals(row.get("status")) && time(row,"expires_at").isAfter(access.now())?"RECEIVED":"REVIEW_REQUIRED");
         events.saveAndFlush(event);
+        // Keep verified receipts available for reconciliation without enrolling while Course is paused.
+        if (!courseFeature.isEnabled()) return;
         if(!"RECEIVED".equals(event.getStatus()) || events.receivedTotal(invoice.getId()).compareTo(invoice.getAmount())!=0) return;
         // Keep authenticated funds in the ledger even if eligibility changed while payment was pending.
         try {
@@ -182,6 +187,7 @@ public class CourseOrderService {
     }
 
     public void expirePendingOrders() {
+        if (!courseFeature.isEnabled()) return;
         programs.lock();
         jdbc.update("UPDATE course_orders SET status='EXPIRED',version=version+1 WHERE status='PENDING_PAYMENT' AND expires_at<=?",access.now());
         jdbc.update("UPDATE i SET payment_status='CANCELLED' FROM invoices i JOIN course_orders o ON o.id=i.course_order_id WHERE o.status='EXPIRED' AND i.payment_status='PENDING' AND NOT EXISTS(SELECT 1 FROM bank_payment_events b WHERE b.invoice_id=i.invoice_id)");

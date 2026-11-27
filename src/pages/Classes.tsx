@@ -36,6 +36,7 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { useCourseFeature } from "../lib/course-feature";
 import { useClasses, useUsers } from "../lib/hooks";
 import { ApiError, api } from "../lib/api";
 import { operations } from "../lib/operations-api";
@@ -854,6 +855,7 @@ function ClassCard({
     queryFn: () => api.capacity(c.id),
   });
   const available = capacity.data;
+  const { enabled: courseEnabled } = useCourseFeature();
   const full = available === 0;
   return (
     <article
@@ -892,7 +894,7 @@ function ClassCard({
           {(sports[c.sportId] || "MOVE").toUpperCase()}
         </span>
         <span className="class-level">{c.durationMinutes} PHÚT</span>
-        {onEdit && (
+        {onEdit && (courseEnabled || !c.courseId) && (
           <button
             className="class-edit"
             aria-label={`Chỉnh sửa ${c.className}`}
@@ -1065,6 +1067,7 @@ function ClassDetailContent({
     retry: false,
   });
   const isMember = session!.user.roleName === "MEMBER";
+  const { enabled: courseEnabled } = useCourseFeature();
   const ownBookings = useQuery({
     queryKey: ["memberBookings", session!.user.id, c.id],
     queryFn: async () =>
@@ -1190,7 +1193,7 @@ function ClassDetailContent({
               </div>
             ))}
           <div className="detail-actions">
-            {c.courseId && <Link className="btn btn-secondary" to="/courses">Đăng ký theo khóa học</Link>}
+            {courseEnabled && c.courseId && <Link className="btn btn-secondary" to="/courses">Đăng ký theo khóa học</Link>}
             {isMember &&
               !c.regularClassId && !c.courseId &&
               c.status === "SCHEDULED" &&
@@ -1251,7 +1254,7 @@ function ClassDetailContent({
               </Link>
             )}
             {cancellation.data?.reason && <Notice>Lý do trung tâm hủy: {cancellation.data.reason}</Notice>}
-            {onEdit && (
+            {onEdit && (courseEnabled || !c.courseId) && (
               <Button variant="secondary" onClick={() => onEdit(c)}>
                 <Pencil size={16} />
                 Chỉnh sửa

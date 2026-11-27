@@ -98,6 +98,12 @@ Pop-Location
 
 Giữ terminal mở, chờ thông báo ứng dụng khởi động thành công. Backend mặc định ở **http://127.0.0.1:8080**, tiền tố API `/api/v1`. Có thể đổi `SERVER_PORT`; `JWT_EXPIRATION_MS` mặc định một giờ. `trustServerCertificate=true` trong ví dụ dành cho local.
 
+### Tạm ngừng khóa học chuyên sâu
+
+Course tắt theo mặc định. Đặt biến môi trường Backend `APP_COURSE_ENABLED=true` rồi khởi động lại Backend để bật Course. Frontend đọc trạng thái qua `GET /api/v1/features` sau khi đăng nhập, không cần cấu hình Vite riêng.
+
+Khi tắt, các buổi đã lên lịch vẫn giữ HLV/phòng, hóa đơn và các luồng hoàn tiền hiện có vẫn truy cập được. Đơn chờ không ghi danh khi thu tiền hoặc đối soát, còn webhook đã xác minh vẫn lưu giao dịch nếu môi trường có bật webhook. Rà soát các khoản đã nhận và thời hạn của đơn trước khi đối soát. Khi Course tắt, quản lý có thể hủy các khóa chưa diễn ra và chưa có dữ liệu nghiệp vụ liên quan. `POST /api/v1/courses/cancel` nhận `courseIds` và `expectedSessions`, kiểm tra cả danh sách trước khi hủy trong một giao dịch. Việc hủy giữ lại ID và lịch sử của khóa.
+
 ## Chạy frontend
 
 Mở terminal thứ hai tại gốc:

@@ -15,6 +15,12 @@ public class TrainingController {
     private final TrainingProgramService programs;
     private final TrainingAccessService access;
     private final CourseOrderService orders;
+    private final CourseFeature courseFeature;
+
+    @GetMapping("/features")
+    public Map<String, Boolean> features() {
+        return Map.of("courseEnabled", courseFeature.isEnabled());
+    }
 
     @GetMapping("/training-access")
     public Map<String,Object> access(@RequestParam(required=false) Integer memberId) {
@@ -54,21 +60,26 @@ public class TrainingController {
     public void cancel(@PathVariable int id) { programs.cancelRegistration(id); }
 
     @PostMapping("/courses/search")
-    public List<Program> courseSearch(@Valid @RequestBody SearchInput request) { return programs.search("COURSE",request); }
+    public List<Program> courseSearch(@Valid @RequestBody SearchInput request) { courseFeature.requireEnabled(); return programs.search("COURSE",request); }
     @GetMapping("/courses")
-    public List<Program> courseList() { return programs.search("COURSE",null); }
+    public List<Program> courseList() { courseFeature.requireEnabled(); return programs.search("COURSE",null); }
     @GetMapping("/courses/{id}")
-    public Program courseDetail(@PathVariable int id,@RequestParam(required=false) Integer memberId) { return programs.detail("COURSE",id,memberId); }
+    public Program courseDetail(@PathVariable int id,@RequestParam(required=false) Integer memberId) { courseFeature.requireEnabled(); return programs.detail("COURSE",id,memberId); }
     @GetMapping("/courses/{id}/sessions")
-    public List<ClassResponse> courseSessions(@PathVariable int id) { programs.detail("COURSE",id,null); return programs.sessions("COURSE",id); }
+    public List<ClassResponse> courseSessions(@PathVariable int id) { courseFeature.requireEnabled(); programs.detail("COURSE",id,null); return programs.sessions("COURSE",id); }
     @PostMapping("/courses/preview") @PreAuthorize("hasRole('CENTER_MANAGER')")
-    public List<Occurrence> preview(@Valid @RequestBody ProgramInput request) { return TrainingPolicy.courseOccurrences(request.slots(),request.startDate(),request.totalSessions()); }
+    public List<Occurrence> preview(@Valid @RequestBody ProgramInput request) { courseFeature.requireEnabled(); return TrainingPolicy.courseOccurrences(request.slots(),request.startDate(),request.totalSessions()); }
     @PostMapping("/courses") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasRole('CENTER_MANAGER')")
     public Program createCourse(@Valid @RequestBody ProgramInput request) { return programs.save("COURSE",null,request); }
     @PutMapping("/courses/{id}") @PreAuthorize("hasRole('CENTER_MANAGER')")
     public Program updateCourse(@PathVariable int id,@Valid @RequestBody ProgramInput request) { return programs.save("COURSE",id,request); }
     @PostMapping("/courses/{id}/cancel") @PreAuthorize("hasRole('CENTER_MANAGER')")
     public Program cancelCourse(@PathVariable int id) { return programs.setStatus("COURSE",id,"CANCELLED"); }
+
+    @PostMapping("/courses/cancel") @PreAuthorize("hasRole('CENTER_MANAGER')")
+    public List<Program> cancelPausedCourses(@Valid @RequestBody CancelCoursesInput request) {
+        return programs.cancelPausedCourses(request);
+    }
 
     @PostMapping("/course-orders") @ResponseStatus(HttpStatus.CREATED)
     public CourseOrder createOrder(@Valid @RequestBody CourseOrderInput request,@RequestHeader(value="Idempotency-Key",required=false) String key) { return orders.create(request,key); }
