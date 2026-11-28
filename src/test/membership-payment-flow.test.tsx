@@ -411,6 +411,31 @@ describe("Phần FE còn thiếu của luồng thanh toán", () => {
       }),
     ).toThrow("Trạng thái hoàn tiền và đơn đăng ký chưa đồng bộ.");
   });
+  it.each([
+    { name: "a 90% refund", refundedAmount: 720000, expected: "720.000" },
+    { name: "a full refund", refundedAmount: 800000, expected: "800.000" },
+    {
+      name: "a legacy refund without an amount",
+      refundedAmount: undefined,
+      expected: "800.000",
+    },
+  ])("shows the correct order total for $name", async ({ refundedAmount, expected }) => {
+    const refunded: MembershipOrder = {
+      ...paid,
+      status: "REFUNDED",
+      invoice: { ...paid.invoice, paymentStatus: "REFUNDED", refundedAmount },
+      subscription: { ...paid.subscription!, status: "CANCELLED" },
+    };
+    vi.spyOn(membershipCheckout, "detail").mockResolvedValue(refunded);
+    vi.stubGlobal("fetch", vi.fn(async () => json(member)));
+    wrap(<MembershipOrderDetail orderId={20} onClose={() => {}} />);
+    const details = within(
+      await screen.findByRole("region", { name: "Gói tập và số tiền" }),
+    );
+    const total = details.getByText("Số tiền đã hoàn tiền").parentElement!;
+    expect(total).toBeVisible();
+    expect(total).toHaveTextContent(expected);
+  });
   it("saves shared bank settings only after review and a successful server response", async () => {
     const calls = vi.fn(async (_url: string, init?: RequestInit) =>
       json(

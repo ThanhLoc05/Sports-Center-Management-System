@@ -148,6 +148,53 @@ describe("Báo cáo tổng hợp — chế độ API", () => {
     expect(screen.getByText("Chưa có dữ liệu doanh thu")).toBeVisible();
   });
 
+  it("refreshes the applied range and CSV after a payment without applying draft dates", async () => {
+    let requests = 0;
+    let resolve!: (value: Response) => void;
+    const fetch = server(() =>
+      ++requests === 1
+        ? Response.json(summary)
+        : new Promise<Response>((done) => { resolve = done; }),
+    );
+    page();
+    const user = userEvent.setup();
+    await waitFor(() =>
+      expect(metric("Tổng thu")(utils.money(800000))).toBeVisible(),
+    );
+    fireEvent.change(screen.getByLabelText("Từ ngày"), {
+      target: { value: "2026-10-05" },
+    });
+    fireEvent.change(screen.getByLabelText("Đến ngày"), {
+      target: { value: "2026-10-15" },
+    });
+    const refresh = screen.getByRole("button", { name: "Làm mới báo cáo" });
+    await user.click(refresh);
+    await waitFor(() => expect(resolve).toBeDefined());
+    expect(refresh).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Xuất CSV" })).toBeDisabled();
+    const calls = fetch.mock.calls.filter(([url]) => String(url).includes("/reports/summary"));
+    expect(calls).toHaveLength(2);
+    expect(String(calls[1][0])).toBe(String(calls[0][0]));
+    expect(screen.getByLabelText("Từ ngày")).toHaveValue("2026-10-05");
+    expect(screen.getByLabelText("Đến ngày")).toHaveValue("2026-10-15");
+    resolve(Response.json({
+      ...summary,
+      totalGrossRevenue: 900000,
+      netRevenue: 800000,
+      totalPaidInvoices: 5,
+      revenueByMethod: { CASH: 300000, BANK_TRANSFER: 600000 },
+    }));
+    await waitFor(() =>
+      expect(metric("Tổng thu")(utils.money(900000))).toBeVisible(),
+    );
+    expect(metric("Doanh thu ròng")(utils.money(800000))).toBeVisible();
+    expect(metric("Hóa đơn đã thanh toán")("5")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Xuất CSV" }));
+    expect(csv.mock.calls[0][1]).toContainEqual(["Tổng thu (VND)", 900000]);
+    expect(csv.mock.calls[0][1]).toContainEqual(["Từ ngày", utils.localDate().slice(0, 7) + "-01"]);
+    expect(csv.mock.calls[0][1]).toContainEqual(["Đến ngày", utils.localDate()]);
+  });
+
   it("exports the same figures and applied range even while date fields contain an unsubmitted draft", async () => {
     const fetch = server();
     page();

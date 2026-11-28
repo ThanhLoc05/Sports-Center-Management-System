@@ -960,7 +960,13 @@ export function MembershipOrderDetail({
                         ? "đã hoàn tiền"
                         : "cần thanh toán"}
                   </span>
-                  <strong>{money(order.invoice.amount)}</strong>
+                  <strong>
+                    {money(
+                      order.status === "REFUNDED"
+                        ? (order.invoice.refundedAmount ?? order.invoice.amount)
+                        : order.invoice.amount,
+                    )}
+                  </strong>
                 </div>
               </section>
               {order.status === "CONFIRMED" ? (

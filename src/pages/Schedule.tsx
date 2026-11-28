@@ -15,7 +15,6 @@ import { api, request } from "../lib/api";
 import type { SportClass } from "../lib/types";
 import { addDays, dateLabel, localDate, parseDate } from "../lib/utils";
 import { ClassDetail, ClassForm } from "./Classes";
-import { TrainingProgramForm } from "../components/TrainingProgramForm";
 import ClassCancellationDialog from "../components/ClassCancellationDialog";
 import ManagerWeekSchedule from "../components/ManagerWeekSchedule";
 import MemberSchedule, { memberScheduleSport, type MemberScheduleStatus } from "../components/MemberSchedule";
@@ -55,7 +54,7 @@ export default function Schedule() {
   const setSelected = (item: SportClass | null) => setSelectedId(item?.id ?? null);
   const selected = classes.data?.find((item) =>
     item.id === selectedId && (session?.user.roleName !== "COACH" || item.status !== "CANCELLED"));
-  const [create, setCreate] = useState<"flexible" | "regular" | null>(null);
+  const [create, setCreate] = useState(false);
   const [editing, setEditing] = useState<SportClass | null>(null);
   const [cancelling, setCancelling] = useState<SportClass | null>(null);
   /**
@@ -123,15 +122,10 @@ export default function Schedule() {
               Danh sách lớp học
             </Link>
             {can("classes.manage") && (
-              <>
-                <Button onClick={() => setCreate("flexible")}>
-                  <Plus size={17} />
-                  Tạo buổi tập
-                </Button>
-                <Button variant="secondary" onClick={() => setCreate("regular")}>
-                  Tạo lớp cố định
-                </Button>
-              </>
+              <Button onClick={() => setCreate(true)}>
+                <Plus size={17} />
+                Tạo buổi tập
+              </Button>
             )}
           </>
         }
@@ -257,11 +251,8 @@ export default function Schedule() {
           } : undefined}
         />
       )}
-      {create === "flexible" && manager && (
-        <ClassForm dialogClassName="schedule-ui-dialog" fixedSlots={session?.mode === "api"} onClose={() => setCreate(null)} />
-      )}
-      {create === "regular" && manager && (
-        <TrainingProgramForm kind="REGULAR" onClose={() => setCreate(null)} />
+      {create && manager && (
+        <ClassForm dialogClassName="schedule-ui-dialog" fixedSlots={session?.mode === "api"} onClose={() => setCreate(false)} />
       )}
       {editing && <ClassForm dialogClassName="schedule-ui-dialog" item={editing} fixedSlots={session?.mode === "api"} onClose={() => setEditing(null)} />}
       {cancelling && (

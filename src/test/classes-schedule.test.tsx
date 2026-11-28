@@ -176,10 +176,12 @@ describe("Lớp học và lịch hoạt động — phần 5", () => {
     ).toBe(true);
     client.clear();
   });
-  it("opens the standalone class form from the Manager activity schedule", async () => {
+  it("keeps standalone class creation available without the fixed-class action", async () => {
     const user = userEvent.setup();
     const client = page("/schedule", "CENTER_MANAGER");
-    await user.click(await screen.findByRole("button", { name: "Tạo buổi tập" }));
+    const create = await screen.findByRole("button", { name: "Tạo buổi tập" });
+    expect(screen.queryByRole("button", { name: "Tạo lớp cố định" })).not.toBeInTheDocument();
+    await user.click(create);
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText("Tên lớp học")).toBeVisible();
     expect(within(dialog).getByLabelText("Ngày và giờ bắt đầu")).toBeVisible();

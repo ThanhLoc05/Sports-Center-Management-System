@@ -295,6 +295,17 @@ export default function Reports() {
       </form>
       {/* [FLOW 3] NÚT CHỌN NHANH khoảng báo cáo: Tháng này / Quý này / Năm nay (áp dụng ngay). */}
       <div className="report-presets">
+        {!demo && (
+          <Button
+            type="button"
+            variant="secondary"
+            loading={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            <RotateCcw size={16} />
+            Làm mới báo cáo
+          </Button>
+        )}
         <span>Chọn nhanh:</span>
         {(
           [
