@@ -65,18 +65,16 @@ describe("account email actions", () => {
     for (const [, init] of fetch.mock.calls) expect(JSON.parse(init.body).token).toBe("test-memory-capability");
     expect(screen.getByRole("button", { name: "Xác nhận" })).toBeDisabled();
   });
-  it("public signup directs the member to verify email before login", async () => {
+  it("public signup directs the member to verify an OTP before login", async () => {
     const fetch = vi
       .fn()
       .mockResolvedValue(
         Response.json(
           {
-            id: 42,
-            email: "member@example.test",
-            roleName: "MEMBER",
-            status: "ACTIVE",
+            message: "Mã xác minh đã được gửi.",
+            expiresAtEpochMs: Date.now() + 60_000,
           },
-          { status: 201 },
+          { status: 202 },
         ),
       );
     vi.stubGlobal("fetch", fetch);
@@ -88,7 +86,7 @@ describe("account email actions", () => {
     await userEvent.type(screen.getByLabelText("Số điện thoại"), "0900000010");
     await userEvent.type(
       screen.getByLabelText("Địa chỉ email"),
-      "member@example.test",
+      "member@example.com",
     );
     await userEvent.type(
       screen.getByLabelText("Mật khẩu", { exact: true }),
@@ -102,10 +100,12 @@ describe("account email actions", () => {
       screen.getByRole("button", { name: "Tạo tài khoản" }),
     );
     expect(
-      await screen.findByText(
-        "Tạo tài khoản thành công. Hãy xác minh email trước khi đăng nhập.",
-      ),
+      await screen.findByRole("heading", { name: "Xác minh email" }),
     ).toBeVisible();
+    expect(screen.getByLabelText("Mã xác minh")).toBeVisible();
+    expect(screen.getByTestId("action-location")).toHaveTextContent(
+      "email=member%40example.com",
+    );
     expect(sessionStorage.getItem("sportiva-session")).toBeNull();
   });
   it.each([
@@ -113,11 +113,6 @@ describe("account email actions", () => {
       "/verify-email?token=test-capability",
       "/users/verify-email",
       "Email đã được xác minh. Bạn có thể đăng nhập.",
-    ],
-    [
-      "/forgot-password",
-      "/users/forgot-password",
-      "Nếu email phù hợp với tài khoản, hướng dẫn sẽ được gửi.",
     ],
     [
       "/resend-verification",
@@ -258,6 +253,8 @@ describe("account email actions", () => {
     vi.stubGlobal("fetch", fetch);
     await api.verifyEmail("test-token");
     await api.forgotPassword("member@example.test");
+    await api.resendPasswordResetCode("member@example.test");
+    await api.verifyPasswordResetCode("member@example.test", "123456");
     await api.resendVerification("member@example.test");
     await api.resetPassword("test-token", "new-password");
     for (const [url, init] of fetch.mock.calls) {

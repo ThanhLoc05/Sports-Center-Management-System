@@ -424,7 +424,15 @@ export const api = {
     return request<{ message: string }>("/users/reset-password", { method: "POST", body: JSON.stringify({ token, newPassword }) }, false);
   },
   forgotPassword(email: string) {
-    return request<{ message: string }>("/users/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);
+    return request<RegistrationCodeDelivery>("/users/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);
+  },
+  resendPasswordResetCode(email: string) {
+    return request<RegistrationCodeDelivery>("/users/forgot-password/resend-code", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);
+  },
+  verifyPasswordResetCode(email: string, code: string) {
+    return request<{ token: string; expiresAtEpochMs: number }>("/users/forgot-password/verify-code", {
+      method: "POST", body: JSON.stringify({ email: email.trim(), code }),
+    }, false);
   },
   resendVerification(email: string) {
     return request<{ message: string }>("/users/resend-verification", { method: "POST", body: JSON.stringify({ email: email.trim() }) }, false);

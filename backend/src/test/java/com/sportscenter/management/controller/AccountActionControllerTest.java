@@ -24,7 +24,12 @@ class AccountActionControllerTest {
         @Bean UserRepository users() { return mock(UserRepository.class); }
         @Bean JwtService jwt() { return new JwtService(Base64.getEncoder().encodeToString(new byte[32]), 60000); }
         @Bean AccountActionService actions() { return mock(AccountActionService.class); }
-        @Bean AccountActionController actionsController(AccountActionService actions) { return new AccountActionController(actions); }
+        @Bean PasswordResetOtpService resetOtps() {
+            var service = mock(PasswordResetOtpService.class);
+            when(service.requestCode(anyString())).thenAnswer(call -> java.time.Instant.now().plusSeconds(60));
+            return service;
+        }
+        @Bean AccountActionController actionsController(AccountActionService actions, PasswordResetOtpService otps) { return new AccountActionController(actions, otps); }
         @Bean UserService service() { return mock(UserService.class); }
         @Bean SecurityUtils security() { var utils=mock(SecurityUtils.class); when(utils.getCurrentUserId()).thenReturn(1); return utils; }
         @Bean UserController usersController(UserService service, JwtService jwt, SecurityUtils utils, UserRepository users) {
@@ -46,10 +51,36 @@ class AccountActionControllerTest {
                 .andExpect(status().isBadRequest());
         for(String path:List.of("forgot-password","resend-verification"))
             mvc.perform(post("/api/v1/users/"+path).contentType("application/json").content("{\"email\":\"missing@example.test\"}"))
-                .andExpect(status().isOk());
+                .andExpect(status().is(path.equals("forgot-password") ? 202 : 200));
         mvc.perform(post("/api/v1/users/reset-password").contentType("application/json")
                 .content("{\"token\":\"test-marker\",\"newPassword\":\"new-password\"}"))
                 .andExpect(status().isOk());
+    }
+    @Test void resetOtpEndpointsArePublicValidateSixDigitsAndReportExhaustion() throws Exception {
+        var otps = context.getBean(PasswordResetOtpService.class);
+        mvc.perform(post("/api/v1/users/forgot-password/resend-code").contentType("application/json")
+                .content("{\"email\":\"member@example.com\"}"))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.expiresAtEpochMs").isNumber());
+        String body = "{\"email\":\"member@example.com\",\"code\":\"123456\"}";
+        when(otps.verify("member@example.com", "123456"))
+                .thenReturn(new PasswordResetOtpService.Verification(null, 4));
+        mvc.perform(post("/api/v1/users/forgot-password/verify-code").contentType("application/json").content(body))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.attemptsRemaining").value(4));
+        when(otps.verify("member@example.com", "123456"))
+                .thenReturn(new PasswordResetOtpService.Verification(null, 0));
+        mvc.perform(post("/api/v1/users/forgot-password/verify-code").contentType("application/json").content(body))
+                .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.attemptsRemaining").value(0));
+        when(otps.verify("member@example.com", "123456"))
+                .thenReturn(new PasswordResetOtpService.Verification(new AccountActionService.PasswordResetGrant("test-grant", 123456L), 1));
+        mvc.perform(post("/api/v1/users/forgot-password/verify-code").contentType("application/json").content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.token").value("test-grant"));
+        clearInvocations(otps);
+        for (String code : List.of("12345", "12ab56", "1234567")) {
+            mvc.perform(post("/api/v1/users/forgot-password/verify-code").contentType("application/json")
+                    .content("{\"email\":\"member@example.com\",\"code\":\"" + code + "\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+        verify(otps, never()).verify(anyString(), anyString());
     }
     @Test void mailErrorResponseDoesNotExposeUpstreamDetail() throws Exception {
         doThrow(new org.springframework.mail.MailSendException("private-upstream-marker"))

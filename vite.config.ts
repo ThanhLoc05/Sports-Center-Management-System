@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      include: ["src/**/*.{test,spec}.{ts,tsx}"],
       environment: "jsdom",
       env: { VITE_DATA_MODE: "demo", VITE_API_BASE_URL: "" },
       setupFiles: ["./src/test/setup.ts"],

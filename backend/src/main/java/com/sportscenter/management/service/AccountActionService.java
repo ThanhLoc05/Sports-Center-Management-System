@@ -60,6 +60,25 @@ public class AccountActionService {
         invalidate(userId, Purpose.VERIFY_EMAIL);
     }
 
+    public void cancelPasswordReset(Integer userId) {
+        invalidate(userId, Purpose.RESET_PASSWORD);
+    }
+
+    public record PasswordResetGrant(String token, long expiresAtEpochMs) {}
+
+    /** Called only after the independent password-reset OTP has been verified. */
+    public PasswordResetGrant issuePasswordResetGrant(User user) {
+        invalidate(user.getId(), Purpose.RESET_PASSWORD);
+        byte[] bytes = new byte[TOKEN_BYTES];
+        RANDOM.nextBytes(bytes);
+        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expires = now.plusMinutes(10);
+        tokens.save(AccountActionToken.builder().userId(user.getId()).purpose(Purpose.RESET_PASSWORD)
+                .targetEmail(user.getEmail()).tokenHash(hash(rawToken)).createdAt(now).expiresAt(expires).build());
+        return new PasswordResetGrant(rawToken, expires.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
+    }
+
     // Both routes return a generic success to prevent account/email enumeration.
     public void requestVerification(String email) {
         Optional<User> candidate = users.findByPendingEmailIgnoreCase(email)
@@ -117,9 +136,14 @@ public class AccountActionService {
             throw new IllegalArgumentException("Mật khẩu mới không được vượt quá 72 byte UTF-8.");
         }
         LocalDateTime now = LocalDateTime.now();
-        AccountActionToken token = findUsable(rawToken, Purpose.RESET_PASSWORD, now);
-        User user = users.findByIdForUpdate(token.getUserId())
+        if (rawToken == null || rawToken.isBlank()) throw invalidToken();
+        AccountActionToken preview = tokens.findByTokenHashAndPurposeAndUsedAtIsNull(hash(rawToken), Purpose.RESET_PASSWORD)
                 .orElseThrow(AccountActionService::invalidToken);
+        // OTP issue/verification also locks the user first, then the reset capability.
+        User user = users.findByIdForUpdate(preview.getUserId())
+                .orElseThrow(AccountActionService::invalidToken);
+        AccountActionToken token = findUsable(rawToken, Purpose.RESET_PASSWORD, now);
+        if (!token.getUserId().equals(user.getId())) throw invalidToken();
         if (!"ACTIVE".equals(user.getStatus()) || !user.isEmailVerified()
                 || !token.getTargetEmail().equalsIgnoreCase(user.getEmail())) {
             throw invalidToken();

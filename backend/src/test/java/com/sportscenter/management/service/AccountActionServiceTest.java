@@ -87,6 +87,8 @@ class AccountActionServiceTest {
     void resetTokenChangesPasswordAndInvalidatesItAfterUse() {
         User user = User.builder().id(10).email("member@example.test").status("ACTIVE").build();
         AccountActionToken token = token(Purpose.RESET_PASSWORD, user.getEmail());
+        when(tokens.findByTokenHashAndPurposeAndUsedAtIsNull(anyString(), eq(Purpose.RESET_PASSWORD)))
+                .thenReturn(Optional.of(token));
         when(tokens.findUsableForUpdate(anyString(), eq(Purpose.RESET_PASSWORD)))
                 .thenReturn(Optional.of(token));
         when(users.findByIdForUpdate(10)).thenReturn(Optional.of(user));

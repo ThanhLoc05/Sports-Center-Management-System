@@ -12,6 +12,8 @@ import java.util.Optional;
 
 public interface AccountActionTokenRepository
         extends JpaRepository<AccountActionToken, Long> {
+    Optional<AccountActionToken> findByTokenHashAndPurposeAndUsedAtIsNull(String tokenHash, Purpose purpose);
+
     // Row lock makes token consumption single-use under concurrent requests.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
