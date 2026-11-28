@@ -23,6 +23,12 @@
   --session-light: #edf2ee;
   --session-hero: #1d3530;
   display: grid;
+  /*
+    Mỗi hàng cao đúng bằng nội dung, phần dư thì thân hộp thoại cuộn.
+    Tại sao: khung ảnh/giờ tập có overflow:hidden nên grid được phép bóp nó nhỏ lại khi hộp thoại thấp,
+    làm mất dòng "Ca 02 · Buổi sáng" và giờ tập; max-content giữ khung đủ cao.
+  */
+  grid-auto-rows: max-content;
   gap: 12px;
   min-height: 0;
   padding: 0 14px 14px;
