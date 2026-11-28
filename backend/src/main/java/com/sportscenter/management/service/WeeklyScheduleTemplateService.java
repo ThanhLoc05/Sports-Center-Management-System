@@ -120,7 +120,7 @@ public class WeeklyScheduleTemplateService {
             case CREATE, UPDATE, CANCEL -> true;
             default -> false;
         })) {
-            notifications.publishManagerScheduleChangedAfterCommit();
+            notifications.publishStaffScheduleChangedAfterCommit();
         }
         return get();
     }
@@ -160,7 +160,9 @@ public class WeeklyScheduleTemplateService {
     @Transactional
     public WeeklyScheduleService.Confirmation confirm(Window window) {
         resources.lock();
-        return scheduling.confirm(request(window));
+        var result = scheduling.confirm(request(window));
+        if (result.created() > 0) notifications.publishStaffScheduleChangedAfterCommit();
+        return result;
     }
 
     private WeeklyScheduleService.Request request(Window window) {

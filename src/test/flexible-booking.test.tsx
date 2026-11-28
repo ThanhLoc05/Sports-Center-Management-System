@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -145,6 +145,23 @@ it("groups VIP coach options and retains the compatible selection and active day
   await user.selectOptions(coach, "4");
   await user.selectOptions(sport, "2");
   expect(coach).toHaveValue("");
+});
+
+it("polls a full session until a released seat can be selected without reloading", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.mocked(api.capacity).mockResolvedValue(0);
+    open("STANDARD", [base]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(screen.getByRole("button", { name: "Vào danh sách chờ" })).toBeVisible();
+
+    vi.mocked(api.capacity).mockResolvedValue(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_020); });
+    expect(screen.getByRole("button", { name: "Chọn buổi Cầu lông sáng" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Vào danh sách chờ" })).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("hides full sessions with Chỉ còn chỗ and keeps their waitlist available otherwise", async () => {

@@ -7,8 +7,14 @@ import { sessionSlotLabel, sessionTimeRange } from "../lib/scheduling-slots";
 import { Confirm, useToast } from "./ui";
 
 export type MemberCancellationAction = { item: SportClass } & (
-  { kind: "booking"; bookingId: number } | { kind: "waitlist" }
+  { kind: "booking"; bookingId: number } | { kind: "waitlist"; invited: boolean }
 );
+
+export function waitlistCancellationCopy(invited: boolean) {
+  return invited
+    ? { label: "Từ chối chỗ tập", description: "Chỗ giữ sẽ được chuyển cho hội viên tiếp theo trong danh sách chờ.", success: "Đã từ chối lời mời giữ chỗ." }
+    : { label: "Rời danh sách chờ", description: "Bạn sẽ mất vị trí hiện tại trong danh sách chờ.", success: "Đã rời danh sách chờ." };
+}
 
 export function bookingCancellationBlocker(item: SportClass, now = new Date()) {
   if (item.status === "CANCELLED") return "Trung tâm đã hủy buổi tập này.";
@@ -41,10 +47,11 @@ export default function MemberBookingCancellation({ action, memberId, onClose, s
   const inFlight = useRef<Promise<void> | null>(null);
   const { item } = action;
   const leave = action.kind === "waitlist";
+  const waitlistCopy = leave ? waitlistCancellationCopy(action.invited) : null;
   const deadline = new Date(parseDate(item.scheduleTime).getTime() - 12 * 60 * 60_000);
   const dateTime = (value: string) => `${dateLabel(value)} · ${timeLabel(value)}`;
-  const description = leave
-    ? `${item.className} · ${dateTime(item.scheduleTime)}. Lời mời sẽ được từ chối và chỗ được chuyển cho hội viên tiếp theo trong danh sách chờ.`
+  const description = waitlistCopy
+    ? `${item.className} · ${dateTime(item.scheduleTime)}. ${waitlistCopy.description}`
     : `${item.className} · ${scheduleDetail
         ? `${dateLabel(item.scheduleTime)} · ${sessionSlotLabel(item)} · ${sessionTimeRange(item)}`
         : dateTime(item.scheduleTime)}. Mốc hủy không vi phạm: ${dateTime(deadline.toISOString())}.${new Date() > deadline ? " Bạn đang hủy trễ và có thể bị tính vi phạm giữ chỗ." : " Hủy trước ít nhất 12 giờ để tránh vi phạm."}`;
@@ -53,10 +60,10 @@ export default function MemberBookingCancellation({ action, memberId, onClose, s
     if (action.kind === "waitlist") await request(`/classes/${item.id}/waitlist/decline`, { method: "POST" });
     else await api.cancelBooking(action.bookingId);
     await refreshMemberRegistration(client, memberId, item.id);
-    toast(leave ? "Đã rời danh sách chờ." : "Đã hủy đăng ký lớp học.");
+    toast(waitlistCopy?.success ?? "Đã hủy đăng ký lớp học.");
   }
 
-  return <Confirm title={leave ? "Rời danh sách chờ?" : "Hủy đăng ký lớp?"}
+  return <Confirm title={waitlistCopy ? waitlistCopy.label + "?" : "Hủy đăng ký lớp?"}
     description={description} onClose={onClose}
     backLabel={scheduleDetail && !leave ? "Giữ đăng ký" : undefined}
     confirmLabel={scheduleDetail && !leave ? "Xác nhận hủy" : undefined}

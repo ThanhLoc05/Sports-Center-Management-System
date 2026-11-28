@@ -5,7 +5,7 @@ import { api, request } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useCatalog } from "../lib/catalog";
 import { useClasses } from "../lib/hooks";
-import type { Booking, SportClass } from "../lib/types";
+import type { Booking, SportClass, WaitlistEntry } from "../lib/types";
 import { addDays, dateLabel, errorText, idLabel, localDate, parseDate, timeLabel } from "../lib/utils";
 import { Button, Empty, ErrorState, Loading, PageHeader, useToast } from "./ui";
 import MemberBookingCancellation, { bookingCancellationBlocker, type MemberCancellationAction } from "./MemberBookingCancellation";
@@ -13,7 +13,6 @@ import { ClassDetail } from "../pages/Classes";
 import "../styles-personal-bookings.css";
 
 type Filter = "upcoming" | "past" | "cancelled" | "waitlist";
-type WaitlistEntry = { classId: number; status: string; inviteUntil: string | null };
 type SessionRow = { key: string; session?: SportClass; booking?: Booking; waiting?: WaitlistEntry; classId: number };
 const filters: Record<Filter, string> = {
   upcoming: "Sắp tới", past: "Đã diễn ra", cancelled: "Đã hủy", waitlist: "Danh sách chờ",
@@ -131,6 +130,7 @@ export default function PersonalBookings() {
         ))}
       </div>
       {filter === "cancelled" && !!groups.size && <p className="muted">Sắp xếp theo ngày đặt vì lịch sử hiện chưa có thời điểm hủy.</p>}
+      {filter === "waitlist" && <p className="muted">Hội viên VIP được ưu tiên khi có chỗ trống. Trong cùng loại gói, hệ thống ưu tiên theo thời điểm tham gia.</p>}
       {filter === "waitlist" && acceptError && <p className="form-error" role="alert">{acceptError}</p>}
       {classes.error ? <ErrorState error={classes.error} retry={classes.refetch} />
         : visibleQuery.error ? <ErrorState error={visibleQuery.error} retry={visibleQuery.refetch} />
@@ -166,6 +166,8 @@ export default function PersonalBookings() {
                       <div><h3>{name}</h3><p className="muted">{coach} · {room}</p></div>
                       <div className="personal-bookings__status">
                         <strong>{status}</strong>
+                        {waiting?.status === "QUEUED" && waiting.position != null && <small>Vị trí {waiting.position}</small>}
+                        {invitationLive && waiting.inviteUntil && <small>Xác nhận trước {dateTime(waiting.inviteUntil)}</small>}
                         {row.key === nearest && filter === "upcoming" && <small>Buổi gần nhất</small>}
                       </div>
                     </div>
@@ -184,19 +186,19 @@ export default function PersonalBookings() {
                         {session?.id === openCancelled && cancellation.data?.reason &&
                           <><dt>Lý do trung tâm hủy</dt><dd>{cancellation.data.reason}</dd></>}
                         {filter === "past" && attendance.error && <><dt>Điểm danh</dt><dd><Button variant="secondary" onClick={() => void attendance.refetch()}>Thử tải lại</Button></dd></>}
-                        {invitationLive && waiting.inviteUntil && <><dt>Hạn nhận chỗ</dt><dd>{dateTime(waiting.inviteUntil)}</dd></>}
                         {canCancel && <><dt>Chính sách hủy</dt><dd>Hủy trước ít nhất 12 giờ để tránh vi phạm.</dd></>}
                         {booking?.status === "BOOKED" && blocker && <><dt>Hủy đăng ký</dt><dd>{blocker}</dd></>}
                       </dl>
                       {session && <Button variant="secondary" onClick={() => setDetail(session)}>Chi tiết buổi tập</Button>}
                       {canCancel && session && <Button variant="danger" onClick={() => setMemberAction({ kind: "booking", item: session, bookingId: booking.id })}>Hủy đăng ký</Button>}
                     </details>
-                    {invitationLive && <>
-                      <Button variant="primary" loading={accepting === row.classId} disabled={accepting !== null}
-                        onClick={() => void accept(row)}>Xác nhận lời mời</Button>
-                      {session && !blocker && <Button variant="secondary" disabled={accepting !== null}
-                        onClick={() => setMemberAction({ kind: "waitlist", item: session })}>Rời danh sách chờ</Button>}
-                    </>}
+                    {invitationLive && <Button variant="primary" loading={accepting === row.classId} disabled={accepting !== null}
+                      onClick={() => void accept(row)}>Xác nhận chỗ</Button>}
+                    {(invitationLive || waiting?.status === "QUEUED") && session && !blocker &&
+                      <Button variant="secondary" disabled={accepting !== null}
+                        onClick={() => setMemberAction({ kind: "waitlist", item: session, invited: !!invitationLive })}>
+                        {invitationLive ? "Từ chối chỗ tập" : "Rời danh sách chờ"}
+                      </Button>}
                   </li>
                 );
               })}

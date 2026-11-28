@@ -87,6 +87,13 @@ export type ClassInput = Omit<SportClass, "id" | "bookedCount">;
  * Một đăng ký nối một thành viên với một lớp. Hủy đăng ký thay đổi trạng thái
  * để phân biệt với hủy chính lớp học và giữ được lịch sử.
  */
+export interface WaitlistEntry {
+  classId: number;
+  status: string;
+  inviteUntil: string | null;
+  position?: number | null;
+}
+
 export interface Booking {
   id: number;
   classId: number;

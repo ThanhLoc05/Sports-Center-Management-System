@@ -45,7 +45,7 @@ import { operations } from "../lib/operations-api";
 import { SCHEDULING_SLOTS, slotForSession, vietnamScheduleParts } from "../lib/scheduling-slots";
 import { matchesSchedulingSport, schedulingSportIds } from "../lib/scheduling-resources";
 
-import type { AccessLevel, SportClass } from "../lib/types";
+import type { AccessLevel, SportClass, WaitlistEntry } from "../lib/types";
 import {
   addDays,
   dateLabel,
@@ -1130,6 +1130,9 @@ function ClassDetailContent({
     queryKey: ["capacity", c.id],
     // [API] api.capacity → GET /classes/{id}/capacity
     queryFn: () => api.capacity(c.id),
+    refetchInterval: (query) =>
+      session?.mode === "api" && isMember && !c.courseId && !c.regularClassId &&
+      !bookingCancellationBlocker(c) && query.state.data === 0 ? 15_000 : false,
   });
   const cancellation = useQuery({
     queryKey: ["classCancellation", session?.user.id, c.id],
@@ -1156,8 +1159,9 @@ function ClassDetailContent({
   const blocker = bookingCancellationBlocker(c);
   const waitlist = useQuery({
     queryKey: ["booking-waitlist", session!.user.id],
-    queryFn: () => request<{ classId: number; status: string; inviteUntil: string | null }[]>("/bookings/my-waitlist"),
+    queryFn: () => request<WaitlistEntry[]>("/bookings/my-waitlist"),
     enabled: isMember && flexible && session?.mode === "api" && !blocker,
+    refetchInterval: 15_000,
     retry: false,
   });
   const waiting = waitlist.data?.find((entry) => entry.classId === c.id);

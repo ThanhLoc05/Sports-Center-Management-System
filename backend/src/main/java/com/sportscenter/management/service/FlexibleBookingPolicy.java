@@ -13,6 +13,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -37,11 +39,17 @@ public class FlexibleBookingPolicy {
     @Value("${app.booking.invitation-minutes:15}")
     private int invitationMinutes;
 
+    @Value("${app.booking.maximum-held:5}")
+    private int maximumHeld;
+    @Value("${app.booking.advance-days:7}")
+    private int advanceDays;
+
     public LocalDateTime now() { return LocalDateTime.now(clock); }
 
     public record Conduct(int violations, LocalDateTime restrictedUntil) {}
     public record BookingStatus(int held, int limit, int violations, LocalDateTime restrictedUntil) {}
-    public record WaitlistEntry(int classId, String status, LocalDateTime inviteUntil) {}
+    public record WaitlistEntry(int classId, String status, LocalDateTime inviteUntil, Integer position) {}
+    private record Candidate(int member, boolean vip) {}
     public record VipSupplies(LocalDateTime towelAt, LocalDateTime waterAt) {}
 
     @Transactional
@@ -194,7 +202,7 @@ public class FlexibleBookingPolicy {
                 classId, member) > 0) throw conflict("Bạn đã đăng ký buổi này.");
         advance(clazz);
         var existing = entry(classId, member);
-        if (existing != null && List.of("QUEUED", "INVITED").contains(existing.status())) return existing;
+        if (existing != null && List.of("QUEUED", "INVITED").contains(existing.status())) return withPosition(existing, clazz, member);
         if (available(clazz, member) > 0) throw conflict("Buổi này còn chỗ. Bạn có thể đăng ký trực tiếp.");
         if (existing == null) {
             jdbc.update("INSERT dbo.class_waitlist(class_id, member_id, joined_at, status) VALUES(?,?,?,'QUEUED')",
@@ -203,7 +211,7 @@ public class FlexibleBookingPolicy {
             jdbc.update("UPDATE dbo.class_waitlist SET joined_at=?, invite_until=NULL, status='QUEUED' WHERE class_id=? AND member_id=?",
                     now(), classId, member);
         }
-        return entry(classId, member);
+        return withPosition(entry(classId, member), clazz, member);
     }
 
     @Transactional
@@ -211,28 +219,49 @@ public class FlexibleBookingPolicy {
         trainingAccess.lock();
         Classes clazz = lockClass(classId);
         if (!open(clazz)) throw conflict("Buổi này đã đóng đăng ký.");
+        var now = now();
         int changed = jdbc.update("""
                 UPDATE dbo.class_waitlist SET status='CANCELLED'
-                WHERE class_id=? AND member_id=? AND status='INVITED' AND invite_until>?
-                """, classId, member, now());
-        if (changed != 1) throw conflict("Lời mời không còn hiệu lực.");
+                WHERE class_id=? AND member_id=?
+                  AND (status='QUEUED' OR (status='INVITED' AND invite_until>?))
+                """, classId, member, now);
+        if (changed != 1) throw conflict("Lời mời hoặc lượt chờ không còn hiệu lực.");
         WaitlistEntry declined = entry(classId, member);
-        notify(clazz, member, "WAITLIST_DECLINED:" + classId + ":" + declined.inviteUntil(),
-                "Đã từ chối lời mời giữ chỗ", "Bạn đã từ chối lời mời cho lớp " + clazz.getClassName() + ".");
-        advance(clazz);
+        if (declined.inviteUntil() == null) {
+            notify(clazz, member, "WAITLIST_LEFT:" + classId + ":" + now,
+                    "Đã rời danh sách chờ", "Bạn đã rời danh sách chờ của lớp " + clazz.getClassName() + ".");
+        } else {
+            notify(clazz, member, "WAITLIST_DECLINED:" + classId + ":" + declined.inviteUntil(),
+                    "Đã từ chối lời mời giữ chỗ", "Bạn đã từ chối lời mời cho lớp " + clazz.getClassName() + ".");
+            advance(clazz);
+        }
         return declined;
     }
 
     public List<WaitlistEntry> entries(int member) {
         return jdbc.query("""
                 SELECT class_id,status,invite_until FROM dbo.class_waitlist WHERE member_id=? ORDER BY joined_at DESC
-                """, (r, n) -> new WaitlistEntry(r.getInt(1), r.getString(2), r.getObject(3, LocalDateTime.class)), member);
+                """, (r, n) -> new WaitlistEntry(r.getInt(1), r.getString(2), r.getObject(3, LocalDateTime.class), null), member)
+                .stream().map(row -> "QUEUED".equals(row.status())
+                        ? classes.findById(row.classId()).map(clazz -> withPosition(row, clazz, member)).orElse(row)
+                        : row).toList();
+    }
+
+    private WaitlistEntry withPosition(WaitlistEntry entry, Classes clazz, int member) {
+        if (!"QUEUED".equals(entry.status()) || !open(clazz)) return entry;
+        var ordered = rankedCandidates(clazz, now());
+        for (int i = 0; i < ordered.size(); i++) {
+            if (ordered.get(i).member() == member) {
+                return new WaitlistEntry(entry.classId(), entry.status(), entry.inviteUntil(), i + 1);
+            }
+        }
+        return entry;
     }
 
     private WaitlistEntry entry(int classId, int member) {
         return jdbc.query("""
                 SELECT class_id,status,invite_until FROM dbo.class_waitlist WHERE member_id=? AND class_id=?
-                """, (r, n) -> new WaitlistEntry(r.getInt(1), r.getString(2), r.getObject(3, LocalDateTime.class)),
+                """, (r, n) -> new WaitlistEntry(r.getInt(1), r.getString(2), r.getObject(3, LocalDateTime.class), null),
                 member, classId).stream().findFirst().orElse(null);
     }
 
@@ -285,17 +314,46 @@ public class FlexibleBookingPolicy {
         }
         int free = available(clazz, 0);
         if (free <= 0) return;
-        var members = jdbc.queryForList("""
-                SELECT TOP (?) member_id FROM dbo.class_waitlist WHERE class_id=? AND status='QUEUED' ORDER BY joined_at,id
-                """, Integer.class, free, id);
+        var candidates = rankedCandidates(clazz, now);
         var until = now.plusMinutes(invitationMinutes);
         if (clazz.getScheduleTime().isBefore(until)) until = clazz.getScheduleTime();
-        for (int member : members) {
-            jdbc.update("UPDATE dbo.class_waitlist SET status='INVITED', invite_until=? WHERE class_id=? AND member_id=?",
-                    until, id, member);
+        for (var candidate : candidates.stream().limit(free).toList()) {
+            int member = candidate.member();
+            if (jdbc.update("UPDATE dbo.class_waitlist SET status='INVITED', invite_until=? WHERE class_id=? AND member_id=? AND status='QUEUED'",
+                    until, id, member) != 1) continue;
             notify(clazz, member, "WAITLIST_INVITED:" + id + ":" + until, "Đã đến lượt đặt chỗ",
                     "Bạn có thể xác nhận buổi " + clazz.getClassName() + " trước khi lời mời hết hạn.");
         }
+    }
+
+    private List<Candidate> rankedCandidates(Classes clazz, LocalDateTime now) {
+        var start = clazz.getScheduleTime();
+        if (start.isAfter(now.plusDays(advanceDays))) return List.of();
+        var end = start.plusMinutes(clazz.getDurationMinutes() == null ? 60 : clazz.getDurationMinutes());
+        var members = jdbc.queryForList("""
+                SELECT w.member_id FROM dbo.class_waitlist w
+                JOIN dbo.users u ON u.user_id=w.member_id JOIN dbo.roles r ON r.role_id=u.role_id
+                WHERE w.class_id=? AND w.status='QUEUED' AND u.status='ACTIVE' AND r.role_name='MEMBER'
+                  AND NOT EXISTS (SELECT 1 FROM dbo.class_bookings b WHERE b.class_id=w.class_id
+                                  AND b.member_id=w.member_id AND b.status='BOOKED')
+                ORDER BY w.joined_at,w.id
+                """, Integer.class, clazz.getId());
+        var eligible = new ArrayList<Candidate>();
+        for (int member : members) {
+            try {
+                String level = membershipAccess.waitlistLevel(clazz, member, now.toLocalDate());
+                var holding = status(member, maximumHeld);
+                if (holding.held() >= holding.limit()) continue;
+                trainingAccess.requireNoMemberConflict(member, start, end, null, null, clazz.getId());
+                eligible.add(new Candidate(member, "VIP".equals(level)));
+            } catch (ResponseStatusException ex) {
+                if (ex.getStatusCode() != HttpStatus.CONFLICT) throw ex;
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+        }
+        eligible.sort(Comparator.comparing(Candidate::vip).reversed());
+        return eligible;
     }
 
     public Classes lockClass(int id) {

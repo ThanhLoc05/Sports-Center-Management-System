@@ -6,10 +6,11 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, request } from "../lib/api";
 import { schedulingSportIds } from "../lib/scheduling-resources";
 import { classAccessAllowed, normalizeAccessLevel } from "../lib/entitlements";
-import type { Booking, CoachProfessionalProfile, SportClass, Subscription } from "../lib/types";
+import type { Booking, CoachProfessionalProfile, SportClass, Subscription, WaitlistEntry } from "../lib/types";
 import { addDays, dateLabel, errorText, localDate, matches, parseDate, timeLabel } from "../lib/utils";
 import { Button, Confirm, Field, Notice, Panel } from "./ui";
 import { SchedulingFilterOptions, compatibleResourceSelection } from "./SchedulingFilterOptions";
+import { waitlistCancellationCopy } from "./MemberBookingCancellation";
 import "../styles-package-booking.css";
 
 const waitlistStatus: Record<string, string> = {
@@ -48,7 +49,7 @@ export function FlexibleBooking({
   const [submitting, setSubmitting] = useState(false);
   const pending = useRef(false);
   const [waitlistAction, setWaitlistAction] = useState(false);
-  const [declining, setDeclining] = useState<number | null>(null);
+  const [declining, setDeclining] = useState<{ classId: number; invited: boolean } | null>(null);
   const memberId = subscription?.memberId;
   const conduct = useQuery({
     queryKey: ["booking-conduct", memberId],
@@ -57,7 +58,7 @@ export function FlexibleBooking({
   });
   const waitlist = useQuery({
     queryKey: ["booking-waitlist", memberId],
-    queryFn: () => request<{ classId: number; status: string; inviteUntil: string | null }[]>("/bookings/my-waitlist"),
+    queryFn: () => request<WaitlistEntry[]>("/bookings/my-waitlist"),
     enabled: !!memberId,
     refetchInterval: 15_000,
   });
@@ -99,7 +100,11 @@ export function FlexibleBooking({
     .sort((a, b) => a.start.getTime() - b.start.getTime() || a.session.id - b.session.id)
     .map(({ session }) => session);
   const capacities = useQueries({
-    queries: visible.map((c) => ({ queryKey: ["capacity", c.id], queryFn: () => api.capacity(c.id) })),
+    queries: visible.map((c) => ({
+      queryKey: ["capacity", c.id],
+      queryFn: () => api.capacity(c.id),
+      refetchInterval: (query: { state: { data: unknown } }) => query.state.data === 0 ? 15_000 : false,
+    })),
   });
   const results = visible.map((session, index) => ({ session, capacity: capacities[index] }))
     .filter(({ capacity }) => !onlyOpen || (capacity.data ?? 0) > 0);
@@ -342,12 +347,15 @@ export function FlexibleBooking({
                   <div key={entry.classId}>
                     {classes.find((c) => c.id === entry.classId)?.className || `Buổi #${entry.classId}`}
                     {" · "}{waitlistStatus[entry.status] ?? entry.status}
+                    {entry.status === "QUEUED" && entry.position != null && <> · Vị trí {entry.position}</>}
+                    {entry.status === "QUEUED" && <Button type="button" disabled={busy} variant="secondary"
+                      onClick={() => setDeclining({ classId: entry.classId, invited: false })}>Rời danh sách chờ</Button>}
                     {entry.status === "INVITED" && entry.inviteUntil && parseDate(entry.inviteUntil) > now && <>
-                      {" · đến "}{dateLabel(entry.inviteUntil)} {timeLabel(entry.inviteUntil)}
+                      {" · Xác nhận trước "}{timeLabel(entry.inviteUntil)} ngày {dateLabel(entry.inviteUntil)}
                       {" "}<Button type="button" disabled={busy}
-                        onClick={() => void updateWaitlist(entry.classId, true)}>Xác nhận lời mời</Button>
+                        onClick={() => void updateWaitlist(entry.classId, true)}>Xác nhận chỗ</Button>
                       {" "}<Button type="button" disabled={busy} variant="secondary"
-                        onClick={() => setDeclining(entry.classId)}>Từ chối lời mời</Button>
+                        onClick={() => setDeclining({ classId: entry.classId, invited: true })}>Từ chối chỗ tập</Button>
                     </>}
                   </div>
                 ))}
@@ -355,13 +363,13 @@ export function FlexibleBooking({
             )}
             {waitlist.error && <p role="alert">{errorText(waitlist.error)}</p>}
             {declining !== null && <Confirm
-              title="Từ chối lời mời giữ chỗ?"
-              description="Chỗ này sẽ được giải phóng cho thành viên tiếp theo trong danh sách chờ."
+              title={waitlistCancellationCopy(declining.invited).label + "?"}
+              description={waitlistCancellationCopy(declining.invited).description}
               onClose={() => setDeclining(null)}
               onConfirm={async () => {
-                await request("/classes/" + declining + "/waitlist/decline", { method: "POST" });
+                await request("/classes/" + declining.classId + "/waitlist/decline", { method: "POST" });
                 await client.invalidateQueries();
-                setNotice("Đã từ chối lời mời giữ chỗ.");
+                setNotice(waitlistCancellationCopy(declining.invited).success);
               }}
             />}
           </Panel>

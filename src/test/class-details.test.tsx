@@ -119,7 +119,7 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     expect(screen.queryByRole("button", { name: "Hủy đăng ký" })).toBeNull();
   });
 
-  it.each(["INVITED", "QUEUED"])("offers to leave only an eligible waitlist entry (%s)", async (status) => {
+  it.each(["INVITED", "QUEUED"])("confirms leaving or declining the member’s waitlist entry (%s)", async (status) => {
     memberSession();
     const future = { ...item(), scheduleTime: `${localDate(addDays(1))}T19:15:00` };
     let left = false;
@@ -128,7 +128,7 @@ describe("Chi tiết lớp API và COMPLETED", () => {
       if (path === "/api/v1/classes/1") return json(future);
       if (path.endsWith("/capacity")) return json(0);
       if (path.endsWith("/bookings/my-waitlist")) {
-        return json([{ classId: 1, status: left ? "CANCELLED" : status, inviteUntil: future.scheduleTime }]);
+        return json([{ classId: 1, status: left ? "CANCELLED" : status, inviteUntil: status === "INVITED" ? future.scheduleTime : null }]);
       }
       if (path.endsWith("/waitlist/decline") && init?.method === "POST") {
         left = true;
@@ -138,16 +138,14 @@ describe("Chi tiết lớp API và COMPLETED", () => {
     });
     vi.stubGlobal("fetch", fetch);
     page(detailNode());
-    if (status === "QUEUED") {
-      expect(await screen.findByText(/Bạn đang chờ chỗ/)).toBeVisible();
-      expect(screen.queryByRole("button", { name: "Rời danh sách chờ" })).toBeNull();
-      return;
-    }
+    const label = status === "INVITED" ? "Từ chối chỗ tập" : "Rời danh sách chờ";
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Rời danh sách chờ" }));
-    await user.click(within(screen.getByRole("dialog", { name: "Rời danh sách chờ?" })).getByRole("button", { name: "Xác nhận" }));
-    expect(await screen.findByText("Đã rời danh sách chờ.")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Rời danh sách chờ" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: label }));
+    expect(fetch).not.toHaveBeenCalledWith("/api/v1/classes/1/waitlist/decline", expect.anything());
+    await user.click(within(screen.getByRole("dialog", { name: label + "?" })).getByRole("button", { name: "Xác nhận" }));
+    const success = status === "INVITED" ? "Đã từ chối lời mời giữ chỗ." : "Đã rời danh sách chờ.";
+    expect(await screen.findByText(success)).toBeVisible();
+    expect(screen.queryByRole("button", { name: label })).toBeNull();
     expect(fetch).toHaveBeenCalledWith("/api/v1/classes/1/waitlist/decline", expect.objectContaining({ method: "POST" }));
   });
 

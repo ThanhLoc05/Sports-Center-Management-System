@@ -56,7 +56,7 @@ beforeEach(() => {
   ]);
   vi.mocked(request).mockResolvedValue([
     { classId: 8, status: "INVITED", inviteUntil: "2026-11-26T12:15:00" },
-    { classId: 9, status: "QUEUED", inviteUntil: null },
+    { classId: 9, status: "QUEUED", inviteUntil: null, position: 2 },
   ]);
 });
 afterEach(() => vi.useRealTimers());
@@ -72,6 +72,14 @@ const titles = () => screen.getAllByRole("heading", { level: 3 }).map(heading =>
 function card(name: string) {
   return screen.getByRole("heading", { name }).closest("li")!;
 }
+
+it("shows the queue position from the API and explains VIP priority", async () => {
+  const user = open();
+  await user.click(await screen.findByRole("button", { name: "Danh sách chờ (2)" }));
+  expect(await screen.findByText("Vị trí 2")).toBeVisible();
+  expect(screen.getByText(/Hội viên VIP được ưu tiên/)).toBeVisible();
+  expect(screen.queryByText("Vị trí 1")).toBeNull();
+});
 
 it("lists only flexible bookings in chronological groups and expands booking details", async () => {
   const user = open();
@@ -136,17 +144,18 @@ it("keeps Waitlist separate and accepts a live invitation through the existing e
   await user.click(await screen.findByRole("button", { name: "Danh sách chờ (2)" }));
   expect(screen.getAllByText("Đang chờ chỗ")[0]).toBeVisible();
   expect(screen.getAllByText("Có lời mời nhận chỗ")[0]).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "Xác nhận lời mời" }));
+  expect(screen.getByText(/Xác nhận trước/)).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Xác nhận chỗ" }));
   expect(request).toHaveBeenCalledWith("/classes/8/waitlist/accept", { method: "POST" });
 });
 
 it("declines only after confirmation and refreshes the waiting list without making a booking", async () => {
   const user = open();
   await user.click(await screen.findByRole("button", { name: "Danh sách chờ (2)" }));
-  expect(within(card("Buổi trong hàng chờ")).queryByRole("button", { name: "Rời danh sách chờ" })).toBeNull();
-  const decline = screen.getByRole("button", { name: "Rời danh sách chờ" });
+  expect(within(card("Buổi trong hàng chờ")).getByRole("button", { name: "Rời danh sách chờ" })).toBeEnabled();
+  const decline = screen.getByRole("button", { name: "Từ chối chỗ tập" });
   await user.click(decline);
-  const confirmation = () => within(screen.getByRole("dialog", { name: "Rời danh sách chờ?" }));
+  const confirmation = () => within(screen.getByRole("dialog", { name: "Từ chối chỗ tập?" }));
   await user.click(confirmation().getByRole("button", { name: "Quay lại" }));
   expect(request).not.toHaveBeenCalledWith("/classes/8/waitlist/decline", expect.anything());
 

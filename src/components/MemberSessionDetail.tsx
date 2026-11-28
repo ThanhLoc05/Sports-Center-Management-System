@@ -6,14 +6,12 @@ import { useAuth } from "../lib/auth";
 import { apiMembershipAccess, classAccessAllowed } from "../lib/entitlements";
 import { sessionSlotLabel, sessionTimeRange } from "../lib/scheduling-slots";
 import { sportImage, sportVisual } from "../lib/sport-visuals";
-import type { Booking, SportClass } from "../lib/types";
+import type { Booking, SportClass, WaitlistEntry } from "../lib/types";
 import { dateLabel, errorText, localDate, parseDate, timeLabel } from "../lib/utils";
 import { bookingCancellationBlocker, refreshMemberRegistration, type MemberCancellationAction } from "./MemberBookingCancellation";
 import { memberScheduleSport, scheduleSessionState } from "./MemberSchedule";
 import { Button, Modal, useToast } from "./ui";
 import "../styles-member-session-detail.css";
-
-type WaitlistEntry = { status: string; inviteUntil: string | null };
 
 export default function MemberSessionDetail({
   item, sport, room, coach, capacity, capacityError, retryCapacity, booking, cancelled, waiting, notice,
@@ -76,7 +74,7 @@ export default function MemberSessionDetail({
   const explain = hasBooking
     ? blocker ?? (!flexible || booking.status !== "BOOKED" ? "Lượt đăng ký này được quản lý ở trang đăng ký tương ứng." : "Buổi tập đã có trong lịch cá nhân.")
     : invited && waiting.inviteUntil ? `Xác nhận trước ${timeLabel(waiting.inviteUntil)} ngày ${dateLabel(waiting.inviteUntil)}.`
-      : queued && !blocker ? "Bạn đang chờ chỗ. Bạn sẽ nhận thông báo khi tới lượt và có thể rời danh sách khi có lời mời giữ chỗ."
+      : queued && !blocker ? "Bạn đang chờ chỗ. Bạn sẽ nhận thông báo khi tới lượt."
         : blocker ?? accessBlocker;
   const showNewAction = eligible && !booking && !queued && !invited && capacity !== undefined && !capacityError;
 
@@ -101,7 +99,7 @@ export default function MemberSessionDetail({
     <SessionDetailDialog item={item} sport={sport} room={room} coach={coach}
       capacity={capacity} capacityError={capacityError} retryCapacity={retryCapacity}
       onClose={onClose} onCoach={onCoach} busy={busy}
-      actions={(canCancel || showNewAction || (invited && !blocker)) && <>
+      actions={(canCancel || showNewAction || ((invited || queued) && !blocker)) && <>
         {canCancel && <Button className="member-session-cancel" variant="secondary"
           onClick={() => onAction({ kind: "booking", item, bookingId: booking.id })}>
           <CalendarX size={17} aria-hidden="true" /> Hủy đăng ký
@@ -109,16 +107,18 @@ export default function MemberSessionDetail({
         {showNewAction && (capacity === 0
           ? session?.mode === "api" && <Button variant="secondary" loading={busy} onClick={() => void updateWaitlist(false)}>Tham gia danh sách chờ</Button>
           : <Button onClick={onBook}>Đăng ký buổi tập</Button>)}
-        {invited && !blocker && <>
-          <Button variant="secondary" disabled={busy} onClick={() => onAction({ kind: "waitlist", item })}>Rời danh sách chờ</Button>
-          <Button loading={busy} onClick={() => void updateWaitlist(true)}>Xác nhận chỗ</Button>
-        </>}
+        {(invited || queued) && !blocker && <Button variant="secondary" disabled={busy}
+          onClick={() => onAction({ kind: "waitlist", item, invited })}>
+          {invited ? "Từ chối chỗ tập" : "Rời danh sách chờ"}
+        </Button>}
+        {invited && !blocker && <Button loading={busy} onClick={() => void updateWaitlist(true)}>Xác nhận chỗ</Button>}
       </>}>
       {notice}
         <div className="member-session-registration" data-kind={hasBooking ? "booked" : invited || queued ? "waiting" : "neutral"} role="status">
           {hasBooking ? <CheckCircle2 size={18} aria-hidden="true" /> : invited || queued ? <Clock3 size={18} aria-hidden="true" /> : <Info size={18} aria-hidden="true" />}
           <div>
             <strong>{hasBooking ? "Bạn đã đăng ký buổi tập này" : registration}</strong>
+            {queued && waiting.position != null && <p>Vị trí {waiting.position}</p>}
             {explain && <p>{explain}</p>}
             {registrationError && <button type="button" className="text-link" onClick={retryRegistration}>Tải lại trạng thái đăng ký</button>}
             {accessPending && <p>Đang kiểm tra quyền lợi gói tập…</p>}

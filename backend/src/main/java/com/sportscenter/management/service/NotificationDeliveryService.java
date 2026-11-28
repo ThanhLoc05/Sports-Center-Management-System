@@ -251,11 +251,12 @@ public class NotificationDeliveryService {
                 .link(row.getLink()).createdAt(row.getCreatedAt()).kind("GENERAL").category(category).build());
     }
 
-    public void publishManagerScheduleChangedAfterCommit() {
-        var managerIds = userRepository.findByRole_RoleNameAndStatus("CENTER_MANAGER", "ACTIVE")
-                .stream().map(User::getId).toList();
+    public void publishStaffScheduleChangedAfterCommit() {
+        var staffIds = java.util.stream.Stream.of("CENTER_MANAGER", "RECEPTIONIST")
+                .flatMap(role -> userRepository.findByRole_RoleNameAndStatus(role, "ACTIVE").stream())
+                .map(User::getId).toList();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() { managerIds.forEach(NotificationDeliveryService.this::publishScheduleChanged); }
+            @Override public void afterCommit() { staffIds.forEach(NotificationDeliveryService.this::publishScheduleChanged); }
         });
     }
 

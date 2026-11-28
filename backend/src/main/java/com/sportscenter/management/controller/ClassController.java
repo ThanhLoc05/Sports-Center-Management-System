@@ -40,8 +40,11 @@ public class ClassController {
      */
     @PostMapping
     @PreAuthorize("hasRole('CENTER_MANAGER')")
+    @Transactional
     public ResponseEntity<ClassResponse> createClass(@Valid @RequestBody ClassRequest request) {
-        return ResponseEntity.status(201).body(classService.createClass(request));
+        var result = classService.createClass(request);
+        notifications.publishStaffScheduleChangedAfterCommit();
+        return ResponseEntity.status(201).body(result);
     }
 
     /**
@@ -111,7 +114,7 @@ public class ClassController {
     @Transactional
     public ClassResponse updateClass(@PathVariable Integer classId, @Valid @RequestBody ClassRequest request) {
         var result = classService.updateClass(classId, request);
-        notifications.publishManagerScheduleChangedAfterCommit();
+        notifications.publishStaffScheduleChangedAfterCommit();
         return result;
     }
 
@@ -121,9 +124,12 @@ public class ClassController {
      */
     @PostMapping("/{classId}/cancel")
     @PreAuthorize("hasRole('CENTER_MANAGER')")
+    @Transactional
     public ClassResponse cancelClass(@PathVariable Integer classId,
                                      @Valid @RequestBody ClassCancellationRequest request) {
-        return classService.cancelClass(classId, request, securityUtils.getCurrentUserId());
+        var result = classService.cancelClass(classId, request, securityUtils.getCurrentUserId());
+        notifications.publishStaffScheduleChangedAfterCommit();
+        return result;
     }
 
     @GetMapping("/{classId}/cancellation")

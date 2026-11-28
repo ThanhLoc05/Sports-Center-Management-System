@@ -160,6 +160,86 @@ class FlexibleBookingSqlServerIT {
         assertEquals("INVITED", policy.entries(matchingSport).getFirst().status());
     }
 
+    @Test void ranksVipBeforeStandardWithFifoAndStableTies() {
+        int holder = member("STANDARD", sport);
+        int a = member("STANDARD", sport), b = member("STANDARD", sport), c = member("VIP", null);
+        int d = member("STANDARD", sport), e = member("VIP", null), slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        for (int member : List.of(a, b, c, d, e)) policy.join(slot, member);
+        jdbc.update("UPDATE dbo.class_waitlist SET joined_at=? WHERE class_id=?", policy.now(), slot);
+        assertEquals("BOOKED", bookings.getMemberBookings(holder).getFirst().getStatus());
+        var expected = List.of(c, e, a, b, d);
+        assertEquals(List.of(1, 2, 3, 4, 5), expected.stream().map(m -> policy.entries(m).getFirst().position()).toList());
+        bookings.cancelBooking(booking);
+        for (int member : expected) {
+            var invites = jdbc.queryForList("SELECT member_id FROM dbo.class_waitlist WHERE class_id=? AND status='INVITED'", Integer.class, slot);
+            assertEquals(List.of(member), invites);
+            System.out.printf("VIP-ORDER class=%d recipient=%d%n", slot, invites.getFirst());
+            policy.decline(slot, member);
+        }
+    }
+
+    @Test void checksCurrentUpgradeExpiryOverlapAndHoldingLimitBeforeInviting() {
+        int holder = member("STANDARD", sport), standard = member("STANDARD", sport), upgraded = member("STANDARD", sport);
+        int expired = member("VIP", null), overlap = member("VIP", null), atLimit = member("VIP", null);
+        int slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        for (int member : List.of(standard, expired, overlap, atLimit, upgraded)) policy.join(slot, member);
+        bookings.bookClass(session(sport, 1, start), overlap);
+        for (int i = 1; i <= 5; i++) bookings.bookClass(session(sport, 1, start.plusHours(i)), atLimit);
+        jdbc.update("UPDATE dbo.member_subscriptions SET status='EXPIRED' WHERE member_id=?", expired);
+        var source = subscriptions.findActiveMembership(upgraded).orElseThrow();
+        pay(upgraded, source.getId(), "VIP", null);
+        assertEquals(1, policy.entries(upgraded).getFirst().position());
+        assertEquals(2, policy.entries(standard).getFirst().position());
+        for (int member : List.of(expired, overlap, atLimit)) assertNull(policy.entries(member).getFirst().position());
+        bookings.cancelBooking(booking);
+        assertEquals("INVITED", policy.entries(upgraded).getFirst().status());
+        policy.decline(slot, upgraded);
+        assertEquals("INVITED", policy.entries(standard).getFirst().status());
+    }
+
+    @Test void multipleSeatsAndWorkerRetriesPreserveAnExistingInvitation() {
+        int holder = member("STANDARD", sport), first = member("STANDARD", sport);
+        int standard = member("STANDARD", sport), vip = member("VIP", null), slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        policy.join(slot, first);
+        bookings.cancelBooking(booking);
+        var original = policy.entries(first).getFirst().inviteUntil();
+        policy.join(slot, standard);
+        policy.join(slot, vip);
+        policy.poll(slot);
+        assertEquals("QUEUED", policy.entries(vip).getFirst().status());
+        assertEquals(original, policy.entries(first).getFirst().inviteUntil());
+        jdbc.update("UPDATE dbo.classes SET max_capacity=3 WHERE class_id=?", slot);
+        policy.poll(slot);
+        policy.poll(slot);
+        for (int member : List.of(first, vip, standard)) {
+            assertEquals("INVITED", policy.entries(member).getFirst().status());
+            assertEquals("BOOKED", bookings.acceptWaitlist(slot, member).getStatus());
+        }
+        assertNull(policy.entries(vip).getFirst().position());
+        policy.poll(slot);
+        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM dbo.class_bookings WHERE class_id=? AND status='BOOKED'", Integer.class, slot));
+    }
+
+    @Test void cancellingClassClosesBothWaitlistTiersWithoutOfferingASeat() throws Exception {
+        int holder = member("STANDARD", sport), standard = member("STANDARD", sport), vip = member("VIP", null);
+        int slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        policy.join(slot, standard);
+        policy.join(slot, vip);
+        bookings.cancelBooking(booking);
+        assertEquals("INVITED", policy.entries(vip).getFirst().status());
+        var cancelled = post(actor("CENTER_MANAGER"), "/classes/" + slot + "/cancel", "{\"reason\":\"SCHEDULE_CHANGE\"}");
+        assertEquals(200, cancelled);
+        policy.poll(slot);
+        for (int member : List.of(standard, vip)) {
+            assertEquals("CANCELLED", policy.entries(member).getFirst().status());
+            assertNull(policy.entries(member).getFirst().position());
+        }
+    }
+
     @Test void nextQueuedMemberGetsReservedSeatWhenFirstOfferExpires() {
         int holder = member("STANDARD", sport), first = member("VIP", null), second = member("VIP", null);
         int outsider = member("VIP", null), slot = session(sport,1,start);
@@ -193,7 +273,7 @@ class FlexibleBookingSqlServerIT {
 
         String path = "/classes/" + slot + "/waitlist/decline";
         assertEquals(403, post(coach, path, "{}"));
-        assertEquals(409, post(next, path, "{}"));
+        assertEquals(409, post(member("VIP", null), path, "{}"));
         assertEquals("INVITED", policy.entries(first).getFirst().status());
         assertEquals(200, post(first, path, "{}"));
         assertEquals(409, post(first, path, "{}"));
@@ -206,6 +286,41 @@ class FlexibleBookingSqlServerIT {
                 """, Integer.class, first, "WAITLIST_DECLINED:" + slot + ":%"));
         assertEquals("BOOKED", bookings.acceptWaitlist(slot, next).getStatus());
         assertEquals(1, bookings.getClassStudents(slot).size());
+    }
+
+    @Test void queuedMemberCanLeaveWithoutChangingAnExistingInvitation() throws Exception {
+        int holder = member("STANDARD", sport), invited = member("VIP", null);
+        int leaving = member("VIP", null), next = member("VIP", null), standard = member("STANDARD", sport);
+        int slot = session(sport, 1, start);
+        int booking = bookings.bookClass(slot, holder).getId();
+        for (int member : List.of(invited, leaving, next, standard)) policy.join(slot, member);
+        bookings.cancelBooking(booking);
+        var firstOffer = policy.entries(invited).getFirst();
+        assertEquals("INVITED", firstOffer.status());
+        assertTrue(firstOffer.inviteUntil().isAfter(policy.now().plusMinutes(14)));
+        assertFalse(firstOffer.inviteUntil().isAfter(policy.now().plusMinutes(15)));
+        assertEquals(2, policy.entries(next).getFirst().position());
+        var before = jdbc.queryForMap("SELECT id,joined_at FROM dbo.class_waitlist WHERE class_id=? AND member_id=?", slot, leaving);
+
+        String path = "/classes/" + slot + "/waitlist/decline";
+        assertEquals(200, post(leaving, path, "{}"));
+        assertEquals(409, post(leaving, path, "{}"));
+        assertEquals("CANCELLED", policy.entries(leaving).getFirst().status());
+        assertEquals(before, jdbc.queryForMap("SELECT id,joined_at FROM dbo.class_waitlist WHERE class_id=? AND member_id=?", slot, leaving));
+        assertEquals(firstOffer, policy.entries(invited).getFirst());
+        assertEquals(1, policy.entries(next).getFirst().position());
+        assertEquals(2, policy.entries(standard).getFirst().position());
+        assertTrue(bookings.getMemberBookings(leaving).isEmpty());
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM dbo.member_notification_outbox
+                WHERE recipient_id=? AND event_key LIKE ?
+                """, Integer.class, leaving, "WAITLIST_LEFT:" + slot + ":%"));
+        assertThrows(IllegalArgumentException.class, () -> bookings.bookClass(slot, standard));
+        assertEquals(200, post(invited, path, "{}"));
+        assertEquals("INVITED", policy.entries(next).getFirst().status());
+        assertEquals(200, post(next, path, "{}"));
+        assertEquals("INVITED", policy.entries(standard).getFirst().status());
+        assertEquals("BOOKED", bookings.acceptWaitlist(slot, standard).getStatus());
     }
 
     @Test void acceptAndDeclineRaceCanOnlyResolveOneWay() throws Exception {
@@ -329,7 +444,7 @@ class FlexibleBookingSqlServerIT {
     }
 
     @Test void publicationIsIdempotentAndResourceConflictLeavesNoPartialSeries() {
-        var firstSlot = start.toLocalDate().atTime(15, 0);
+        var firstSlot = start.toLocalDate().atTime(FlexibleClassSlot.SLOT_03.start());
         var request = ClassRequest.builder().className("Series " + UUID.randomUUID())
                 .coachId(coach).sportId(sport).roomId(room).maxCapacity(1)
                 .scheduleTime(firstSlot).durationMinutes(90).requiredAccessLevel("STANDARD").build();

@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class NotificationStreamTest {
     @Test
-    void scheduleSignalReachesOnlyActiveManagersAfterCommit() {
+    void scheduleSignalReachesActiveScheduleStaffAfterCommit() {
         var users = mock(UserRepository.class);
         var service = spy(new NotificationDeliveryService(mock(SecurityUtils.class), users,
                 mock(ClassRepository.class), mock(ClassBookingRepository.class), mock(WorkoutPlanService.class),
@@ -38,15 +38,20 @@ class NotificationStreamTest {
         second.setId(11);
         when(users.findByRole_RoleNameAndStatus("CENTER_MANAGER", "ACTIVE")).thenReturn(List.of(first, second));
 
+        var receptionist = new User();
+        receptionist.setId(12);
+        when(users.findByRole_RoleNameAndStatus("RECEPTIONIST", "ACTIVE")).thenReturn(List.of(receptionist));
+
         TransactionSynchronizationManager.initSynchronization();
         try {
-            service.publishManagerScheduleChangedAfterCommit();
+            service.publishStaffScheduleChangedAfterCommit();
             verify(service, never()).publishScheduleChanged(anyInt());
             var callbacks = TransactionSynchronizationManager.getSynchronizations();
             assertEquals(1, callbacks.size());
             callbacks.getFirst().afterCommit();
             verify(service).publishScheduleChanged(10);
             verify(service).publishScheduleChanged(11);
+            verify(service).publishScheduleChanged(12);
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }

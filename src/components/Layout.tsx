@@ -284,9 +284,9 @@ export default function Layout() {
     const syncSchedule = () => {
       const { id, roleName } = session.user;
       const classDetail: QueryFilters = { queryKey: ["classDetail"], predicate: (query) => query.queryKey[2] === id };
-      if (roleName === "CENTER_MANAGER") {
+      if (roleName === "CENTER_MANAGER" || roleName === "RECEPTIONIST") {
         void client.invalidateQueries({ queryKey: ["classes"] });
-        void client.invalidateQueries({ queryKey: ["managed-classes"] });
+        if (roleName === "CENTER_MANAGER") void client.invalidateQueries({ queryKey: ["managed-classes"] });
         void client.invalidateQueries(classDetail);
         return;
       }
