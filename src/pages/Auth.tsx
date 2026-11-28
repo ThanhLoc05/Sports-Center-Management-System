@@ -340,7 +340,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
             </Button>
           </form>
           {!register && configuredMode === "api" && (
-            <p><Link to="/forgot-password">Quên mật khẩu</Link>{" · "}<Link to="/resend-verification">Gửi lại email xác minh</Link></p>
+            <p><Link to="/forgot-password">Quên mật khẩu</Link></p>
           )}
           <p className="auth-switch">
             {register ? "Đã có tài khoản?" : "Bạn chưa có tài khoản?"}{" "}
