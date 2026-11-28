@@ -43,7 +43,7 @@ const syncLabels = {
 } as const;
 import "../styles-manager-week-schedule.css";
 import "../styles-weekly-schedule.css";
-import ScheduleSportMarkers from "../components/ScheduleSportMarkers";
+import ScheduleSportMarkers, { sportTone } from "../components/ScheduleSportMarkers";
 
 const weekdays: { code: Weekday; label: string; short: string }[] = [
   { code: "MONDAY", label: "Thứ Hai", short: "T2" },
@@ -407,6 +407,7 @@ export default function WeeklySchedule() {
                               <td key={day.code} data-selected-day={day.code === mobileDay}>
                                 <button type="button"
                                   className="manager-week-cell" data-empty={!items.length}
+                                  data-sport={sportTone(names)}
                                   disabled={busy || version === null}
                                   aria-label={`${day.label} · ${slot.label} · ${label}`}
                                   onClick={() =>

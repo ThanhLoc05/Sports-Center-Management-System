@@ -137,3 +137,24 @@
   color: #793804;
   background: #fceacf;
 }
+
+/*
+  Ô buổi/lớp tô theo màu bộ môn, cùng bảng màu với chú thích (CL xanh lá, YG tím, DC cam).
+  Làm sao: data-sport đặt khi mọi buổi trong ô cùng một môn; ô nhiều môn giữ nền trung tính ở trên.
+  Tại sao: nhìn lịch biết ngay môn nào mà không phải đọc nhãn nhỏ.
+*/
+.manager-week-cell[data-sport="badminton"] {
+  background: #ecf8f0;
+  border-color: #b5dfc4;
+}
+.manager-week-cell[data-sport="yoga"] {
+  background: #f6f1ff;
+  border-color: #d6c4f7;
+}
+.manager-week-cell[data-sport="dance"] {
+  background: #fef5e7;
+  border-color: #f3d2a2;
+}
+.manager-week-cell[data-sport="badminton"]:hover { border-color: #17492f; }
+.manager-week-cell[data-sport="yoga"]:hover { border-color: #523688; }
+.manager-week-cell[data-sport="dance"]:hover { border-color: #793804; }

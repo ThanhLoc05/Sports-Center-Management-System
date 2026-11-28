@@ -410,40 +410,56 @@ const sportKey = (name: string) => name.normalize("NFC").trim().toLowerCase();
 const visibleSportKeys = new Set(VISIBLE_SPORT_NAMES.map(sportKey));
 export const isVisibleSport = (name: string) =>
   !sportFilterEnabled || visibleSportKeys.has(sportKey(name || ""));
-/** Lấy id các bộ môn được hiển thị; gọi GET /sports một lần cho mỗi phiên đăng nhập rồi dùng lại. */
-let visibleSportIdsCache: { token: string; ids: Promise<Set<number>> } | null = null;
+/**
+ * Lấy id các bộ môn được hiển thị, nhớ tối đa 1 phút cho mỗi phiên đăng nhập.
+ * Tại sao có hạn: bộ môn mới (ví dụ Dance thêm sau khi đã mở trang) phải hiện lại mà không cần đăng nhập lại;
+ * api.sports cũng ghi đè cache này mỗi lần tải danh sách bộ môn.
+ */
+const SPORT_CACHE_MS = 60_000;
+let visibleSportIdsCache: { token: string; at: number; ids: Promise<Set<number>> } | null = null;
+const cacheFresh = (entry: { token: string; at: number } | null, token: string) =>
+  !!entry && entry.token === token && Date.now() - entry.at < SPORT_CACHE_MS;
+function rememberVisibleSports(rows: { id: number; sportName: string }[]) {
+  const token = getSession()?.token || "";
+  visibleSportIdsCache = {
+    token, at: Date.now(),
+    ids: Promise.resolve(new Set(rows.filter((s) => isVisibleSport(s.sportName)).map((s) => s.id))),
+  };
+  // Danh sách bộ môn đổi thì danh sách lớp bị ẩn cũng phải tính lại.
+  hiddenClassIdsCache = null;
+}
 function visibleSportIds(): Promise<Set<number>> {
   const token = getSession()?.token || "";
-  if (!visibleSportIdsCache || visibleSportIdsCache.token !== token) {
+  if (!cacheFresh(visibleSportIdsCache, token)) {
     const ids = request<{ id: number; sportName: string }[]>("/sports").then(
       (rows) => new Set(assertArray(rows).filter((s) => isVisibleSport(s.sportName)).map((s) => s.id)),
     );
     // Lỗi thì xóa cache để lần sau thử lại, không giữ một Promise hỏng.
     ids.catch(() => { if (visibleSportIdsCache?.ids === ids) visibleSportIdsCache = null; });
-    visibleSportIdsCache = { token, ids };
+    visibleSportIdsCache = { token, at: Date.now(), ids };
   }
-  return visibleSportIdsCache.ids;
+  return visibleSportIdsCache!.ids;
 }
 /**
  * Id các lớp thuộc bộ môn bị ẩn, dùng để ẩn đăng ký/điểm danh cũ trong lịch sử cá nhân của Member.
- * Làm sao: đọc danh sách lớp (HLV: lớp của mình) + id bộ môn hiển thị, nhớ theo phiên đăng nhập.
+ * Làm sao: đọc danh sách lớp (HLV: lớp của mình) + id bộ môn hiển thị, nhớ tối đa 1 phút cho mỗi phiên.
  * Tại sao: bản ghi đăng ký/điểm danh không có sportId nên phải tra qua lớp; dữ liệu trong DB không đổi.
  */
-let hiddenClassIdsCache: { token: string; ids: Promise<Set<number>> } | null = null;
+let hiddenClassIdsCache: { token: string; at: number; ids: Promise<Set<number>> } | null = null;
 function hiddenClassIds(): Promise<Set<number>> {
   if (!sportFilterEnabled) return Promise.resolve(new Set());
   const actor = getSession();
   const token = actor?.token || "";
-  if (!hiddenClassIdsCache || hiddenClassIdsCache.token !== token) {
+  if (!cacheFresh(hiddenClassIdsCache, token)) {
     const ids = Promise.all([
       request<SportClass[]>(actor?.user.roleName === "COACH" ? "/classes/my-classes" : "/classes"),
       visibleSportIds(),
     ]).then(([rows, visible]) =>
       new Set(assertArray(rows).filter((c) => !visible.has(c.sportId)).map((c) => c.id)));
     ids.catch(() => { if (hiddenClassIdsCache?.ids === ids) hiddenClassIdsCache = null; });
-    hiddenClassIdsCache = { token, ids };
+    hiddenClassIdsCache = { token, at: Date.now(), ids };
   }
-  return hiddenClassIdsCache.ids;
+  return hiddenClassIdsCache!.ids;
 }
 
 interface RegistrationCodeDelivery {
@@ -1596,8 +1612,9 @@ export const api = {
       await request<{ id: number; sportName: string; description?: string }[]>(
         "/sports",
       ),
-    ).filter((s) => isVisibleSport(s.sportName));
-    return rows.map((s) => ({
+    );
+    if (sportFilterEnabled) rememberVisibleSports(rows);
+    return rows.filter((s) => isVisibleSport(s.sportName)).map((s) => ({
       id: s.id,
       name: s.sportName,
       description: s.description || "",

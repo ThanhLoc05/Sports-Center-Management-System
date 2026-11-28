@@ -7,7 +7,7 @@ import { SCHEDULING_SLOTS, slotForSession, sessionTimeRange } from "../lib/sched
 import { dateLabel, localDate, parseDate } from "../lib/utils";
 import { ClassCoachName } from "../pages/Classes";
 import { Badge, Field, Modal } from "./ui";
-import ScheduleSportMarkers from "./ScheduleSportMarkers";
+import ScheduleSportMarkers, { sportTone } from "./ScheduleSportMarkers";
 import "../styles-manager-week-schedule.css";
 
 function SessionRow({
@@ -103,6 +103,7 @@ export default function ManagerWeekSchedule({
           <button
             type="button"
             className="manager-week-cell"
+            data-sport={sportTone(sportNames)}
             aria-label={`${title} · ${group.length} buổi${cancelled ? ` · ${cancelled} đã hủy` : ""}`}
             onClick={() => setSelected({ date, code, title })}
           >
