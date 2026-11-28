@@ -8,6 +8,7 @@
   Lưu ý: file này KHÔNG tạo buổi tập. Sau khi chạy, đăng nhập quản lý -> Lớp học -> Lịch tuần -> đồng bộ lịch để sinh buổi tập
           (mã chuỗi lịch recurrence_key do backend tính, không tạo bằng SQL).
   Gói tập chỉ được thêm khi hôm nay nằm trong khoảng ngày của gói; gói VIP chỉ thêm khi gói VIP còn ACTIVE.
+  Chạy bằng sqlcmd phải thêm cờ -I (bật QUOTED_IDENTIFIER, cần cho index lọc của dbo.users); SSMS đã bật sẵn.
 */
 SET XACT_ABORT ON;
 SET NOCOUNT ON;

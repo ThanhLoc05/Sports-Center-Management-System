@@ -605,6 +605,7 @@ function AttendanceBenefits({ record, role, ended, windowOpen }: {
   const supplies = role === "RECEPTIONIST" && record.status === "PRESENT" && windowOpen;
   const membership = useQuery({
     queryKey: ["activeSubscription", record.memberId],
+    // [API] api.activeSubscription → GET /memberships/members/{memberId}/active — lấy gói đang hiệu lực của học viên để hiện quyền lợi buổi tập ở cột Xác nhận.
     queryFn: () => api.activeSubscription(record.memberId),
     enabled: supplies,
   });

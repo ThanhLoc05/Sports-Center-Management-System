@@ -144,6 +144,7 @@ export function ClassForm({
             requiredAccessLevel: data.get("requiredAccessLevel") as AccessLevel,
             status: item?.status || "SCHEDULED",
         };
+        // [API] api.saveClass → có id thì PUT /classes/{id} (sửa lớp), không có thì POST /classes (tạo lớp mới).
         await api.saveClass(input, item?.id);
         toast(item ? "Đã cập nhật lớp học." : "Đã tạo lớp học mới.");
         await client.invalidateQueries();
@@ -387,6 +388,7 @@ export default function Classes() {
     queryKey: ["managed-classes", session!.user.id, status, sport, search, page, filters],
     queryFn: () => anyFilterActive
       ? api.managedClasses(status, sport, search.slice(0, 150), page, filters)
+      // [API] api.managedClasses → GET /classes/management?status=&keyword=&page=&sportId= (+ coachId, roomId, fromDate, throughDate, slot nếu có) — danh sách lớp có lọc/phân trang khi người dùng bật bộ lọc.
       : api.managedClasses(status, sport, search.slice(0, 150), page),
     enabled: managed && !invalidRange,
     retry: (count, error) => !lacksManagementEndpoint(error) && count < 2,
@@ -398,6 +400,7 @@ export default function Classes() {
   const linkedId = managed ? Number(params.get("classId")) : 0;
   const linkedClass = useQuery({
     queryKey: ["classDetail", linkedId, session!.user.id],
+    // [API] api.classDetail → GET /classes/{id} — chi tiết lớp khi mở từ đường dẫn có mã lớp.
     queryFn: () => api.classDetail(linkedId),
     enabled: managed && Number.isSafeInteger(linkedId) && linkedId > 0,
   });
@@ -1130,6 +1133,7 @@ function ClassDetailContent({
   });
   const cancellation = useQuery({
     queryKey: ["classCancellation", session?.user.id, c.id],
+    // [API] api.classCancellation → GET /classes/{id}/cancellation — lý do hủy, số người đã đăng ký/chờ và lớp có được hủy không.
     queryFn: () => api.classCancellation(c.id),
     enabled: session?.mode === "api" && (!!onCancel || (isMember && c.status === "CANCELLED")),
     retry: false,
@@ -1168,6 +1172,7 @@ function ClassDetailContent({
           status: student.bookingStatus,
           fullName: student.fullName?.trim(),
         }))
+      // [API] Chế độ API: operations.students → GET /classes/{classId}/students; chế độ demo: api.bookings → GET /classes/{classId}/bookings — danh sách học viên trong lớp.
       : (await api.bookings(undefined, c.id)).map((booking) => ({
           ...booking,
           fullName: users.data?.find((u) => u.id === booking.memberId)?.fullName,
