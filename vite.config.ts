@@ -35,7 +35,8 @@ export default defineConfig(({ mode }) => {
     test: {
       include: ["src/**/*.{test,spec}.{ts,tsx}"],
       environment: "jsdom",
-      env: { VITE_DATA_MODE: "demo", VITE_API_BASE_URL: "" },
+      // VITE_VISIBLE_SPORTS="*": test giữ đủ mọi bộ môn trong dữ liệu giả lập, không áp bộ lọc 3 môn của app.
+      env: { VITE_DATA_MODE: "demo", VITE_API_BASE_URL: "", VITE_VISIBLE_SPORTS: "*" },
       setupFiles: ["./src/test/setup.ts"],
       css: false,
       globals: true,

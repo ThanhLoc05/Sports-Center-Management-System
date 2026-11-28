@@ -393,6 +393,59 @@ function requirePermission(permission: Permission) {
 const nextId = (items: { id: number }[]) =>
   Math.max(0, ...items.map((x) => x.id)) + 1;
 
+/**
+ * Cái gì: danh sách bộ môn trung tâm chốt hiển thị cho mọi vai trò: Cầu lông, Yoga, Dance.
+ * Làm sao: so tên bộ môn (bỏ hoa/thường, chuẩn hóa dấu NFC); api.sports, api.classes, api.managedClasses,
+ * lịch sử đăng ký/điểm danh của thành viên lọc theo danh sách này ở chế độ API.
+ * Có thể đổi bằng biến môi trường VITE_VISIBLE_SPORTS (tên cách nhau dấu phẩy, "*" = hiện tất cả; test dùng "*").
+ * Tại sao: chỉ ẩn trên màn hình, dữ liệu các môn cũ (lớp, đăng ký, điểm danh) vẫn giữ nguyên trong DB.
+ */
+const DEFAULT_VISIBLE_SPORTS = ["Cầu lông", "Yoga", "Dance"];
+const configuredSports = (import.meta.env.VITE_VISIBLE_SPORTS as string | undefined)?.trim();
+const sportFilterEnabled = configuredSports !== "*";
+const VISIBLE_SPORT_NAMES = configuredSports && sportFilterEnabled
+  ? configuredSports.split(",").map((name) => name.trim()).filter(Boolean)
+  : DEFAULT_VISIBLE_SPORTS;
+const sportKey = (name: string) => name.normalize("NFC").trim().toLowerCase();
+const visibleSportKeys = new Set(VISIBLE_SPORT_NAMES.map(sportKey));
+export const isVisibleSport = (name: string) =>
+  !sportFilterEnabled || visibleSportKeys.has(sportKey(name || ""));
+/** Lấy id các bộ môn được hiển thị; gọi GET /sports một lần cho mỗi phiên đăng nhập rồi dùng lại. */
+let visibleSportIdsCache: { token: string; ids: Promise<Set<number>> } | null = null;
+function visibleSportIds(): Promise<Set<number>> {
+  const token = getSession()?.token || "";
+  if (!visibleSportIdsCache || visibleSportIdsCache.token !== token) {
+    const ids = request<{ id: number; sportName: string }[]>("/sports").then(
+      (rows) => new Set(assertArray(rows).filter((s) => isVisibleSport(s.sportName)).map((s) => s.id)),
+    );
+    // Lỗi thì xóa cache để lần sau thử lại, không giữ một Promise hỏng.
+    ids.catch(() => { if (visibleSportIdsCache?.ids === ids) visibleSportIdsCache = null; });
+    visibleSportIdsCache = { token, ids };
+  }
+  return visibleSportIdsCache.ids;
+}
+/**
+ * Id các lớp thuộc bộ môn bị ẩn, dùng để ẩn đăng ký/điểm danh cũ trong lịch sử cá nhân của Member.
+ * Làm sao: đọc danh sách lớp (HLV: lớp của mình) + id bộ môn hiển thị, nhớ theo phiên đăng nhập.
+ * Tại sao: bản ghi đăng ký/điểm danh không có sportId nên phải tra qua lớp; dữ liệu trong DB không đổi.
+ */
+let hiddenClassIdsCache: { token: string; ids: Promise<Set<number>> } | null = null;
+function hiddenClassIds(): Promise<Set<number>> {
+  if (!sportFilterEnabled) return Promise.resolve(new Set());
+  const actor = getSession();
+  const token = actor?.token || "";
+  if (!hiddenClassIdsCache || hiddenClassIdsCache.token !== token) {
+    const ids = Promise.all([
+      request<SportClass[]>(actor?.user.roleName === "COACH" ? "/classes/my-classes" : "/classes"),
+      visibleSportIds(),
+    ]).then(([rows, visible]) =>
+      new Set(assertArray(rows).filter((c) => !visible.has(c.sportId)).map((c) => c.id)));
+    ids.catch(() => { if (hiddenClassIdsCache?.ids === ids) hiddenClassIdsCache = null; });
+    hiddenClassIdsCache = { token, ids };
+  }
+  return hiddenClassIdsCache.ids;
+}
+
 interface RegistrationCodeDelivery {
   message: string;
   expiresAtEpochMs: number;
@@ -771,11 +824,23 @@ export const api = {
     Object.entries(filters ?? {}).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
-    return request<{
-      items: { session: SportClass; cancellationReason: string | null; bookedCount?: number }[];
-      total: number;
-      pageCount: number;
-    }>(`/classes/management?${params}`);
+    if (!sportFilterEnabled)
+      return request<{
+        items: { session: SportClass; cancellationReason: string | null; bookedCount?: number }[];
+        total: number;
+        pageCount: number;
+      }>(`/classes/management?${params}`);
+    const [result, visible] = await Promise.all([
+      request<{
+        items: { session: SportClass; cancellationReason: string | null; bookedCount?: number }[];
+        total: number;
+        pageCount: number;
+      }>(`/classes/management?${params}`),
+      visibleSportIds(),
+    ]);
+    // Ẩn lớp thuộc bộ môn không còn hiển thị; trừ số lớp bị ẩn ở trang này khỏi tổng để số đếm không lệch quá.
+    const items = result.items.filter((item) => visible.has(item.session.sportId));
+    return { ...result, items, total: Math.max(0, result.total - (result.items.length - items.length)) };
   },
   // [API] api.classDetail → GET /classes/{id} — được trang Lễ tân/Member gọi
   async classDetail(id: number): Promise<SportClass> {
@@ -794,14 +859,24 @@ export const api = {
     const actor = getSession();
     const ownCoach = actor?.user.roleName === "COACH";
     if (ownCoach) coachId = actor.user.id;
-    if (mode() === "api")
-      return assertArray(
-        await request<SportClass[]>(
+    if (mode() === "api") {
+      if (!sportFilterEnabled)
+        return assertArray(
+          await request<SportClass[]>(
+            ownCoach ? "/classes/my-classes" : `/classes${coachId ? `?coachId=${coachId}` : ""}`,
+          ),
+        );
+      const [rows, visible] = await Promise.all([
+        request<SportClass[]>(
           ownCoach
             ? "/classes/my-classes"
             : `/classes${coachId ? `?coachId=${coachId}` : ""}`,
         ),
-      );
+        visibleSportIds(),
+      ]);
+      // Ẩn lớp thuộc bộ môn không còn hiển thị (dữ liệu vẫn nằm trong DB).
+      return assertArray(rows).filter((c) => visible.has(c.sportId));
+    }
     return readDemo().classes.filter((c) => !coachId || c.coachId === coachId);
   },
   /**
@@ -961,13 +1036,14 @@ export const api = {
     if (mode() === "api") {
       if (!memberId && !classId)
         throw new ApiError("Chọn lớp hoặc thành viên để tải đăng ký.");
-      return assertArray(
-        await request<Booking[]>(
-          classId
-            ? `/classes/${classId}/bookings`
-            : `/members/${memberId}/bookings`,
-        ),
-      );
+      if (classId)
+        return assertArray(await request<Booking[]>(`/classes/${classId}/bookings`));
+      // Lịch sử của một thành viên: ẩn đăng ký thuộc lớp của bộ môn không còn hiển thị.
+      const [rows, hidden] = await Promise.all([
+        request<Booking[]>(`/members/${memberId}/bookings`),
+        hiddenClassIds(),
+      ]);
+      return assertArray(rows).filter((b) => !hidden.has(b.classId));
     }
     const actor = getSession();
     if (classId) {
@@ -1377,12 +1453,16 @@ export const api = {
     }
     if (fromApi) {
       if (!memberId) throw new ApiError("Chọn lớp hoặc thành viên để xem điểm danh.");
-      return assertArray(
-        await request<Attendance[]>(
+      // Ẩn điểm danh thuộc lớp của bộ môn không còn hiển thị (dữ liệu vẫn giữ trong DB).
+      const [rows, hidden] = await Promise.all([
+        request<Attendance[]>(
           `/attendance/members/${memberId}?startDate=${start}&endDate=${end}`,
         ),
-      ).filter(
+        hiddenClassIds(),
+      ]);
+      return assertArray(rows).filter(
         (a) =>
+          !hidden.has(a.classId) &&
           a.checkedInAt.slice(0, 10) >= start &&
           a.checkedInAt.slice(0, 10) <= end,
       );
@@ -1516,7 +1596,7 @@ export const api = {
       await request<{ id: number; sportName: string; description?: string }[]>(
         "/sports",
       ),
-    );
+    ).filter((s) => isVisibleSport(s.sportName));
     return rows.map((s) => ({
       id: s.id,
       name: s.sportName,
